@@ -4,6 +4,7 @@
 :toclevels: 5
 :sectnums:
 :sectnumlevels: 2
+:unicode: false
 
 ifdef::env-github[]
 :tip-caption: :bulb:
@@ -39,7 +40,8 @@ It's much more beginner-friendly.**
 
 == User interface reference
 
-This section describes each element of the Helgobox user interface that is relevant for ReaLearn.
+This section describes each general element of the Helgobox user interface that is relevant for ReaLearn.
+Source- or target-specific UI user interface elements are described in <<available-source-types>> and <<available-target-types>>.
 
 Please note that Helgobox is made up of 2 components, each of which brings its own user interface:
 
@@ -140,7 +142,7 @@ If enabled, this ReaLearn instance will additionally listen to key press and rel
 [#output-menu]
 ====== Output menu
 
-Here you can choose to which <<output-port>> ReaLearn should send MIDI/OSC feedback. _Feedback_ is what makes it possible to control LEDs, motor faders or displays on your device.
+Here you can choose to which <<output-port>> ReaLearn should send MIDI/OSC <<feedback>>.
 
 <None>::
 This means, no feedback will be sent at all.
@@ -260,7 +262,7 @@ Don't use this, this feature is not ready yet!
 
 [[compartment-parameters-menu,Compartment parameters menu]] Compartment parameters::
 This shows all parameters of the current compartment and makes it possible to customize them.
-See <<compartment-parameters>> to learn what such parameters are good for.
+See <<compartment-parameter>> to learn what such parameters are good for.
 +
 Each parameter provides the following customization options:
 
@@ -895,28 +897,13 @@ Comments (lines starting with `#`) will be removed automatically.
 ====== Mapping lifecycle actions
 
 ReaLearn allows you to define MIDI messages to be sent to the output whenever a mapping turns active or inactive.
+See <<mapping-activation-state>>.
 
 Example use cases:
 
-* Accessing very device-specific features via system-exclusive MIDI messages.
+* Accessing device-specific features via system-exclusive MIDI messages.
 * Choosing a different LED color/style depending on the active mapping.
 * Initializing a sys-ex-controllable display with some mapping-specific text (more difficult).
-
-A mapping can change its active/inactive state based on the following factors:
-
-* *Preset loading/unloading:* A mapping can turn active when a ReaLearn unit or preset is loaded and turn inactive when it's changed or unloaded.
-* *<<conditional-activation>>:* A mapping can turn inactive when an activation condition is not satisfied anymore and can change back to active as soon as it's satisfied again.
-* *Target condition:* Targets can also have conditions (e.g. "Track must be selected").
-They affect activation state changes in the same way.
-* *Target validity:* A mapping can turn inactive when the target is not valid anymore, e.g. when it's a target that's based on the currently selected track but no track is currently selected.
-Analogously, it can turn active again once a valid target can be resolved.
-* *Feedback enabled checkbox (or mapping-enabled checkbox):* A mapping can turn inactive as soon as this checkbox is unticked and turn active again when ticking it.
-This is also the best way to test your configuration.
-
-(Controller) mappings with <<virtual-target>> are always considered active as long as the feedback checkbox is ticked.
-That's why they are perfectly suited for holding a bunch of controller initialization messages!
-This feature is for example used in the "PreSonus FaderPort Classic" controller preset, which needs to be put in a specific mode before being usable.
-ReaLearn does this automatically simply by sending some mapping on-activate MIDI messages.
 
 These are the available configuration properties:
 
@@ -985,918 +972,36 @@ As soon as you save the file and close the editor, the text will automatically a
 
 Will open an online version of the user guide section that describes the available configuration properties.
 
-[#conditional-activation]
-==== Conditional activation
+==== Source section
 
-Conditional activation allows you to dynamically enable or disable this mapping based on the state of ReaLearn's own plug-in parameters and since recently even on the state of arbitrary targets.
-This is a powerful feature.
-It is especially practical if your controller has a limited amount of control elements and you want to give control elements several responsibilities.
-It let's you easily implement use cases such as:
+All <<source>> types share the following common settings and functions:
 
-* "This knob should control the track pan, but only when my sustain pedal is pressed, otherwise it should control track volume!" (modifier use cases)
-* "I want to have two buttons for switching between different banks where each bank represents a group of mappings." (bank use cases)
-* "I want to control the volume of this track only if it's not muted." (target-state based use cases)
+===== Learn button
 
-TIP: Since ReaLearn 2.11.0, <<realearn-enable-disable-mappings>> provides a slightly less powerful but more straightforward way to implement use cases that were before only achievable with parameter-based conditional activation.
+Starts or stops learning the source of this mapping.
 
-There are 6 different activation modes:
+===== Category menu
 
-* *Always:* Mapping is always active (the default)
-* *When modifiers on/off:* Mapping becomes active only if something is pressed / not pressed
-* *When bank selected:* Allows you to step through different groups of mappings (sometimes also called "pages")
-* *When EEL met* Let an EEL formula decide (total freedom)
-* *When expression met:* Let an expression decide (total freedom)
-* *When target value met:* Let the current value of the target of another mapping decide
+Lets you choose the source category.
 
-[NOTE]
-====
-At this occasion, some words about ReaLearn's own freely assignable FX parameters.
-
-ReaLearn itself isn't just able to control parameters of other FX, it also offers FX parameters itself.
-At the moment it offers 200 FX parameters, 100 for the main compartment and 100 for the controller compartment.
-You can control them just like parameters in other FX:
-
-- Via automation envelopes,
-- via track controls,
-- via REAPER's own MIDI/OSC learn
-- … and of course via ReaLearn itself.
-
-Initially, they don't do anything at all.
-First, you need to give meaning to them by referring to them in activation conditions or `<Dynamic>` selector expressions.
-====
-
-[discrete]
-===== When modifiers on/off
-
-This mode is comparable to modifier keys on a computer keyboard.
-For example, when you press `Ctrl+V`
-for pasting text, `Ctrl` is a modifier because it modifies the meaning of the `V` key.
-When this modifier is "on" (= pressed), it activates the "paste text" and deactivates the "write the letter V" functionality of the `V` key.
-
-In ReaLearn, the modifier is one of the FX parameters.
-It's considered to be "on" if the parameter has a value greater than 0 and "off" if the value is 0.
-
-You can choose up to 2 modifier parameters, "Modifier A" and "Modifier B".
-If you select "<None>", the modifier gets disabled (it won't have any effect on activation).
-The checkbox to the right of the dropdown lets you decide if the modifier must be "on" for the mapping to become active or "off".
-
-Example: The following setting means that this mapping becomes active _only_ if both "Parameter 1" and "Parameter 2" are "on".
-
-* *Modifier A:* "Parameter 1"
-* *Checkbox A:* Checked
-* *Modifier B:* "Parameter 2"
-* *Checkbox B:* Checked
-
-Now you just have to map 2 controller buttons to "Parameter 1" and "Parameter 2" via ReaLearn (by creating 2 additional mappings - in the same ReaLearn instance or another one, up to you) et voilà, it works.
-The beauty of this solution lies in how you can compose different ReaLearn features to obtain exactly the result you want.
-For example, the _absolute mode_ of the mapping that controls the modifier parameter decides if the modifier button is momentary (has to be pressed all the time) or toggled (switches between on and off everytime you press it).
-You can also be more adventurous and let the modifier on/off state change over time, using REAPER's automation envelopes.
-
-[discrete]
-===== When bank selected
-
-This is the correct activation mode if you want control surface "bank-style" mapping.
-
-TIP: For this kind of use cases you should consider the new <<realearn-enable-disable-mappings>> target, which is available since ReaLearn 2.11.0 as an alternative.
-It's slightly less powerful than conditional activation but probably easier to use, partly because you can dictate which mappings should be active "from outside", not from the perspective of the mapping itself.
-
-You can tell ReaLearn to only activate your mapping if a certain parameter has a particular value.
-The particular value is called "Bank".
-Why?
-Let's assume you mapped 2 buttons "Previous" and "Next" to increase/decrease the value of the parameter (by using "Incremental button" mode, you will learn how to do that further below).
-And you have multiple mappings where each one uses "When bank selected" with the same parameter but a different "Bank".
-Then the result is that you can press "Previous" and "Next" and it will switch between different mappings within that parameter.
-If you assign the same "Bank" to multiple mappings, it's like putting those mappings into one group which can be activated/deactivated as a whole.
-
-Switching between different programs via "Previous" and "Next" buttons is just one possibility.
-Here are some other ones:
-
-* *Browse banks using a rotary encoder:* Just map the rotary encoder to the "Bank" parameter and restrict the target range as desired.
-* *Activate each bank with a separate button:* Map each button to the "Bank" parameter (with absolute mode "Normal") and set "Target Min/Max" to a distinct value.
-E.g. set button 1 min/max both to 0% and button 2 min/max both to 1%.
-Then pressing button 1 will activate bank 0 and pressing button 2 will activate bank 1.
-
-In previous versions of ReaLearn you could use other methods to achieve a similar behavior, but it always involved using multiple ReaLearn instances:
-
-* *By enabling/disabling other ReaLearn instances:* You can use one main ReaLearn instance containing a bunch of mappings with <<fx-enabledisable,FX: Enable/disable>> target in order to enable/disable other ReaLearn FX instances.
-Then each of the other ReaLearn instances acts as one mapping bank/group.
-* *By switching between presets of another ReaLearn instance:* You can use one main ReaLearn instance containing a mapping with <<fx-browse-presets>> target in order to browse presets of another ReaLearn FX instance.
-Then each preset in the other ReaLearn instance acts as one mapping bank/group.
-However, that method is pretty limited and hard to maintain because presets are something global (not saved together with your REAPER project).
-
-With _Conditional activation_ you can do the same (and more) within just one ReaLearn unit.
-
-TIP: If you want to adjust the number of banks and improve bank handling in general, set a discrete value count for the corresponding bank parameter (see <<compartment-parameters>>).
-
-[discrete]
-===== When EEL met
-
-This is for experts.
-It allows you to write a formula in https://www.cockos.com/EEL2/[EEL2] language that determines if the mapping becomes active or not, based on potentially all parameter values.
-This is the most flexible of all parameter-based activation modes.
-The other modes can be easily simulated.
-The example modifier condition scenario mentioned above written as formula would be:
-
-----
-y = p1 > 0 && p2 > 0
-----
-
-`y` represents the result.
-If `y` is greater than zero, the mapping will become active, otherwise it will become inactive. `p1` to `p100` contain the current parameter values.
-Each of them has a value between 0.0 (= 0%) and 1.0 (= 100%).
-
-This activation mode accounts for ReaLearn's philosophy to allow for great flexibility instead of just implementing one particular use case.
-If you feel limited by the other activation modes, just use EEL.
-
-TIP: For most activation conditions which need this amount of freedom, the newer activation mode <<expression-based-activation-condition>> is a slightly better choice because it's easier to use and generally performs a bit better.
-
-[#expression-based-activation-condition]
-[discrete]
-===== When expression met
-
-This is very similar to the previous EEL activation mode.
-But instead of EEL, it lets you use the same expression language as used in <<dynamic-selector,dynamic selectors>> to express the activation condition.
-
-The equivalent expression to above EEL example is:
-
-`p[0] > 0 && p[1] > 0`
-
-[#target-based-activation-condition]
-[discrete]
-===== When target value met
-
-This is different from all the other activation condition types in that it doesn't look at ReaLearn's internal parameter values.
-Instead, it looks at the target of another mapping (the so-called "lead mapping") and switches our mapping (the so-called "follow mapping") on or off depending on the target value of the lead mapping.
-
-It works like this:
-
-. Create the lead mapping and give it a target, e.g. <<track-selectunselect>>.
-* This lead mapping doesn't need to have a source.
-It can even be completely disabled!
-. In the **Mapping** dropdown, pick this newly created mapping.
-. In the **Expression** text field to the right, enter `y > 0`.
-* This means you want the follow mapping to be active whenever the target value of the lead mapping is greater than 0.0. Or in other words, when it's "switched on".
-
-You can detect an inactive target by using `y == none`.
-
-[discrete]
-===== Custom parameter names
-
-Because ReaLearn's parameters are freely assignable, they have very generic names by default.
-However, as soon as you give them meaning by using them in a specific way, it can be helpful to give them a meaningful name.
-You can do that:
-
-. Switch to the compartment whose parameter names you want to change.
-. Open the header panel context menu (accessible via right-click on Windows and Linux, control-click on macOS) and open the _Compartment parameters_ submenu.
-. Here you will find each of the 100 compartment parameters with their current names.
-Simply click the name to change it.
-
-Parameter names are not global, they are always saved together with the REAPER project / FX preset / track template etc.
-They will also be saved/restored as part of the compartment preset.
-
-[discrete]
-===== Use case: Control A when a button is not pressed, control B when it is
-
-Here's how you would implement a typical use case.
-You want your rotary encoder to control target A when the button is not pressed and control target B when it's pressed.
-
-. Create a mapping for the button
-** As "Target", you need to choose ReaLearn itself (Type: <<fx-set-parameter-value>>, Track: `<This>`, FX: "… VSTi: ReaLearn (Helgoboss)").
-As "Parameter", choose an arbitrary ReaLearn parameter, e.g. "Parameter 1".
-** As "Mode", choose either "Absolute" (if you want to switch the encoder function just momentarily) or "Toggle" (if you want the button to toggle between the two encoder functions).
-. Create a mapping with target A
-** Set "Active" to "When modifiers on/off", "Modifier A" to "Parameter 1" and disable the checkbox beside it.
-Set "Modifier B" to `<None>`.
-** This basically means "Hey, ReaLearn!
-Please activate this mapping only if ReaLearn Parameter 1 is *off*!" (remember, we control ReaLearn Parameter 1 using the button).
-** At this point, turning your encoder should control target A, but only if you don't press the button!
-. Create a mapping with target B
-** Just as in step 2, set "Active" to "When modifiers on/off" and "Modifier A" to "Parameter 1". *But*: Now *enable* the checkbox beside it.
-Set "Modifier B" to `<None>`.
-** This basically means "Hey, ReaLearn!
-Please activate this mapping only if ReaLearn Parameter 1 is *on*!"
-** At this point, turning your encoder should control target A if you don't press the button and control target B if you press the button.
-
-==== Source
-
-As mentioned before, a source usually represents a single control element on your controller.
-Sources share the following common settings and functions:
-
-* *Learn:* Starts or stops learning the source of this mapping.
-* *Category:* Lets you choose the source category.
-** *None:* A special kind of source that will never emit any events.
+None:: A special kind of source that will never emit any events.
 It's intended to be used on mappings which are not supposed to be controlled directly but only via <<group-interaction>>.
-** *MIDI:* Incoming MIDI events.
-** *OSC:* Incoming OSC events.
-** *REAPER:* Events that can occur within REAPER.
-** *Virtual:* Invocations of virtual control elements (coming from virtual controller mappings).
-This source category is available for main mappings only.
-* *Type:* Let's you choose the source type.
+
+MIDI:: Incoming MIDI events.
+
+OSC:: Incoming OSC events.
+
+REAPER:: Events that can occur within REAPER.
+
+Virtual:: Invocations of <<virtual-control-element,virtual control elements>> (coming from the <<controller-compartment>>).
+This source category is available in the <<main-compartment>> only.
+
+===== Type menu
+
+Lets you choose the source type.
 Available types depend on the selected category.
 
 All other UI elements in this section depend on the chosen category.
-
-===== Category "MIDI"
-
-All types in the MIDI category have the following UI elements in common:
-
-* *Channel:* Optionally restricts this source to messages from a certain MIDI channel.
-Only available for sources that emit MIDI channel messages.
-
-The remaining UI elements in this section depend on the chosen source type.
-
-[#cc-value-source]
-====== CC value
-
-This source reacts to incoming MIDI control-change messages.
-
-* *CC:* Optionally restricts this source to messages with a certain MIDI control-change controller number.
-* *Character:* MIDI control-change messages serve a very wide spectrum of MIDI control use cases.
-Even though some control-change controller numbers have a special purpose according to the MIDI specification (e.g. CC 7 = channel volume), nothing prevents one from using them for totally different purposes.
-In practice that happens quite often, especially when using general-purpose controllers.
-Also, there's no strict standard whatsoever that specifies how relative values (increments/decrements) shall be emitted and which controller numbers emit them.
-Therefore you explicitly need to tell ReaLearn about it by setting the _source character_.
-The good news is: If you use "Learn source", ReaLearn will try to guess the source character for you by looking at the emitted values.
-Naturally, the result is not always correct.
-The best guessing result can be achieved by turning the knob or encoder quickly and "passionately" into clockwise direction.
-Please note that guessing doesn't support encoder type 3. The possible values are:
-* *Range element (knob, fader, etc.):* A control element that emits continuous absolute values.
-Examples: Fader, knob, modulation wheel, pitch bend, ribbon controller.
-Would also include a endless rotary encoder which is (maybe unknowingly) configured to transmit absolute values.
-* *Button (momentary):* A control element that can be pressed and emits absolute values.
-It emits a > 0% value when pressing it and optionally a 0% value when releasing it.
-Examples: Damper pedal.
-* *Encoder (relative type _x_):* A control element that emits relative values, usually an endless rotary encoder.
-The _x_ specifies _how_ the relative values are sent.
-This 1:1 corresponds to the relative modes in REAPER's built-in MIDI learn:
-** *Type 1*:
-** 127 = decrement; 0 = none; 1 = increment
-** 127 > value > 63 results in higher decrements (64 possible decrement amounts)
-** 1 < value <= 63 results in higher increments (63 possible increment amounts)
-** *Type 2*:
-** 63 = decrement; 64 = none; 65 = increment
-** 63 > value >= 0 results in higher decrements (64 possible decrement amounts)
-** 65 < value <= 127 results in higher increments (63 possible increment amounts)
-** *Type 3*:
-** 65 = decrement; 0 = none; 1 = increment
-** 65 < value <= 127 results in higher decrements (63 possible decrement amounts)
-** 1 < value <= 64 results in higher increments (64 possible increment amounts)
-* *Toggle-only button (avoid!):* A control element that can be pressed and emits absolute values.
-It emits a > 0% value when pressing it, no value when releasing it and a 0% value when pressing it again.
-** Hint: This is a workaround for controllers that don't have momentary buttons!
-You should only use this character if there's absolutely no way to configure this control element as a momentary button.
-** Background: ReaLearn can make a momentary hardware button work like a full-blown toggle button (ReaLearn's toggle mode is inherently more powerful than your controller's built-in toggle mode!).
-However, the opposite is not true.
-It can't make a toggle hardware button act like a momentary button.
-** The way this character works: ReaLearn will simply emit 100%, no matter what the hardware sends.
-** *Attention:* If you use the toggle-only source character in combination with mode "Incremental button", you must leave source max at the (default) theoretical maximum value for that source (e.g. 127 for MIDI CC).
-Even if your controller device only sends 0 and 1 and in all other mappings you would enter the controller's concrete (instead of theoretically possible) maximum value.
-Otherwise, for this special case, a fixed out-of-range-behavior will set in that will just ignore all button presses.
-* *14-bit values:* If unchecked, this source reacts to MIDI control-change messages with 7-bit resolution (usually the case).
-If checked, it reacts to MIDI control-change messages with 14-bit resolution.
-This is not so common but sometimes used by controllers with high-precision faders.
-
-====== Note velocity
-
-This source reacts to incoming MIDI note-on and note-off messages.
-The higher the velocity of the incoming note-on message, the higher the absolute control value.
-Note-off messages are always translated to 0%, even if there's a note-off velocity.
-
-* *Note:* Optionally restricts this source to messages with a certain note number (note numbers represent keys on the MIDI keyboard, e.g. 60 corresponds to C4).
-
-====== Note number
-
-This source reacts to incoming MIDI note-on messages.
-The higher the note number (= key on a MIDI keyboard), the higher the absolute control value.
-
-This essentially turns your MIDI keyboard into a "huge fader" with the advantage that you can jump to any value at any time.
-
-====== Pitch wheel
-
-This source reacts to incoming MIDI pitch-bend change messages.
-The higher the pitch-wheel position, the higher the absolute control value.
-The center position corresponds to an absolute control value of 50%.
-
-====== Channel after touch
-
-This source reacts to incoming MIDI channel-pressure messages.
-The higher the pressure, the higher the absolute control value.
-
-====== Program change
-
-This source reacts to a range of incoming MIDI program-change messages.
-The higher the program number, the higher the absolute control value.
-
-====== (N)RPN value
-
-This source reacts to incoming non-registered (NRPN) or registered (RPN) MIDI parameter-number messages.
-The higher the emitted value, the higher the absolute control value.
-
-(N)RPN messages are not widely used.
-If they are, then mostly to take advantage of their ability to transmit 14-bit values (up to 16384 different values instead of only 128), resulting in a higher resolution.
-
-* *Number:* The number of the registered or unregistered parameter-number message.
-This is a value between 0 and 16383.
-* *RPN:* If unchecked, this source reacts to unregistered parameter-number messages (NRPN).
-If checked, it reacts to registered ones (RPN).
-* *14-bit values:* If unchecked, this source reacts to (N)RPN messages with 7-bit resolution, including increment/decrement messages.
-If checked, it reacts to those with 14-bit resolution.
-In practice, this if often checked.
-* *Character:* See <<cc-value-source,CC value source>>.
-
-====== Polyphonic after touch
-
-This source reacts to incoming MIDI polyphonic-key-pressure messages.
-The higher the pressure, the higher the absolute control value.
-
-* *Note:* Optionally restricts this source to messages with a certain note number.
-
-====== MIDI clock tempo
-
-This source reacts to incoming MIDI clock (MTC) tempo messages.
-These are metronome-beat-like messages which can be regularly transmitted by some DAWs and MIDI devices.
-The frequency with which this message is sent dictates the tempo.
-
-The higher the calculated tempo, the higher the absolute control value.
-A tempo of 1 bpm will be translated to a control value of 0%, a tempo of 960 bpm to 100% (this corresponds to REAPER's supported tempo range).
-
-This source can be used in combination with the <<project-set-tempo,Project: Set tempo>> target to obtain a "poor man's" tempo synchronization.
-Be aware: MIDI clock naturally suffers from certain inaccuracies and latencies - that's an issue inherent to the nature of the MIDI clock protocol itself.
-E.g. it's not really suitable if you need super accurate and instant tempo synchronization.
-Additionally, ReaLearn's algorithm for calculating the tempo could probably be improved (that's why this source is marked as experimental).
-
-====== MIDI clock transport
-
-This source reacts to incoming MIDI clock (MTC) transport messages.
-These are simple start, continue and stop messages which can be sent by some DAWs and MIDI devices.
-
-* *Message:* The specific transport message to which this source should react.
-
-[#raw-midi-source]
-====== Raw MIDI / SysEx
-
-This source primarily deals with system-exclusive MIDI messages.
-Since ReaLearn v2.11.0, it supports both control and feedback direction!
-
-* *Pattern:* Pattern describing the raw MIDI message.
-
-*Pattern basics*
-
-In its most basic form, the pattern is a sequence of bytes notated as hexadecimal numbers.
-This is typical notation, especially for system-exclusive MIDI messages.
-
-Example:
-
-----
-F0 00 20 6B 7F 42 02 00 10 77 00 F7
-----
-
-If you enter this and ReaLearn receives this system-exclusive message from the input, it will fire a 100% value.
-If feedback is set up correctly, this message will be sent to the device whenever the target value changes.
-
-Remarks:
-
-- You can check if the correct feedback messages are sent to the device by <<logging-menu,logging feedback messages>>.
-- Each byte is written using 2 hexadecimal digits.
-- Spaces between the bytes can be omitted.
-- You can express all types of MIDI messages using this raw notation (e.g. pitch wheel), not just system-exclusive ones.
-If you do this, it will work as expected for the _feedback_ direction.
-Please note that it will not work for the _control_ direction at the moment (I don't think this is needed).
-- If you want a system-exclusive MIDI message, you _must_ include its start (`F0`) and end status byte (`F7`)!
-
-*Binary notation*
-
-ReaLearn also supports binary notation of a byte.
-You need to enclose the binary digits of one byte in brackets.
-
-Example:
-
-----
-F0 00 20 [0110 1011] 7F 42 02 00 10 77 00 F7
-----
-
-This is equivalent to the first example (`6B` in hexadecimal notation is the same as `0110 1011` in binary notation).
-
-Remarks:
-
-- Between the brackets, each digit represents one bit.
-The left bit is the most significant one.
-- Spaces between the two nibbles (4 bits) can be omitted.
-
-*Extracting and encoding a value*
-
-For the _feedback_ direction, the examples I've shown you so far aren't real-world examples, because there's no point in sending the same MIDI message to the device over and over again!
-If you really would want to send a constant MIDI message to the device, you would be much better off using a <<mapping-lifecycle-actions,Mapping lifecycle action>>, which allow you to send raw MIDI messages once when a mapping is initialized, not on every target value change.
-
-But even for the _control_ direction, you might want to react to a whole _range_ of system-exclusive messages, not just a fixed one.
-One part of your message might represent a variable value.
-You might want to extract it and control the target with it.
-
-Fortunately, ReaLearn offers a uniform way to extract a variable value from the raw MIDI message (control) or encode the current target value as part of it (feedback).
-Bytes which contain a variable value (or a part of it) _must_ be expressed using binary notation.
-
-Example:
-
-----
-F0 00 20 6B 7F 42 02 00 10 77 [0000 dcba] F7
-----
-
-The second nibble of the second last byte contains the lowercase letters `dcba`.
-This is the portion of the byte that denotes the variable value.
-
-Each letter represents one bit of the variable value:
-
-* `a` - Bit 1 (least significant bit of the variable value)
-* `b` - Bit 2
-* `c` - Bit 3
-* `d` - Bit 4
-* …
-* `m` - Bit 13
-* `n` - Bit 14
-* `o` - Bit 15
-* `p` - Bit 16 (most significant bit of the variable value)
-
-The resolution of the variable value always corresponds to the letter in the whole pattern which represents the highest bit number.
-In the example above, the resolution is 4 bit because there's no letter greater than `d`
-in the pattern.
-
-In the following example, the resolution is 7 bit because `n` is the greatest letter in the whole pattern.
-
-----
-F0 00 20 6B 7F 42 02 00 10 [00nm lkji] [hgfe dcba] F7
-----
-
-Remarks:
-
-- The highest resolution currently supported is 16 bit (= 65536 different values).
-- You can put these letter bits anywhere in the pattern (but only within bytes that use binary notation).
-
-*Byte order*
-
-This form of notation is slightly unconventional but I think it's very flexible because it gives you much control over the resulting MIDI message.
-This amount of control seems appropriate considering the many different ways hardware manufacturers used and still use to encode their MIDI data.
-When a number is expressed within more than one byte, manufacturers sometimes put the most significant byte first and sometimes the least significant one, there's no rule.
-This notation supports both because you decide where the bits end up:
-
-Example for "most significant byte first":
-
-----
-F0 00 20 6B 7F 42 02 00 10 [ponm lkji] [hgfe dcba] F7
-----
-
-Example for "least significant byte first":
-
-----
-F0 00 20 6B 7F 42 02 00 10 [hgfe dcba] [ponm lkji] F7
-----
-
-*More examples*
-
-"Romeo and Juliet" bits (separated by 2 bytes):
-
-----
-F0 [1111 000b] [a101 0100] F7
-----
-
-Simple on/off value (1 bit only):
-
-----
-F0 A0 [1111 010a] F7
-----
-
-This behaves like pitch wheel (because the pattern describes exactly the way how pitch wheel messages are encoded):
-
-----
-E0 [0gfe dcba] [0nml kjih]
-----
-
-[#script-source]
-====== MIDI Script
-
-This source is feedback-only and exists for enabling more complex feedback use cases such as controlling LCDs that are not yet supported by the <<display-source>> source.
-It lets you write an EEL or Luau script that will be executed whenever ReaLearn "feels" like it needs to send some feedback to the MIDI device.
-
-* *Kind:* Whether to use the EEL or Luau language.
-* *Script:* The script.
-Is disabled if the script contains more than one line.
-* *…:* Opens the script in a separate window (for multi-line scripts).
-
-TIP: Prefer the <<display-source>> source over this one whenever possible.
-It's easier to use.
-
-======= General mechanics
-
-* The script receives an input and must produce an output.
-* *Script input*
-** The main input is the current feedback value, which the script can access as a variable.
-* *Script output*
-** The main output that the script is supposed to return is the MIDI message to be sent to the MIDI device.
-** Additionally, the script can provide a so-called _feedback address_, which is supposed to uniquely identify the LED, motor fader or display.
-It's important to provide an address if you want ReaLearn to handle feedback relay correctly, e.g. that it switches off the LED when not in use anymore and doesn't switch it off if another mapping "takes over" the same LED.
-By convention, the constant (non-variable) bytes of the MIDI message should be used as address.
-The examples below might help to understand.
-
-======= EEL script specifics
-
-* *Script input*
-** EEL scripts can access numeric feedback values only.
-The current numeric feedback value is available as variable `y`, a floating point number between 0.0 and 1.0. This is essentially the current normalized target value after being processed by the "Glue" section of the mapping.
-* *Script output*
-** In order to provide the output MIDI message, you must assign the raw bytes of that message to subsequent slots of the EEL script's virtual local address space (by indexing via brackets) *and*
-set the variable `msg_size` to the number of bytes to be sent.
-If you forget the latter step, nothing will be sent because that variable defaults to zero!
-** In order to provide the address, simply assign an appropriate number to the `address` variable.
-* *Examples*
-** The following example creates a 3-byte MIDI message.
-+
-[source,eel]
-----
-address = 0x4bb0;
-msg_size = 3;
-0[] = 0xb0;
-1[] = 0x4b;
-2[] = y * 64;
-----
-
-======= Luau script specifics
-
-* *Script input*
-** Luau scripts can access numeric, text and dynamic feedback values.
-** Here's the list of input variables:
-*** `y`: The feedback value, either numeric (`type(y) == "number"`) or text (`type(y) == "string")`.
-*** `context.feedback_event.color`: The color as set in the <<glue-section>> section.
-Either the default color (`== nil`) or an RGB color (table with properties `r`, `g` and `b`).
-*** `context.feedback_event.background_color`: The background color.
-* *Script output*
-** A Luau script can even generate multiple output messages.
-** You need to return a table which contains the following keys:
-*** `address`: The feedback address.
-*** `messages`: An array containing all the messages, where each message itself is an array contaning the message bytes.
-* *Examples*
-** Creates a 3-byte MIDI message, assuming that `y` is a numeric normalized value.
-+
-[source,lua]
-----
-return {
-    address = 0x4bb0,
-    messages = {
-        { 0xb0, 0x4b, math.floor(y * 10) }
-    }
-}
-----
-+
-** Creates a MIDI sys-ex message that changes the color of some fictional device LED/display:
-+
-[source,lua]
-----
-local color = context.feedback_event.color
-if color == nil then
-    -- This means no specific color is set. Choose whatever you need.
-    color = { r = 0, g = 0, b = 0 }
-end
-return {
-    address = 0x4b,
-    -- Whatever messages your device needs to set that color.
-    messages = {
-        { 0xf0, 0x02, 0x4b, color.r, color.g, color.b, 0xf7 }
-    }
-}
-----
-** Creates a 3-byte MIDI message, assuming that `y` is a text value.
-+
-[source,lua]
-----
-local lookup_table = {
-    playing = 5,
-    stopped = 6,
-    paused = 7,
-}
-return {
-    messages = {
-        { 0xb0, 0x4b, lookup_table[y] or 0 }
-    }
-}
-----
-+
-[TIP]
-====
-Please note that this kind of simple mapping from text values to integer numbers doesn't need a script.
-You can use the `feedback_value_table` <<glue-section>> property instead, which can only be set via API though.
-Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
-====
-
-You can share code between multiple MIDI scripts by using <<compartment-wide-lua-code>>, with the following limitations (which hopefully will be lifted over time):
-
-- The shared code is not yet available to the Lua code editor window.
-That means writing `require("compartment")` will evaluate to `nil` in the editor.
-You might see a corresponding error message when the editor tries to compile your code.
-
-[#display-source]
-====== Display
-
-This is a feedback-only source used to display text on MIDI-controllable hardware displays (LCDs, OLED displays, 7-segment displays, etc.).
-
-* *Protocol:* Lets you choose the display protocol, which tells ReaLearn how it should communicate with the hardware display and which options it supports.
-** *Mackie LCD:* Use this for MCU-compatible LCDs.
-Depending on your particular control surface, there can be up to 8 LCDs, each of which has up to 2 lines.
-** *Mackie XT LCD:* Use this to control the displays of MCU XT devices (= control surface extenders, which provide additional faders and displays).
-** *X-Touch Mackie LCD:* Like _Mackie LCD_ but also supports colors on certain X-Touch devices.
-** *X-Touch Mackie XT LCD:* Like _Mackie LCD XT_ but also supports colors on certain X-Touch devices.
-** *Mackie 7-segment display:* Use this for MCU-compatible 7-segment displays (you know, the ones which only show digits).
-There's usually one small assignment display and a larger one for showing the time code.
-** *SiniCon E24:* Use this with the https://www.sinicon.io/[SiniCon E24 controller].
-** *Launchpad Pro - Scrolling text:* Displays looped scrolling text on a Novation Launchpad Pro.
-Only seems to work if you set _Output_ to `MIDIOUT2 (Launchpad Pro)`.
-** *Studiologic SL Keyboard display:* Displays text on the display of Studiologic SL keyboards (tested with SL88).
-* *Display:* Choose the particular display or display portion to which you want to send text.
-* *Line:* Choose the line number.
-
-CAUTION: For controllers with multiple displays and lines, ReaLearn allows you to spread your text over all available displays and lines.
-This is great if you need to display a lot of text but one display doesn't provide enough space.
-But be aware: Replacing feedback with other feedback ("feedback relay") doesn't work so nicely anymore if you make use of this feature.
-
-If you want to know how to define which text shall be sent to the displays, please see <<textual-feedback,textual feedback>> in the *Glue* section.
-
-====== Specific program change
-
-This source reacts to MIDI program-change messages with a specific program.
-This is a trigger-only source, that means it always fires 100% (whenever the program number corresponds to the configured one).
-
-[#category-osc]
-===== Category "OSC"
-
-OSC sources allow configuration of the following aspects:
-
-====== Address
-
-This needs to correspond exactly to the address of the corresponding control element on your OSC device.
-Example: `/1/fader1`.
-You don't need to figure that out yourself, just use the _Learn_ function.
-
-====== Argument
-
-Each OSC message consists of an arbitrary number of arguments.
-In most cases, e.g. with faders, knobs or buttons, it's just one argument.
-X/Y controls often send 2 arguments, one for each axis.
-There are rare cases in which messages have even more arguments.
-
-The first dropdown menu allows you to choose the number of the argument that ReaLearn should look at and process. `1` denotes the first argument, `2` the second one, and so on.
-
-The second dropdown menu lets you choose the argument type which ReaLearn should use to construct a proper feedback message.
-
-* This is usually the same type as the one used for control direction.
-For control direction, choosing an explicit type is irrelevant because ReaLearn handles whatever type arrives automatically in the best possible way.
-* If you use _Learn_, the type is filled automatically.
-* The value to be sent will be derived from the type (see <<feedback-arguments>>):
-+
-[cols="m,m"]
-|===
-| Type | Property
-
-| Float | value.float
-| Double | value.double
-| Int | value.int
-| Long | value.long
-| Bool | value.bool
-| Nil | nil
-| Inf | inf
-| String | value.string
-| Color | style.color
-|===
-* If you want more control over what feedback values are sent, use the <<feedback-arguments>> field.
-
-====== Range
-
-Values of argument types _Float_ and _Double_ are by default interpreted as decimal values between 0.0 and 1.0. You can change that by entering a different value range here.
-Even negative numbers are allowed.
-
-Customizing the value range is especially important for argument types _Int_ and _Long_ because they don't have a standard value range.
-
-====== Is relative
-
-Some messages transmitted by OSC devices are meant to be interpreted as relative increments/decrements instead of absolute values, e.g. jog wheels.
-When you enable this checkbox, ReaLearn will treat each received _1_ value as an increment and _0_ value a decrement.
-
-[#feedback-arguments]
-====== Feedback arguments
-
-Allows you to define exactly which feedback value is sent at which argument position.
-If this field is non-empty, the _Type_ dropdown will be ignored.
-
-The format of this field is very simple: You enter feedback value property keys separated by spaces.
-Each entered property key corresponds to one argument position.
-E.g. if you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see <<feedback-style>>) as RRGGBB string at argument 2, you would enter:
-
-----
-value.string style.color.rrggbb
-----
-
-The following properties are available:
-
-[cols="m,m,1"]
-|===
-| Property | Type | Description
-
-|
-value.float
-|
-Float
-|
-Numeric feedback value interpreted as float
-
-|
-value.double
-|
-Double
-|
-Numeric feedback value interpreted as double
-
-|
-value.bool
-|
-Bool
-|
-Numeric feedback interpreted as bool (on/off only)
-
-|
-value.string
-|
-String
-|
-Numeric or textual feedback value formatted as string
-
-
-|
-style.color.rrggbb
-|
-String
-|
-Feedback value color formatted as RRGGBB string
-
-
-|
-style.background_color.rrggbb
-|
-String
-|
-Feedback value background color formatted as RRGGBB string
-
-
-
-|
-style.color
-|
-Color
-|
-Feedback value color as native OSC color
-
-
-|
-style.background_color
-|
-Color
-|
-Feedback value background color as native OSC color
-
-
-|
-nil
-|
-Nil
-|
-Nil value
-
-|
-inf
-|
-Infinity
-|
-Infinity value
-|===
-
-===== Category "Keyboard"
-
-This source reacts to pressing or releasing a key on your computer keyboard.
-It emits a value of 100% when the key is pressed and 0% when released.
-
-Usage:
-
-* In order to set the key, simply click the *Learn* button and press the key of your choice.
-* In addition to the key label, ReaLearn might show some warnings regarding the portability of your keystroke.
-** This helps you to avoid keyboard shortcuts that don't reliably work cross-platform (in other operating systems) or on other keyboard layouts.
-** You can ignore portability warnings if you use just this operating system and don't plan to share your keyboard presets with other users.
-
-Tips:
-
-* This only works if <<input-menu>> is set to *Computer keyboard*.
-* If you hold a key, it will not keep firing.
-This is by design!
-Use <<fire-after-timeout-keep-firing>> instead.
-* Key combinations are not supported.
-This is by design!
-Use <<conditional-activation>> instead.
-
-====== MIDI device changes
-
-===== Category "REAPER"
-
-====== MIDI device changes
-
-This source emits a value of 100% whenever any MIDI device is connected and 0% whenever any MIDI device is disconnected.
-You can map this to the REAPER action "Reset all MIDI devices" to achieve true plug and play of MIDI devices (provided the corresponding device has been enabled at least once in REAPER's MIDI device preferences).
-
-====== ReaLearn unit start
-
-This source fires (emits a value of 100%) when ReaLearn starts.
-It can be used to execute an actions or restore certain states on REAPER startup or project load.
-
-====== Timer
-
-This source fires (emits a value of 100%) repeatedly every _n_ milliseconds.
-
-[#parameter-source]
-====== ReaLearn parameter
-
-This source fires whenever one of ReaLearn's <<compartment-parameters>> is changed.
-
-One of many ways to use this is to create macro parameters which control multiple parameters of multiple other plug-ins.
-
-WARNING: At the moment, mappings with this source can't participate in rendering.
-So it's important to write down automation *before* rendering.
-
-====== Speech
-
-This source works for feedback only.
-It uses the native Windows or macOS text-to-speech engine to speak out any feedback value.
-
-[#virtual-source-category]
-===== Category "Virtual"
-
-As pointed out before, _virtual_ sources exist in order to decouple your mappings from the actual MIDI/OSC source.
-
-====== Type
-
-If you want to define a virtual source, you should first decide which type the virtual control element has: "Multi" or "Button".
-"Buttons" are stupidly simple on/off controls whereas "Multis" are control elements that potentially support more than 2 values.
-You will find a more accurate description of those 2 types below, along with examples.
-
-====== ID
-
-A number or name that uniquely identifies the control element on the device.
-
-Numbers are especially suited for the 8-knobs/8-buttons layouts.
-In a row of 8 knobs one would typically assign number 1 to the leftmost and number 8 to the rightmost one.
-It's your choice.
-
-For more advanced virtual control scenarios it can be useful to think in names instead of numbers.
-You can use up to 32 alphanumeric and punctuation characters (no exotic characters, e.g. no umlauts).
-
-====== Pick
-
-Lets you conveniently pick out of predefined numbers and names.
-
-If you want your main preset to be compatible with as many controller presets as possible, try to use predefined names instead of inventing your own virtual control naming scheme.
-
-The picker provides names for the following standardized virtual control schemes:
-
-* *DAW control (`daw`):* The names you see here are heavily inspired by the wording used on Mackie Control devices.
-* *Grid (`grid`):* For controls divided into rows and column, as for example found on the Novation Launchpad.
-* *Numbered (`numbered`):* Simply lets you pick among any number between 1 and 100.
-
-====== More about "Multi" and "Button"
-
-The distinction between "Multi" and "Button" is used by ReaLearn to optimize its user interface.
-
-IMPORTANT: For numbered control elements, the type is even part of the control element ID.
-For example, "Multi 1" is considered a different virtual control element than "Button 1".
-For named control elements, this is not the case. "col1/row1/pad" defined as Multi is considered the same like "col1/row1/pad" defined as Button.
-
-======= Type "Multi"
-
-Represents a control element that you can "move", that is, something that allows you to choose between more than 2 values.
-Usually everything which is _not_ a simple on/off button :) Here's a list of typical _multis_:
-
-* Fader
-* Knob
-* Pitch wheel
-* Mod wheel
-* Endless encoder
-* XY pad (1 axis)
-* Touch strip
-* (Endless) rotary encoder
-* Velocity-sensitive pads or keys
-
-======= Type "Button"
-
-Represents a control element that distinguishes between two possible states only (e.g. on/off), or even just one ("trigger").
-Usually it has the form factor of a button that you can "press".
-Here's a list of typical _buttons_:
-
-* Play button
-* Switch
-* Sustain pedal (a simple on/off one, not a half-pedaling one!)
-
-Please note that velocity-sensitive keys should be exposed as "Multi", not as "Button" - unless you know for sure that you are not interested in the velocity sensitivity.
 
 [[target-section]]
 ==== Target section
@@ -2020,7 +1125,7 @@ Special value that represents a "not set" value. See below for examples.
 | p | Array of floating-point numbers | All selectors |
 Allows you to access the values of ReaLearn's internal parameters. E.g. you can get the number of the first parameter by writing `p[0]`.
 
-By default, parameter values are normalized floating point values, that means they are decimal numbers between 0.0 and 1.0. This can be changed by customizing the parameter with a specific integer value count (see <<compartment-parameters>>).
+By default, parameter values are normalized floating point values, that means they are decimal numbers between 0.0 and 1.0. This can be changed by customizing the parameter with a specific integer value count (see <<compartment-parameter>>).
 
 | p1 ... p100 | Floating-point numbers | All selectors |
 Values of ReaLearn's internal parameters as single variables.
@@ -2090,7 +1195,7 @@ Examples of dynamic track expressions:
 ** If you use a formula like that, you should make sure that "Parameter 1" is controlled with a step size that allows for exactly 100 different values.
 This conforms to ReaLearn's default step size 0.01 = 1%.
 ** Since ReaLearn 2.13, this is easier because it adds support for integer parameters:
-*** Set the value count of "Parameter 1" to 100 (see <<compartment-parameters>>)
+*** Set the value count of "Parameter 1" to 100 (see <<compartment-parameter>>)
 *** You can now treat the parameter in the formula as an integer (just `p1` instead of `p1 * 99`).
 *** Most importantly, ReaLearn will take care of using the correct step size automatically when setting up a mapping for controlling that parameter.
 * `p1 * 3 * 100 + p2 * 99`
@@ -2102,6 +1207,7 @@ You see, this is very flexible.
 
 When choosing a track, the following additional elements and selectors are available:
 
+[[track-must-be-selected]]
 ====== Track must be selected
 
 If checked, this mapping will be active only if the track set in _Track_ is currently selected.
@@ -2262,6 +1368,7 @@ If you check this, you can target FX instances on REAPER's global monitoring FX 
 
 WARNING: Because of a limitation in the REAPER API, learning and feedback for monitoring FX doesn't work at the moment!
 
+[[fx-must-have-focus]]
 ====== FX must have focus
 
 If checked, this mapping will be active only if the FX instance set in
@@ -2975,8 +2082,8 @@ _Under construction_
 
 _Under construction_
 
-[#midi-send-message]
-====== MIDI: Send message
+[#midi-send-message-target]
+====== MIDI: Send message target
 
 Sends arbitrary MIDI messages (also sys-ex!) in response to incoming messages.
 This target turns ReaLearn into a capable and convenient MIDI/OSC/Keyboard-to-MIDI converter.
@@ -3313,7 +2420,7 @@ ReaLearn's feedback processing order is like this since version 2:
 ====== Textual feedback: Text expression
 
 With this option, ReaLearn will send textual feedback values to the source.
-This only works with sources that are capable of displaying text: That is any <<category-osc,OSC source>> with argument type _String_, <<display-source, MIDI Display>> and <<script-source>>.
+This only works with sources that are capable of displaying text: That is any <<category-osc,OSC source>> with argument type _String_, <<display-source, MIDI Display>> and <<midi-script-source>>.
 
 The field below contains the _textual feedback expression_.
 Here you define which text is going to be sent to the source _whenever the target value changes_ and also - for your convenience - immediately at the moment of entering the text.
@@ -3488,7 +2595,7 @@ It can either be ...
 *** ... a string (ideal for display sources)
 *** ... a number (ideal for LEDs and motor faders)
 *** ... `nil` (which means "turn the source off", e.g. turn off the LED, turn down the motorfader, clear the display text)
-*** ... or anything else (`true`, `false` or an arbitrary table ... at the moment, this is only useful for the <<script-source>> source because other sources don't know how to deal with it)
+*** ... or anything else (`true`, `false` or an arbitrary table ... at the moment, this is only useful for the <<midi-script-source>> source because other sources don't know how to deal with it)
 * *Examples*
 ** Displays the number of milliseconds passed since ReaLearn was loaded:
 +
@@ -3556,7 +2663,7 @@ return {
     },
 }
 ----
-** ... which can then be processed by a <<script-source>> source (this example is not realistic, it just shows how you can access the value table returned by the glue section feedback script):
+** ... which can then be processed by a <<midi-script-source>> source (this example is not realistic, it just shows how you can access the value table returned by the glue section feedback script):
 +
 [source,lua]
 ----
@@ -3994,6 +3101,489 @@ NOTE: If the target supports MIDI real-time control and the source is a MIDI sou
 
 The right text area shows information about which feedback values are sent from the glue section to the source.
 
+[[available-source-types]]
+== Available source types
+
+ReaLearn supports the following <<source>> types.
+
+=== Category "MIDI"
+
+Most types in the MIDI category have the following UI elements in common.
+
+Channel menu::
+Optionally restricts this source to messages from a certain MIDI channel.
+Only available for sources that emit MIDI channel messages.
+
+The remaining UI elements in this section depend on the chosen source type.
+
+[#cc-value-source]
+==== CC value source
+
+This source reacts to incoming MIDI control-change messages.
+
+===== CC menu
+
+Optionally restricts this source to messages with a certain MIDI control-change controller number.
+
+===== Character menu
+
+See <<midi-source-character>>.
+
+===== 14-bit values checkbox
+
+If unchecked, this source reacts to MIDI control-change messages with 7-bit resolution (usually the case).
+If checked, it reacts to MIDI control-change messages with 14-bit resolution.
+This is not so common but sometimes used by controllers with high-precision faders.
+
+==== Note velocity source
+
+This source reacts to incoming MIDI note-on and note-off messages.
+The higher the velocity of the incoming note-on message, the higher the absolute control value.
+Note-off messages are always translated to 0%, even if there's a note-off velocity.
+
+===== Note menu
+
+Optionally restricts this source to messages with a certain note number (note numbers represent keys on the MIDI keyboard, e.g. 60 corresponds to C4).
+
+==== Note number source
+
+This source reacts to incoming MIDI note-on messages.
+The higher the note number (= key on a MIDI keyboard), the higher the absolute control value.
+
+This essentially turns your MIDI keyboard into a "huge fader" with the advantage that you can jump to any value at any time.
+
+==== Pitch wheel source
+
+This source reacts to incoming MIDI pitch-bend change messages.
+The higher the pitch-wheel position, the higher the absolute control value.
+The center position corresponds to an absolute control value of 50%.
+
+==== Channel after touch source
+
+This source reacts to incoming MIDI channel-pressure messages.
+The higher the pressure, the higher the absolute control value.
+
+==== Program change source
+
+This source reacts to a range of incoming MIDI program-change messages.
+The higher the program number, the higher the absolute control value.
+
+==== (N)RPN value source
+
+This source reacts to incoming non-registered (NRPN) or registered (RPN) MIDI parameter-number messages.
+The higher the emitted value, the higher the absolute control value.
+
+(N)RPN messages are not widely used.
+If they are, then mostly to take advantage of their ability to transmit 14-bit values (up to 16384 different values instead of only 128), resulting in a higher resolution.
+
+===== RPN checkbox
+
+If unchecked, this source reacts to unregistered parameter-number messages (NRPN).
+If checked, it reacts to registered ones (RPN).
+
+===== Number field
+
+The number of the registered or unregistered parameter-number message.
+This is a value between 0 and 16383.
+
+===== 14-bit values checkbox
+
+If unchecked, this source reacts to (N)RPN messages with 7-bit resolution, including increment/decrement messages.
+
+If checked, it reacts to those with 14-bit resolution.
+In practice, this if often checked.
+
+===== Character menu
+
+See <<midi-source-character>>.
+
+==== Polyphonic after touch source
+
+This source reacts to incoming MIDI polyphonic-key-pressure messages.
+The higher the pressure, the higher the absolute control value.
+
+===== Note menu
+
+Optionally restricts this source to messages with a certain note number.
+
+==== MIDI clock tempo source
+
+This source reacts to incoming MIDI clock (MTC) tempo messages.
+These are metronome-beat-like messages which can be regularly transmitted by some DAWs and MIDI devices.
+The frequency with which this message is sent dictates the tempo.
+
+The higher the calculated tempo, the higher the absolute control value.
+A tempo of 1 bpm will be translated to a control value of 0%, a tempo of 960 bpm to 100% (this corresponds to REAPER's supported tempo range).
+
+This source can be used in combination with the <<project-set-tempo,Project: Set tempo>> target to obtain a "poor man's" tempo synchronization.
+
+Be aware: MIDI clock naturally suffers from certain inaccuracies and latencies - that's an issue inherent to the nature of the MIDI clock protocol itself.
+E.g. it's not really suitable if you need super accurate and instant tempo synchronization.
+Additionally, ReaLearn's algorithm for calculating the tempo could probably be improved (that's why this source is marked as experimental).
+
+==== MIDI clock transport source
+
+This source reacts to incoming MIDI clock (MTC) transport messages.
+These are simple start, continue and stop messages which can be sent by some DAWs and MIDI devices.
+
+===== Message menu
+
+The specific transport message to which this source should react.
+
+[#raw-midi-source]
+==== Raw MIDI / SysEx source
+
+This source primarily deals with system-exclusive MIDI messages.
+It supports both control and feedback direction!
+
+===== Pattern field
+
+Pattern describing the raw MIDI message.
+See <<raw-midi-pattern>>.
+
+[#midi-script-source]
+==== MIDI Script source
+
+This source is feedback-only and exists for enabling more complex feedback use cases such as controlling LCDs that are not yet supported by the <<display-source>> source.
+It lets you write an EEL or Luau script that will be executed whenever ReaLearn "feels" like it needs to send some feedback to the MIDI device.
+
+===== Kind menu
+
+Whether to use the EEL or Luau language.
+
+===== Script field
+
+The script.
+Is disabled if the script contains more than one line.
+
+See <<midi-source-script>> for details.
+
+===== More button (…)
+
+Opens the script in a separate window (for multi-line scripts).
+
+TIP: Prefer the <<display-source>> source over this one whenever possible.
+It's easier to use.
+
+[#display-source]
+==== Display
+
+This is a feedback-only source used to display text on MIDI-controllable hardware displays (LCDs, OLED displays, 7-segment displays, etc.).
+
+===== Protocol menu
+
+Lets you choose the display protocol, which tells ReaLearn how it should communicate with the hardware display and which options it supports.
+
+Mackie LCD:: Use this for MCU-compatible LCDs.
+Depending on your particular control surface, there can be up to 8 LCDs, each of which has up to 2 lines.
+Mackie XT LCD:: Use this to control the displays of MCU XT devices (= control surface extenders, which provide additional faders and displays).
+X-Touch Mackie LCD:: Like _Mackie LCD_ but also supports colors on certain X-Touch devices.
+X-Touch Mackie XT LCD:: Like _Mackie LCD XT_ but also supports colors on certain X-Touch devices.
+Mackie 7-segment display:: Use this for MCU-compatible 7-segment displays (you know, the ones which only show digits).
+There's usually one small assignment display and a larger one for showing the time code.
+SiniCon E24:: Use this with the https://www.sinicon.io/[SiniCon E24 controller].
+Launchpad Pro - Scrolling text:: Displays looped scrolling text on a Novation Launchpad Pro.
+Only seems to work if you set _Output_ to `MIDIOUT2 (Launchpad Pro)`.
+Studiologic SL Keyboard display:: Displays text on the display of Studiologic SL keyboards (tested with SL88).
+
+===== Display menu
+
+Choose the particular display or display portion to which you want to send text.
+
+===== Line menu
+
+Choose the line number.
+
+CAUTION: For controllers with multiple displays and lines, ReaLearn allows you to spread your text over all available displays and lines.
+This is great if you need to display a lot of text but one display doesn't provide enough space.
+But be aware: Replacing feedback with other feedback ("feedback relay") doesn't work so nicely anymore if you make use of this feature.
+
+If you want to know how to define which text shall be sent to the displays, please see <<textual-feedback,textual feedback>> in the <<glue-section>>.
+
+==== Specific program change
+
+This source reacts to MIDI program-change messages with a specific program.
+This is a trigger-only source, that means it always fires 100% (whenever the program number corresponds to the configured one).
+
+[#category-osc]
+=== Category "OSC"
+
+OSC sources allow configuration of the following aspects:
+
+==== Address
+
+This needs to correspond exactly to the address of the corresponding control element on your OSC device.
+Example: `/1/fader1`.
+You don't need to figure that out yourself, just use the _Learn_ function.
+
+==== Argument
+
+Each OSC message consists of an arbitrary number of arguments.
+In most cases, e.g. with faders, knobs or buttons, it's just one argument.
+X/Y controls often send 2 arguments, one for each axis.
+There are rare cases in which messages have even more arguments.
+
+The first dropdown menu allows you to choose the number of the argument that ReaLearn should look at and process. `1` denotes the first argument, `2` the second one, and so on.
+
+The second dropdown menu lets you choose the argument type which ReaLearn should use to construct a proper feedback message.
+
+* This is usually the same type as the one used for control direction.
+For control direction, choosing an explicit type is irrelevant because ReaLearn handles whatever type arrives automatically in the best possible way.
+* If you use _Learn_, the type is filled automatically.
+* The value to be sent will be derived from the type (see <<feedback-arguments>>):
++
+[cols="m,m"]
+|===
+| Type | Property
+
+| Float | value.float
+| Double | value.double
+| Int | value.int
+| Long | value.long
+| Bool | value.bool
+| Nil | nil
+| Inf | inf
+| String | value.string
+| Color | style.color
+|===
+* If you want more control over what feedback values are sent, use the <<feedback-arguments>> field.
+
+==== Range
+
+Values of argument types _Float_ and _Double_ are by default interpreted as decimal values between 0.0 and 1.0. You can change that by entering a different value range here.
+Even negative numbers are allowed.
+
+Customizing the value range is especially important for argument types _Int_ and _Long_ because they don't have a standard value range.
+
+==== Is relative
+
+Some messages transmitted by OSC devices are meant to be interpreted as relative increments/decrements instead of absolute values, e.g. jog wheels.
+When you enable this checkbox, ReaLearn will treat each received _1_ value as an increment and _0_ value a decrement.
+
+[#feedback-arguments]
+==== Feedback arguments
+
+Allows you to define exactly which feedback value is sent at which argument position.
+If this field is non-empty, the _Type_ dropdown will be ignored.
+
+The format of this field is very simple: You enter feedback value property keys separated by spaces.
+Each entered property key corresponds to one argument position.
+E.g. if you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see <<feedback-style>>) as RRGGBB string at argument 2, you would enter:
+
+----
+value.string style.color.rrggbb
+----
+
+The following properties are available:
+
+[cols="m,m,1"]
+|===
+| Property | Type | Description
+
+|
+value.float
+|
+Float
+|
+Numeric feedback value interpreted as float
+
+|
+value.double
+|
+Double
+|
+Numeric feedback value interpreted as double
+
+|
+value.bool
+|
+Bool
+|
+Numeric feedback interpreted as bool (on/off only)
+
+|
+value.string
+|
+String
+|
+Numeric or textual feedback value formatted as string
+
+
+|
+style.color.rrggbb
+|
+String
+|
+Feedback value color formatted as RRGGBB string
+
+
+|
+style.background_color.rrggbb
+|
+String
+|
+Feedback value background color formatted as RRGGBB string
+
+
+
+|
+style.color
+|
+Color
+|
+Feedback value color as native OSC color
+
+
+|
+style.background_color
+|
+Color
+|
+Feedback value background color as native OSC color
+
+
+|
+nil
+|
+Nil
+|
+Nil value
+
+|
+inf
+|
+Infinity
+|
+Infinity value
+|===
+
+=== Category "Keyboard"
+
+This source reacts to pressing or releasing a key on your computer keyboard.
+It emits a value of 100% when the key is pressed and 0% when released.
+
+Usage:
+
+* In order to set the key, simply click the *Learn* button and press the key of your choice.
+* In addition to the key label, ReaLearn might show some warnings regarding the portability of your keystroke.
+** This helps you to avoid keyboard shortcuts that don't reliably work cross-platform (in other operating systems) or on other keyboard layouts.
+** You can ignore portability warnings if you use just this operating system and don't plan to share your keyboard presets with other users.
+
+Tips:
+
+* This only works if <<input-menu>> is set to *Computer keyboard*.
+* If you hold a key, it will not keep firing.
+This is by design!
+Use <<fire-after-timeout-keep-firing>> instead.
+* Key combinations are not supported.
+This is by design!
+Use <<conditional-activation>> instead.
+
+==== MIDI device changes
+
+=== Category "REAPER"
+
+==== MIDI device changes
+
+This source emits a value of 100% whenever any MIDI device is connected and 0% whenever any MIDI device is disconnected.
+You can map this to the REAPER action "Reset all MIDI devices" to achieve true plug and play of MIDI devices (provided the corresponding device has been enabled at least once in REAPER's MIDI device preferences).
+
+==== ReaLearn unit start
+
+This source fires (emits a value of 100%) when ReaLearn starts.
+It can be used to execute an actions or restore certain states on REAPER startup or project load.
+
+==== Timer
+
+This source fires (emits a value of 100%) repeatedly every _n_ milliseconds.
+
+[#parameter-source]
+==== ReaLearn parameter
+
+This source fires whenever one of ReaLearn's <<compartment-parameter>> is changed.
+
+One of many ways to use this is to create macro parameters which control multiple parameters of multiple other plug-ins.
+
+WARNING: At the moment, mappings with this source can't participate in rendering.
+So it's important to write down automation *before* rendering.
+
+==== Speech
+
+This source works for feedback only.
+It uses the native Windows or macOS text-to-speech engine to speak out any feedback value.
+
+[#virtual-source-category]
+=== Category "Virtual"
+
+As pointed out before, _virtual_ sources exist in order to decouple your mappings from the actual MIDI/OSC source.
+
+==== Type
+
+If you want to define a virtual source, you should first decide which type the virtual control element has: "Multi" or "Button".
+"Buttons" are stupidly simple on/off controls whereas "Multis" are control elements that potentially support more than 2 values.
+You will find a more accurate description of those 2 types below, along with examples.
+
+==== ID
+
+A number or name that uniquely identifies the control element on the device.
+
+Numbers are especially suited for the 8-knobs/8-buttons layouts.
+In a row of 8 knobs one would typically assign number 1 to the leftmost and number 8 to the rightmost one.
+It's your choice.
+
+For more advanced virtual control scenarios it can be useful to think in names instead of numbers.
+You can use up to 32 alphanumeric and punctuation characters (no exotic characters, e.g. no umlauts).
+
+==== Pick
+
+Lets you conveniently pick out of predefined numbers and names.
+
+If you want your main preset to be compatible with as many controller presets as possible, try to use predefined names instead of inventing your own virtual control naming scheme.
+
+The picker provides names for the following standardized virtual control schemes:
+
+* *DAW control (`daw`):* The names you see here are heavily inspired by the wording used on Mackie Control devices.
+* *Grid (`grid`):* For controls divided into rows and column, as for example found on the Novation Launchpad.
+* *Numbered (`numbered`):* Simply lets you pick among any number between 1 and 100.
+
+==== More about "Multi" and "Button"
+
+The distinction between "Multi" and "Button" is used by ReaLearn to optimize its user interface.
+
+IMPORTANT: For numbered control elements, the type is even part of the control element ID.
+For example, "Multi 1" is considered a different virtual control element than "Button 1".
+For named control elements, this is not the case. "col1/row1/pad" defined as Multi is considered the same like "col1/row1/pad" defined as Button.
+
+===== Type "Multi"
+
+Represents a control element that you can "move", that is, something that allows you to choose between more than 2 values.
+Usually everything which is _not_ a simple on/off button :) Here's a list of typical _multis_:
+
+* Fader
+* Knob
+* Pitch wheel
+* Mod wheel
+* Endless encoder
+* XY pad (1 axis)
+* Touch strip
+* (Endless) rotary encoder
+* Velocity-sensitive pads or keys
+
+===== Type "Button"
+
+Represents a control element that distinguishes between two possible states only (e.g. on/off), or even just one ("trigger").
+Usually it has the form factor of a button that you can "press".
+Here's a list of typical _buttons_:
+
+* Play button
+* Switch
+* Sustain pedal (a simple on/off one, not a half-pedaling one!)
+
+Please note that velocity-sensitive keys should be exposed as "Multi", not as "Button" - unless you know for sure that you are not interested in the velocity sensitivity.
+
+[[available-target-types]]
+== Available target types
+
 == Key concepts
 
 This section explains the most important concepts used in ReaLearn.
@@ -4012,6 +3602,16 @@ A control element is anything that you can use to control something.
 In most cases, it's a hardware element on your controller.
 
 Examples: Knobs, encoders, faders, buttons, keys, pads, pitch wheels.
+
+[[control]]
+=== Control
+
+In ReaLearn, the word _control_ usually refers to the process of controlling something in REAPER (e.g. triggering an action or adjusting a parameter).
+
+[[feedback]]
+=== Feedback
+
+In ReaLearn, the word _feedback_ usually refers to the process of controlling LEDs, motor faders or displays on your device, in response to some events in REAPER (e.g. a track volume change).
 
 ==== Distinction of control elements with regard to what they emit
 
@@ -4162,16 +3762,26 @@ Each mapping in ReaLearn is composed of 3 elements:
 
 <<glue>>:: A processor that sits between the source and the target and filters or transforms control and feedback streams.
 
-==== Mapping state
+[[mapping-activation-state]]
+==== Mapping activation state
 
-A mapping is considered as *on* only if the following is true:
+A mapping is considered as *on* or *active* (terms are used interchangeably) only if all following criteria are fulfilled:
 
-. The mapping is complete, that is, both source and target are completely specified.
-. The mapping is enabled as a whole.
-. The mapping has control and/or feedback enabled.
-. The mapping is active (see <<conditional-activation>>).
+. The mapping is complete, that is, both source and target are completely specified
+. The mapping is enabled as a whole
+. The mapping has control and/or feedback enabled
+. The <<mapping-activation-condition>> is fulfilled
+. The <<target-activation-condition>> is fulfilled
+. The target is valid
++
+====
+Example: A track target can be invalid when it's using <<selected-selector>> but no track is currently selected).
+====
 
-If a mapping is *off*, it doesn't have any effect.
+In all other cases, mapping is *off* or *inactive*.
+In that case, it doesn't have any effect!
+
+(Controller) mappings with <<virtual-target>> are always considered active as long as the feedback checkbox is ticked.
 
 [[mapping-signal-flow]]
 ==== Mapping signal flow
@@ -4377,8 +3987,8 @@ Then, whenever this unit has at least one active mapping, all non-superior units
 * You can have multiple superior units.
 Make sure they get along with each other :)
 
-[#compartment-parameters]
-=== Compartment parameters
+[#compartment-parameter]
+=== Compartment parameter
 
 ==== Basics
 
@@ -4820,7 +4430,7 @@ The log entries look similar to the ones described above, with the following not
 * Message purpose
 ** *Feedback output:* A message sent to your controller as response to target value changes.
 ** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation (see <<mapping-lifecycle-actions,Mapping lifecycle actions>>).
-** *Target output:* A message sent because of either the <<midi-send-message,MIDI: Send message>> or <<osc-send-message,OSC: Send message>> target.
+** *Target output:* A message sent because of either the <<midi-send-message-target,MIDI: Send message>> or <<osc-send-message,OSC: Send message>> target.
 
 [[projection]]
 === Projection
@@ -4907,9 +4517,550 @@ Changing a parameter means setting a course.
 The course needs to be set in advance, at least one step before!
 Not at the same time as moving the train over the switch.
 
+[[conditional-activation]]
+=== Conditional activation
+
+Conditional activation is a powerful feature that allows you to dynamically activate or deactivate a mapping depending on its <<mapping-activation-condition>>.
+
+==== Use case: Control A when a button is not pressed, control B when it is
+
+Here's how you would implement a typical use case.
+You want your rotary encoder to control target A when the button is not pressed and control target B when it's pressed.
+
+. Create a mapping for the button
+** As "Target", you need to choose ReaLearn itself (Type: <<fx-set-parameter-value>>, Track: `<This>`, FX: "… VSTi: ReaLearn (Helgoboss)").
+As "Parameter", choose an arbitrary ReaLearn parameter, e.g. "Parameter 1".
+** As "Mode", choose either "Absolute" (if you want to switch the encoder function just momentarily) or "Toggle" (if you want the button to toggle between the two encoder functions).
+. Create a mapping with target A
+** Set "Active" to "When modifiers on/off", "Modifier A" to "Parameter 1" and disable the checkbox beside it.
+Set "Modifier B" to `<None>`.
+** This basically means "Hey, ReaLearn!
+Please activate this mapping only if ReaLearn Parameter 1 is *off*!" (remember, we control ReaLearn Parameter 1 using the button).
+** At this point, turning your encoder should control target A, but only if you don't press the button!
+. Create a mapping with target B
+** Just as in step 2, set "Active" to "When modifiers on/off" and "Modifier A" to "Parameter 1". *But*: Now *enable* the checkbox beside it.
+Set "Modifier B" to `<None>`.
+** This basically means "Hey, ReaLearn!
+Please activate this mapping only if ReaLearn Parameter 1 is *on*!"
+** At this point, turning your encoder should control target A if you don't press the button and control target B if you press the button.
+
+[[mapping-activation-condition]]
+=== Mapping activation condition
+
+The activation condition of a mapping determines under which circumstances a mapping is active or inactive, based on the value of a <<compartment-parameter>> or based on the state of arbitrary <<target, targets>>.
+It is especially practical if your controller has a limited amount of control elements and you want to give control elements several responsibilities.
+It let's you easily implement use cases such as:
+
+* "This knob should control the track pan, but only when my sustain pedal is pressed, otherwise it should control track volume!" (modifier use cases)
+* "I want to have two buttons for switching between different banks where each bank represents a group of mappings." (bank use cases)
+* "I want to control the volume of this track only if it's not muted." (target-state based use cases)
+
+TIP: Since ReaLearn 2.11.0, <<realearn-enable-disable-mappings>> provides a slightly less powerful but more straightforward way to implement use cases that were before only achievable with parameter-based conditional activation.
+
+There are 6 different activation modes:
+
+* *Always:* Mapping is always active (the default)
+* *When modifiers on/off:* Mapping becomes active only if something is pressed / not pressed
+* *When bank selected:* Allows you to step through different groups of mappings (sometimes also called "pages")
+* *When EEL met* Let an EEL formula decide (total freedom)
+* *When expression met:* Let an expression decide (total freedom)
+* *When target value met:* Let the current value of the target of another mapping decide
+
+[NOTE]
+====
+At this occasion, some words about ReaLearn's own freely assignable FX parameters.
+
+ReaLearn itself isn't just able to control parameters of other FX, it also offers FX parameters itself.
+At the moment it offers 200 FX parameters, 100 for the main compartment and 100 for the controller compartment.
+You can control them just like parameters in other FX:
+
+- Via automation envelopes,
+- via track controls,
+- via REAPER's own MIDI/OSC learn
+- … and of course via ReaLearn itself.
+
+Initially, they don't do anything at all.
+First, you need to give meaning to them by referring to them in activation conditions or `<Dynamic>` selector expressions.
+====
+
+[discrete]
+==== When modifiers on/off
+
+This mode is comparable to modifier keys on a computer keyboard.
+For example, when you press `Ctrl+V`
+for pasting text, `Ctrl` is a modifier because it modifies the meaning of the `V` key.
+When this modifier is "on" (= pressed), it activates the "paste text" and deactivates the "write the letter V" functionality of the `V` key.
+
+In ReaLearn, the modifier is one of the FX parameters.
+It's considered to be "on" if the parameter has a value greater than 0 and "off" if the value is 0.
+
+You can choose up to 2 modifier parameters, "Modifier A" and "Modifier B".
+If you select "<None>", the modifier gets disabled (it won't have any effect on activation).
+The checkbox to the right of the dropdown lets you decide if the modifier must be "on" for the mapping to become active or "off".
+
+Example: The following setting means that this mapping becomes active _only_ if both "Parameter 1" and "Parameter 2" are "on".
+
+* *Modifier A:* "Parameter 1"
+* *Checkbox A:* Checked
+* *Modifier B:* "Parameter 2"
+* *Checkbox B:* Checked
+
+Now you just have to map 2 controller buttons to "Parameter 1" and "Parameter 2" via ReaLearn (by creating 2 additional mappings - in the same ReaLearn instance or another one, up to you) et voilà, it works.
+The beauty of this solution lies in how you can compose different ReaLearn features to obtain exactly the result you want.
+For example, the _absolute mode_ of the mapping that controls the modifier parameter decides if the modifier button is momentary (has to be pressed all the time) or toggled (switches between on and off everytime you press it).
+You can also be more adventurous and let the modifier on/off state change over time, using REAPER's automation envelopes.
+
+[discrete]
+==== When bank selected
+
+This is the correct activation mode if you want control surface "bank-style" mapping.
+
+TIP: For this kind of use cases you should consider the new <<realearn-enable-disable-mappings>> target, which is available since ReaLearn 2.11.0 as an alternative.
+It's slightly less powerful than conditional activation but probably easier to use, partly because you can dictate which mappings should be active "from outside", not from the perspective of the mapping itself.
+
+You can tell ReaLearn to only activate your mapping if a certain parameter has a particular value.
+The particular value is called "Bank".
+Why?
+Let's assume you mapped 2 buttons "Previous" and "Next" to increase/decrease the value of the parameter (by using "Incremental button" mode, you will learn how to do that further below).
+And you have multiple mappings where each one uses "When bank selected" with the same parameter but a different "Bank".
+Then the result is that you can press "Previous" and "Next" and it will switch between different mappings within that parameter.
+If you assign the same "Bank" to multiple mappings, it's like putting those mappings into one group which can be activated/deactivated as a whole.
+
+Switching between different programs via "Previous" and "Next" buttons is just one possibility.
+Here are some other ones:
+
+* *Browse banks using a rotary encoder:* Just map the rotary encoder to the "Bank" parameter and restrict the target range as desired.
+* *Activate each bank with a separate button:* Map each button to the "Bank" parameter (with absolute mode "Normal") and set "Target Min/Max" to a distinct value.
+E.g. set button 1 min/max both to 0% and button 2 min/max both to 1%.
+Then pressing button 1 will activate bank 0 and pressing button 2 will activate bank 1.
+
+In previous versions of ReaLearn you could use other methods to achieve a similar behavior, but it always involved using multiple ReaLearn instances:
+
+* *By enabling/disabling other ReaLearn instances:* You can use one main ReaLearn instance containing a bunch of mappings with <<fx-enabledisable,FX: Enable/disable>> target in order to enable/disable other ReaLearn FX instances.
+Then each of the other ReaLearn instances acts as one mapping bank/group.
+* *By switching between presets of another ReaLearn instance:* You can use one main ReaLearn instance containing a mapping with <<fx-browse-presets>> target in order to browse presets of another ReaLearn FX instance.
+Then each preset in the other ReaLearn instance acts as one mapping bank/group.
+However, that method is pretty limited and hard to maintain because presets are something global (not saved together with your REAPER project).
+
+With _Conditional activation_ you can do the same (and more) within just one ReaLearn unit.
+
+TIP: If you want to adjust the number of banks and improve bank handling in general, set a discrete value count for the corresponding bank parameter (see <<compartment-parameter>>).
+
+[discrete]
+==== When EEL met
+
+This is for experts.
+It allows you to write a formula in https://www.cockos.com/EEL2/[EEL2] language that determines if the mapping becomes active or not, based on potentially all parameter values.
+This is the most flexible of all parameter-based activation modes.
+The other modes can be easily simulated.
+The example modifier condition scenario mentioned above written as formula would be:
+
+----
+y = p1 > 0 && p2 > 0
+----
+
+`y` represents the result.
+If `y` is greater than zero, the mapping will become active, otherwise it will become inactive. `p1` to `p100` contain the current parameter values.
+Each of them has a value between 0.0 (= 0%) and 1.0 (= 100%).
+
+This activation mode accounts for ReaLearn's philosophy to allow for great flexibility instead of just implementing one particular use case.
+If you feel limited by the other activation modes, just use EEL.
+
+TIP: For most activation conditions which need this amount of freedom, the newer activation mode <<expression-based-activation-condition>> is a slightly better choice because it's easier to use and generally performs a bit better.
+
+[#expression-based-activation-condition]
+[discrete]
+==== When expression met
+
+This is very similar to the previous EEL activation mode.
+But instead of EEL, it lets you use the same expression language as used in <<dynamic-selector,dynamic selectors>> to express the activation condition.
+
+The equivalent expression to above EEL example is:
+
+`p[0] > 0 && p[1] > 0`
+
+[#target-based-activation-condition]
+[discrete]
+==== When target value met
+
+This is different from all the other activation condition types in that it doesn't look at ReaLearn's internal parameter values.
+Instead, it looks at the target of another mapping (the so-called "lead mapping") and switches our mapping (the so-called "follow mapping") on or off depending on the target value of the lead mapping.
+
+It works like this:
+
+. Create the lead mapping and give it a target, e.g. <<track-selectunselect>>.
+* This lead mapping doesn't need to have a source.
+It can even be completely disabled!
+. In the **Mapping** dropdown, pick this newly created mapping.
+. In the **Expression** text field to the right, enter `y > 0`.
+* This means you want the follow mapping to be active whenever the target value of the lead mapping is greater than 0.0. Or in other words, when it's "switched on".
+
+You can detect an inactive target by using `y == none`.
+
+[[target-activation-condition]]
+=== Target activation condition
+
+<<target,Targets>> can have activation conditions as well.
+They are very specific to the type of the target.
+
+.Typical target conditions
+====
+* <<track-must-be-selected>>
+* <<fx-must-have-focus>>
+====
+
+[[midi-source-character]]
+=== MIDI source character
+
+MIDI control-change messages serve a very wide spectrum of MIDI control use cases.
+Even though some control-change controller numbers have a special purpose according to the MIDI specification (e.g. CC 7 = channel volume), nothing prevents one from using them for totally different purposes.
+In practice that happens quite often, especially when using general-purpose controllers.
+Also, there's no strict standard whatsoever that specifies how relative values (increments/decrements) shall be emitted and which controller numbers emit them.
+
+Therefore, you explicitly need to tell ReaLearn about it by setting the _source character_.
+
+The good news is: If you use "Learn source", ReaLearn will try to guess the source character for you by looking at the emitted values.
+Naturally, the result is not always correct.
+The best guessing result can be achieved by turning the knob or encoder quickly and "passionately" into clockwise direction.
+Please note that guessing doesn't support encoder type 3.
+
+The possible source characters are:
+
+Range element (knob, fader, etc.)::
+A control element that emits continuous absolute values.
+Examples: Fader, knob, modulation wheel, pitch bend, ribbon controller.
+Would also include a endless rotary encoder which is (maybe unknowingly) configured to transmit absolute values.
+
+Button (momentary)::
+A control element that can be pressed and emits absolute values.
+It emits a > 0% value when pressing it and optionally a 0% value when releasing it.
+Examples: Damper pedal.
+
+Encoder (relative type _x_)::
+A control element that emits relative values, usually an endless rotary encoder.
+The _x_ specifies _how_ the relative values are sent.
+This 1:1 corresponds to the relative modes in REAPER's built-in MIDI learn:
+
+Type 1:::
+* 127 = decrement; 0 = none; 1 = increment
+* 127 > value > 63 results in higher decrements (64 possible decrement amounts)
+* 1 < value +<=+ 63 results in higher increments (63 possible increment amounts)
+
+Type 2:::
+* 63 = decrement; 64 = none; 65 = increment
+* 63 > value >= 0 results in higher decrements (64 possible decrement amounts)
+* 65 < value +<=+ 127 results in higher increments (63 possible increment amounts)
+
+Type 3:::
+* 65 = decrement; 0 = none; 1 = increment
+* 65 < value +<=+ 127 results in higher decrements (63 possible decrement amounts)
+* 1 < value +<=+ 64 results in higher increments (64 possible increment amounts)
+
+Toggle-only button (avoid!):: A control element that can be pressed and emits absolute values.
+ReaLearn will simply emit 100%, no matter what the hardware sends.
++
+This is a workaround for controllers that don't have momentary buttons!
+You should only use this character if there's absolutely no way to configure this control element as a momentary button.
++
+[NOTE]
+.Background
+====
+ReaLearn can make a momentary hardware button work like a full-blown toggle button.
+Its toggle mode is inherently more powerful than your controller's built-in toggle mode!).
+
+However, the opposite is not true.
+It can't make a toggle hardware button act like a momentary button.
+====
++
+[CAUTION]
+.Combination with <<incremental-button>>
+====
+If you use the toggle-only source character in combination with mode <<incremental-button>>, you must leave source max at the (default) theoretical maximum value for that source (e.g. 127 for MIDI CC).
+Even if your controller device only sends 0 and 1 and in all other mappings you would enter the controller's concrete (instead of theoretically possible) maximum value.
+Otherwise, for this special case, a fixed out-of-range-behavior will set in that will just ignore all button presses.
+====
+
+[[raw-midi-pattern]]
+=== Raw MIDI pattern
+
+<<raw-midi-source>> and <<midi-send-message-target>> allow to enter so-called MIDI patterns, an advanced ReaLearn concept.
+
+==== Pattern basics
+
+In its most basic form, the pattern is a sequence of bytes notated as hexadecimal numbers.
+This is typical notation, especially for system-exclusive MIDI messages.
+
+.A SysEx pattern
+====
+----
+F0 00 20 6B 7F 42 02 00 10 77 00 F7
+----
+
+If you enter this and ReaLearn receives this system-exclusive message from the input, it will fire a 100% value.
+If feedback is set up correctly, this message will be sent to the device whenever the target value changes.
+====
+
+Remarks:
+
+* You can check if the correct feedback messages are sent to the device by enabling <<logging-of-real-feedback-messages>>.
+* Each byte is written using 2 hexadecimal digits.
+* Spaces between the bytes can be omitted.
+* You can express all types of MIDI messages using this raw notation (e.g. pitch wheel), not just system-exclusive ones.
+If you do this, it will work as expected for the _feedback_ direction.
+Please note that it will not work for the _control_ direction at the moment (I don't think this is needed).
+* If you want a system-exclusive MIDI message, you _must_ include its start (`F0`) and end status byte (`F7`)!
+
+==== Binary notation
+
+ReaLearn also supports binary notation of a byte.
+You need to enclose the binary digits of one byte in brackets.
+
+.Binary notation
+====
+----
+F0 00 20 [0110 1011] 7F 42 02 00 10 77 00 F7
+----
+
+This is equivalent to the previous example (`6B` in hexadecimal notation is the same as `0110 1011` in binary notation).
+====
+
+Remarks:
+
+* Between the brackets, each digit represents one bit.
+The left bit is the most significant one.
+* Spaces between the two nibbles (4 bits) can be omitted.
+
+==== Variable patterns (extracting and encoding a value)
+
+For the <<feedback>> direction, the examples I've shown you so far aren't real-world examples, because there's no point in sending the same MIDI message to the device over and over again!
+If you really would want to send a constant MIDI message to the device, you would be much better off using a <<mapping-lifecycle-actions,Mapping lifecycle action>>, which allow you to send raw MIDI messages once when a mapping is initialized, not on every target value change.
+
+But even for the <<control>> direction, you might want to react to a whole _range_ of system-exclusive messages, not just a fixed one.
+One part of your message might represent a variable value.
+You might want to extract it and control the target with it.
+
+Fortunately, ReaLearn offers a uniform way to extract a variable value from the raw MIDI message (control) or encode the current target value as part of it (feedback).
+Bytes which contain a variable value (or a part of it) _must_ be expressed using binary notation.
+
+.Variable pattern
+====
+----
+F0 00 20 6B 7F 42 02 00 10 77 [0000 dcba] F7
+----
+
+The second nibble of the second last byte contains the lowercase letters `dcba`.
+This is the portion of the byte that denotes the variable value.
+====
+
+Each letter represents one bit of the variable value:
+
+[horizontal]
+`a`:: Bit 1 (least significant bit of the variable value)
+`b`:: Bit 2
+`c`:: Bit 3
+`d`:: Bit 4
+…
+`m`:: Bit 13
+`n`:: Bit 14
+`o`:: Bit 15
+`p`:: Bit 16 (most significant bit of the variable value)
+
+==== Resolution of variable patterns
+
+The resolution of the variable value always corresponds to the letter in the whole pattern which represents the highest bit number.
+In the example above, the resolution is 4 bit because there's no letter greater than `d` in the pattern.
+
+.Another variable pattern
+====
+In this example, the resolution is 7 bit because `n` is the greatest letter in the whole pattern.
+
+----
+F0 00 20 6B 7F 42 02 00 10 [00nm lkji] [hgfe dcba] F7
+----
+====
+
+Remarks:
+
+* The highest resolution currently supported is 16 bit (= 65536 different values).
+* You can put these letter bits anywhere in the pattern (but only within bytes that use binary notation).
+
+==== Byte order
+
+This form of notation is slightly unconventional, but I think it's very flexible because it gives you much control over the resulting MIDI message.
+This amount of control seems appropriate considering the many different ways hardware manufacturers used and still use to encode their MIDI data.
+
+When a number is expressed within more than one byte, manufacturers sometimes put the most significant byte first and sometimes the least significant one, there's no rule.
+This notation supports both because you decide where the bits end up:
+
+.Most significant byte first
+====
+----
+F0 00 20 6B 7F 42 02 00 10 [ponm lkji] [hgfe dcba] F7
+----
+====
+
+.Least significant byte first
+====
+----
+F0 00 20 6B 7F 42 02 00 10 [hgfe dcba] [ponm lkji] F7
+----
+====
+
+==== More examples
+
+."Romeo and Juliet" bits (separated by 2 bytes)
+====
+----
+F0 [1111 000b] [a101 0100] F7
+----
+====
+
+.Simple on/off value (1 bit only)
+====
+----
+F0 A0 [1111 010a] F7
+----
+====
+
+.Pitch wheel simulation
+====
+This behaves like pitch wheel because the pattern describes exactly the way how pitch wheel messages are encoded.
+
+----
+E0 [0gfe dcba] [0nml kjih]
+----
+====
+
+[[midi-source-script]]
+=== MIDI source script
+
+MIDI source scripts are EEL or Luau scripts to configure the <<midi-script-source>>.
+
+==== General mechanics
+
+Each script receives an input and must produce an output.
+
+Script input::
+* The main input is the current feedback value, which the script can access as a variable.
+
+Script output::
+* The main output that the script is supposed to return is the MIDI message to be sent to the MIDI device.
+* Additionally, the script can provide a so-called _feedback address_, which is supposed to uniquely identify the LED, motor fader or display.
++
+It's important to provide an address if you want ReaLearn to handle feedback relay correctly, e.g. that it switches off the LED when not in use anymore and doesn't switch it off if another mapping "takes over" the same LED.
+By convention, the constant (non-variable) bytes of the MIDI message should be used as address.
+The examples below might help to understand.
+
+==== EEL script specifics
+
+Scripts written in EEL work as follows.
+
+Script input::
+* EEL scripts can access numeric feedback values only.
+The current numeric feedback value is available as variable `y`, a floating point number between 0.0 and 1.0. This is essentially the current normalized target value after being processed by the "Glue" section of the mapping.
+
+Script output::
+* In order to provide the output MIDI message, you must assign the raw bytes of that message to subsequent slots of the EEL script's virtual local address space (by indexing via brackets) *and*
+set the variable `msg_size` to the number of bytes to be sent.
+If you forget the latter step, nothing will be sent because that variable defaults to zero!
+* In order to provide the address, simply assign an appropriate number to the `address` variable.
+
+.Creating a 3-byte MIDI message
+====
+[source,eel]
+----
+address = 0x4bb0;
+msg_size = 3;
+0[] = 0xb0;
+1[] = 0x4b;
+2[] = y * 64;
+----
+====
+
+==== Luau script specifics
+
+Scripts written in Luau work as follows.
+
+Script input::
+* Luau scripts can access numeric, text and dynamic feedback values.
+* Here's the list of input variables:
+`y`::: The feedback value, either numeric (`type(y) == "number"`) or text (`type(y) == "string")`.
+`context.feedback_event.color`::: The color as set in the <<glue-section>> section.
+Either the default color (`== nil`) or an RGB color (table with properties `r`, `g` and `b`).
+`context.feedback_event.background_color`::: The background color.
+
+Script output::
+* A Luau script can even generate multiple output messages.
+* You need to return a table which contains the following keys:
+`address`::: The feedback address.
+`messages`::: An array containing all the messages, where each message itself is an array contaning the message bytes.
+
+.Creating a 3-byte MIDI message, assuming that `y` is a numeric normalized value.
+====
+[source,lua]
+----
+return {
+    address = 0x4bb0,
+    messages = {
+        { 0xb0, 0x4b, math.floor(y * 10) }
+    }
+}
+----
+====
+
+.Creating a MIDI sys-ex message that changes the color of some fictional device LED/display.
+====
+[source,lua]
+----
+local color = context.feedback_event.color
+if color == nil then
+    -- This means no specific color is set. Choose whatever you need.
+    color = { r = 0, g = 0, b = 0 }
+end
+return {
+    address = 0x4b,
+    -- Whatever messages your device needs to set that color.
+    messages = {
+        { 0xf0, 0x02, 0x4b, color.r, color.g, color.b, 0xf7 }
+    }
+}
+----
+====
+
+.Creating a 3-byte MIDI message, assuming that `y` is a text value.
+====
+[source,lua]
+----
+local lookup_table = {
+    playing = 5,
+    stopped = 6,
+    paused = 7,
+}
+return {
+    messages = {
+        { 0xb0, 0x4b, lookup_table[y] or 0 }
+    }
+}
+----
+====
+
+[TIP]
+====
+
+Please note that this kind of simple mapping from text values to integer numbers doesn't need a script.
+You can use the `feedback_value_table` <<glue-section>> property instead, which can only be set via API though.
+Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
+====
+
+You can share code between multiple MIDI scripts by using <<compartment-wide-lua-code>>, with the following limitations (which hopefully will be lifted over time):
+
+* The shared code is not yet available to the Lua code editor window.
+That means writing `require("compartment")` will evaluate to `nil` in the editor.
+You might see a corresponding error message when the editor tries to compile your code.
+
 == Best practices
 
-=== Using the controller compartment
+=== Use the controller compartment!
 
 The controller compartment lets you describe the controller device.
 
@@ -4979,6 +5130,11 @@ If so, just adjust the character in the corresponding mapping panel.
 You can share your preset with other users by sending them to link:mailto:&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;[&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;].
 I will add it to https://github.com/helgoboss/helgobox/tree/master/resources/controller-presets[this
 list].
+
+=== Name compartment parameters!
+
+Because ReaLearn's <<compartment-parameter, compartment parameters>> are freely assignable, they have very generic names by default.
+However, as soon as you give them meaning by using them in a specific way, it can be very helpful to give them a name by using the <<compartment-parameters-menu>>.
 
 == Provided REAPER actions
 
