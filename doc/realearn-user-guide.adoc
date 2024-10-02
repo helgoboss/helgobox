@@ -799,10 +799,12 @@ These notes are also included in compartment presets.
 
 ===== Mappings toolbar
 
+[[add-one-button]]
 ====== Add one button
 
 Adds a new mapping at the end of the current mapping list.
 
+[[learn-many-button]]
 ====== Learn many button
 
 Allows you to add and learn many new mappings in a convenient batch mode.
@@ -883,6 +885,7 @@ Use these buttons to move this mapping up or down the list.
 Use these checkboxes to enable/disable control and/or feedback for this mapping.
 Disabling both has the same effect as disabling the mapping as a whole.
 
+[[row-edit-button]]
 ====== Edit button
 
 Opens the mapping panel for this mapping.
@@ -895,9 +898,11 @@ Creates a new mapping just like this one right below.
 
 Removes this mapping from the list.
 
+[[row-learn-source-button]]
 ====== Learn source button
 
 Starts or stops learning the source of this mapping.
+See <<learn-source>>.
 
 ====== Learn target button
 
@@ -1856,6 +1861,7 @@ ReaLearn supports the following <<source>> types.
 A special kind of source that will never emit any events.
 It's intended to be used on mappings which are not supposed to be controlled directly but only via <<group-interaction>>.
 
+[[midi-source, MIDI source]]
 === Category "MIDI"
 
 Most types in the MIDI category have the following UI elements in common.
@@ -3958,6 +3964,8 @@ For example, you map `ch1/fader` to the <<track-set-volume>> target.
 So you can now control the track volume by moving the first fader.
 4. Most importantly, the main preset is now generic because it's not built for a specific controller anymore!
 
+See <<using-the-controller-compartment>> for more information how to do this in detail!
+
 [[virtual-feedback]]
 ==== Virtual feedback
 
@@ -5693,72 +5701,70 @@ Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases
 * Project is paused and ReaLearn track is not armed.
 * ReaLearn FX is on input FX chain and track is not armed.
 
+[[using-the-controller-compartment]]
 === Using the controller compartment
 
-The controller compartment lets you describe the controller device.
+The <<controller-compartment>> lets you describe a <<controller>> simply by adding <<mapping, mappings>>.
+When you do that, each <<controller-mapping>> represents a <<control-element>> on your <<controller>>, e.g. a <<momentary-button>> or <<fader>>.
 
-By default, ReaLearn shows the list of main mappings.
-If you switch to the _controller_ compartment, you will see the list of controller mappings instead.
-Each controller mapping represents a control element on your hardware controller, e.g. a button or fader.
-This view lets you describe your controller by - well - by adding mappings.
-Almost everything in ReaLearn is a mapping :)
+Describing your controller is optional but it brings benefits:
 
-Defining your own controllers can have a bunch of benefits:
-
-* You can use the awesome <<projection>> feature to project your controller mapping to a smartphone or tablet (link:https://www.youtube.com/watch?v=omuYBznEShk&feature=youtu.be[watch video]).
-* You can use controller presets made by other users and thereby save precious setup time.
+* You can use the <<projection>> feature to project your controller mapping to a smartphone or tablet (link:https://www.youtube.com/watch?v=omuYBznEShk&feature=youtu.be[watch video]).
+* You can use <<controller-preset, controller presets>> either built-in ones or those made by other users ... and thereby save precious setup time.
 Or you can contribute them yourself!
-* You can make your main mappings independent of the actual controller that you use.
-This is done using so-called
-_virtual_ sources and targets.
+* You can make your <<main-mapping, main mappings>> independent of the actually used <<controller>>.
+This is done using <<virtual-source, virtual sources>> and <<virtual-target, virtual targets>>.
 * It allows you to give your knobs, buttons etc. descriptive and friendly names instead of just e.g. "CC 15".
-* You don't need to learn your control elements again and again.
-Although the process of learning an element is easy in ReaLearn, it can take some time in case the source character is not guessed correctly (e.g. absolute range element or relative encoder).
+* You don't need to learn your <<control-element, control elements> again and again.
+Although the process of learning an element is easy in ReaLearn, it can take some time in case the <<midi-source-character>> is not guessed correctly.
 Just do it once and be done with it!
 
 If you want to make ReaLearn "learn" about your nice controller device, all you need to do is to create a suitable controller mapping for each of its control elements.
 
 Let's first look at the "slow" way to do this - adding and editing each controller mapping one by one:
 
-. Press the "Add one" button.
-. Learn the source by pressing the "Learn source" button and touching the control element.
-. Press the "Edit" button.
-. Enter a descriptive name for the control element.
-** _Hint:_ This name will appear in many places so you want it to be short, clear and unique!
-. Assign a unique virtual target.
-** At this point we don't want to assign a _concrete_ target yet.
-The point of controller presets is to make them as reusable as possible, that's why we choose a so-called _virtual_ target.
+. Press the <<add-one-button>>.
+. Learn the <<source>> by pressing the <<row-learn-source-button>> and touching the control element.
+. Press the <<row-edit-button>>.
+. Enter a descriptive name for the <<control-element>>.
++
+TIP: This name will appear in many places so you want it to be short, clear and unique!
+. Assign a unique <<virtual-target>>.
+** At this point we don't want to assign a <<real-target>> yet.
+The point of <<controller-preset, controller presets>> is to make them as reusable as possible, that's why we choose a <<virtual-target>>.
 ** In the _Category_ dropdown, choose _Virtual_.
-** As _Type_, choose _Button_ if your control element is a sort of button (something which you can press) and _Multi_ in all other cases.
-** Use for each control element a unique combination of _Type_ and _ID_, starting with number _1_ and counting.
-*** Example: It's okay and desired to have one control element mapped to "Multi 1" and one to "Button 1".
+** As _Type_, choose <<virtual-control-element-type-button>> if your control element is a sort of button (something which you can press) or <<virtual-control-element-type-multi>> in all other cases.
+** Use for each <<control-element>> a unique combination of <<virtual-control-element-type>> and <<virtual-control-element-id>>, starting with number *1* and counting.
++
+TIP: It's okay and desired to have one control element mapped to "Multi 1" and one to "Button 1".
 ** Just imagine the "8 generic knobs + 8 generic buttons" layout which is typical for lots of popular controllers.
 You can easily model that by assigning 8 multis and 8 buttons.
-** Maybe you have realized that the _Glue_ section is available for controller mappings as well!
+** Maybe you have realized that the <<glue-section>> is available for controller mappings as well!
 That opens up all kinds of possibilities.
 You could for example restrict the target range for a certain control element.
 Or make an encoder generally slower or faster.
 Or you could simulate a rotary encoder by making two buttons on your controller act as -/+ buttons emitting relative values.
-This is possible by mapping them to the same "Multi" in "Incremental button" mode.
+This is possible by mapping them to the same <<virtual-control-element>> in <<incremental-button>>.
 
-Before you go ahead and do that for each control element, you might want to check out what this is good for: Navigate back to the _main_ compartment, learn the source of some main mapping and touch the control element that you have just mapped: Take note how ReaLearn will assign a _virtual_ source this time, not a MIDI source!
-It will also display the name of the control element as source label.
-Now, let's say at some point you swap your controller device with another one that has a similar layout, all you need to do is switch the controller preset and you are golden!
-You have decoupled your main mappings from the actual controller.
-Plus, as soon as you have saved your controller mappings as a preset, you can take full advantage of the <<projection>> feature.
+Before you go ahead and do that for each control element, you might want to check out what this is good for: Navigate back to the <<main-compartment>>, learn the <<source>> of some <<main-mapping>> and touch the <<control-element>> that you have just mapped: Take note how ReaLearn will assign a <<virtual-source>> this time, not a <<midi-source>>!
+It will also display the name of the <<virtual-control-element>> as source label.
+
+Now, let's say at some point you swap your <<controller>> with another one that has a similar layout, all you need to do is to switch the <<controller-preset>> and you are golden!
+You have decoupled your <<main-mapping>> from the actual <<controller>>.
+Plus, you can now take full advantage of the <<projection>> feature.
 
 All of this might be a bit of an effort but it's well worth it!
 Plus, there's a way to do this _a lot_ faster by using _batch learning_:
 
-. Press the "Learn many" button.
-. Choose whether you want to learn all the "Multis" on your controller or all the "Buttons".
-. Simply touch all control elements in the desired order.
-** ReaLearn will take care of automatically incrementing the virtual control element numbers.
-. Press "Stop".
+. Press the <<learn-many-button>>.
+. Choose whether you want to learn all the <<virtual-control-element-type-multi>> elements on your <<controller>> or all the <<virtual-control-element-type-button>> elements.
+. Simply touch all relevant <<control-element, control elements>> in the desired order.
+ReaLearn will take care of automatically incrementing the <<virtual-control-element-id>>.
+. Press btn:[Stop].
 . Done!
 ** At this point it's recommended to recheck the learned mappings.
-** ReaLearn's source character detection for MIDI CCs is naturally just a guess, so it can be wrong.
-If so, just adjust the character in the corresponding mapping panel.
+** ReaLearn's <<midi-source-character>> detection for MIDI CCs is naturally just a guess, so it can be wrong.
+If so, just adjust the character in the corresponding <<mapping-panel>>.
 
 You can share your preset with other users by sending them to link:mailto:&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;[&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;].
 I will add it to https://github.com/helgoboss/helgobox/tree/master/resources/controller-presets[this
