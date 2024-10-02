@@ -436,7 +436,7 @@ Changes the name of this parameter.
 [[set-compartment-parameter-value-count]]Value count:::
 Lets you enter the maximum number of values.
 This automatically turn this parameter into a discrete parameter.
-See <<continuous-and-discrete-compartment-parameters>>.
+See <<continuous-vs-discrete-compartment-parameters>>.
 
 Compartment presets::
 
@@ -904,7 +904,7 @@ Row 1::
 * The current scroll position.
 * The <<instance-id>> of this Helgobox <<instance>>.
 * The <<unit-key>> of the currently visible ReaLearn <<unit>>.
-* <<unit-tags>> assigned to this ReaLearn <<unit>>.
+* <<unit-tag>> assigned to this ReaLearn <<unit>>.
 
 Row 2::
 * Information about the current <<unit-track>> and <<unit-fx>>.
@@ -920,7 +920,7 @@ Press this button to change various key-value data of this ReaLearn unit as a wh
 
 Unit key…:: Allows you to change the <<unit-key>> of this <<unit>>.
 Unit name:: The display name of this <<unit>>.
-Tags:: Lets you assign <<unit-tags>> to this <<unit>> as a comma-separated list.
+Tags:: Lets you assign <<unit-tag>> to this <<unit>> as a comma-separated list.
 
 [#mapping-panel]
 === Mapping panel
@@ -942,7 +942,7 @@ If you clear the name, ReaLearn will name the mapping automatically based on its
 
 ===== Tags field
 
-Use this to assign arbitrary <<mapping-tags>> to this mapping (comma-separated).
+Use this to assign arbitrary <<mapping-tag>> to this mapping (comma-separated).
 
 ===== Control/feedback-enabled checkboxes (→/←)
 
@@ -1463,7 +1463,7 @@ target.text_value
 |
 Short text representing the current target value, including a possible unit.
 
-If the target value can be represented using some kind of name, this name is preferred over a possibly alternative numeric representation. Example: Let's assume the 4th track in our project is called "Guitar" and the mapping target is <<browse_tracks_target>>. Then `target.text_value` contains the text _Guitar_, not the text _4_.
+If the target value can be represented using some kind of name, this name is preferred over a possibly alternative numeric representation. Example: Let's assume the 4th track in our project is called "Guitar" and the mapping target is <<browse-tracks-target>>. Then `target.text_value` contains the text _Guitar_, not the text _4_.
 
 This is the default value shown if textual feedback is enabled and the textual feedback
 expression is empty.
@@ -2609,7 +2609,7 @@ Useful for distinguishing feedback between _paused_ and _stopped_ state.
 ** *Record:* Starts/enables recording for the current project if the incoming absolute control value is greater than 0%, otherwise disables recording.
 ** *Repeat:* Enables repeat for the containing project if the incoming absolute control value is greater than 0%, otherwise disables it.
 
-[#browse_tracks_target]
+[#browse-tracks-target]
 ==== Project: Browse tracks
 
 Steps through tracks.
@@ -3369,8 +3369,10 @@ This can be useful for rather unimportant sources such as "Fader touch" that wou
 This section describes further concepts.
 You may or may not need to understand them, it depends on which ReaLearn features you are going to use and how complex your control scenarios are.
 
+=== General concepts
+
 [[import-export]]
-=== Import/export
+==== Import/export
 
 ReaLearn can import and export data in 2 formats:
 
@@ -3428,69 +3430,124 @@ reaper.TrackFX_SetNamedConfigParm(track, 0, "set-state", state)
 ----
 ====
 
-==== Troubleshooting Luau import
-
-The way Luau import works in ReaLearn is:
-
-. ReaLearn attempts to execute the Luau script in the clipboard.
-. ReaLearn attempts to interpret the returned value as ReaLearn API object.
-. ReaLearn loads the API object
-
-If step 1 fails, ReaLearn displays an error messages that hopefully contains a line number.
-If step 2 fails, ReaLearn shows a validation error message.
-
-If importing Luau code fails and the displayed error message is not helpful, you can try <<dry-run-lua-script>>.
-This action enables you to just execute step 1 and see the "expanded" result.
-This can help to make sense of a possible validation error message in step 2.
-
-[[projection]]
-=== Projection
-
-Projection is a quite unique feature that allows you to project a schematic representation of your currently active controller to a mobile device (e.g. a tablet computer).
-You can put this device close to your controller in order to see immediately which control element is mapped to which parameter.
-This is an attempt to solve an inherent problem with generic controllers: That it's easy to forget which control element is mapped to which target parameter.
-
-=== Logging
-
-Logging can be enabled or disabled via <<logging-menu>>.
-
-[[logging-of-real-control-messages]]
-==== Logging of real control messages
-
-Each log entry contains the following information:
-
-* Timestamp in seconds
-* Helgobox <<instance-id>>
-* Message purpose
-** *Real control:* A message used for controlling targets.
-** *Real learn:* A message used for learning a source.
-* Actual message (MIDI messages will be shown as hexadecimal byte sequence, short MIDI messages also as decimal byte sequence and decoded)
-* Match result
-** *unmatched:* The message didn't match any mappings.
-** *matched:* The message matched at least one of the mappings.
-** *consumed:* Only for short MIDI messages.
-This short message is part of a (N)RPN or 14-bit CC message and there's at least one active mapping that has a (N)RPN or 14-bit CC source.
-That means it will not be processed.
-The complete (N)RPN or 14-bit CC message will be.
-
-[[logging-of-real-feedback-messages]]
-==== Logging of real feedback messages
-
-The log entries look similar to the ones described above, with the following notable differences.
-
-* Message purpose
-** *Feedback output:* A message sent to your controller as response to target value changes.
-** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation (see <<mapping-lifecycle-actions,Mapping lifecycle actions>>).
-** *Target output:* A message sent because of either the <<midi-send-message-target,MIDI: Send message>> or <<osc-send-message,OSC: Send message>> target.
+=== Instance concepts
 
 [[instance-id]]
-=== Instance ID
+==== Instance ID
 
 A randomly assigned ID that uniquely identifies a particular <<instance>>.
 Will most likely change after a restart of REAPER!
 
+[[auto-units]]
+==== Auto units
+
+Each <<instance>> optionally supports the automatic addition and configuration of a <<unit>> with a user-defined main preset if a certain type of controller is connected and automatic removal if it is disconnected.
+
+The general procedure is:
+
+. Globally define once what controllers you have at your disposal and choose which main preset you want to use for which controller (in the Helgobox App)
+. Enable global control for one Helgobox instance using <<enable-global-control>>.
+
+It's a good idea to enable global control for a Helgobox instance on the monitoring FX chain.
+Such an instance will be around permanently as long as REAPER is running, even if you open and close different projects.
+Perfect for project-spanning control scenarios!
+
+And now the nice part: If you decide to use a specific device for something else in a certain project, all you need to do is to set use the device as input and/or output in a project-specific ReaLearn unit!
+If you do that, the project-specific instance "wins" over the monitoring FX instance.
+You got a project-specific override.
+If you close the project, the monitoring FX instance takes over again.
+
+[[playtime]]
+==== Playtime
+
+link:https://www.helgoboss.org/projects/playtime[Playtime] is a modern session view / clip launcher for REAPER, built straight into Helgobox.
+
+Each Helgobox <<instance>> may contain one _Playtime Matrix_ (by default not loaded)
+
+[[pot-browser]]
+==== Pot Browser
+
+Pot Browser is an experimental modern preset browser built straight into Helgobox.
+It's just a prototype so far.
+It will probably look quite different in the future.
+You can open it via menu action <<open-pot-browser>>.
+
+It's recommended to use Pot Browser from a ReaLearn instance on the monitoring FX chain, that way you have the browser accessible from any project.
+
+TIP: Add a toolbar button which triggers the REAPER action "ReaLearn: Open first Pot Browser" to get quick and convenient access to the browser.
+
+Remarks:
+
+- Pot Browser is in an experimental stage, it doesn't save any of your settings!
+- Each ReaLearn instance can have one _Pot Unit_ (by default not loaded).
+Each Pot Unit has its own filter and preset state.
+When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
+- ReaLearn's "Pot" targets such as <<pot-browse-presets>> can be used to control the Pot Unit from any controller.
+
+=== Unit concepts
+
+[[letting-through-events]]
+==== Letting through events
+
+ReaLearn by default "eats" incoming MIDI events for which there's at least one active mapping with that source.
+In other words, it doesn't forward MIDI events which are used to control a target parameter.
+However, unmatched MIDI events are forwarded!
+You can change this using <<let-through-checkboxes>>.
+
+The exact behavior differs depending on what you choose as <<input-menu>>:
+
+* If input is set to <<fx-input>>
+** MIDI events arrive from ReaLearn's FX input.
+If they get forwarded, they get forwarded to the FX output, usually to the plug-in which is located right below ReaLearn FX.
+The default setting often makes much sense here, especially if you put ReaLearn right above another instrument plug-in.
+* If input is set to a MIDI hardware device
+** MIDI events arrive directly from the MIDI hardware device.
+If they get forwarded, they get forwarded to REAPER's tracks as they would usually do without ReaLearn.
+If they don't get forwarded, it means they get filtered and will never make it to the tracks.
+ReaLearn completely eats them, globally!
+That means, ReaLearn can act as global MIDI filter.
+** Please note, with input set to a real MIDI device, MIDI events coming from _FX input_ are _always_ forwarded to the FX output.
+** Also, MIDI events captured from a real MIDI device input are *never* forwarded to ReaLearn's FX output.
++
+TIP: This global MIDI filter feature is only available in REAPER v6.36+.
+* If input is set to a OSC device
+** You won't see the checkboxes because they don't make sense for OSC.
+* The checkboxes don't have any effect on computer keyboard input.
+Keys are always passed through when doing text entry and never passed through if a mapping matches.
+
+[[auto-load]]
+==== Auto-load
+
+If you activate <<auto-load-based-on-unit-fx>>, ReaLearn will start to observe the <<unit-fx>> of this ReaLearn unit and keep loading <<main-preset, main presets>> according to which <<fx-to-preset-link, FX-to-preset links>> you have defined.
+By default, the unit FX is set to `<Focused>`, which means, it will reflect whatever FX is currently focused.
+Whenever the unit FX changes, it will check if you have linked a compartment preset to it and will automatically load it.
+Whenever the unit FX switches to an unlinked FX or the FX loses focus, ReaLearn falls back to the mapping list or preset that was active before activating auto-load.
+
+Of course this makes sense only if you actually have linked some presets.
+Section <<unit-fx-to-preset-link>> describes how to do that.
+
+[[fx-to-preset-link]]
+==== FX-to-preset link
+
+A link between a FX and a <<main-preset>>.
+Used in <<auto-load>>.
+
+[[unit-fx-to-preset-link]]
+===== Unit FX-to-preset link
+
+A link saved as part of a <<unit>>.
+
+[[global-fx-to-preset-link]]
+===== Global FX-to-preset link
+
+This is like a <<unit-fx-to-preset-link>> but the link is saved globally.
+This is useful if you have only one controller or if you have x controllers (= and therefore x ReaLearn units) and want both of them to always auto-load the same preset if the unit FX points to the same plug-in.
+
+* All links will be saved _globally_, not just within this project!
+* Location: REAPER resource directory (menu:Options[Show REAPER resource path in explorer/finder]) at `Data/helgoboss/realearn/auto-load-configs/fx.json`.
+
 [[unit-key]]
-=== Unit key
+==== Unit key
 
 Each ReaLearn unit has a key that's used to address this particular ReaLearn unit when using the <<projection>> feature.
 By default, the unit key is a random cryptic string which ensures that every unit is uniquely addressable.
@@ -3516,7 +3573,7 @@ Make sure to not have more than one ReaLearn unit with the same unit key active 
 This might change in future in favor of a more nuanced approach!
 
 [#unit-track]
-=== Unit track
+==== Unit track
 
 The second line of the bottom panel shows the current track chosen as **Unit track** for this unit of ReaLearn.
 This can be something like "Track 3" or "The currently selected track".
@@ -3525,7 +3582,7 @@ Mappings in this ReaLearn unit can refer to this track by choosing the track sel
 The unit track can be changed via target <<track-target>>.
 
 [#unit-fx]
-=== Unit FX
+==== Unit FX
 
 The second line of the bottom panel also shows the current FX chosen as **Unit FX** for this unit of ReaLearn.
 This can be something like "FX 5 on track 3" or "The currently focused track".
@@ -3533,65 +3590,55 @@ Mappings in this ReaLearn unit can refer to this FX by choosing the FX selector 
 
 The unit FX can be changed via target <<fx-target>>.
 
-[[unit-tags]]
-=== Unit tags
+[[unit-tag]]
+==== Unit tag
 
 Each unit can have arbitrarily many tags.
 
 Tags are important if you want to dynamically enable or disable instances using the <<realearn-enable-disable-instances>> target.
 
-[[auto-units]]
-=== Auto units
+[[projection]]
+==== Projection
 
-ReaLearn supports the automatic addition of a unit with a user-defined main preset if a certain type of controller is connected and automatic removal if it is disconnected.
+Projection is a quite unique feature that allows you to project a schematic representation of your currently active controller to a mobile device (e.g. a tablet computer).
+You can put this device close to your controller in order to see immediately which control element is mapped to which parameter.
+This is an attempt to solve an inherent problem with generic controllers: That it's easy to forget which control element is mapped to which target parameter.
 
-The general procedure is:
+==== Logging
 
-. Globally define once what controllers you have at your disposal and choose which main preset you want to use for which controller (in the Helgobox App)
-. Enable global control for one Helgobox instance using <<enable-global-control>>.
+Logging can be enabled or disabled via <<logging-menu>>.
 
-It's a good idea to enable global control for a Helgobox instance on the monitoring FX chain.
-Such an instance will be around permanently as long as REAPER is running, even if you open and close different projects.
-Perfect for project-spanning control scenarios!
+[[logging-of-real-control-messages]]
+===== Logging of real control messages
 
-And now the nice part: If you decide to use a specific device for something else in a certain project, all you need to do is to set use the device as input and/or output in a project-specific ReaLearn unit!
-If you do that, the project-specific instance "wins" over the monitoring FX instance.
-You got a project-specific override.
-If you close the project, the monitoring FX instance takes over again.
+Each log entry contains the following information:
 
-[[auto-load]]
-=== Auto-load
+* Timestamp in seconds
+* Helgobox <<instance-id>>
+* Message purpose
+** *Real control:* A message used for controlling targets.
+** *Real learn:* A message used for learning a source.
+* Actual message (MIDI messages will be shown as hexadecimal byte sequence, short MIDI messages also as decimal byte sequence and decoded)
+* Match result
+** *unmatched:* The message didn't match any mappings.
+** *matched:* The message matched at least one of the mappings.
+** *consumed:* Only for short MIDI messages.
+This short message is part of a (N)RPN or 14-bit CC message and there's at least one active mapping that has a (N)RPN or 14-bit CC source.
+That means it will not be processed.
+The complete (N)RPN or 14-bit CC message will be.
 
-If you activate <<auto-load-based-on-unit-fx>>, ReaLearn will start to observe the <<unit-fx>> of this ReaLearn unit and keep loading <<main-preset, main presets>> according to which <<fx-to-preset-link, FX-to-preset links>> you have defined.
-By default, the unit FX is set to `<Focused>`, which means, it will reflect whatever FX is currently focused.
-Whenever the unit FX changes, it will check if you have linked a compartment preset to it and will automatically load it.
-Whenever the unit FX switches to an unlinked FX or the FX loses focus, ReaLearn falls back to the mapping list or preset that was active before activating auto-load.
+[[logging-of-real-feedback-messages]]
+===== Logging of real feedback messages
 
-Of course this makes sense only if you actually have linked some presets.
-Section <<unit-fx-to-preset-link>> describes how to do that.
+The log entries look similar to the ones described above, with the following notable differences.
 
-[[fx-to-preset-link]]
-=== FX-to-preset link
-
-A link between a FX and a <<main-preset>>.
-Used in <<auto-load>>.
-
-[[unit-fx-to-preset-link]]
-==== Unit FX-to-preset link
-
-A link saved as part of a <<unit>>.
-
-[[global-fx-to-preset-link]]
-==== Global FX-to-preset link
-
-This is like a <<unit-fx-to-preset-link>> but the link is saved globally.
-This is useful if you have only one controller or if you have x controllers (= and therefore x ReaLearn units) and want both of them to always auto-load the same preset if the unit FX points to the same plug-in.
-
-* All links will be saved _globally_, not just within this project!
-* Location: REAPER resource directory (menu:Options[Show REAPER resource path in explorer/finder]) at `Data/helgoboss/realearn/auto-load-configs/fx.json`.
+* Message purpose
+** *Feedback output:* A message sent to your controller as response to target value changes.
+** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation (see <<mapping-lifecycle-actions,Mapping lifecycle actions>>).
+** *Target output:* A message sent because of either the <<midi-send-message-target,MIDI: Send message>> or <<osc-send-message,OSC: Send message>> target.
 
 [[superior-units]]
-=== Superior units
+==== Superior units
 
 When a unit is made superior via menu entry <<make-unit-superior>>, this unit is allowed to suspend other units which share the same input and/or output device (hardware devices only, not FX input or output!).
 
@@ -3625,125 +3672,27 @@ Then, whenever this unit has at least one active mapping, all non-superior units
 * You can have multiple superior units.
 Make sure they get along with each other :)
 
-[[letting-through-events]]
-=== Letting through events
-
-ReaLearn by default "eats" incoming MIDI events for which there's at least one active mapping with that source.
-In other words, it doesn't forward MIDI events which are used to control a target parameter.
-However, unmatched MIDI events are forwarded!
-You can change this using <<let-through-checkboxes>>.
-
-The exact behavior differs depending on what you choose as <<input-menu>>:
-
-* If input is set to <<fx-input>>
-** MIDI events arrive from ReaLearn's FX input.
-If they get forwarded, they get forwarded to the FX output, usually to the plug-in which is located right below ReaLearn FX.
-The default setting often makes much sense here, especially if you put ReaLearn right above another instrument plug-in.
-* If input is set to a MIDI hardware device
-** MIDI events arrive directly from the MIDI hardware device.
-If they get forwarded, they get forwarded to REAPER's tracks as they would usually do without ReaLearn.
-If they don't get forwarded, it means they get filtered and will never make it to the tracks.
-ReaLearn completely eats them, globally!
-That means, ReaLearn can act as global MIDI filter.
-** Please note, with input set to a real MIDI device, MIDI events coming from _FX input_ are _always_ forwarded to the FX output.
-** Also, MIDI events captured from a real MIDI device input are *never* forwarded to ReaLearn's FX output.
-+
-TIP: This global MIDI filter feature is only available in REAPER v6.36+.
-* If input is set to a OSC device
-** You won't see the checkboxes because they don't make sense for OSC.
-* The checkboxes don't have any effect on computer keyboard input.
-Keys are always passed through when doing text entry and never passed through if a mapping matches.
-
-[#compartment-parameter]
-=== Compartment parameter
-
-==== Basics
-
-Each ReaLearn compartment contains 100 freely assignable parameters.
-Compartment parameters can be used in the following ways:
-
-* For <<conditional-activation>> (lets the parameter value influence which mappings are active)
-* For <<dynamic-selector>> (lets the parameter value influence which object (track, FX etc.) is targeted for a specific mapping)
-* As source <<parameter-source>> (lets the parameter value control any ReaLearn target)
-
-They can be customized as described in <<compartment-parameters-menu>>.
-Parameter customizations are saved together with the compartment preset.
-Parameter values will be reset whenever you load a preset (just the ones in that compartment).
-
-[[continuous-and-discrete-compartment-parameters]]
-==== Continuous and discrete compartment parameters
-
-By default, ReaLearn parameter values are _continuous_ in nature: They are arbitrary decimal numbers between 0.0 and 1.0, often displayed as percentage between 0% and 100%.
-Although that's very flexible, it's often easier to work with a _discrete_ value range.
-
-Entering a value count (see <<set-compartment-parameter-value-count>>) turns the parameter into a discrete parameter with the given number of integer values.
-For example, a value count of 10 means that the parameter can represent exactly 10 values (0 to 9).
-
-*Choose the value count wisely and think twice before changing it to a different value at a later point in time!* You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in <<target-min-max>>.
-If you do that and later change the value count, these value references will not be valid anymore.
-They will point to other integers than you intended to.
-So if you are not sure, better pick a large value count and stick to it!
-
-[[compartment-wide-lua-code]]
-=== Compartment-wide Lua code
-
-Each compartment may contain arbitrary Luau code to be reused by multiple mapping MIDI source and feedback scripts.
-This avoids code duplication and decreases memory usage.
-It even allows the usage of shared state.
-
-The code that you provide here is treated as a module that MIDI source and feedback scripts can import using `require("compartment")`.
-That means you need to export everything that you want the MIDI source and feedback scripts to see, simply by returning it.
-
-.Compartment-wide Lua code
-====
-The following compartment-wide Lua code exports 2 functions named `get_text` and `get_number`:
-
-[source,lua]
-----
-local module = {}
-
-local function private_function()
-    return "i'm private"
-end
-
-function module.get_text()
-    return "hello world"
-end
-
-function module.get_number()
-    return 5
-end
-
-return module
-----
-
-These functions can then be reused in MIDI source and feedback scripts:
-
-[source,lua]
-----
-local compartment = require("compartment")
-local text = compartment.get_text()
-local number = compartment.get_number()
-----
-====
-
-Compartment-wide Lua code is part of the compartment, that means it's also saved as part of a compartment preset!
+=== Compartment concepts
 
 [[compartment-preset]]
-=== Compartment preset
+==== Compartment preset
+
+===== Main presets vs. controller presets
 
 [[main-preset]]
-==== Main preset
+====== Main preset
 
 The term _main preset_ is just a shortcut for saying "compartment preset in the main compartment".
 
 [[controller-preset]]
-==== Controller preset
+====== Controller preset
 
 The term _controller preset_ is just a shortcut for saying "compartment preset in the controller compartment".
 
+===== Factory preset vs. User preset
+
 [[factory-compartment-preset]]
-==== Factory preset
+====== Factory preset
 
 Factory presets are built-in compartment presets.
 You can't change them yourself.
@@ -3751,7 +3700,7 @@ But you can "make them your own" by making a copy of them.
 See <<writing-presets-with-luau>>.
 
 [[user-compartment-preset]]
-==== User preset
+====== User preset
 
 User presets are made by users, for example by you.
 
@@ -3768,7 +3717,7 @@ Please note that the subdirectory name becomes a part of the preset ID, so bette
 For example, the ReaLearn Companion app adds a custom data section to controller presets in order to memorize the positions and shapes of all control elements.
 
 [#writing-presets-with-luau]
-==== Writing presets with Luau
+===== Writing presets with Luau
 
 It is possible to write compartment presets with the link:https://luau.org/[Luau language] instead of building them via the user interface.
 Many of the more complex ReaLearn factory presets are written in Lua, e.g. the "DAW control" preset.
@@ -3947,8 +3896,86 @@ Currently, only feature `playtime` is supported, which matches if the Helgobox i
 
 |===
 
+[#compartment-parameter]
+==== Compartment parameter
+
+Each ReaLearn compartment contains 100 freely assignable parameters.
+Compartment parameters can be used in the following ways:
+
+* For <<conditional-activation>> (lets the parameter value influence which mappings are active)
+* For <<dynamic-selector>> (lets the parameter value influence which object (track, FX etc.) is targeted for a specific mapping)
+* As source <<parameter-source>> (lets the parameter value control any ReaLearn target)
+
+They can be customized as described in <<compartment-parameters-menu>>.
+Parameter customizations are saved together with the compartment preset.
+Parameter values will be reset whenever you load a preset (just the ones in that compartment).
+
+[[continuous-vs-discrete-compartment-parameters]]
+===== Continuous vs. discrete compartment parameters
+
+By default, <<compartment-parameter,compartment parameters>> have a <<continuous-value-range>>.
+Although that makes them very versatile, it's often easier to work with a <<discrete-value-range>>.
+
+Entering a value count (see <<set-compartment-parameter-value-count>>) makes the parameter have a <<discrete-value-range>> with the given number of integer values.
+For example, a value count of 10 means that the parameter can represent exactly 10 values (0 to 9).
+
+[CAUTION]
+====
+*Choose the value count wisely and think twice before changing it to a different value at a later point in time!*
+
+You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in <<target-min-max>>.
+If you do that and later change the value count, these value references will not be valid anymore.
+They will point to other integers than you intended to.
+So if you are not sure, better pick a large value count and stick to it!
+====
+
+[[compartment-wide-lua-code]]
+==== Compartment-wide Lua code
+
+Each compartment may contain arbitrary Luau code to be reused by multiple mapping MIDI source and feedback scripts.
+This avoids code duplication and decreases memory usage.
+It even allows the usage of shared state.
+
+The code that you provide here is treated as a module that MIDI source and feedback scripts can import using `require("compartment")`.
+That means you need to export everything that you want the MIDI source and feedback scripts to see, simply by returning it.
+
+.Compartment-wide Lua code
+====
+The following compartment-wide Lua code exports 2 functions named `get_text` and `get_number`:
+
+[source,lua]
+----
+local module = {}
+
+local function private_function()
+    return "i'm private"
+end
+
+function module.get_text()
+    return "hello world"
+end
+
+function module.get_number()
+    return 5
+end
+
+return module
+----
+
+These functions can then be reused in MIDI source and feedback scripts:
+
+[source,lua]
+----
+local compartment = require("compartment")
+local text = compartment.get_text()
+local number = compartment.get_number()
+----
+====
+
+Compartment-wide Lua code is part of the compartment, that means it's also saved as part of a compartment preset!
+
 [[virtual-control]]
-=== Virtual control
+==== Virtual control
 
 _Virtual control_ make it possible to create <<main-preset,main presets>>
 that can be reused with many different <<controller,controllers>>.
@@ -3963,11 +3990,11 @@ So you can now control the track volume by moving the first fader.
 4. Most importantly, the main preset is now generic because it's not built for a specific controller anymore!
 
 [[virtual-feedback]]
-=== Virtual feedback
+==== Virtual feedback
 
 _Virtual feedback_ is just like <<virtual-control>>, but in the opposite direction (from REAPER to your <<controller>>).
 
-=== Order in which mappings are processed
+==== Order in which mappings are processed
 
 Since ReaLearn 2.10.0, mappings are processed from top to button, exactly in the order in which they are defined within the corresponding compartment.
 This matters if you want to map multiple targets to one button and the order of execution matters.
@@ -3985,8 +4012,160 @@ Changing a parameter means setting a course.
 The course needs to be set in advance, at least one step before!
 Not at the same time as moving the train over the switch.
 
-[[mapping-tags]]
-=== Mapping tags
+=== Mapping concepts
+
+==== Absolute vs. relative control elements
+
+We can distinguish between control elements with regard to what sort of <<control-value>> they emit: In this dimension, we have <<absolute-control-element>> and <<relative-control-element>>.
+
+[[absolute-control-element]]
+===== Absolute control element
+
+A <<control-element>> is absolute if it emits absolute values.
+You can think of an absolute value as a percentage: The value is something between 0% and 100%, where 0% represents the minimum possible value and 100% the maximum.
+
+.Typical absolute control elements
+====
+
+Fader:: When moving a fader up from bottom to top, it will emit values from 0% to 100%.
+
+Knob:: When moving a knob clockwise, it will emit values from 0% (at the left boundary) to 100% (at the right boundary).
+
+Momentary button:: When pressing a button, it will emit 100%.
+When released, it will emit 0%.
+
+Key:: When pressing a key on a musical keyboard, it will emit a value between 0% and 100%, depending on the velocity with which the key was pressed.
+When released, it will emit 0%.
+====
+
+[[relative-control-element]]
+===== Relative control element
+
+A <<control-element>> is relative if it emits relative values.
+You can think of a relative value as an _instruction_.
+It can be one of the following two instructions:
+
+Please decrease!:: We call such a value a *decrement*.
+Please increase!:: We call such a value an *increment*.
+
+.Typical relative control elements
+====
+
+Rotary endless encoders:: When moving a rotary endless encoder clockwise, it will continuously emit increments.
+When moving it counter-clockwise, it will continuously emit decrements.
++
+It happens very often that controllers have rotary endless encoders, but they will act like knobs by default, sending absolute messages.
+That is a great waste and you should change that setting as soon as possible on the hardware side. **Relative control is always superior to absolute control!**
+
+====
+
+==== Real vs. virtual control elements
+
+Wait ... control elements that are not real!?
+Yes!
+In ReaLearn, they exist.
+We can distinguish between <<real-control-element>> and <<virtual-control-element>>.
+
+[[real-control-element]]
+===== Real control element
+
+A _real_ control element is an element that really exists on a <<controller>>, e.g. a fader that you can touch.
+
+[[virtual-control-element]]
+===== Virtual control element
+
+A _virtual_ control element is an abstraction of a <<real-control-element>>.
+It enables <<virtual-control>> and <<virtual-feedback>>.
+
+Each virtual control element has a _type_ and an _ID_.
+
+[[virtual-control-element-id]]
+====== Virtual control element ID
+
+A number or name that uniquely identifies the control element on the device.
+
+Numbers are especially suited for the 8-knobs/8-buttons layouts.
+In a row of 8 knobs one would typically assign number 1 to the leftmost and number 8 to the rightmost one.
+It's your choice.
+
+For more advanced virtual control scenarios it can be useful to think in names instead of numbers.
+You can use up to 32 alphanumeric and punctuation characters (no exotic characters, e.g. no umlauts).
+
+[[virtual-control-element-type]]
+====== Virtual control element type
+
+If you want to define a virtual control element, you should first decide which type is should have: _Multi_ or _Button_.
+This distinction is used by ReaLearn to optimize its user interface.
+
+IMPORTANT: For numbered control elements, the type is even part of the <<virtual-control-element-id>>.
+For example, "Multi 1" is considered a different virtual control element than "Button 1".
+For named control elements, this is not the case. `col1/row1/pad` defined as Multi is considered the same as `col1/row1/pad` defined as Button.
+
+[[virtual-control-element-type-multi]] Multi::
+Represents a control element that you can "move", that is, something that allows you to choose between more than 2 values.
+Usually everything which is _not_ a simple on/off button :) Here's a list of typical _multis_:
+* Fader
+* Knob
+* Pitch wheel
+* Mod wheel
+* Endless encoder
+* XY pad (1 axis)
+* Touch strip
+* (Endless) rotary encoder
+* Velocity-sensitive pads or keys
+
+[[virtual-control-element-type-button]] Button::
+Represents a control element that distinguishes between two possible states only (e.g. on/off), or even just one ("trigger").
+Usually it has the form factor of a button that you can "press".
+Here's a list of typical _buttons_:
+
+* Play button
+* Switch
+* Sustain pedal (a simple on/off one, not a half-pedaling one!)
+
+Please note that velocity-sensitive keys should be exposed as <<virtual-control-element-type-button>> - unless you know for sure that you are not interested in the velocity sensitivity.
+
+[[virtual-control-scheme]]
+====== Virtual control scheme
+
+If you want your main preset to be compatible with as many controller presets as possible, try to use predefined names instead of inventing your own virtual control naming scheme.
+
+When you define a virtual source or virtual target, there's a convenient picker that provides names for the following standardized virtual control schemes:
+
+DAW control (`daw`)::
+The names you see here are heavily inspired by the wording used on Mackie Control devices.
+
+Grid (`grid`)::
+For controls divided into rows and column, as for example found on the Novation Launchpad.
+
+Numbered (`numbered`)::
+Simply lets you pick among any number between 1 and 100.
+
+[[control-value]]
+==== Control value
+
+A _control value_ is the signal that travels through a ReaLearn <<mapping>> from <<source>> to <<target>> when it receives an event from an <<input-port>>.
+A control value can be absolute or relative.
+
+[[absolute-control-value]]
+===== Absolute control value
+
+An _absolute_ control value is a percentage between 0.0% and 100.0% (internally represented by a high-precision floating point number between 0.0 and 1.0).
+
+[[relative-control-value]]
+===== Relative control value
+
+A _relative_ control value is a positive or negative integer that reflects the number of increments or decrements.
+E.g. control value -2 means a decrement of 2.
+
+[[feedback-value]]
+==== Feedback value
+
+A _feedback value_ is the signal that travels through a ReaLearn <<mapping>> back from <<target>> to <<source>> when a <<target>> changes its value.
+A feedback value is always absolute.
+
+[[mapping-tag]]
+==== Mapping tag
 
 Each mapping can have arbitrarily many tags.
 Such tags can be used to organize mappings in a way that is much more flexible than groups.
@@ -3995,7 +4174,7 @@ Tags are not just something for people that love to keep things tidy!
 They also get meaning in combination with certain ReaLearn targets such as <<realearn-enable-disable-mappings>>.
 
 [[group]]
-=== Mapping group
+==== Mapping group
 
 Mapping groups are part of the currently shown compartment and enable you to divide the list of mappings into multiple groups.
 
@@ -4012,7 +4191,7 @@ You can move existing mappings between groups by opening the context menu (acces
 Groups are saved as part of the project, VST plug-in preset and compartment preset.
 
 [[mapping-activation-state]]
-=== Mapping activation state
+==== Mapping activation state
 
 A mapping is considered as *on* or *active* (terms are used interchangeably) only if all following criteria are fulfilled:
 
@@ -4033,7 +4212,7 @@ In that case, it doesn't have any effect!
 (Controller) mappings with <<virtual-target>> are always considered active as long as the feedback checkbox is ticked.
 
 [[mapping-signal-flow]]
-=== Mapping signal flow
+==== Mapping signal flow
 
 Here's how ReaLearn processes an incoming control event that matches a mapping source.
 
@@ -4048,12 +4227,12 @@ Feedback (from target to source) works in a similar fashion but is restricted to
 Even if the source is relative (e.g. an encoder), ReaLearn will always emit absolute feedback, because relative feedback doesn't make sense.
 
 [[conditional-activation]]
-=== Conditional activation
+==== Conditional activation
 
 Conditional activation is a powerful feature that allows you to dynamically activate or deactivate a mapping depending on its <<mapping-activation-condition>>.
 
-==== Use case: Control A when a button is not pressed, control B when it is
-
+.Control A when a button is not pressed, control B when it is
+====
 Here's how you would implement a typical use case.
 You want your rotary encoder to control target A when the button is not pressed and control target B when it's pressed.
 
@@ -4073,9 +4252,10 @@ Set "Modifier B" to `<None>`.
 ** This basically means "Hey, ReaLearn!
 Please activate this mapping only if ReaLearn Parameter 1 is *on*!"
 ** At this point, turning your encoder should control target A if you don't press the button and control target B if you press the button.
+====
 
 [[mapping-activation-condition]]
-=== Mapping activation condition
+==== Mapping activation condition
 
 The activation condition of a mapping determines under which circumstances a mapping is active or inactive, based on the value of a <<compartment-parameter>> or based on the state of arbitrary <<target, targets>>.
 It is especially practical if your controller has a limited amount of control elements and you want to give control elements several responsibilities.
@@ -4114,7 +4294,7 @@ First, you need to give meaning to them by referring to them in activation condi
 ====
 
 [discrete]
-==== When modifiers on/off
+===== When modifiers on/off
 
 This mode is comparable to modifier keys on a computer keyboard.
 For example, when you press `Ctrl+V`
@@ -4141,7 +4321,7 @@ For example, the _absolute mode_ of the mapping that controls the modifier param
 You can also be more adventurous and let the modifier on/off state change over time, using REAPER's automation envelopes.
 
 [discrete]
-==== When bank selected
+===== When bank selected
 
 This is the correct activation mode if you want control surface "bank-style" mapping.
 
@@ -4177,7 +4357,7 @@ With _Conditional activation_ you can do the same (and more) within just one Rea
 TIP: If you want to adjust the number of banks and improve bank handling in general, set a discrete value count for the corresponding bank parameter (see <<compartment-parameter>>).
 
 [discrete]
-==== When EEL met
+===== When EEL met
 
 This is for experts.
 It allows you to write a formula in https://www.cockos.com/EEL2/[EEL2] language that determines if the mapping becomes active or not, based on potentially all parameter values.
@@ -4200,7 +4380,7 @@ TIP: For most activation conditions which need this amount of freedom, the newer
 
 [#expression-based-activation-condition]
 [discrete]
-==== When expression met
+===== When expression met
 
 This is very similar to the previous EEL activation mode.
 But instead of EEL, it lets you use the same expression language as used in <<dynamic-selector,dynamic selectors>> to express the activation condition.
@@ -4211,7 +4391,7 @@ The equivalent expression to above EEL example is:
 
 [#target-based-activation-condition]
 [discrete]
-==== When target value met
+===== When target value met
 
 This is different from all the other activation condition types in that it doesn't look at ReaLearn's internal parameter values.
 Instead, it looks at the target of another mapping (the so-called "lead mapping") and switches our mapping (the so-called "follow mapping") on or off depending on the target value of the lead mapping.
@@ -4227,483 +4407,161 @@ It can even be completely disabled!
 
 You can detect an inactive target by using `y == none`.
 
-[[target-activation-condition]]
-=== Target activation condition
+[[raw-midi-pattern]]
+==== Raw MIDI pattern
 
-<<target,Targets>> can have activation conditions as well.
-They are very specific to the type of the target.
+<<raw-midi-source>> and <<midi-send-message-target>> allow to enter so-called MIDI patterns, an advanced ReaLearn concept.
 
-.Typical target conditions
+===== Pattern basics
+
+In its most basic form, the pattern is a sequence of bytes notated as hexadecimal numbers.
+This is typical notation, especially for system-exclusive MIDI messages.
+
+.A SysEx pattern
 ====
-* <<track-must-be-selected>>
-* <<fx-must-have-focus>>
-====
-
-[[control-value]]
-=== Control value
-
-A _control value_ is the signal that travels through a ReaLearn <<mapping>> from <<source>> to <<target>> when it receives an event from an <<input-port>>.
-A control value can be absolute or relative.
-
-An absolute control value is a percentage between 0.0% and 100.0% (internally represented by a high-precision floating point number between 0.0 and 1.0).
-
-A relative control value is a positive or negative integer that reflects the number of increments or decrements.
-E.g. control value -2 means a decrement of 2.
-
-[[feedback-value]]
-=== Feedback value
-
-A _feedback value_ is the signal that travels through a ReaLearn <<mapping>> back from <<target>> to <<source>> when a <<target>> changes its value.
-A feedback value is always absolute.
-
-[[group-properties]]
-==== Group properties
-
-A group doesn't just have a name.
-It has a few properties that are also available for mappings and thus affect all mappings in that group:
-
-Tags::
-Tags defined in the group will be merged with the tags in each mapping.
-
-Control/feedback-enabled::
-Lets you switch off control and/or feedback off for all mappings in that group.
-
-Activation condition::
-The activation condition that you provide here is combined with the one that you provide in the mapping.
-Only if both, the group activation conditions and the mapping activation condition are satisfied, the corresponding mapping will be active.
-Read more about
-<<conditional-activation,conditional activation>> in the section about the <<mapping-panel,Mapping panel>>.
-
-=== Absolute vs. relative control elements
-
-We can distinguish between control elements with regard to what sort of <<control-value>> they emit: In this dimension, we have <<absolute-control-element>> and <<relative-control-element>>.
-
-[[absolute-control-element]]
-==== Absolute control element
-
-A <<control-element>> is absolute if it emits absolute values.
-You can think of an absolute value as a percentage: The value is something between 0% and 100%, where 0% represents the minimum possible value and 100% the maximum.
-
-.Typical absolute control elements
-====
-
-Fader:: When moving a fader up from bottom to top, it will emit values from 0% to 100%.
-
-Knob:: When moving a knob clockwise, it will emit values from 0% (at the left boundary) to 100% (at the right boundary).
-
-Momentary button:: When pressing a button, it will emit 100%.
-When released, it will emit 0%.
-
-Key:: When pressing a key on a musical keyboard, it will emit a value between 0% and 100%, depending on the velocity with which the key was pressed.
-When released, it will emit 0%.
-====
-
-[[relative-control-element]]
-==== Relative control element
-
-A <<control-element>> is relative if it emits relative values.
-You can think of a relative value as an _instruction_.
-It can be one of the following two instructions:
-
-Please decrease!:: We call such a value a *decrement*.
-Please increase!:: We call such a value an *increment*.
-
-.Typical relative control elements
-====
-
-Rotary endless encoders:: When moving a rotary endless encoder clockwise, it will continuously emit increments.
-When moving it counter-clockwise, it will continuously emit decrements.
-+
-It happens very often that controllers have rotary endless encoders, but they will act like knobs by default, sending absolute messages.
-That is a great waste and you should change that setting as soon as possible on the hardware side. **Relative control is always superior to absolute control!**
-
-====
-
-=== Real vs. virtual control elements
-
-Wait ... control elements that are not real!?
-Yes!
-In ReaLearn, they exist.
-We can distinguish between <<real-control-element>> and <<virtual-control-element>>.
-
-[[real-control-element]]
-==== Real control element
-
-A _real_ control element is an element that really exists on a <<controller>>, e.g. a fader that you can touch.
-
-[[virtual-control-element]]
-==== Virtual control element
-
-A _virtual_ control element is an abstraction of a <<real-control-element>>.
-It enables <<virtual-control>> and <<virtual-feedback>>.
-
-Each virtual control element has a _type_ and an _ID_.
-
-[[virtual-control-element-id]]
-===== Virtual control element ID
-
-A number or name that uniquely identifies the control element on the device.
-
-Numbers are especially suited for the 8-knobs/8-buttons layouts.
-In a row of 8 knobs one would typically assign number 1 to the leftmost and number 8 to the rightmost one.
-It's your choice.
-
-For more advanced virtual control scenarios it can be useful to think in names instead of numbers.
-You can use up to 32 alphanumeric and punctuation characters (no exotic characters, e.g. no umlauts).
-
-[[virtual-control-element-type]]
-===== Virtual control element type
-
-If you want to define a virtual control element, you should first decide which type is should have: _Multi_ or _Button_.
-This distinction is used by ReaLearn to optimize its user interface.
-
-IMPORTANT: For numbered control elements, the type is even part of the <<virtual-control-element-id>>.
-For example, "Multi 1" is considered a different virtual control element than "Button 1".
-For named control elements, this is not the case. `col1/row1/pad` defined as Multi is considered the same as `col1/row1/pad` defined as Button.
-
-[[virtual-control-element-type-multi]] Multi::
-Represents a control element that you can "move", that is, something that allows you to choose between more than 2 values.
-Usually everything which is _not_ a simple on/off button :) Here's a list of typical _multis_:
-* Fader
-* Knob
-* Pitch wheel
-* Mod wheel
-* Endless encoder
-* XY pad (1 axis)
-* Touch strip
-* (Endless) rotary encoder
-* Velocity-sensitive pads or keys
-
-[[virtual-control-element-type-button]] Button::
-Represents a control element that distinguishes between two possible states only (e.g. on/off), or even just one ("trigger").
-Usually it has the form factor of a button that you can "press".
-Here's a list of typical _buttons_:
-
-* Play button
-* Switch
-* Sustain pedal (a simple on/off one, not a half-pedaling one!)
-
-Please note that velocity-sensitive keys should be exposed as <<virtual-control-element-type-button>> - unless you know for sure that you are not interested in the velocity sensitivity.
-
-[[virtual-control-scheme]]
-===== Virtual control scheme
-
-If you want your main preset to be compatible with as many controller presets as possible, try to use predefined names instead of inventing your own virtual control naming scheme.
-
-When you define a virtual source or virtual target, there's a convenient picker that provides names for the following standardized virtual control schemes:
-
-DAW control (`daw`)::
-The names you see here are heavily inspired by the wording used on Mackie Control devices.
-
-Grid (`grid`)::
-For controls divided into rows and column, as for example found on the Novation Launchpad.
-
-Numbered (`numbered`)::
-Simply lets you pick among any number between 1 and 100.
-
-[[midi-source-character]]
-=== MIDI source character
-
-MIDI control-change messages serve a very wide spectrum of MIDI control use cases.
-Even though some control-change controller numbers have a special purpose according to the MIDI specification (e.g. CC 7 = channel volume), nothing prevents one from using them for totally different purposes.
-In practice that happens quite often, especially when using general-purpose controllers.
-Also, there's no strict standard whatsoever that specifies how relative values (increments/decrements) shall be emitted and which controller numbers emit them.
-
-Therefore, you explicitly need to tell ReaLearn about it by setting the _source character_.
-
-The good news is: If you use "Learn source", ReaLearn will try to guess the source character for you by looking at the emitted values.
-Naturally, the result is not always correct.
-The best guessing result can be achieved by turning the knob or encoder quickly and "passionately" into clockwise direction.
-Please note that guessing doesn't support encoder type 3.
-
-The possible source characters are:
-
-Range element (knob, fader, etc.)::
-A control element that emits continuous absolute values.
-Examples: Fader, knob, modulation wheel, pitch bend, ribbon controller.
-Would also include a endless rotary encoder which is (maybe unknowingly) configured to transmit absolute values.
-
-Button (momentary)::
-A control element that can be pressed and emits absolute values.
-It emits a > 0% value when pressing it and optionally a 0% value when releasing it.
-Examples: Damper pedal.
-
-Encoder (relative type _x_)::
-A control element that emits relative values, usually an endless rotary encoder.
-The _x_ specifies _how_ the relative values are sent.
-This 1:1 corresponds to the relative modes in REAPER's built-in MIDI learn:
-
-Type 1:::
-* 127 = decrement; 0 = none; 1 = increment
-* 127 > value > 63 results in higher decrements (64 possible decrement amounts)
-* 1 < value +<=+ 63 results in higher increments (63 possible increment amounts)
-
-Type 2:::
-* 63 = decrement; 64 = none; 65 = increment
-* 63 > value >= 0 results in higher decrements (64 possible decrement amounts)
-* 65 < value +<=+ 127 results in higher increments (63 possible increment amounts)
-
-Type 3:::
-* 65 = decrement; 0 = none; 1 = increment
-* 65 < value +<=+ 127 results in higher decrements (63 possible decrement amounts)
-* 1 < value +<=+ 64 results in higher increments (64 possible increment amounts)
-
-Toggle-only button (avoid!):: A control element that can be pressed and emits absolute values.
-ReaLearn will simply emit 100%, no matter what the hardware sends.
-+
-This is a workaround for controllers that don't have momentary buttons!
-You should only use this character if there's absolutely no way to configure this control element as a momentary button.
-+
-[NOTE]
-.Background
-====
-ReaLearn can make a momentary hardware button work like a full-blown toggle button.
-Its toggle mode is inherently more powerful than your controller's built-in toggle mode!).
-
-However, the opposite is not true.
-It can't make a toggle hardware button act like a momentary button.
-====
-+
-[CAUTION]
-.Combination with <<incremental-button>>
-====
-If you use the toggle-only source character in combination with mode <<incremental-button>>, you must leave source max at the (default) theoretical maximum value for that source (e.g. 127 for MIDI CC).
-Even if your controller device only sends 0 and 1 and in all other mappings you would enter the controller's concrete (instead of theoretically possible) maximum value.
-Otherwise, for this special case, a fixed out-of-range-behavior will set in that will just ignore all button presses.
-====
-
-[[midi-source-script]]
-=== MIDI source script
-
-MIDI source scripts are EEL or Luau scripts to configure the <<midi-script-source>>.
-
-==== General mechanics
-
-Each script receives an input and must produce an output.
-
-Script input::
-* The main input is the current feedback value, which the script can access as a variable.
-
-Script output::
-* The main output that the script is supposed to return is the MIDI message to be sent to the MIDI device.
-* Additionally, the script can provide a so-called _feedback address_, which is supposed to uniquely identify the LED, motor fader or display.
-+
-It's important to provide an address if you want ReaLearn to handle feedback relay correctly, e.g. that it switches off the LED when not in use anymore and doesn't switch it off if another mapping "takes over" the same LED.
-By convention, the constant (non-variable) bytes of the MIDI message should be used as address.
-The examples below might help to understand.
-
-==== EEL script specifics
-
-Scripts written in EEL work as follows.
-
-Script input::
-* EEL scripts can access numeric feedback values only.
-The current numeric feedback value is available as variable `y`, a floating point number between 0.0 and 1.0. This is essentially the current normalized target value after being processed by the "Glue" section of the mapping.
-
-Script output::
-* In order to provide the output MIDI message, you must assign the raw bytes of that message to subsequent slots of the EEL script's virtual local address space (by indexing via brackets) *and*
-set the variable `msg_size` to the number of bytes to be sent.
-If you forget the latter step, nothing will be sent because that variable defaults to zero!
-* In order to provide the address, simply assign an appropriate number to the `address` variable.
-
-.Creating a 3-byte MIDI message
-====
-[source,eel]
 ----
-address = 0x4bb0;
-msg_size = 3;
-0[] = 0xb0;
-1[] = 0x4b;
-2[] = y * 64;
+F0 00 20 6B 7F 42 02 00 10 77 00 F7
+----
+
+If you enter this and ReaLearn receives this system-exclusive message from the input, it will fire a 100% value.
+If feedback is set up correctly, this message will be sent to the device whenever the target value changes.
+====
+
+Remarks:
+
+* You can check if the correct feedback messages are sent to the device by enabling <<logging-of-real-feedback-messages>>.
+* Each byte is written using 2 hexadecimal digits.
+* Spaces between the bytes can be omitted.
+* You can express all types of MIDI messages using this raw notation (e.g. pitch wheel), not just system-exclusive ones.
+If you do this, it will work as expected for the _feedback_ direction.
+Please note that it will not work for the _control_ direction at the moment (I don't think this is needed).
+* If you want a system-exclusive MIDI message, you _must_ include its start (`F0`) and end status byte (`F7`)!
+
+===== Binary notation
+
+ReaLearn also supports binary notation of a byte.
+You need to enclose the binary digits of one byte in brackets.
+
+.Binary notation
+====
+----
+F0 00 20 [0110 1011] 7F 42 02 00 10 77 00 F7
+----
+
+This is equivalent to the previous example (`6B` in hexadecimal notation is the same as `0110 1011` in binary notation).
+====
+
+Remarks:
+
+* Between the brackets, each digit represents one bit.
+The left bit is the most significant one.
+* Spaces between the two nibbles (4 bits) can be omitted.
+
+===== Variable patterns (extracting and encoding a value)
+
+For the <<feedback>> direction, the examples I've shown you so far aren't real-world examples, because there's no point in sending the same MIDI message to the device over and over again!
+If you really would want to send a constant MIDI message to the device, you would be much better off using a <<mapping-lifecycle-actions,Mapping lifecycle action>>, which allow you to send raw MIDI messages once when a mapping is initialized, not on every target value change.
+
+But even for the <<control>> direction, you might want to react to a whole _range_ of system-exclusive messages, not just a fixed one.
+One part of your message might represent a variable value.
+You might want to extract it and control the target with it.
+
+Fortunately, ReaLearn offers a uniform way to extract a variable value from the raw MIDI message (control) or encode the current target value as part of it (feedback).
+Bytes which contain a variable value (or a part of it) _must_ be expressed using binary notation.
+
+.Variable pattern
+====
+----
+F0 00 20 6B 7F 42 02 00 10 77 [0000 dcba] F7
+----
+
+The second nibble of the second last byte contains the lowercase letters `dcba`.
+This is the portion of the byte that denotes the variable value.
+====
+
+Each letter represents one bit of the variable value:
+
+[horizontal]
+`a`:: Bit 1 (least significant bit of the variable value)
+`b`:: Bit 2
+`c`:: Bit 3
+`d`:: Bit 4
+…
+`m`:: Bit 13
+`n`:: Bit 14
+`o`:: Bit 15
+`p`:: Bit 16 (most significant bit of the variable value)
+
+===== Resolution of variable patterns
+
+The resolution of the variable value always corresponds to the letter in the whole pattern which represents the highest bit number.
+In the example above, the resolution is 4 bit because there's no letter greater than `d` in the pattern.
+
+.Another variable pattern
+====
+In this example, the resolution is 7 bit because `n` is the greatest letter in the whole pattern.
+
+----
+F0 00 20 6B 7F 42 02 00 10 [00nm lkji] [hgfe dcba] F7
 ----
 ====
 
-==== Luau script specifics
+Remarks:
 
-Scripts written in Luau work as follows.
+* The highest resolution currently supported is 16 bit (= 65536 different values).
+* You can put these letter bits anywhere in the pattern (but only within bytes that use binary notation).
 
-Script input::
-* Luau scripts can access numeric, text and dynamic feedback values.
-* Here's the list of input variables:
-`y`::: The feedback value, either numeric (`type(y) == "number"`) or text (`type(y) == "string")`.
-`context.feedback_event.color`::: The color as set in the <<glue-section>> section.
-Either the default color (`== nil`) or an RGB color (table with properties `r`, `g` and `b`).
-`context.feedback_event.background_color`::: The background color.
+===== Byte order
 
-Script output::
-* A Luau script can even generate multiple output messages.
-* You need to return a table which contains the following keys:
-`address`::: The feedback address.
-`messages`::: An array containing all the messages, where each message itself is an array contaning the message bytes.
+This form of notation is slightly unconventional, but I think it's very flexible because it gives you much control over the resulting MIDI message.
+This amount of control seems appropriate considering the many different ways hardware manufacturers used and still use to encode their MIDI data.
 
-.Creating a 3-byte MIDI message, assuming that `y` is a numeric normalized value.
+When a number is expressed within more than one byte, manufacturers sometimes put the most significant byte first and sometimes the least significant one, there's no rule.
+This notation supports both because you decide where the bits end up:
+
+.Most significant byte first
 ====
-[source,lua]
 ----
-return {
-    address = 0x4bb0,
-    messages = {
-        { 0xb0, 0x4b, math.floor(y * 10) }
-    }
-}
+F0 00 20 6B 7F 42 02 00 10 [ponm lkji] [hgfe dcba] F7
 ----
 ====
 
-.Creating a MIDI sys-ex message that changes the color of some fictional device LED/display.
+.Least significant byte first
 ====
-[source,lua]
 ----
-local color = context.feedback_event.color
-if color == nil then
-    -- This means no specific color is set. Choose whatever you need.
-    color = { r = 0, g = 0, b = 0 }
-end
-return {
-    address = 0x4b,
-    -- Whatever messages your device needs to set that color.
-    messages = {
-        { 0xf0, 0x02, 0x4b, color.r, color.g, color.b, 0xf7 }
-    }
-}
+F0 00 20 6B 7F 42 02 00 10 [hgfe dcba] [ponm lkji] F7
 ----
 ====
 
-.Creating a 3-byte MIDI message, assuming that `y` is a text value.
+===== More examples
+
+."Romeo and Juliet" bits (separated by 2 bytes)
 ====
-[source,lua]
 ----
-local lookup_table = {
-    playing = 5,
-    stopped = 6,
-    paused = 7,
-}
-return {
-    messages = {
-        { 0xb0, 0x4b, lookup_table[y] or 0 }
-    }
-}
+F0 [1111 000b] [a101 0100] F7
 ----
 ====
 
-[TIP]
+.Simple on/off value (1 bit only)
 ====
-
-Please note that this kind of simple mapping from text values to integer numbers doesn't need a script.
-You can use the `feedback_value_table` <<glue-section>> property instead, which can only be set via API though.
-Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
-====
-
-You can share code between multiple MIDI scripts by using <<compartment-wide-lua-code>>, with the following limitations (which hopefully will be lifted over time):
-
-* The shared code is not yet available to the Lua code editor window.
-That means writing `require("compartment")` will evaluate to `nil` in the editor.
-You might see a corresponding error message when the editor tries to compile your code.
-
-[[osc-feedback-arguments-expression]]
-=== OSC feedback arguments expression
-
-This expression is used to enable for more flexible feedback for the <<osc-source>>.
-
-It allows you to define exactly which feedback value is sent at which argument position.
-If this field is non-empty, the argument type will be ignored for the <<feedback>> direction.
-
-The format of this field is very simple: You enter feedback value property keys separated by spaces.
-Each entered property key corresponds to one argument position.
-
-.Custom feedback with 2 arguments
-====
-If you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see <<feedback-style>>) as RRGGBB string at argument 2, you would enter:
-
 ----
-value.string style.color.rrggbb
+F0 A0 [1111 010a] F7
 ----
 ====
 
-The following properties are available:
+.Pitch wheel simulation
+====
+This behaves like pitch wheel because the pattern describes exactly the way how pitch wheel messages are encoded.
 
-[cols="m,m,1"]
-|===
-| Property | Type | Description
+----
+E0 [0gfe dcba] [0nml kjih]
+----
+====
 
-|
-value.float
-|
-Float
-|
-Numeric feedback value interpreted as float
-
-|
-value.double
-|
-Double
-|
-Numeric feedback value interpreted as double
-
-|
-value.bool
-|
-Bool
-|
-Numeric feedback interpreted as bool (on/off only)
-
-|
-value.string
-|
-String
-|
-Numeric or textual feedback value formatted as string
-
-
-|
-style.color.rrggbb
-|
-String
-|
-Feedback value color formatted as RRGGBB string
-
-
-|
-style.background_color.rrggbb
-|
-String
-|
-Feedback value background color formatted as RRGGBB string
-
-
-
-|
-style.color
-|
-Color
-|
-Feedback value color as native OSC color
-
-
-|
-style.background_color
-|
-Color
-|
-Feedback value background color as native OSC color
-
-
-|
-nil
-|
-Nil
-|
-Nil value
-
-|
-inf
-|
-Infinity
-|
-Infinity value
-|===
+=== Target concepts
 
 [[target-object-selectors]]
-=== Target object selectors
+==== Target object selectors
 
 Many ReaLearn <<target, targets>> work on some kind of _object_:
 
@@ -4715,7 +4573,7 @@ Many ReaLearn <<target, targets>> work on some kind of _object_:
 All of those objects need to be _addressed_ somehow.
 For this purpose, ReaLearn uses so-called _object selectors_.
 
-==== Commonly available object selectors
+===== Commonly available object selectors
 
 This section describes commonly available object selectors.
 
@@ -4723,12 +4581,12 @@ NOTE: The descriptions below are somewhat tailored to track objects.
 However, the same concepts can easily be applied to other objects that support these selectors.
 
 [#unit-selector]
-===== Unit selector
+====== Unit selector
 
 This selector makes the target work on the current <<unit-track>> or current <<unit-fx>> of this particular ReaLearn <<unit>>.
 
 [#particular-selector]
-===== Particular selector
+====== Particular selector
 
 Lets you pick a specific object (e.g. track) and refer to it by its unique ID.
 This is the default.
@@ -4741,7 +4599,7 @@ Because a track ID is globally unique, even across projects.
 That also means it doesn't make sense to use this setting in a ReaLearn <<unit>> on the monitoring FX chain.
 
 [#at-position-selector]
-===== At position selector
+====== At position selector
 
 This is the most straightforward selector.
 It lets you refer to a track by its position in the track list.
@@ -4754,7 +4612,7 @@ Next to the dropdown you will find a text field.
 Here you should enter the position as number, starting with number `1`.
 
 [#named-selector]
-===== Named selector
+====== Named selector
 
 Allows you to choose a track depending on its name.
 In case there are multiple tracks with the same name, it will always prefer the first one.
@@ -4774,7 +4632,7 @@ If you don't want exact matching, you can use wildcards:
 ====
 
 [#dynamic-selector]
-===== Dynamic selector
+====== Dynamic selector
 
 This selector allows you to _calculate_ which object (e.g. track) you want to use.
 
@@ -4882,20 +4740,20 @@ This will treat <<compartment-parameter>> 1 as a kind of bank selector that allo
 You see, this is very flexible.
 ====
 
-==== Additional object selectors for tracks
+===== Additional object selectors for tracks
 
-===== <This> selector
+====== <This> selector
 
 Track which hosts this ReaLearn instance.
 If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
 
 [#selected-selector]
-====== <Selected> selector
+======= <Selected> selector
 
 Currently selected track.
 If multiple tracks are selected, refers only to the first one.
 
-====== <All selected> selector
+======= <All selected> selector
 
 All currently selected tracks.
 This makes track targets (not FX target and not send targets) do their job on _all_ selected tracks.
@@ -4903,7 +4761,7 @@ The feedback value always corresponds to the highest value among all selected tr
 
 CAUTION: If you select many tracks, things can become quite slow!
 
-====== <Master> selector
+======= <Master> selector
 
 Master track of the project which hosts this ReaLearn instance.
 
@@ -4911,64 +4769,64 @@ Master track of the project which hosts this ReaLearn instance.
 * If you don't have ReaLearn on the monitoring FX chain but you want to control an FX on the monitoring FX chain, this option is the right choice as well.
 Make sure to enable the "Monitoring FX" checkbox.
 
-====== All named selector
+======= All named selector
 
 Allows you to use wildcards (see <<named-selector>>) to make track targets do their thing on all matching tracks instead of only the first one.
 
-====== At TCP position selector
+======= At TCP position selector
 
 Like <<at-position-selector>> but just considers tracks that are visible in the track control panel.
 
-====== At MCP position selector
+======= At MCP position selector
 
 Like <<at-position-selector>> but just considers tracks that are visible in the mixer control panel.
 
-====== Dynamic (TCP) selector
+======= Dynamic (TCP) selector
 
 Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the track control panel.
 
-====== Dynamic (MCP) selector
+======= Dynamic (MCP) selector
 
 Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the mixer control panel.
 
-====== By ID or name (legacy) selector
+======= By ID or name (legacy) selector
 
 This lets you refer to a track by its unique ID and name as fallback.
 This was the default behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
 
 IMPORTANT: **This selector is deprecated!** You shouldn't use it anymore.
 
-==== Additional target selectors for FXs
+===== Additional target selectors for FXs
 
-===== <This> selector
+====== <This> selector
 
 Always points to the own ReaLearn FX <<instance>>.
 Perfect for changing own parameters, e.g. for usage of the conditional activation or <<dynamic-selector>> features (especially important if you want to create reusable presets that make use of these features).
 
 [[fx-focused-selector]]
-====== Focused selector
+======= Focused selector
 
 Currently or last focused FX. _Track_ and _Input FX_ settings are ignored.
 
 [#particular-fx-selector]
-====== Particular selector
+======= Particular selector
 
 Lets you pick a specific FX in the FX chain.
 Renaming the FX or moving it within the FX chain is fine - ReaLearn will still keep controlling exactly this FX.
 Please note that this only makes sense if you address the containing track using <<particular-selector>> as well.
 
 [#named-fx-selector]
-====== Named selector
+======= Named selector
 
 Lets you address the FX by its name in the FX chain.
 Just as with tracks, you can use wildcards to have a blurry search.
 
 [#all-named-fx-selector]
-====== All named selector
+======= All named selector
 
 Allows you to use wildcards (see <<named-fx-selector>>) to make FX targets do their thing on all matching FX instances instead of only the first one.
 
-====== By ID or position (legacy) selector
+======= By ID or position (legacy) selector
 
 This refers to the FX by its unique ID with its position as fallback.
 This was the default behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
@@ -4976,7 +4834,7 @@ This was the default behavior for ReaLearn versions up to 1.11.0 and is just kep
 IMPORTANT: **This selector is deprecated!** You shouldn't use it anymore.
 
 [[sticky-selectors]]
-==== Sticky selectors
+===== Sticky selectors
 
 We call object selectors _sticky_ if they refer to a particular object (e.g. a track).
 
@@ -4985,7 +4843,7 @@ Sticky selectors:: `<Master>`, `<This>`, `Particular`
 Non-sticky selectors:: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All selected>`, `Named`, `All named`, `At position`, `From Playtime column`
 
 [[target-value-polling]]
-=== Target value polling
+==== Target value polling
 
 Target value polling makes ReaLearn query the current value of a target every few milliseconds as part of the main application loop in order to send up-to-date feedback to your controller at all times.
 
@@ -5002,241 +4860,367 @@ But in the following corner cases it might not:
 ** If the FX is on the monitoring FX chain.
 ** If you change a preset from within the FX GUI.
 
-[[raw-midi-pattern]]
-=== Raw MIDI pattern
+[[target-activation-condition]]
+==== Target activation condition
 
-<<raw-midi-source>> and <<midi-send-message-target>> allow to enter so-called MIDI patterns, an advanced ReaLearn concept.
+<<target,Targets>> can have activation conditions as well.
+They are very specific to the type of the target.
 
-==== Pattern basics
-
-In its most basic form, the pattern is a sequence of bytes notated as hexadecimal numbers.
-This is typical notation, especially for system-exclusive MIDI messages.
-
-.A SysEx pattern
+.Typical target conditions
 ====
-----
-F0 00 20 6B 7F 42 02 00 10 77 00 F7
-----
-
-If you enter this and ReaLearn receives this system-exclusive message from the input, it will fire a 100% value.
-If feedback is set up correctly, this message will be sent to the device whenever the target value changes.
+* <<track-must-be-selected>>
+* <<fx-must-have-focus>>
 ====
 
-Remarks:
+[[continuous-vs-discrete-value-range]]
+==== Continuous vs. discrete value range
 
-* You can check if the correct feedback messages are sent to the device by enabling <<logging-of-real-feedback-messages>>.
-* Each byte is written using 2 hexadecimal digits.
-* Spaces between the bytes can be omitted.
-* You can express all types of MIDI messages using this raw notation (e.g. pitch wheel), not just system-exclusive ones.
-If you do this, it will work as expected for the _feedback_ direction.
-Please note that it will not work for the _control_ direction at the moment (I don't think this is needed).
-* If you want a system-exclusive MIDI message, you _must_ include its start (`F0`) and end status byte (`F7`)!
+ReaLearn <<target,targets>> can have a _continuous_ or _discrete_ value range.
 
-==== Binary notation
+[[continuous-value-range]]
+===== Continuous value range
 
-ReaLearn also supports binary notation of a byte.
-You need to enclose the binary digits of one byte in brackets.
+A _continuous_ value range is a range of arbitrary floating point numbers between 0.0 and 1.0. You can also think of them as _percentages_ between 0.0% and 100.0%.
+Continuous value ranges don't have steps.
 
-.Binary notation
+.Some targets with a continuous value range.
 ====
-----
-F0 00 20 [0110 1011] 7F 42 02 00 10 77 00 F7
-----
-
-This is equivalent to the previous example (`6B` in hexadecimal notation is the same as `0110 1011` in binary notation).
+* <<track-set-volume>>
+* <<project-set-tempo>>
 ====
 
-Remarks:
+[[discrete-value-range]]
+===== Discrete value range
 
-* Between the brackets, each digit represents one bit.
-The left bit is the most significant one.
-* Spaces between the two nibbles (4 bits) can be omitted.
+A _discrete_ value range is a range of integers, e.g. 0 to 9. That would be 0, 1, 2, 3, 4, 5, 6, 7, 8, 9. That's it!
+No other values are possible.
+Discrete value ranges have steps.
 
-==== Variable patterns (extracting and encoding a value)
-
-For the <<feedback>> direction, the examples I've shown you so far aren't real-world examples, because there's no point in sending the same MIDI message to the device over and over again!
-If you really would want to send a constant MIDI message to the device, you would be much better off using a <<mapping-lifecycle-actions,Mapping lifecycle action>>, which allow you to send raw MIDI messages once when a mapping is initialized, not on every target value change.
-
-But even for the <<control>> direction, you might want to react to a whole _range_ of system-exclusive messages, not just a fixed one.
-One part of your message might represent a variable value.
-You might want to extract it and control the target with it.
-
-Fortunately, ReaLearn offers a uniform way to extract a variable value from the raw MIDI message (control) or encode the current target value as part of it (feedback).
-Bytes which contain a variable value (or a part of it) _must_ be expressed using binary notation.
-
-.Variable pattern
+.Some targets with a discrete value range.
 ====
-----
-F0 00 20 6B 7F 42 02 00 10 77 [0000 dcba] F7
-----
-
-The second nibble of the second last byte contains the lowercase letters `dcba`.
-This is the portion of the byte that denotes the variable value.
+* <<fx-browse-presets>>
+* <<browse-tracks-target>>
 ====
 
-Each letter represents one bit of the variable value:
+[[group-properties]]
+==== Group properties
 
-[horizontal]
-`a`:: Bit 1 (least significant bit of the variable value)
-`b`:: Bit 2
-`c`:: Bit 3
-`d`:: Bit 4
-…
-`m`:: Bit 13
-`n`:: Bit 14
-`o`:: Bit 15
-`p`:: Bit 16 (most significant bit of the variable value)
+A group doesn't just have a name.
+It has a few properties that are also available for mappings and thus affect all mappings in that group:
 
-==== Resolution of variable patterns
+Tags::
+Tags defined in the group will be merged with the tags in each mapping.
 
-The resolution of the variable value always corresponds to the letter in the whole pattern which represents the highest bit number.
-In the example above, the resolution is 4 bit because there's no letter greater than `d` in the pattern.
+Control/feedback-enabled::
+Lets you switch off control and/or feedback off for all mappings in that group.
 
-.Another variable pattern
+Activation condition::
+The activation condition that you provide here is combined with the one that you provide in the mapping.
+Only if both, the group activation conditions and the mapping activation condition are satisfied, the corresponding mapping will be active.
+Read more about
+<<conditional-activation,conditional activation>> in the section about the <<mapping-panel,Mapping panel>>.
+
+=== Source concepts
+
+[[midi-source-character]]
+==== MIDI source character
+
+MIDI control-change messages serve a very wide spectrum of MIDI control use cases.
+Even though some control-change controller numbers have a special purpose according to the MIDI specification (e.g. CC 7 = channel volume), nothing prevents one from using them for totally different purposes.
+In practice that happens quite often, especially when using general-purpose controllers.
+Also, there's no strict standard whatsoever that specifies how relative values (increments/decrements) shall be emitted and which controller numbers emit them.
+
+Therefore, you explicitly need to tell ReaLearn about it by setting the _source character_.
+
+The good news is: If you use "Learn source", ReaLearn will try to guess the source character for you by looking at the emitted values.
+Naturally, the result is not always correct.
+The best guessing result can be achieved by turning the knob or encoder quickly and "passionately" into clockwise direction.
+Please note that guessing doesn't support encoder type 3.
+
+The possible source characters are:
+
+Range element (knob, fader, etc.)::
+A control element that emits continuous absolute values.
+Examples: Fader, knob, modulation wheel, pitch bend, ribbon controller.
+Would also include a endless rotary encoder which is (maybe unknowingly) configured to transmit absolute values.
+
+Button (momentary)::
+A control element that can be pressed and emits absolute values.
+It emits a > 0% value when pressing it and optionally a 0% value when releasing it.
+Examples: Damper pedal.
+
+Encoder (relative type _x_)::
+A control element that emits relative values, usually an endless rotary encoder.
+The _x_ specifies _how_ the relative values are sent.
+This 1:1 corresponds to the relative modes in REAPER's built-in MIDI learn:
+
+Type 1:::
+* 127 = decrement; 0 = none; 1 = increment
+* 127 > value > 63 results in higher decrements (64 possible decrement amounts)
+* 1 < value +<=+ 63 results in higher increments (63 possible increment amounts)
+
+Type 2:::
+* 63 = decrement; 64 = none; 65 = increment
+* 63 > value >= 0 results in higher decrements (64 possible decrement amounts)
+* 65 < value +<=+ 127 results in higher increments (63 possible increment amounts)
+
+Type 3:::
+* 65 = decrement; 0 = none; 1 = increment
+* 65 < value +<=+ 127 results in higher decrements (63 possible decrement amounts)
+* 1 < value +<=+ 64 results in higher increments (64 possible increment amounts)
+
+Toggle-only button (avoid!):: A control element that can be pressed and emits absolute values.
+ReaLearn will simply emit 100%, no matter what the hardware sends.
++
+This is a workaround for controllers that don't have momentary buttons!
+You should only use this character if there's absolutely no way to configure this control element as a momentary button.
++
+[NOTE]
+.Background
 ====
-In this example, the resolution is 7 bit because `n` is the greatest letter in the whole pattern.
+ReaLearn can make a momentary hardware button work like a full-blown toggle button.
+Its toggle mode is inherently more powerful than your controller's built-in toggle mode!).
+
+However, the opposite is not true.
+It can't make a toggle hardware button act like a momentary button.
+====
++
+[CAUTION]
+.Combination with <<incremental-button>>
+====
+If you use the toggle-only source character in combination with mode <<incremental-button>>, you must leave source max at the (default) theoretical maximum value for that source (e.g. 127 for MIDI CC).
+Even if your controller device only sends 0 and 1 and in all other mappings you would enter the controller's concrete (instead of theoretically possible) maximum value.
+Otherwise, for this special case, a fixed out-of-range-behavior will set in that will just ignore all button presses.
+====
+
+[[midi-source-script]]
+==== MIDI source script
+
+MIDI source scripts are EEL or Luau scripts to configure the <<midi-script-source>>.
+
+===== General mechanics
+
+Each script receives an input and must produce an output.
+
+Script input::
+* The main input is the current feedback value, which the script can access as a variable.
+
+Script output::
+* The main output that the script is supposed to return is the MIDI message to be sent to the MIDI device.
+* Additionally, the script can provide a so-called _feedback address_, which is supposed to uniquely identify the LED, motor fader or display.
++
+It's important to provide an address if you want ReaLearn to handle feedback relay correctly, e.g. that it switches off the LED when not in use anymore and doesn't switch it off if another mapping "takes over" the same LED.
+By convention, the constant (non-variable) bytes of the MIDI message should be used as address.
+The examples below might help to understand.
+
+===== EEL script specifics
+
+Scripts written in EEL work as follows.
+
+Script input::
+* EEL scripts can access numeric feedback values only.
+The current numeric feedback value is available as variable `y`, a floating point number between 0.0 and 1.0. This is essentially the current normalized target value after being processed by the "Glue" section of the mapping.
+
+Script output::
+* In order to provide the output MIDI message, you must assign the raw bytes of that message to subsequent slots of the EEL script's virtual local address space (by indexing via brackets) *and*
+set the variable `msg_size` to the number of bytes to be sent.
+If you forget the latter step, nothing will be sent because that variable defaults to zero!
+* In order to provide the address, simply assign an appropriate number to the `address` variable.
+
+.Creating a 3-byte MIDI message
+====
+[source,eel]
+----
+address = 0x4bb0;
+msg_size = 3;
+0[] = 0xb0;
+1[] = 0x4b;
+2[] = y * 64;
+----
+====
+
+===== Luau script specifics
+
+Scripts written in Luau work as follows.
+
+Script input::
+* Luau scripts can access numeric, text and dynamic feedback values.
+* Here's the list of input variables:
+`y`::: The feedback value, either numeric (`type(y) == "number"`) or text (`type(y) == "string")`.
+`context.feedback_event.color`::: The color as set in the <<glue-section>> section.
+Either the default color (`== nil`) or an RGB color (table with properties `r`, `g` and `b`).
+`context.feedback_event.background_color`::: The background color.
+
+Script output::
+* A Luau script can even generate multiple output messages.
+* You need to return a table which contains the following keys:
+`address`::: The feedback address.
+`messages`::: An array containing all the messages, where each message itself is an array contaning the message bytes.
+
+.Creating a 3-byte MIDI message, assuming that `y` is a numeric normalized value.
+====
+[source,lua]
+----
+return {
+    address = 0x4bb0,
+    messages = {
+        { 0xb0, 0x4b, math.floor(y * 10) }
+    }
+}
+----
+====
+
+.Creating a MIDI sys-ex message that changes the color of some fictional device LED/display.
+====
+[source,lua]
+----
+local color = context.feedback_event.color
+if color == nil then
+    -- This means no specific color is set. Choose whatever you need.
+    color = { r = 0, g = 0, b = 0 }
+end
+return {
+    address = 0x4b,
+    -- Whatever messages your device needs to set that color.
+    messages = {
+        { 0xf0, 0x02, 0x4b, color.r, color.g, color.b, 0xf7 }
+    }
+}
+----
+====
+
+.Creating a 3-byte MIDI message, assuming that `y` is a text value.
+====
+[source,lua]
+----
+local lookup_table = {
+    playing = 5,
+    stopped = 6,
+    paused = 7,
+}
+return {
+    messages = {
+        { 0xb0, 0x4b, lookup_table[y] or 0 }
+    }
+}
+----
+====
+
+[TIP]
+====
+
+Please note that this kind of simple mapping from text values to integer numbers doesn't need a script.
+You can use the `feedback_value_table` <<glue-section>> property instead, which can only be set via API though.
+Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
+====
+
+You can share code between multiple MIDI scripts by using <<compartment-wide-lua-code>>, with the following limitations (which hopefully will be lifted over time):
+
+* The shared code is not yet available to the Lua code editor window.
+That means writing `require("compartment")` will evaluate to `nil` in the editor.
+You might see a corresponding error message when the editor tries to compile your code.
+
+[[osc-feedback-arguments-expression]]
+==== OSC feedback arguments expression
+
+This expression is used to enable for more flexible feedback for the <<osc-source>>.
+
+It allows you to define exactly which feedback value is sent at which argument position.
+If this field is non-empty, the argument type will be ignored for the <<feedback>> direction.
+
+The format of this field is very simple: You enter feedback value property keys separated by spaces.
+Each entered property key corresponds to one argument position.
+
+.Custom feedback with 2 arguments
+====
+If you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see <<feedback-style>>) as RRGGBB string at argument 2, you would enter:
 
 ----
-F0 00 20 6B 7F 42 02 00 10 [00nm lkji] [hgfe dcba] F7
+value.string style.color.rrggbb
 ----
 ====
 
-Remarks:
+The following properties are available:
 
-* The highest resolution currently supported is 16 bit (= 65536 different values).
-* You can put these letter bits anywhere in the pattern (but only within bytes that use binary notation).
-
-==== Byte order
-
-This form of notation is slightly unconventional, but I think it's very flexible because it gives you much control over the resulting MIDI message.
-This amount of control seems appropriate considering the many different ways hardware manufacturers used and still use to encode their MIDI data.
-
-When a number is expressed within more than one byte, manufacturers sometimes put the most significant byte first and sometimes the least significant one, there's no rule.
-This notation supports both because you decide where the bits end up:
-
-.Most significant byte first
-====
-----
-F0 00 20 6B 7F 42 02 00 10 [ponm lkji] [hgfe dcba] F7
-----
-====
-
-.Least significant byte first
-====
-----
-F0 00 20 6B 7F 42 02 00 10 [hgfe dcba] [ponm lkji] F7
-----
-====
-
-==== More examples
-
-."Romeo and Juliet" bits (separated by 2 bytes)
-====
-----
-F0 [1111 000b] [a101 0100] F7
-----
-====
-
-.Simple on/off value (1 bit only)
-====
-----
-F0 A0 [1111 010a] F7
-----
-====
-
-.Pitch wheel simulation
-====
-This behaves like pitch wheel because the pattern describes exactly the way how pitch wheel messages are encoded.
-
-----
-E0 [0gfe dcba] [0nml kjih]
-----
-====
-
-[[pot-browser]]
-=== Pot Browser
-
-Pot Browser is an experimental modern preset browser.
-It's just a prototype so far.
-It will probably look quite different in the future.
-You can open it via menu action <<open-pot-browser>>.
-
-It's recommended to use Pot Browser from a ReaLearn instance on the monitoring FX chain, that way you have the browser accessible from any project.
-
-TIP: Add a toolbar button which triggers the REAPER action "ReaLearn: Open first Pot Browser" to get quick and convenient access to the browser.
-
-Remarks:
-
-- Pot Browser is in an experimental stage, it doesn't save any of your settings!
-- Each ReaLearn instance has its own so-called _Pot Unit_.
-Each Pot Unit has its own filter and preset state.
-When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
-- ReaLearn's "Pot" targets such as <<pot-browse-presets>> can be used to control the Pot Unit from any controller.
-
-[appendix]
-== Provided REAPER actions
-
-ReaLearn provides some REAPER actions which become available as soon as at least one instance of ReaLearn is loaded.
-It can be useful to put a ReaLearn instance on REAPER's monitoring FX chain in order to have access to those actions at all times.
-
-In order to find these actions, open REAPER's _Actions_ menu, choose _Show action list…_ and simply search for
-`realearn`.
-The most important actions:
-
-* *ReaLearn: Find first mapping by source:* This action will ask you to touch some control element.
-As soon as you touch a control element which is mapped, it will open the mapping panel for the corresponding mapping.
-It will search within all ReaLearn instances/units loaded in your current project as well as the ones on the monitoring FX chain.
-* *ReaLearn: Find first mapping by target:* This action is similar to _Find first mapping by source_.
-It asks you to touch some (learnable) REAPER parameter.
-As soon as you touch one that is mapped, it will open its mapping panel.
-* *ReaLearn: Learn single mapping (reassigning source):* Asks you to touch a control element and target and adds a new mapping in the first ReaLearn unit that it encounters.
-It prefers units in the current project over monitoring FX.
-It automatically chooses the unit with the correct MIDI/OSC input.
-If there's an unit which already has that source assigned, it will be reassigned to the new target that you touched.
-* *ReaLearn: Learn single mapping (reassigning source) and open it:* Like _Learn single mapping_ but additionally opens the mapping panel after having learned the mapping.
-This is great for subsequent fine tuning.
-* *ReaLearn: Learn source for last touched target (reassigning target):* This behaves similar to REAPER's built-in MIDI learn in that it always relates to the target that has been touched last.
-* *ReaLearn: Send feedback for all instances:* Makes each ReaLearn instance/unit in all project tabs send feedback for all mappings.
-That shouldn't be necessary most of the time because ReaLearn usually sends feedback automatically, but there are situations when it might come in handy.
-
-[appendix]
-== Configuration files
-
-ReaLearn creates and/or reads a few files in REAPER's resource directory.
-
-[cols="m,1"]
+[cols="m,m,1"]
 |===
+| Property | Type | Description
 
-| File | Description
+|
+value.float
+|
+Float
+|
+Numeric feedback value interpreted as float
 
-| Data/helgoboss | Directory which contains data such as presets or resources that need to be distributed via ReaPack
+|
+value.double
+|
+Double
+|
+Numeric feedback value interpreted as double
 
-| Data/helgoboss/auto-load-configs/fx.json | Contains global FX-to-preset links, see <<auto-load>>
+|
+value.bool
+|
+Bool
+|
+Numeric feedback interpreted as bool (on/off only)
 
-| Data/helgoboss/archives | Directory which contains archives e.g. the compressed app, distributed via ReaPack
+|
+value.string
+|
+String
+|
+Numeric or textual feedback value formatted as string
 
-| Data/helgoboss/doc | Contains offline documentation, e.g. this guide as PDF
 
-| Data/helgoboss/presets/controller | Contains preset for the controller compartment
+|
+style.color.rrggbb
+|
+String
+|
+Feedback value color formatted as RRGGBB string
 
-| Data/helgoboss/presets/main | Contains preset for the main compartment
 
-| Helgoboss | Directory which contains rather personal or device-specific data, not touched via ReaPack
+|
+style.background_color.rrggbb
+|
+String
+|
+Feedback value background color formatted as RRGGBB string
 
-| licensing.json | Contains license keys
 
-| Helgoboss/App | Contains the uncompressed App, if installed
 
-| Helgoboss/Pot/previews | Directory which contains previews recorded by <<pot-browser,Pot Browser>>
+|
+style.color
+|
+Color
+|
+Feedback value color as native OSC color
 
-| Helgoboss/ReaLearn/osc.json | Global OSC device configurations, see <<manage-osc-devices>>
 
-| Helgoboss/ReaLearn/realearn.ini | Very basic global configuration, currently mainly regarding ReaLearn's built-in server.
+|
+style.background_color
+|
+Color
+|
+Feedback value background color as native OSC color
 
-Currently supported properties (subject to change): `server_enabled`, `server_http_port`, `server_https_port`, `server_grpc_port`, `companion_web_app_url`
 
-| Helgoboss/Server/certificates | Contains a list of certificates and corresponding private keys in order to allow encrypted communication with ReaLearn Companion and App.
+|
+nil
+|
+Nil
+|
+Nil value
 
+|
+inf
+|
+Infinity
+|
+Infinity value
 |===
 
 [appendix]
@@ -5334,7 +5318,88 @@ list].
 Because ReaLearn's <<compartment-parameter, compartment parameters>> are freely assignable, they have very generic names by default.
 However, as soon as you give them meaning by using them in a specific way, it can be very helpful to give them a name by using the <<compartment-parameters-menu>>.
 
+=== Troubleshooting Luau import
+
+The way Luau import works in ReaLearn is:
+
+. ReaLearn attempts to execute the Luau script in the clipboard.
+. ReaLearn attempts to interpret the returned value as ReaLearn API object.
+. ReaLearn loads the API object
+
+If step 1 fails, ReaLearn displays an error messages that hopefully contains a line number.
+If step 2 fails, ReaLearn shows a validation error message.
+
+If importing Luau code fails and the displayed error message is not helpful, you can try <<dry-run-lua-script>>.
+This action enables you to just execute step 1 and see the "expanded" result.
+This can help to make sense of a possible validation error message in step 2.
+
 [appendix]
+[appendix]
+== Provided REAPER actions
+
+ReaLearn provides some REAPER actions which become available as soon as at least one instance of ReaLearn is loaded.
+It can be useful to put a ReaLearn instance on REAPER's monitoring FX chain in order to have access to those actions at all times.
+
+In order to find these actions, open REAPER's _Actions_ menu, choose _Show action list…_ and simply search for
+`realearn`.
+The most important actions:
+
+* *ReaLearn: Find first mapping by source:* This action will ask you to touch some control element.
+As soon as you touch a control element which is mapped, it will open the mapping panel for the corresponding mapping.
+It will search within all ReaLearn instances/units loaded in your current project as well as the ones on the monitoring FX chain.
+* *ReaLearn: Find first mapping by target:* This action is similar to _Find first mapping by source_.
+It asks you to touch some (learnable) REAPER parameter.
+As soon as you touch one that is mapped, it will open its mapping panel.
+* *ReaLearn: Learn single mapping (reassigning source):* Asks you to touch a control element and target and adds a new mapping in the first ReaLearn unit that it encounters.
+It prefers units in the current project over monitoring FX.
+It automatically chooses the unit with the correct MIDI/OSC input.
+If there's an unit which already has that source assigned, it will be reassigned to the new target that you touched.
+* *ReaLearn: Learn single mapping (reassigning source) and open it:* Like _Learn single mapping_ but additionally opens the mapping panel after having learned the mapping.
+This is great for subsequent fine tuning.
+* *ReaLearn: Learn source for last touched target (reassigning target):* This behaves similar to REAPER's built-in MIDI learn in that it always relates to the target that has been touched last.
+* *ReaLearn: Send feedback for all instances:* Makes each ReaLearn instance/unit in all project tabs send feedback for all mappings.
+That shouldn't be necessary most of the time because ReaLearn usually sends feedback automatically, but there are situations when it might come in handy.
+
+[appendix]
+== Configuration files
+
+ReaLearn creates and/or reads a few files in REAPER's resource directory.
+
+[cols="m,1"]
+|===
+
+| File | Description
+
+| Data/helgoboss | Directory which contains data such as presets or resources that need to be distributed via ReaPack
+
+| Data/helgoboss/auto-load-configs/fx.json | Contains global FX-to-preset links, see <<auto-load>>
+
+| Data/helgoboss/archives | Directory which contains archives e.g. the compressed app, distributed via ReaPack
+
+| Data/helgoboss/doc | Contains offline documentation, e.g. this guide as PDF
+
+| Data/helgoboss/presets/controller | Contains preset for the controller compartment
+
+| Data/helgoboss/presets/main | Contains preset for the main compartment
+
+| Helgoboss | Directory which contains rather personal or device-specific data, not touched via ReaPack
+
+| licensing.json | Contains license keys
+
+| Helgoboss/App | Contains the uncompressed App, if installed
+
+| Helgoboss/Pot/previews | Directory which contains previews recorded by <<pot-browser,Pot Browser>>
+
+| Helgoboss/ReaLearn/osc.json | Global OSC device configurations, see <<manage-osc-devices>>
+
+| Helgoboss/ReaLearn/realearn.ini | Very basic global configuration, currently mainly regarding ReaLearn's built-in server.
+
+Currently supported properties (subject to change): `server_enabled`, `server_http_port`, `server_https_port`, `server_grpc_port`, `companion_web_app_url`
+
+| Helgoboss/Server/certificates | Contains a list of certificates and corresponding private keys in order to allow encrypted communication with ReaLearn Companion and App.
+
+|===
+
 == Design decisions
 
 WARNING: Expert level!
