@@ -4,7 +4,7 @@
 :toclevels: 5
 :sectnums:
 :sectnumlevels: 2
-:unicode: false
+:doctype: book
 
 ifdef::env-github[]
 :tip-caption: :bulb:
@@ -5173,9 +5173,92 @@ Each Pot Unit has its own filter and preset state.
 When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
 - ReaLearn's "Pot" targets such as <<pot-browse-presets>> can be used to control the Pot Unit from any controller.
 
+[appendix]
+== Provided REAPER actions
+
+ReaLearn provides some REAPER actions which become available as soon as at least one instance of ReaLearn is loaded.
+It can be useful to put a ReaLearn instance on REAPER's monitoring FX chain in order to have access to those actions at all times.
+
+In order to find these actions, open REAPER's _Actions_ menu, choose _Show action list…_ and simply search for
+`realearn`.
+The most important actions:
+
+* *ReaLearn: Find first mapping by source:* This action will ask you to touch some control element.
+As soon as you touch a control element which is mapped, it will open the mapping panel for the corresponding mapping.
+It will search within all ReaLearn instances/units loaded in your current project as well as the ones on the monitoring FX chain.
+* *ReaLearn: Find first mapping by target:* This action is similar to _Find first mapping by source_.
+It asks you to touch some (learnable) REAPER parameter.
+As soon as you touch one that is mapped, it will open its mapping panel.
+* *ReaLearn: Learn single mapping (reassigning source):* Asks you to touch a control element and target and adds a new mapping in the first ReaLearn unit that it encounters.
+It prefers units in the current project over monitoring FX.
+It automatically chooses the unit with the correct MIDI/OSC input.
+If there's an unit which already has that source assigned, it will be reassigned to the new target that you touched.
+* *ReaLearn: Learn single mapping (reassigning source) and open it:* Like _Learn single mapping_ but additionally opens the mapping panel after having learned the mapping.
+This is great for subsequent fine tuning.
+* *ReaLearn: Learn source for last touched target (reassigning target):* This behaves similar to REAPER's built-in MIDI learn in that it always relates to the target that has been touched last.
+* *ReaLearn: Send feedback for all instances:* Makes each ReaLearn instance/unit in all project tabs send feedback for all mappings.
+That shouldn't be necessary most of the time because ReaLearn usually sends feedback automatically, but there are situations when it might come in handy.
+
+[appendix]
+== Configuration files
+
+ReaLearn creates and/or reads a few files in REAPER's resource directory.
+
+[cols="m,1"]
+|===
+
+| File | Description
+
+| Data/helgoboss | Directory which contains data such as presets or resources that need to be distributed via ReaPack
+
+| Data/helgoboss/auto-load-configs/fx.json | Contains global FX-to-preset links, see <<auto-load>>
+
+| Data/helgoboss/archives | Directory which contains archives e.g. the compressed app, distributed via ReaPack
+
+| Data/helgoboss/doc | Contains offline documentation, e.g. this guide as PDF
+
+| Data/helgoboss/presets/controller | Contains preset for the controller compartment
+
+| Data/helgoboss/presets/main | Contains preset for the main compartment
+
+| Helgoboss | Directory which contains rather personal or device-specific data, not touched via ReaPack
+
+| licensing.json | Contains license keys
+
+| Helgoboss/App | Contains the uncompressed App, if installed
+
+| Helgoboss/Pot/previews | Directory which contains previews recorded by <<pot-browser,Pot Browser>>
+
+| Helgoboss/ReaLearn/osc.json | Global OSC device configurations, see <<manage-osc-devices>>
+
+| Helgoboss/ReaLearn/realearn.ini | Very basic global configuration, currently mainly regarding ReaLearn's built-in server.
+
+Currently supported properties (subject to change): `server_enabled`, `server_http_port`, `server_https_port`, `server_grpc_port`, `companion_web_app_url`
+
+| Helgoboss/Server/certificates | Contains a list of certificates and corresponding private keys in order to allow encrypted communication with ReaLearn Companion and App.
+
+|===
+
+[appendix]
 == Best practices
 
-=== Use the controller compartment!
+[[best-practices-input-output,Best practices for setting input and output]]
+=== Setting input and output
+
+[qanda]
+Prefer output to a specific device over <<fx-output>>!::
+It's usually better to select a specific output device because sending MIDI feedback to the FX output has drawbacks.
++
+First, it doesn't participate in ReaLearn's multi-unit feedback orchestration.
+That means you might experience misbehaving LEDs/faders/displays when using multiple units.
++
+Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
+
+* ReaLearn FX is disabled.
+* Project is paused and ReaLearn track is not armed.
+* ReaLearn FX is on input FX chain and track is not armed.
+
+=== Using the controller compartment
 
 The controller compartment lets you describe the controller device.
 
@@ -5246,93 +5329,12 @@ You can share your preset with other users by sending them to link:mailto:&#105;
 I will add it to https://github.com/helgoboss/helgobox/tree/master/resources/controller-presets[this
 list].
 
-=== Name compartment parameters!
+=== Naming compartment parameters
 
 Because ReaLearn's <<compartment-parameter, compartment parameters>> are freely assignable, they have very generic names by default.
 However, as soon as you give them meaning by using them in a specific way, it can be very helpful to give them a name by using the <<compartment-parameters-menu>>.
 
-== Provided REAPER actions
-
-ReaLearn provides some REAPER actions which become available as soon as at least one instance of ReaLearn is loaded.
-It can be useful to put a ReaLearn instance on REAPER's monitoring FX chain in order to have access to those actions at all times.
-
-In order to find these actions, open REAPER's _Actions_ menu, choose _Show action list…_ and simply search for
-`realearn`.
-The most important actions:
-
-* *ReaLearn: Find first mapping by source:* This action will ask you to touch some control element.
-As soon as you touch a control element which is mapped, it will open the mapping panel for the corresponding mapping.
-It will search within all ReaLearn instances/units loaded in your current project as well as the ones on the monitoring FX chain.
-* *ReaLearn: Find first mapping by target:* This action is similar to _Find first mapping by source_.
-It asks you to touch some (learnable) REAPER parameter.
-As soon as you touch one that is mapped, it will open its mapping panel.
-* *ReaLearn: Learn single mapping (reassigning source):* Asks you to touch a control element and target and adds a new mapping in the first ReaLearn unit that it encounters.
-It prefers units in the current project over monitoring FX.
-It automatically chooses the unit with the correct MIDI/OSC input.
-If there's an unit which already has that source assigned, it will be reassigned to the new target that you touched.
-* *ReaLearn: Learn single mapping (reassigning source) and open it:* Like _Learn single mapping_ but additionally opens the mapping panel after having learned the mapping.
-This is great for subsequent fine tuning.
-* *ReaLearn: Learn source for last touched target (reassigning target):* This behaves similar to REAPER's built-in MIDI learn in that it always relates to the target that has been touched last.
-* *ReaLearn: Send feedback for all instances:* Makes each ReaLearn instance/unit in all project tabs send feedback for all mappings.
-That shouldn't be necessary most of the time because ReaLearn usually sends feedback automatically, but there are situations when it might come in handy.
-
-== Configuration files
-
-ReaLearn creates and/or reads a few files in REAPER's resource directory.
-
-[cols="m,1"]
-|===
-
-| File | Description
-
-| Data/helgoboss | Directory which contains data such as presets or resources that need to be distributed via ReaPack
-
-| Data/helgoboss/auto-load-configs/fx.json | Contains global FX-to-preset links, see <<auto-load>>
-
-| Data/helgoboss/archives | Directory which contains archives e.g. the compressed app, distributed via ReaPack
-
-| Data/helgoboss/doc | Contains offline documentation, e.g. this guide as PDF
-
-| Data/helgoboss/presets/controller | Contains preset for the controller compartment
-
-| Data/helgoboss/presets/main | Contains preset for the main compartment
-
-| Helgoboss | Directory which contains rather personal or device-specific data, not touched via ReaPack
-
-| licensing.json | Contains license keys
-
-| Helgoboss/App | Contains the uncompressed App, if installed
-
-| Helgoboss/Pot/previews | Directory which contains previews recorded by <<pot-browser,Pot Browser>>
-
-| Helgoboss/ReaLearn/osc.json | Global OSC device configurations, see <<manage-osc-devices>>
-
-| Helgoboss/ReaLearn/realearn.ini | Very basic global configuration, currently mainly regarding ReaLearn's built-in server.
-
-Currently supported properties (subject to change): `server_enabled`, `server_http_port`, `server_https_port`, `server_grpc_port`, `companion_web_app_url`
-
-| Helgoboss/Server/certificates | Contains a list of certificates and corresponding private keys in order to allow encrypted communication with ReaLearn Companion and App.
-
-|===
-
-== Best practices
-
-[[best-practices-input-output,Best practices for setting input and output]]
-=== Setting input and output
-
-[qanda]
-Prefer output to a specific device over <<fx-output>>!::
-It's usually better to select a specific output device because sending MIDI feedback to the FX output has drawbacks.
-+
-First, it doesn't participate in ReaLearn's multi-unit feedback orchestration.
-That means you might experience misbehaving LEDs/faders/displays when using multiple units.
-+
-Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
-
-* ReaLearn FX is disabled.
-* Project is paused and ReaLearn track is not armed.
-* ReaLearn FX is on input FX chain and track is not armed.
-
+[appendix]
 == Design decisions
 
 WARNING: Expert level!
