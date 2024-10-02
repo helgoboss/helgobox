@@ -177,7 +177,7 @@ Examples: MIDI source, OSC source
 [[glue]]
 === Glue
 
-A _glue_ is part of a <<mapping>> that sits between the source and the target and filters or transforms control and feedback streams.
+A _glue_ is part of a <<mapping>> and sits between the source and the target and filters or transforms control and feedback streams.
 
 [[target]]
 === Target
@@ -1193,14 +1193,15 @@ Reflects the current value of this mapping target and lets you change it (either
 
 If the target can't be resolved at the moment, it will show "Target currently inactive!" instead.
 
-===== Unit button
+[[target-unit-button]]
+===== Target unit button
 
 On the right side of the current value you will see a button with a label such as `1. dB (%)`.
 This button displays the currently selected target unit (unrelated to the <<unit>> concept) which is used for displaying and entering target values.
 
 The number in the parentheses denotes the unit which is used for displaying and entering target step sizes.
 
-Clicking the button switches between the units.
+Clicking the button switches between available target units.
 Currently, there are two options:
 
 (1) Use native target units::
@@ -1236,6 +1237,7 @@ NOTE: In older REAPER versions (< 6.69+dev1102), this can only be enabled togeth
 
 Targets which control an on/off-style property of tracks (e.g. <<track-solounsolo,Track: Solo/unsolo>>) additionally provide the following elements.
 
+[[exclusive-menu]]
 ====== Exclusive menu
 
 By default, this is set to <<exclusive-no>>.
@@ -1313,430 +1315,131 @@ In the probably rare case that the polling causes performance issues, you can un
 [#glue-section]
 ==== Glue section
 
-As mentioned before, the glue section defines the glue between a source and a target.
-It's divided into several sub sections some of which make sense for all kinds of sources and others only for some.
-
-*At first something important to understand:* Since ReaLearn 2, a mapping can deal with both _absolute_
-and _relative_ values, no matter what's set as _Mode_!
-ReaLearn checks the type of each emitted source value and interprets it correctly.
-The _Mode_ dropdown has been sort of "degraded" because now it only applies to incoming _absolute_ values and determines how to handle them (see further below).
-This change has been made to support virtual sources - because virtual sources can be either absolute or relative depending on the current controller mappings.
-ReaLearn allows you to prepare your mapping for both cases by showing all possible settings.
-
-_Relative_ means that the current target value is relevant and the change of the target value is calculated in terms of increments or decrements.
-Control elements that can emit relative values are rotary encoders and virtual multis.
-
+The <<glue>> section is divided into several subsections some of which make sense for all kinds of sources and others only for some.
 Having so many settings available at the same time can be a bit daunting.
 ReaLearn helps you by hiding settings that don't make sense in the current context.
-It shows or hides them based on the following criteria:
+
+It shows or hides them based on criteria like this:
 
 * Is control and/or feedback enabled for the mapping?
 * What are the characteristics of the source and target?
-* What's the current setting of _Absolute mode_ and _Make absolute_?
+* What's the current setting of <<absolute-mode>> and <<make-absolute>>?
 
-===== Reset to defaults
+===== Reset to defaults button
 
 Resets the settings to some sensible defaults.
 
-===== Reverse
+===== Reverse checkbox
 
 If checked, this inverses the direction of the change.
 E.g. the target value will decrease when moving the fader upward and increase when moving it downward.
 
 [#target-min-max]
-===== Target Min/Max
+===== Target Min/Max controls
 
-The controlled range of absolute target values.
-This enables you to "squeeze" target values into a specific value range.
+This restricts the controlled value range of the target.
+It enables you to "squeeze" target values into a specific range.
 
-Example: If you set this to "-6 dB to 0 dB" for a _Track volume_ target, the volume will always stay within that dB range if controlled via this mapping.
-It wouldn't prevent the volume from exceeding that range if changed e.g. in REAPER itself.
+.Squeezing the track volume value range
+====
+If you set this to "-6 dB to 0 dB" for a _Track volume_ target, the volume will always stay within that dB range when controlled via this mapping.
+However, it wouldn't prevent the volume from exceeding that range if changed e.g. in REAPER itself.
+====
 
-This setting applies to targets which are controlled via absolute control values (= all targets with the exception of the <<project-invoke-reaper-action,Project: Invoke REAPER action>> if invocation type is _Relative_).
+This setting can be used with all targets that work with <<absolute-control-value, absolute control values>> (all targets except <<project-invoke-reaper-action,Project: Invoke REAPER action>> with relative <<invocation-type>>).
 
-These are relevant for the control direction only:
+[#target-value-sequence-field]
+===== Value sequence field
 
-[#target-value-sequence]
-===== Value sequence
+Allows you to define a <<target-value-sequence>>.
+All values are entered comma-separated using the target unit specified with the <<target-unit-button>>.
 
-Allows you to define a specific sequence of target values.
-This is a very powerful feature because you not only can enter single values but also ranges with customizable step sizes!
-Plus, it has support for true relative control.
-All values are entered comma-separated and using the unit chosen in the <<target-section>>.
-Just click the unit button to switch between the native target unit and percentages.
-
-Examples:
-
-* `-20, -14, -12, -6, -3.5, 0`: Enter this sequence for a volume target with target unit switched to dB.
-When you move your knob or rotary encoder or press a button using _Incremental button_ mode, ReaLearn will step through the entered dB values for you.
-* `10 - 30, 50 - 70 (5), 80 - 90 (2)`: Enter this sequence for a target with a continuous value range and target unit switched to %.
-It will first step in 1% steps from 10% to 30%, then in 2% steps from 50% to 70% and finally from 80% to 90% in 2% steps.
-At the moment it's important that the numbers and the range dash are separated by spaces!
-* `20, 10, 10, -5, 8`: When using absolute control, even duplicate values and direction changes are respected, as seen in this value sequence.
-However, true relative control naturally supports continuous sequences only.
-So if you have a rotary encoder that sends relative messages (hopefully!) or use incremental buttons, the sequence will be stepped through in a continuous manner (-5, 8, 10, 20).
-The benefit as always: No parameter jumps!
-If you want to use non-continuous sequences with encoders or incremental buttons, you can always use _Make absolute_!
+You can provide only one of <<target-min-max>> or <<target-value-sequence-field>>.
 
 [#group-interaction]
 ===== Group interaction
 
-Lets you control not just _this_ mapping but also _all other mappings in the same mapping group_.
-Very powerful feature!
+Lets you control not just _this_ mapping but also _all other mappings in the same <<group>>_.
 
-TIP: If you want to control _other_ mappings only and not _this_ mapping, just pick a target that doesn't have any effect, for example the <<realearn-dummy-target>> or an unused internal ReaLearn compartment parameter (target <<fx-set-parameter-value>> with FX set to `<This>`).
+TIP: If you want to control _other_ mappings only and not _this_ mapping, just pick a target that doesn't have any effect, for example the <<realearn-dummy-target>>.
 
-* *None:* Switches group interaction off.
+None::
+Switches group interaction off.
 This is the default.
 Incoming control events will just affect _this_
 mapping, not others.
-* *Same control:* This will broadcast any incoming control value to all other mappings in the same group.
+
+[[same-control]] Same control::
+This will broadcast any incoming control value to all other mappings in the same group.
 The glue section of this mapping will be ignored when controlling the other mappings.
 The glue sections of the other mappings will be respected, including the <<source-min-max>>.
-* *Same target value:* This will set the target value of each other mapping in the same group to the target value of this mapping.
-Nice: It will respect the target min/max setting of both this mapping and the other mappings.
+
+[[same-target-value]] Same target value::
+This will set the target value of each other mapping in the same group to the target value of this mapping.
+Nice: It will respect the <<target-min-max>> of both this mapping and the other mappings.
 All other settings of the glue section will not be processed.
 Needless to say, this kind of control is always absolute, which means it can lead to parameter jumps.
 Therefore, it's most suited for on/off targets.
-If you don't like this, choose _Same control_ instead.
-* *Inverse control:* This is like _Same control_ but broadcasts the _inverse_ of the incoming control value.
-* *Inverse target value:* This is like _Same target value_ but sets the target values of the other mappings to the
+If you don't like this, choose <<same-control>> instead.
+
+[[inverse-control]] Inverse control::
+This is like <<same-control>> but broadcasts the _inverse_ of the incoming control value.
+
+[[inverse-target-value]] Inverse target value::
+This is like <<same-target-value>> but sets the target values of the other mappings to the
 _inverse_ value.
 This is very useful in practice with buttons because it essentially gives you exclusivity within one group.
-It's a great alternative to the _Exclusive_ setting which is available for some targets.
-Unlike the latter, _Inverse target value_ allows for exclusivity between completely different target types and completely custom groupings - independent of e.g. organization of tracks into folders.
-* *Inverse target value (on only):* Variation of _Inverse target value_ that applies the inverse only when the target value is > 0%.
-* *Inverse target value (off only):* Variation of _Inverse target value_ that applies the inverse only when the target value is 0%.
+It's a great alternative to the <<exclusive-menu>> which is available for some targets.
+Unlike the latter, <<inverse-target-value>> allows for exclusivity between completely different target types and completely custom groupings - independent of e.g. organization of tracks into folders.
 
-===== Feedback type
+Inverse target value (on only)::
+Variation of <<inverse-target-value>> that applies the inverse only when the target value is > 0%.
 
-Determines whether to send numeric, textual or dynamic feedback to the source.
+Inverse target value (off only)::
+Variation of <<inverse-target-value>> that applies the inverse only when the target value is 0%.
 
-====== Numeric feedback: EEL transformation
+[[feedback-type-controls]]
+===== Feedback type controls
 
-Sends numeric feedback to the source.
-This is the default.
+Lets you set the <<feedback-type>>.
 
-The text field below allows you to specify an optional feedback transformation formula, which is much like <<control-transformation>> but used for translating a target value back to a source value for feedback purposes.
-Be aware: Here `x` is the desired source value (= output value) and `y` is the current target value (= input value), so you must assign the desired source value to `x`.
-
-Example: `x = y * 2`.
-
-ReaLearn's feedback processing order is like this since version 2:
-.. Apply target interval.
-.. Apply reverse.
-.. Apply transformation.
-.. Apply source interval.
-
-[#textual-feedback]
-====== Textual feedback: Text expression
-
-With this option, ReaLearn will send textual feedback values to the source.
-This only works with sources that are capable of displaying text: That is any <<osc-source,OSC source>> with argument type _String_, <<display-source, MIDI Display>> and <<midi-script-source>>.
-
-The field below contains the _textual feedback expression_.
-Here you define which text is going to be sent to the source _whenever the target value changes_ and also - for your convenience - immediately at the moment of entering the text.
-Whatever text you enter here, will be sent verbatim to the source.
-
-Of course, entering a fixed text here is not very exciting.
-Most likely you want to display dynamic text such as the name of the currently selected track or the current target value, nicely formatted!
-You can do that by using placeholders, delimited by double braces.
-Example: `{{target.text_value}}`.
-
-Which placeholders are available, depends very much on the type of the mapping target.
-However, there are some which are available for (almost) any target:
-
-[cols="m,1"]
-|===
-|
-global.realearn.time
-|
-Time in milliseconds since ReaLearn has been loaded (the first instance).
-
-|
-mapping.name
-|
-Name of the mapping. Contains the explicitly assigned mapping name, never an automatically generated one.
-
-|
-target.text_value
-|
-Short text representing the current target value, including a possible unit.
-
-If the target value can be represented using some kind of name, this name is preferred over a possibly alternative numeric representation. Example: Let's assume the 4th track in our project is called "Guitar" and the mapping target is <<browse-tracks-target>>. Then `target.text_value` contains the text _Guitar_, not the text _4_.
-
-This is the default value shown if textual feedback is enabled and the textual feedback
-expression is empty.
-
-|
-target.available
-|
-A boolean value indicating whether the target is currently available or not.
-
-Most targets that are _active_ are also _available_. But some targets can be _active_ and _unavailable_. Example: <<pot-preview-preset>> is not _available_ if no preview is available for the preset currently selected in Pot browser. But the target is still considered _active_ in this case!
-
-Usually used together with <<dynamic-feedback>>, for example in order to display different things on displays depending on the target's availability.
-
-|
-target.discrete_value
-|
-The current target value as zero-based integer. This only works for discrete targets.
-
-|
-target.discrete_value_count
-|
-The number of possible values in the current target. This only works for discrete targets.
-
-|
-target.numeric_value
-|
-The current target value as a "human-friendly" number without its unit.
-
-The purpose of this placeholder is to allow for more freedom in formatting numerical target values than
-when using `target.text_value`. Future versions of ReaLearn might extend textual feedback
-expressions in a way so the user can define how exactly the numerical value is formatted
-(e.g. the number of digits after the decimal point).
-
-|
-target.numeric_value.unit
-|
-Contains the unit of `target.numeric_value` (e.g. _dB_).
-
-|
-target.normalized_value
-|
-The current target value as normalized number, that is, a value between 0.0 and 1.0 (the so-called unit interval). You can think of this number as a percentage, and indeed, it's currently always formatted as percentage.
-
-This value is available for most targets and good if you need a totally uniform and predictable representation of the target value that doesn't differ between target types.
-
-By default, this number is formatted as percentage _without_ the percent sign. Future versions of ReaLearn might offer user-defined
-formatting. This will also be the preferred form to format on/off states in a
-custom way (where 0% represents _off_).
-
-|
-target.type.name
-|
-Short name representing the type of the mapping target.
-
-|
-target.type.long_name
-|
-Long name representing the type of the mapping target.
-
-|
-target.track.index
-|
-Zero-based index of the first resolved target track (if supported).
-
-|
-target.track.name
-|
-Name of the first resolved target track (if supported).
-
-|
-target.fx.index
-|
-Zero-based index of the first resolved target FX (if supported).
-
-|
-target.fx.name
-|
-Name of the first resolved target FX (if supported).
-
-|
-target.route.index
-|
-Zero-based index of the first resolved target send/receive/output (if supported).
-
-|
-target.route.name
-|
-Name of the first resolved target send/receive/output (if supported).
-|===
-
-For target-specific placeholders, please look up the corresponding <<target-section>>.
-
-[#dynamic-feedback]
-====== Dynamic feedback: Lua script
-
-This feedback type puts you fully in charge about which feedback to send to the source.
-It does so by letting you define a Luau script that builds numeric, textual or even arbitrarily structured feedback.
-
-*General mechanics*
-
-* ReaLearn executes your script whenever one of the ReaLearn-provided properties used in your script might have changed its value.
-* The script receives an input and must produce an output.
-* *Script input*
-** The input is a function `context.prop` which you can use to query arbitrary properties, e.g. target or mapping properties.
-Those properties are the very same properties that you can use in <<textual-feedback,textual feedback>>.
-** Here's an example how to use this function:
-+
-[source,lua]
-----
-local preset_name = context.prop("target.preset.name")
-local param_name = context.prop("target.fx_parameter.name")
-----
-+
-** Values returned by this function can be `nil`!
-E.g. target-related properties return a `nil` value whenever the mapping or target turns inactive, which is a very common situation.
-So it's important to prepare your Luau code for that, otherwise script execution fails and no feedback will be sent.
-One way to deal with a `nil` value returned by `context.prop` is to also return `nil` as `value` (see below).
-* *Script output*
-** The output that the script is supposed to return is a table which looks as in the following example:
-+
-[source,lua]
-----
-return {
-    feedback_event = {
-        -- The feedback value <1>
-        value = "Arbitrary text",
-        -- An optional color <2>
-        color = { r = 0, g = 255, b = 0 },
-        -- An optional background color <3>
-        background_color = nil,
-    }
-}
-----
-
-<1> In this example it's a text value, but it can be anything!
-<2> Has the same effect as color in <<feedback-style>>
-<3> Has the same effect as background color in <<feedback-style>>
-+
-** The most important thing here is `value`.
-It can either be ...
-*** ... a string (ideal for display sources)
-*** ... a number (ideal for LEDs and motor faders)
-*** ... `nil` (which means "turn the source off", e.g. turn off the LED, turn down the motorfader, clear the display text)
-*** ... or anything else (`true`, `false` or an arbitrary table ... at the moment, this is only useful for the <<midi-script-source>> source because other sources don't know how to deal with it)
-* *Examples*
-** Displays the number of milliseconds passed since ReaLearn was loaded:
-+
-[source,lua]
-----
-local millis = context.prop("global.realearn.time")
-return {
-    feedback_event = {
-        value = "" .. millis .. "ms"
-    },
-}
-----
-+
-** Creates an animation to make a long FX name visible on a tiny screen.
-+
-[source,lua]
-----
-function create_left_right_animation(global_millis, max_char_count, frame_length, text)
-    if text == nil then
-        return nil
-    end
-    if #text > max_char_count then
-        local frame_count = #text - max_char_count
-        local frame_index = math.floor(global_millis / frame_length) % (frame_count * 2)
-        local text_offset
-        if frame_index < frame_count then
-            text_offset = frame_index
-        else
-            local distance = frame_index - frame_count
-            text_offset = frame_count - distance
-        end
-        return text:sub(text_offset + 1, text_offset + max_char_count)
-    else
-        return text
-    end
-end
-
--- The maximum number of characters we want to display at once
-local max_char_count = 10
--- How many milliseconds to remain in one position
-local frame_length = 150
-local millis = context.prop("global.realearn.time")
-local fx_name = context.prop("target.fx.name")
-local animation = create_left_right_animation(millis, 10, frame_length, fx_name)
-return {
-    feedback_event = {
-        value = animation
-    },
-}
-----
-+
-** Returns a structured feedback value ...
-+
-[source,lua]
-----
-return {
-    feedback_event = {
-        value = {
-            available = context.prop("target.available"),
-            more_info = {
-                index = context.prop("target.discrete_value"),
-                count = context.prop("target.discrete_value_count"),
-            },
-        }
-    },
-}
-----
-** ... which can then be processed by a <<midi-script-source>> source (this example is not realistic, it just shows how you can access the value table returned by the glue section feedback script):
-+
-[source,lua]
-----
-return {
-    address = 0x4bb0,
-    messages = {
-        { 0xb0, 0x4b, y.more_info.index, y.more_info.count }
-    }
-}
-----
-
-You can share code between multiple feedback scripts by using <<compartment-wide-lua-code>>, with the following limitations (which hopefully will be lifted over time):
-
-- The shared code is not yet available to the Lua code editor window.
-That means writing `require("compartment")` will evaluate to `nil` in the editor.
-You might see a corresponding error message when the editor tries to compile your code.
-- When ReaLearn queries the script in advance to know which target properties it needs, the shared code is also not available yet.
-Currently, you need to make sure that the target properties are queried even if `require("compartment")` evaluates to `nil`.
-
-[#feedback-style]
-===== Feedback style
+[#feedback-style-menu]
+===== Feedback style menu (...)
 
 The ... button provides options to change the _feedback style_.
 At the moment, it's all about setting colors.
 
 TIP: If you use <<dynamic-feedback>>, changes made here don't have any effect because you are supposed to provide style properties as part of the Luau script result (which is much more flexible).
 
-* *Color / Background color:* With this you can define the color and background color of the displayed text.
-Of course this will only work if the display source supports it!
-** *<Default color>:* Chooses the default color, that is the one which is preferred for the corresponding controller and display type.
-** *<Pick color...>:* Opens a color picker so you can choose the color of your choice.
-** *_Property name_:* Maybe you don't want a fixed color but a dynamic one that changes whenever your target changes.
-Choose one of the following properties to make that happen:
-+
-[cols="m,1"]
-|===
-|
-target.track.color
-|
-Custom color of the first resolved target track (if supported).
+Color / Background color::
+With this you can define the color and background color of the displayed text.
+Of course this will only work if the source supports it!
 
-|
-target.bookmark.color
-|
-Custom color of the resolved marker or region.
+<Default color>:::
+Chooses the default color, that is the one which is preferred for the corresponding controller and display type.
 
-Only works with the <<marker-region-go-to>> target.
-|===
+<Pick color...>:::
+Opens a color picker so you can choose the color of your choice.
+
+_Property name_::: Maybe you don't want a fixed color but a dynamic one that changes whenever your target changes.
+Choose one of the properties to make that happen.
+Do a full-text search in the reference to learn about the meaning of the property.
 
 [[source-min-max]]
-===== Source Min/Max
+===== Source Min/Max controls
 
-The observed range of absolute source control values.
+The observed range of <<absolute-control-value, absolute control values>> coming from the source.
+Doesn't have an effect on <<relative-control-value, relative control values>>.
+
 By restricting that range, you basically tell ReaLearn to react only to a sub range of a control element, e.g. only the upper half of a fader or only the lower velocity layer of a key press.
-In relative mode, this only has an effect on absolute source control values, not on relative ones.
-This range also determines the minimum and maximum feedback value.
 
-===== Out-of-range behavior
+This range also determines the minimum and maximum <<feedback>> value.
 
-This determines ReaLearn's behavior if the source value is not within <<source-min-max>> or the target value not within "Target Min/Max".
-There are these variants:
+===== Out-of-range behavior menu
+
+This determines ReaLearn's behavior if the source value is not within <<source-min-max>> or the target value not within <<target-min-max>>.
+
+There are the following options:
 
 |===
 | | *Control direction (absolute mode only)* | *Feedback direction*
@@ -1751,43 +1454,42 @@ If the target value is > _Target Max_, ReaLearn will behave as if _Target Max_ w
  | *Ignore* | Target value won't be touched. | No feedback will be sent.
 |===
 
-===== Mode ("Absolute mode")
+[[absolute-mode]]
+===== Mode ("Absolute mode") menu
 
-Let's you choose an _absolute mode_, that is, the way incoming absolute source values are handled.
+Lets you choose an _absolute mode_, that is, the way incoming absolute source values are handled.
 
 TIP: Not all modes make sense at all times!
 It mostly depends on the character of the source.
 If a mode doesn't make sense given the current source, it will be marked as `NOT APPLICABLE`.
 In this case, you should choose another mode or change the source.
 
-====== Normal
+Normal::
 
 Takes and optionally transforms absolute source control values _the normal way_. _Normal_ means that the current target value is irrelevant and the target will just be set to whatever absolute control value is coming in (potentially transformed).
 
-[#incremental-button]
-====== Incremental button
-
+[[incremental-button,Incremental button mode]] Incremental button::
 With this you can "go relative" without having encoders, provided your control elements are buttons.
 Let's assume you use the _MIDI Note velocity_ and select _Incremental button_ mode.
 Then it works like this: Each time you press the key, the target value will increase, according to the mode's settings.
 You can even make the amount of change velocity-sensitive!
 If you want the target value to decrease, just check the _Reverse_ checkbox.
 
-====== Toggle button
-
+[[toggle-button-mode,Toggle button mode]]
+Toggle button::
 Toggle button mode is used to toggle a target between on and off states.
 It only makes sense for momentary buttons (which fire a value > 0 on each press).
-
++
 Here's how it works in detail:
-
++
 * If the current target value is within the first half of the target min/max range, it's considered as _off_ and will therefore be switched _on_ (set to _target max_).
 If it's within the second half, it's considered as _on_ and will therefore be switched _off_ (set to _target min_).
 * It works a bit differently if _target min_ and _target max_ have the same value (which is a common technique to set the target to a specific value on the press of a button).
 Instead of toggling between _target min_ and _target max_, this mode now toggles between this specific value (= _target min_ = _target max_) and 0%.
 This is useful whenever you have a set of buttons each of which sets the same target to a different value, and you want them to toggle between the specified value and an initial value (0%).
-
++
 This mode is not supported for controller mappings that have a virtual target.
-
++
 [TIP]
 ====
 Sometimes the controller itself provides a toggle mode for buttons. *Don't use it!*
@@ -1799,9 +1501,7 @@ Therefore, if you use the controller's built-in toggle function, it's quite like
 ReaLearn's own toggle mode has a clear advantage here.
 ====
 
-[#make-relative]
-====== Make relative
-
+[[make-relative]] Make relative::
 This converts incoming absolute fader/knob movements into relative adjustments of the target value.
 It somewhat resembles takeover mode <<takeover-mode-parallel>> but has important differences:
 
@@ -1809,13 +1509,11 @@ It somewhat resembles takeover mode <<takeover-mode-parallel>> but has important
 - It doesn't need to know the current target value.
 Which means it also works for mappings with <<virtual-target,virtual targets>>.
 
-[#performance-control]
-====== Performance control
-
+[[performance-control]] Performance control::
 This mode emulates the behavior of a typical soft synth modulation matrix mapping: It uses the target value that has been set in REAPER (not via this ReaLearn mapping) as an offset and starts changing it from there.
 
 [#takeover-mode]
-===== Takeover mode
+===== Takeover mode menu
 
 If you are not using motorized faders, absolute mode is inherently prone to parameter jumps.
 A parameter jump occurs if you touch a control element (e.g. fader) whose position in no way reflects the current target value.
@@ -1824,49 +1522,41 @@ You can deal with this by setting the right takeover mode.
 
 ReaLearn provides multiple takeover modes that decide how to deal with situations when a target parameter jump would occur.
 
-====== Off
+Off::
 
-The default settings: Jumps allowed.
+The default setting: Jumps allowed.
 
-[#pick-up]
-====== Pick up
-
-This is the same as "Soft takeover" in REAPER's built-in MIDI learn.
+[[pick-up]] Pick up::
+This is the same as _Soft takeover_ in REAPER's built-in MIDI learn.
 It prevents jumps by not changing the target value until your control element reaches it.
-
++
 In certain cases, this mode can cause the target value to get stuck.
 This happens with faders/knobs that cause jumps themselves when moved very rapidly.
 If you don't like that, you might want to try <<pick-up-tolerant>>.
 
-[#pick-up-tolerant]
-====== Pick up (tolerant)
-
+[[pick-up-tolerant]] Pick up (tolerant)::
 This is like <<pick-up>> but makes extra sure that the target value doesn't get stuck.
-
++
 However, unlike <<pick-up>>, this mode will jump if you cause a jump on your controller!
 Imagine using a touch strip.
 This kind of control element allows you to jump to arbitrary values at any time.
 Tolerant mode will not prevent this kind of jumps!
 
-====== Long time no see
-
+Long time no see::
 This is similar to <<pick-up>> with the difference that the current target value will gradually "come your way".
 This results in seamless and fast reunification of control and target value but it can feel weird because the target value can temporarily move in the opposite direction of the fader movement.
 In older ReaLearn versions this was called "Slowly approach if jump too big".
 
-[#takeover-mode-parallel]
-====== Parallel
-
+[[takeover-mode-parallel]] Parallel::
 With this mode, the target will simply follow your fader moves, in exactly the same tempo - without any scaling.
 Reunification only happens when both control and target value meet at the "borders".
 
-====== Catch up
-
+Catch up::
 This mode is sometimes called "Proportional" or "Value scaling" mode.
 It's like "Parallel" mode but the target value is allowed to move slower than the control value - hence the control can catch up (converge) faster.
 
-[#control-transformation]
-===== Control transformation (EEL)
+[[control-transformation]]
+===== Control transformation (EEL) field
 
 This feature allows you to write a formula that transforms incoming control values.
 
@@ -1887,53 +1577,45 @@ The important thing is to assign the desired value to `y` at some point.
 
 The following variables/functions are available in the formula:
 
-[cols="m,1"]
-|===
-
-| Variable | Description
-
-| y |
-`y` initially contains the _current_ target value.
+`y`:: Initially contains the _current_ target value.
 You can use that value in order to calculate the new value.
 With this, you can essentially craft your own relative mode!
 
-| y_last | This contains the last value of the target before it was affected by this particular mapping.
-
+`y_last`:: This contains the last value of the target before it was affected by this particular mapping.
++
 Allows you to come up with a performance control mode typical for synth parameter mappings, just like the built-in <<performance-control>> mode but more customizable.
 Try this for example: `y = y_last + x * (1 - y_last)`
 
-| rel_time a| This contains the number of milliseconds since this mapping has last been triggered with a control message coming from the source.
-
+`rel_time`:: This contains the number of milliseconds since this mapping has last been triggered with a control message coming from the source.
++
 As soon as you use this and a control message comes in, ReaLearn will start invoking your formula _repeatedly_!
 That means, this variable is your entrance ticket to smooth transitions and continuous parameter modulation.
-
++
 A few examples:
-
++
 * Smooth transition from current value to control value: `rel_time; y = abs(x - y) < 0.05 ? stop : y + 0.1 * (x - y)`
 * Sinus LFO: `y = (sin(rel_time / 500) + 1) / 2`
 * Linear transition to control value (1 second): `y = abs(x - y) < 0.05 ? stop : x * min(rel_time / 500, 1)`
 * 2 seconds chaos: `y = rel_time < 2000 ? rand(1) : stop`
 * Setting a value with delay: `y = rel_time < 2000 ? none : stop(0.5)`
 
-| stop and stop(...) |
-
+`stop` and `stop(...)`::
 In combination with `rel_time`, this stops repeated invocation of the formula until the mapping is triggered again.
-
++
 Good for building transitions with a defined end.
-
++
 Stopping the invocation at some point is also important if the same parameter should be controlled by other mappings as well.
 Otherwise, if multiple mappings continuously change the target parameter, only the last one wins.
-
++
 This also exists as a function, which lets you do both, returning a target value *and* stopping the transition.
 Pass the desired value in the parentheses, e.g. `stop(0.5)`.
 
-| none | Usually, each repeated (see `rel_time`) invocation always results in a target invocation (unless the target is not retriggerable and already has the desired value).
+`none`::
+Usually, each repeated (see `rel_time`) invocation always results in a target invocation (unless the target is not retriggerable and already has the desired value).
 Sometimes this is not desired.
 In this case, one can return `none`, in which case the target will not be touched.
-
++
 Good for transitions that are not continuous, especially if other mappings want to control the parameter as well from time to time.
-
-|===
 
 ReaLearn's control processing order is like this:
 
@@ -1943,36 +1625,42 @@ ReaLearn's control processing order is like this:
 . Apply target interval
 . Apply rounding
 
-===== Step size Min/Max
+[[step-size]]
+===== Step size Min/Max controls
 
 When you deal with relative adjustments of target values in terms of increments/decrements, then you have great flexibility because you can influence the _amount_ of those increments/decrements.
 This is done via the _Step size_ setting, which is available for all
 _continuous_ targets.
 
-* _Step size Min_ specifies how much to increase/decrease the target value when an increment/decrement is received.
-* _Step size Max_ is used to limit the effect of acceleration (for rotary encoders which support acceleration and virtual control elements that are mapped as &quot;Incremental button" and have a &quot;Speed&quot; > 1x) and changes in velocity (for velocity-sensitive buttons/keys that are used as "Incremental button").
+Step size Min:: Specifies how much to increase/decrease the target value when an increment/decrement is received.
+
+Step size Max:: Is used to limit the effect of acceleration (for rotary encoders which support acceleration and virtual control elements that are mapped as &quot;Incremental button" and have a &quot;Speed&quot; > 1x) and changes in velocity (for velocity-sensitive buttons/keys that are used as "Incremental button").
 If you set this to the same value as _Step size Min_, encoder acceleration or changes in velocity will have absolutely no effect on the incrementation/decrementation amount.
 If you set it to 100%, the effect is maximized.
 
-===== Speed Min/Max
+===== Speed Min/Max controls
 
-When you choose a discrete target, the _Step size_ label will change into
-_Speed_. _Discrete_ means there's a concrete number of possible values - it's the opposite of
-_continuous_.
+When you choose a target with a <<discrete-value-range>>, the <<step-size>> label will change into
+_Speed_.
 If a target is discrete, it cannot have arbitrarily small step sizes.
-It rather has one predefined atomic step size which never should be deceeded.
+It rather has one predefined atomic step size.
 Allowing arbitrary step size adjustment wouldn't make sense.
 That's why _Speed_ allows you to _multiply_ (positive numbers) or _"divide"_ (negative numbers) value increments with a factor instead.
 Negative numbers are most useful for rotary encoders because they will essentially lower their sensitivity.
 Virtual targets are always discrete.
 
-Example:
-
-* Let's assume you selected the discrete target <<fx-browse-presets>>, which is considered discrete because an FX with for example 5 presets has 6 well-defined possible values (including the <no preset> option), there's nothing inbetween.
+.Speed example
+====
+Let's assume you selected the discrete target <<fx-browse-presets>>, which is considered discrete because an FX with for example 5 presets has 6 well-defined possible values (including the <no preset> option), there's nothing inbetween.
 And let's also assume that you have a controller like Midi Fighter Twister whose rotary encoders don't support built-in acceleration.
+
 Now you slightly move an encoder clock-wise and your controller sends an increment +1. If the _Speed Min_ slider was at 1 (default), this will just navigate to the next preset (+1).
 If the _Speed Min_ slider was at 2, this will jump to the 2nd-next preset (+2).
 And so on.
+====
+
+Remarks:
+
 * There are FX plug-ins out there which report their parameter as discrete with an insanely small step size (e.g. some Native Instrument plug-ins).
 This kind of defeats the purpose of discrete parameters and one can argue that those parameters should actually be continuous.
 In such a case, moving your rotary encoder might need _a lot_ of turning even if you set _Speed_ to the apparent maximum of 100! In this case you will be happy to know that the text field next to the slider allows you to enter values higher than 100.
@@ -1981,16 +1669,16 @@ It means you need to make your encoder send 2 increments in order to move to the
 Or -5: You need to make your encoder send 5 increments to move to the next preset.
 This is like slowing down the encoder movement.
 
-===== Encoder filter (dropdown)
+===== Encoder filter menu
 
-Allows you to react to clockwise or counter-clockwise encoder movements only, e.g. if you want to invoke one action on clockwise movement and another one on counter-clockwise movement.
+Allows you to react to clockwise or counter-clockwise <<rotary-endless-encoder>> movements only, e.g. if you want to invoke one action on clockwise movement and another one on counter-clockwise movement.
 Or if you want to use different step sizes for different movements.
 
-* *Increment &amp; decrement:* ReaLearn will process both increments and decrements.
-* *Increment only:* ReaLearn will ignore decrements.
-* *Decrement only:* ReaLearn will ignore increments.
+Increment & decrement:: ReaLearn will process both increments and decrements.
+Increment only:: ReaLearn will ignore decrements.
+Decrement only:: ReaLearn will ignore increments.
 
-===== Wrap
+===== Wrap checkbox
 
 If unchecked, the target value will not change anymore if there's an incoming decrement but the target already reached its minimum value.
 If checked, the target value will jump to its maximum value instead.
@@ -1998,6 +1686,7 @@ It works analogously if there's an incoming increment and the target already rea
 
 If this flag is enabled for controller mappings which have a virtual target, every main mapping controlled by that virtual control element will _rotate_ - even if the main mapping itself doesn't have _rotate_ enabled.
 
+[[make-absolute]]
 ===== Make absolute
 
 Check this box if you want to emulate an absolute control element with a relative encoder or with -/+ (incremental) buttons.
@@ -2012,16 +1701,15 @@ By checking this box:
 * You can still use some of the relative-only features: Step size and rotate!
 
 [#fire-mode]
-===== Fire mode
+===== Fire mode menu
 
 Normally, when a button gets pressed, it controls the target immediately.
 However, by using this dropdown and by changing the values below it, you can change this behavior.
 This dropdown provides different fire modes that decide how exactly ReaLearn should cope with button presses.
 
-====== Fire on press (or release if > 0 ms)
-
+Fire on press (or release if > 0 ms)::
 This mode is essential in order to be able to distinguish between different press durations.
-
++
 * *Min* and *Max* decide how long a button needs to be pressed to have an effect.
 * By default, both min and max will be at 0 ms, which means that the duration doesn't matter and both press (> 0%) and release (0%) will be instantly forwarded.
 If you change _Min_ to e.g. 1000 ms and _Max_ to 5000 ms, it will behave as follows:
@@ -2033,64 +1721,67 @@ For this, use settings like the following:
 * Short press: 0 ms - 250 ms
 * Long press: 250 ms - 5000 ms
 
-====== Fire after timeout
-
+Fire after timeout::
 This mode is more "satisfying" because it will let ReaLearn "fire" immediately once a certain time has passed since the press of the button.
 However, obviously it doesn't have the concept of a "Maximum" press duration, so it can't be used to execute different things depending on different press durations (or only as the last part in the press duration chain, so to say).
 
-* *Timeout:* Sets the timeout in milliseconds.
+Timeout::: Sets the timeout in milliseconds.
 If this is zero, everything will behave as usual.
 
-[#fire-after-timeout-keep-firing]
-====== Fire after timeout, keep firing (turbo)
-
+[[fire-after-timeout-keep-firing]]Fire after timeout, keep firing (turbo)::
 Welcome to turbo mode.
 It will keep hitting your target (always with the initial button press velocity) at a specific rate.
 Optionally with an initial delay.
 Epic!
 
-* *Timeout:* This is the initial delay before anything happens.
+Timeout::: This is the initial delay before anything happens.
 Can be zero, then turbo stage is entered instantly on press.
-* *Rate:* This is how frequently the target will be hit once the timeout has passed.
+
+Rate::: This is how frequently the target will be hit once the timeout has passed.
 In practice, it won't happen more frequently than once every 30 ms (REAPER's main thread loop frequency).
 
-====== Fire on double press
+Fire on double press::
+This reacts to double presses of a button (analog to double-clicks with the mouse).
 
-This reacts to double presses of a button (analog to double clicks with the mouse).
-
-====== Fire after single press (if hold < Max ms)
+Fire after single press (if hold < Max ms)::
 
 If you want to do something in response to a double press, chances are that you want to do something _else_ in response to just a single press.
 The _Normal_ fire mode will fire no matter what!
-That's why there's an additional _Single press_ mode that will not respond to double clicks.
-Needless to say, the response happens _slightly_ delayed - because ReaLearn needs to wait a bit to see if it's going to be a double press or not.
+That's why there's an additional _Single press_ mode that will not respond to double presses.
+The response happens _slightly_ delayed - because ReaLearn needs to wait a bit to see if it's going to be a double press or not.
 
-* *Max:* It's even possible to distinguish between single, double _and_ long press.
+Max::: With this, it's even possible to distinguish between single, double _and_ long press.
 In order to do that, you must set the _Max_ value of the _Single press_ mapping to a value that is lower than the _Timeout_ value of your _After timeout_ mapping.
 That way you can use one button for 3 different actions!
-Example:
-** Mapping 1 "Single press" with Max = 499ms
-** Mapping 2 "Double press"
-** Mapping 3 "After timeout" with Timeout = 500ms
++
+====
+* Mapping 1 "Single press" with Max = 499ms
+* Mapping 2 "Double press"
+* Mapping 3 "After timeout" with Timeout = 500ms
+====
 
-===== Button filter (right dropdown)
+===== Button filter menu
 
 This allows you to easily ignore button presses or releases.
 
-* *Press &amp; release:* ReaLearn will process both button presses (control value = 0%) and button releases (control value > 0%).
+Press & release::
+ReaLearn will process both button presses (control value = 0%) and button releases (control value > 0%).
 This is the default.
-* [[press-only,press-only]] *Press only:* Makes ReaLearn ignore the release of the button.
+
+[[press-only,press-only]] Press only::
+Makes ReaLearn ignore the release of the button.
 The same thing can be achieved by setting
 _Source Min_ to 1. However, doing so would also affect the feedback direction, which is often undesirable because it will mess with the button LED color or on/off state.
-* *Release only:* Makes ReaLearn ignore the press of the button (just processing its release).
+
+Release only:: Makes ReaLearn ignore the press of the button (just processing its release).
 Rare, but possible.
 
 ==== Bottom section
 
-This section has two functions:
+The section at the bottom has two functions:
 
-- **Help*Providing context-sensitive help for the glue section
-- Providing control information, feedback information and error reporting
+- To provide context-sensitive help for the glue section
+- To provide control information, feedback information and error reporting
 
 ===== Help
 
@@ -2098,14 +1789,14 @@ Context-sensitive help for the glue section.
 Whenever you touch a setting in the glue section, some text will appear which explains what this element does, both for the _control_ and for the
 _feedback_ direction (if applicable).
 
-===== If source is a
+===== "If source is a" menu
 
 It often depends on the kind of source what effect a setting has.
 Therefore, this dropdown always contains a list of sources.
 It only displays relevant kinds of sources.
 If a source kind is impossible according to the current source settings or if it's not supported by the setting, it won't appear in the list.
 
-===== Activity info
+===== Activity info area
 
 The left text area shows information about how an incoming control value was handled and possible target control errors.
 
@@ -2315,7 +2006,7 @@ CAUTION: For controllers with multiple displays and lines, ReaLearn allows you t
 This is great if you need to display a lot of text but one display doesn't provide enough space.
 But be aware: Replacing feedback with other feedback ("feedback relay") doesn't work so nicely anymore if you make use of this feature.
 
-If you want to know how to define which text shall be sent to the displays, please see <<textual-feedback,textual feedback>> in the <<glue-section>>.
+If you want to know how to define which text shall be sent to the displays, please see <<text-feedback,textual feedback>> in the <<glue-section>>.
 
 ==== Specific program change
 
@@ -2535,6 +2226,7 @@ Specifies in which context the action is going to be invoked.
 * *Active MIDI event list editor:* Invokes a MIDI event list action, applied to the currently active MIDI editor.
 * *Media explorer:* Invokes a media explorer action.
 
+[[invocation-type]]
 ===== Invoke: Invocation type
 
 Specifies _how_ the picked action is going to be controlled.
@@ -2731,6 +2423,11 @@ This target supports the following additional placeholders in textual feedback e
 |target.bookmark.index | Index of the bookmark (counting both markers and regions)
 |target.bookmark.index_within_type | Index of the bookmark (counting only markers or regions, respectively)
 |target.bookmark.name | Name of the bookmark
+|
+target.bookmark.color
+|
+Custom color of the resolved marker or region.
+
 |===
 
 [#track-target]
@@ -3279,7 +2976,7 @@ Restores target values for all or certain mappings in this ReaLearn unit.
 ** *By ID:* Restores target values contained in a snapshot that was taken via <<realearn-take-mapping-snapshot>>.
 Simply enter the corresponding ID here.
 * *Default:* Allows you to define a default target value to restore for each participating mapping whenever the snapshot either doesn't exist or doesn't contain a value for that mapping.
-If that participating mapping has <<Reverse>> checked, the inverse of the default value will be loaded.
+If that participating mapping has reverse checked, the inverse of the default value will be loaded.
 * *Tags:* Allows you to restrict the set of mappings whose target values will be restored.
 ** If this field is empty, target values of all mappings will be restored.
 ** If this field contains tags (comma-separated), target values will be restored only for mappings that are tagged with any of these.
@@ -3994,71 +3691,6 @@ So you can now control the track volume by moving the first fader.
 
 _Virtual feedback_ is just like <<virtual-control>>, but in the opposite direction (from REAPER to your <<controller>>).
 
-==== Order in which mappings are processed
-
-Since ReaLearn 2.10.0, mappings are processed from top to button, exactly in the order in which they are defined within the corresponding compartment.
-This matters if you want to map multiple targets to one button and the order of execution matters.
-
-*Important:* There's an exception.
-ReaLearn's processing of its own VST parameters is always deferred.
-
-- That means changing a ReaLearn parameter in one mapping and relying on it in the next one (in terms of conditional activation or in a `<Dynamic>` expression), will not work!
-- You can work around that by delaying execution of the next mapping via <<fire-mode,fire mode>> but that's a dirty hack.
-ReaLearn's parameters are not supposed to be used that way!
-- Imagine a railway: ReaLearn's targets can be considered as trains.
-Triggering a target means moving the train forward.
-ReaLearn's parameters can be considered as railway switches.
-Changing a parameter means setting a course.
-The course needs to be set in advance, at least one step before!
-Not at the same time as moving the train over the switch.
-
-=== Mapping concepts
-
-==== Absolute vs. relative control elements
-
-We can distinguish between control elements with regard to what sort of <<control-value>> they emit: In this dimension, we have <<absolute-control-element>> and <<relative-control-element>>.
-
-[[absolute-control-element]]
-===== Absolute control element
-
-A <<control-element>> is absolute if it emits absolute values.
-You can think of an absolute value as a percentage: The value is something between 0% and 100%, where 0% represents the minimum possible value and 100% the maximum.
-
-.Typical absolute control elements
-====
-
-Fader:: When moving a fader up from bottom to top, it will emit values from 0% to 100%.
-
-Knob:: When moving a knob clockwise, it will emit values from 0% (at the left boundary) to 100% (at the right boundary).
-
-Momentary button:: When pressing a button, it will emit 100%.
-When released, it will emit 0%.
-
-Key:: When pressing a key on a musical keyboard, it will emit a value between 0% and 100%, depending on the velocity with which the key was pressed.
-When released, it will emit 0%.
-====
-
-[[relative-control-element]]
-===== Relative control element
-
-A <<control-element>> is relative if it emits relative values.
-You can think of a relative value as an _instruction_.
-It can be one of the following two instructions:
-
-Please decrease!:: We call such a value a *decrement*.
-Please increase!:: We call such a value an *increment*.
-
-.Typical relative control elements
-====
-
-Rotary endless encoders:: When moving a rotary endless encoder clockwise, it will continuously emit increments.
-When moving it counter-clockwise, it will continuously emit decrements.
-+
-It happens very often that controllers have rotary endless encoders, but they will act like knobs by default, sending absolute messages.
-That is a great waste and you should change that setting as soon as possible on the hardware side. **Relative control is always superior to absolute control!**
-
-====
-
 ==== Real vs. virtual control elements
 
 Wait ... control elements that are not real!?
@@ -4111,7 +3743,7 @@ Usually everything which is _not_ a simple on/off button :) Here's a list of typ
 * Endless encoder
 * XY pad (1 axis)
 * Touch strip
-* (Endless) rotary encoder
+* Rotary (endless) encoder
 * Velocity-sensitive pads or keys
 
 [[virtual-control-element-type-button]] Button::
@@ -4141,28 +3773,158 @@ For controls divided into rows and column, as for example found on the Novation 
 Numbered (`numbered`)::
 Simply lets you pick among any number between 1 and 100.
 
+==== Order in which mappings are processed
+
+Since ReaLearn 2.10.0, mappings are processed from top to button, exactly in the order in which they are defined within the corresponding compartment.
+This matters if you want to map multiple targets to one button and the order of execution matters.
+
+*Important:* There's an exception.
+ReaLearn's processing of its own VST parameters is always deferred.
+
+- That means changing a ReaLearn parameter in one mapping and relying on it in the next one (in terms of conditional activation or in a `<Dynamic>` expression), will not work!
+- You can work around that by delaying execution of the next mapping via <<fire-mode,fire mode>> but that's a dirty hack.
+ReaLearn's parameters are not supposed to be used that way!
+- Imagine a railway: ReaLearn's targets can be considered as trains.
+Triggering a target means moving the train forward.
+ReaLearn's parameters can be considered as railway switches.
+Changing a parameter means setting a course.
+The course needs to be set in advance, at least one step before!
+Not at the same time as moving the train over the switch.
+
+=== Mapping concepts
+
+==== Absolute vs. relative control
+
+We can distinguish between two fundamentally different ways of <<control>>: _Absolute_ and _relative_ control.
+
+[[absolute-control]]
+===== Absolute control
+
+Imagine someone tells you: "Change the volume to -6 dB!" You go ahead and move the fader to -6 dB.
+
+That's absolute control in a nutshell!
+Absolute control uses <<absolute-control-value, absolute control values>>.
+
+[TIP]
+====
+Often, absolute control involves an <<absolute-control-element>>, but it doesn't have to!
+
+ReaLearn can simulate absolute control even with a <<relative-control-element>> (see <<make-absolute>>).
+====
+
+[[relative-control]]
+===== Relative control
+
+Imagine someone tells you: "Raise the volume by 2 dB!" You go ahead and move the fader up by 2 dB.
+Before it was -6 dB, that means it's -4 dB now.
+
+That's relative control!
+Relative control uses <<relative-control-value, relative control values>>.
+
+[TIP]
+====
+Often, relative control involves a <<relative-control-element>>, but it doesn't have to!
+ReaLearn masters multiple ways of turning absolute control into relative one:
+
+* Buttons or keys naturally emit absolute control values.
+But using <<incremental-button>>, they can be used for relative control (previous/next style buttons).
+* Knobs naturally emit absolute control values.
+But using <<make-relative>> or <<performance-control>>, they can be used for relative control.
+====
+
+==== Absolute vs. relative control elements
+
+We can distinguish between control elements with regard to what sort of <<control-value>> they emit: In this dimension, we have <<absolute-control-element>> and <<relative-control-element>>.
+
+[[absolute-control-element]]
+===== Absolute control element
+
+A <<control-element>> is _absolute_ if it emits absolute values.
+You can think of an absolute value as a percentage: The value is something between 0% and 100%, where 0% represents the minimum possible value and 100% the maximum.
+
+.Typical absolute control elements
+[[fader]] Fader::
+A fader is a vertical or horizontal element with a thumb that you can move.
+When moving a fader up from bottom to top, it will continuously emit values from 0% to 100%.
+
+[[knob]] Knob::
+A knob is a circular element with boundaries on the left and right.
+When moving a knob clockwise, it will continuously emit values from 0% (at the left boundary) to 100% (at the right boundary).
+
+[[momentary-button]] Momentary button::
+A momentary button is a button that emits 100% when pressed and 0% when released.
+ReaLearn can easily use momentary buttons to toggle a target.
+See <<toggle-button-mode>>.
+
+[[toggle-button]] Toggle button::
+A toggle button is a button that emits 100% when pressed and 0% when pressed again.
++
+IMPORTANT: You don't want toggle buttons on the hardware side!
+They are much less flexible than momentary buttons!
+Momentary buttons can be turned into toggle buttons by ReaLearn, but not vice versa!
+If you have to put up with a hardware toggle button, use <<midi-source-character>> <<toggle-only-button>>.
+
+[[velocity-sensitive-key]] Velocity-sensitive key:: A key emits a value between 0% and 100% when pressed, depending on the velocity with which the key was hit.
+When released, it will emit 0%.
+
+[[aftertouch]] Aftertouch:: When pressing the key a bit more into the keybed after it has already been pressed, it will continuously emit increasing values starting at 0%.
+When releasing pressure, it will continuously emit decreasing values until reaching 0% again.
+
+[[pitch-wheel]] Pitch wheel:: When moving a pitch wheel up, it will continuously emit increasing values starting at 50%.
+When letting it snap back, it will continuously emit decreasing value until reaching 50% again.
+When moving it down, it will continuously emit decreasing values, and so on.
+
+[[touch-strip]] Touch strips:: When touching the strip somewhere in the middle, it will emit a value around 50%.
+When dragging upward, it will continuously emit increasing values starting from where you touched it first.
+
+[[relative-control-element]]
+===== Relative control element
+
+A <<control-element>> is _relative_ if it emits relative values.
+You can think of a relative value as an _instruction_.
+It can be one of the following two instructions:
+
+Please decrease!:: We call such a value a *decrement*.
+Please increase!:: We call such a value an *increment*.
+
+.Typical relative control elements
+[[rotary-endless-encoder]] Rotary endless encoder::
+A rotary endless encoder (or just _encoder_) is a circular, like a knob.
+But unlike a knob, it doesn't have boundaries.
+When moving a rotary endless encoder clockwise, it will continuously emit increments.
+When moving it counter-clockwise, it will continuously emit decrements.
++
+IMPORTANT: It happens very often that controllers have rotary endless encoders, but they will act like knobs by default, sending absolute messages.
+That is a great waste and you should change that setting as soon as possible on the hardware side.
+
 [[control-value]]
 ==== Control value
 
 A _control value_ is the signal that travels through a ReaLearn <<mapping>> from <<source>> to <<target>> when it receives an event from an <<input-port>>.
 A control value can be absolute or relative.
 
+[[feedback-value]]
+==== Feedback value
+
+A _feedback value_ is the signal that travels through a ReaLearn <<mapping>> back from <<target>> to <<source>> when the target changes its value.
+A feedback value is always absolute.
+
+==== Absolute vs. relative control values
+
 [[absolute-control-value]]
 ===== Absolute control value
 
-An _absolute_ control value is a percentage between 0.0% and 100.0% (internally represented by a high-precision floating point number between 0.0 and 1.0).
+An _absolute_ control value is conceptually a percentage between 0.0% and 100.0%.
+
+Internally, it is represented by a high-precision floating point number between 0.0 and 1.0. E.g. 0.25 is 25%.
 
 [[relative-control-value]]
 ===== Relative control value
 
-A _relative_ control value is a positive or negative integer that reflects the number of increments or decrements.
+A _relative_ control value is a number of increments or decrements.
+
+Internally, it is represented as a positive or negative integer.
 E.g. control value -2 means a decrement of 2.
-
-[[feedback-value]]
-==== Feedback value
-
-A _feedback value_ is the signal that travels through a ReaLearn <<mapping>> back from <<target>> to <<source>> when a <<target>> changes its value.
-A feedback value is always absolute.
 
 [[mapping-tag]]
 ==== Mapping tag
@@ -4558,6 +4320,264 @@ E0 [0gfe dcba] [0nml kjih]
 ----
 ====
 
+=== Glue concepts
+
+[[target-value-sequence]]
+==== Target value sequence
+
+A target value sequence represents a list of possible target values.
+It can be entered using into the <<target-value-sequence-field>>.
+
+The mapping will set the target only to values contained in that sequence.
+Such a sequence doesn't just support single values but also ranges with customizable step sizes.
+All values are entered comma-separated using the target unit specified with the <<target-unit-button>>.
+
+.Single values
+====
+Enter this sequence for a volume target with target unit switched to *dB*:
+
+`-20, -14, -12, -6, -3.5, 0`
+
+When you move your knob or rotary encoder or press a button using <<incremental-button>>, ReaLearn will step through the entered dB values for you.
+====
+
+.Value ranges
+====
+
+Enter this sequence for a target with a continuous value range and target unit switched to *%*:
+
+`10 - 30, 50 - 70 (5), 80 - 90 (2)`
+
+It will first step in 1% steps from 10% to 30%, then in 2% steps from 50% to 70% and finally from 80% to 90% in 2% steps.
+It's important that the numbers and the range dash are separated by spaces!
+====
+
+.Non-monotonic or non-strict-monotonic sequences
+====
+Let's look at this sequence:
+
+`20, 10, 10, -5, 8`
+
+It's non-monotonic: It decreases, and then increases again.
+Even if it would just decrease, it would be non-strict monotonic because it contains duplicates (value 10).
+
+When using <<absolute-control>>, it's no problem stepping through such sequences.
+
+However, <<relative-control>> only supports strictly increasing or strictly decreasing sequences.
+So if you control this sequence e.g. via <<rotary-endless-encoder>> or via <<incremental-button>>, the sequence will be stepped through like this: -5, 8, 10, 20.
+
+Alternative: Use <<make-absolute>>!
+====
+
+[[feedback-type]]
+==== Feedback type
+
+The _feedback type_ determines whether to send numeric, text or dynamic feedback to the source.
+It can be set using the <<feedback-type-controls>>.
+
+[[numeric-feedback-type]]
+===== Numeric feedback: EEL transformation
+
+Sends numeric feedback to the source.
+This is the default.
+
+Numeric feedback can be combined with an EEL feedback transformation formula.
+This is similar to <<control-transformation>> but used for translating a target value back to a source value for feedback purposes.
+
+Be aware: Here `x` is the desired source value (= output value) and `y` is the current target value (= input value), so you must assign the desired source value to `x`.
+
+.Simple feedback transformation formula
+====
+`x = y * 2`
+====
+
+ReaLearn's feedback processing order is:
+
+. Apply target interval.
+. Apply reverse.
+. Apply transformation.
+. Apply source interval.
+
+[[text-feedback]]
+===== Text feedback: Text expression
+
+With this option, ReaLearn will send text feedback values to the source.
+This only works with sources that are capable of displaying text: That is any <<osc-source,OSC source>> with argument type _String_, <<display-source, MIDI Display>> and <<midi-script-source>>.
+
+Text feedback can be combined with a _text expression_, which lets you define which text is going to be sent to the source _whenever the target value changes_ and immediately when entering the text.
+Whatever text you enter here, will be sent verbatim to the source.
+
+Of course, entering a fixed text here is not very exciting.
+Most likely you want to display dynamic text such as the name of the currently selected track or the current target value, nicely formatted!
+You can do that by using placeholders, delimited by double braces.
+
+.Simple text expression
+====
+`{{target.text_value}}`
+====
+
+See <<target-properties>> for a list of properties that you can use in placeholders.
+
+[#dynamic-feedback]
+===== Dynamic feedback: Lua script
+
+This feedback type puts you fully in charge about which feedback to send to the source.
+It does so by letting you define a Luau script that builds numeric, textual or even arbitrarily structured feedback.
+
+====== General mechanics
+
+ReaLearn executes your script whenever one of the ReaLearn-provided properties used in your script might have changed its value.
+
+The script receives an input and must produce an output.
+
+Script input::
+* The input is a function `context.prop` which you can use to query arbitrary properties, e.g. target or mapping properties.
+Those properties are the very same properties that you can use in <<text-feedback,textual feedback>>.
++
+.How to use `context.prop()`
+====
+[source,lua]
+----
+local preset_name = context.prop("target.preset.name")
+local param_name = context.prop("target.fx_parameter.name")
+----
+====
++
+* Values returned by this function can be `nil`!
+E.g. target-related properties return a `nil` value whenever the mapping or target turns inactive, which is a very common situation.
+So it's important to prepare your Luau code for that, otherwise script execution fails and no feedback will be sent.
+One way to deal with a `nil` value returned by `context.prop` is to also return `nil` as `value` (see below).
+
+Script output::
+* The output that the script is supposed to return is a table which looks as in the following example.
++
+.Result table structure
+====
+[source,lua]
+----
+return {
+    feedback_event = {
+        -- The feedback value <1>
+        value = "Arbitrary text",
+        -- An optional color <2>
+        color = { r = 0, g = 255, b = 0 },
+        -- An optional background color <3>
+        background_color = nil,
+    }
+}
+----
+
+<1> In this example it's a text value, but it can be anything!
+<2> Has the same effect as color in <<feedback-style-menu>>
+<3> Has the same effect as background color in <<feedback-style-menu>>
+====
++
+* The most important thing here is `value`.
+It can either be ...
+** ... a string (ideal for display sources)
+** ... a number (ideal for LEDs and motor faders)
+** ... `nil` (which means "turn the source off", e.g. turn off the LED, turn down the motorfader, clear the display text)
+** ... or anything else (`true`, `false` or an arbitrary table ... at the moment, this is only useful for the <<midi-script-source>> source because other sources don't know how to deal with it)
+
+
+.`global.realearn.time`
+====
+Displays the number of milliseconds passed since ReaLearn was loaded:
+
+[source,lua]
+----
+local millis = context.prop("global.realearn.time")
+return {
+    feedback_event = {
+        value = "" .. millis .. "ms"
+    },
+}
+----
+====
+
+.Animation
+====
+Creates an animation to make a long FX name visible on a tiny screen:
+
+[source,lua]
+----
+function create_left_right_animation(global_millis, max_char_count, frame_length, text)
+    if text == nil then
+        return nil
+    end
+    if #text > max_char_count then
+        local frame_count = #text - max_char_count
+        local frame_index = math.floor(global_millis / frame_length) % (frame_count * 2)
+        local text_offset
+        if frame_index < frame_count then
+            text_offset = frame_index
+        else
+            local distance = frame_index - frame_count
+            text_offset = frame_count - distance
+        end
+        return text:sub(text_offset + 1, text_offset + max_char_count)
+    else
+        return text
+    end
+end
+
+-- The maximum number of characters we want to display at once
+local max_char_count = 10
+-- How many milliseconds to remain in one position
+local frame_length = 150
+local millis = context.prop("global.realearn.time")
+local fx_name = context.prop("target.fx.name")
+local animation = create_left_right_animation(millis, 10, frame_length, fx_name)
+return {
+    feedback_event = {
+        value = animation
+    },
+}
+----
+====
+
+.Structured feedback values
+====
+Returns a structured feedback value ...
+
+[source,lua]
+----
+return {
+    feedback_event = {
+        value = {
+            available = context.prop("target.available"),
+            more_info = {
+                index = context.prop("target.discrete_value"),
+                count = context.prop("target.discrete_value_count"),
+            },
+        }
+    },
+}
+----
+
++...+ which can then be processed by a <<midi-script-source>> source:
+
+[source,lua]
+----
+return {
+    address = 0x4bb0,
+    messages = {
+        { 0xb0, 0x4b, y.more_info.index, y.more_info.count }
+    }
+}
+----
+
+This example is not realistic, it just shows how you can access the value table returned by the glue section feedback script.
+====
+
+You can share code between multiple feedback scripts by using <<compartment-wide-lua-code>>, with the following limitations (which hopefully will be lifted over time):
+
+* The shared code is not yet available to the Lua code editor window.
+That means writing `require("compartment")` will evaluate to `nil` in the editor.
+You might see a corresponding error message when the editor tries to compile your code.
+* When ReaLearn queries the script in advance to know which target properties it needs, the shared code is also not available yet.
+Currently, you need to make sure that the target properties are queried even if `require("compartment")` evaluates to `nil`.
+
 === Target concepts
 
 [[target-object-selectors]]
@@ -4573,7 +4593,7 @@ Many ReaLearn <<target, targets>> work on some kind of _object_:
 All of those objects need to be _addressed_ somehow.
 For this purpose, ReaLearn uses so-called _object selectors_.
 
-===== Commonly available object selectors
+===== Common object selectors
 
 This section describes commonly available object selectors.
 
@@ -4748,12 +4768,12 @@ Track which hosts this ReaLearn instance.
 If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
 
 [#selected-selector]
-======= <Selected> selector
+====== <Selected> selector
 
 Currently selected track.
 If multiple tracks are selected, refers only to the first one.
 
-======= <All selected> selector
+====== <All selected> selector
 
 All currently selected tracks.
 This makes track targets (not FX target and not send targets) do their job on _all_ selected tracks.
@@ -4761,7 +4781,7 @@ The feedback value always corresponds to the highest value among all selected tr
 
 CAUTION: If you select many tracks, things can become quite slow!
 
-======= <Master> selector
+====== <Master> selector
 
 Master track of the project which hosts this ReaLearn instance.
 
@@ -4769,27 +4789,27 @@ Master track of the project which hosts this ReaLearn instance.
 * If you don't have ReaLearn on the monitoring FX chain but you want to control an FX on the monitoring FX chain, this option is the right choice as well.
 Make sure to enable the "Monitoring FX" checkbox.
 
-======= All named selector
+====== All named selector
 
 Allows you to use wildcards (see <<named-selector>>) to make track targets do their thing on all matching tracks instead of only the first one.
 
-======= At TCP position selector
+====== At TCP position selector
 
 Like <<at-position-selector>> but just considers tracks that are visible in the track control panel.
 
-======= At MCP position selector
+====== At MCP position selector
 
 Like <<at-position-selector>> but just considers tracks that are visible in the mixer control panel.
 
-======= Dynamic (TCP) selector
+====== Dynamic (TCP) selector
 
 Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the track control panel.
 
-======= Dynamic (MCP) selector
+====== Dynamic (MCP) selector
 
 Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the mixer control panel.
 
-======= By ID or name (legacy) selector
+====== By ID or name (legacy) selector
 
 This lets you refer to a track by its unique ID and name as fallback.
 This was the default behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
@@ -4804,29 +4824,29 @@ Always points to the own ReaLearn FX <<instance>>.
 Perfect for changing own parameters, e.g. for usage of the conditional activation or <<dynamic-selector>> features (especially important if you want to create reusable presets that make use of these features).
 
 [[fx-focused-selector]]
-======= Focused selector
+====== Focused selector
 
 Currently or last focused FX. _Track_ and _Input FX_ settings are ignored.
 
 [#particular-fx-selector]
-======= Particular selector
+====== Particular selector
 
 Lets you pick a specific FX in the FX chain.
 Renaming the FX or moving it within the FX chain is fine - ReaLearn will still keep controlling exactly this FX.
 Please note that this only makes sense if you address the containing track using <<particular-selector>> as well.
 
 [#named-fx-selector]
-======= Named selector
+====== Named selector
 
 Lets you address the FX by its name in the FX chain.
 Just as with tracks, you can use wildcards to have a blurry search.
 
 [#all-named-fx-selector]
-======= All named selector
+====== All named selector
 
 Allows you to use wildcards (see <<named-fx-selector>>) to make FX targets do their thing on all matching FX instances instead of only the first one.
 
-======= By ID or position (legacy) selector
+====== By ID or position (legacy) selector
 
 This refers to the FX by its unique ID with its position as fallback.
 This was the default behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
@@ -4841,6 +4861,165 @@ We call object selectors _sticky_ if they refer to a particular object (e.g. a t
 Sticky selectors:: `<Master>`, `<This>`, `Particular`
 
 Non-sticky selectors:: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All selected>`, `Named`, `All named`, `At position`, `From Playtime column`
+
+[[target-properties]]
+==== Target properties
+
+Targets can expose properties, which you can use for <<text-feedback>> or <<dynamic-feedback>>.
+
+Which properties are available, depends very much on the type of the target type.
+
+There are some properties which are available for (almost) any target (for very target-specific properties, please look up the corresponding target in <<target-types>>):
+
+.Common target properties
+[cols="m,1,3"]
+|===
+|Name | Type | Description
+
+|
+global.realearn.time
+|
+Decimal
+|
+Time in milliseconds since ReaLearn has been loaded (the first instance).
+
+|
+mapping.name
+|
+String
+|
+Name of the mapping. Contains the explicitly assigned mapping name, never an automatically generated one.
+
+|
+target.text_value
+|
+String
+|
+Short text representing the current target value, including a possible unit.
+
+If the target value can be represented using some kind of name, this name is preferred over a possibly alternative numeric representation. Example: Let's assume the 4th track in our project is called "Guitar" and the mapping target is <<browse-tracks-target>>. Then `target.text_value` contains the text _Guitar_, not the text _4_.
+
+This is the default value shown if textual feedback is enabled and the textual feedback
+expression is empty.
+
+|
+target.available
+|
+Boolean
+|
+A boolean value indicating whether the target is currently available or not.
+
+Most targets that are _active_ are also _available_. But some targets can be _active_ and _unavailable_. Example: <<pot-preview-preset>> is not _available_ if no preview is available for the preset currently selected in Pot browser. But the target is still considered _active_ in this case!
+
+Usually used together with <<dynamic-feedback>>, for example in order to display different things on displays depending on the target's availability.
+
+|
+target.discrete_value
+|
+Integer
+|
+The current target value as zero-based integer. This only works for discrete targets.
+
+|
+target.discrete_value_count
+|
+Integer
+|
+The number of possible values in the current target. This only works for discrete targets.
+
+|
+target.numeric_value
+|
+Decimal
+|
+The current target value as a "human-friendly" number without its unit.
+
+The purpose of this placeholder is to allow for more freedom in formatting numerical target values than
+when using `target.text_value`. This can be done using <<dynamic-feedback>>.
+
+|
+target.numeric_value.unit
+|
+String
+|
+Contains the unit of `target.numeric_value` (e.g. _dB_).
+
+|
+target.normalized_value
+|
+Decimal
+|
+The current target value as normalized number, that is, a value between 0.0 and 1.0 (the so-called unit interval). You can think of this number as a percentage, and indeed, it's currently always formatted as percentage.
+
+This value is available for most targets and good if you need a totally uniform and predictable representation of the target value that doesn't differ between target types.
+
+By default, this number is formatted as percentage _without_ the percent sign. Future versions of ReaLearn might offer user-defined
+formatting. This will also be the preferred form to format on/off states in a
+custom way (where 0% represents _off_).
+
+|
+target.type.name
+|
+String
+|
+Short name representing the type of the mapping target.
+
+|
+target.type.long_name
+|
+String
+|
+Long name representing the type of the mapping target.
+
+|
+target.track.index
+|
+Integer
+|
+Zero-based index of the first resolved target track (if supported).
+
+|
+target.track.name
+|
+String
+|
+Name of the first resolved target track (if supported).
+
+|
+target.track.color
+|
+Color
+|
+Custom color of the first resolved target track (if supported).
+
+|
+target.fx.index
+|
+Integer
+|
+Zero-based index of the first resolved target FX (if supported).
+
+|
+target.fx.name
+|
+String
+|
+Name of the first resolved target FX (if supported).
+
+|
+target.route.index
+|
+Integer
+|
+Zero-based index of the first resolved target send/receive/output (if supported).
+
+|
+target.route.name
+|
+String
+|
+Name of the first resolved target send/receive/output (if supported).
+|===
 
 [[target-value-polling]]
 ==== Target value polling
@@ -4969,7 +5148,7 @@ Type 3:::
 * 65 < value +<=+ 127 results in higher decrements (63 possible decrement amounts)
 * 1 < value +<=+ 64 results in higher increments (64 possible increment amounts)
 
-Toggle-only button (avoid!):: A control element that can be pressed and emits absolute values.
+[[toggle-only-button,Toggle-only button]] Toggle-only button (avoid!):: A control element that can be pressed and emits absolute values.
 ReaLearn will simply emit 100%, no matter what the hardware sends.
 +
 This is a workaround for controllers that don't have momentary buttons!
@@ -5133,7 +5312,7 @@ Each entered property key corresponds to one argument position.
 
 .Custom feedback with 2 arguments
 ====
-If you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see <<feedback-style>>) as RRGGBB string at argument 2, you would enter:
+If you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see <<feedback-style-menu>>) as RRGGBB string at argument 2, you would enter:
 
 ----
 value.string style.color.rrggbb
