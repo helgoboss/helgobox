@@ -1,6 +1,6 @@
 name: realearn
 title: ReaLearn
-version: 1.0
+version: ~
 nav:
   - modules/ROOT/nav.adoc
 start_page: introduction.adoc
