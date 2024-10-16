@@ -14,19 +14,6 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 
-|===
-|Last update of text: |`2024-09-27 (v2.16.9)`
-|Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
-|===
-
-[IMPORTANT]
-.This document is the reference of ReaLearn.
-====
-It is targeted at users who are already familiar with the ReaLearn basics and want to look up specific information.
-
-**If you are a beginner, please use the link:https://github.com/helgoboss/helgobox/wiki/ReaLearn-Home[Wiki] instead!
-It contains practical tutorials.**
-====
 
 == Introduction
 
@@ -37,6 +24,20 @@ This reference describes each user interface element, each concept and each feat
 You should use it whenever you want to know more about a specific user interface element or if you want to take a deeper dive into a specific functionality of ReaLearn.
 **If you have never used ReaLearn before, please start with the link:https://github.com/helgoboss/helgobox/wiki/ReaLearn-Home[Wiki] instead!
 It's much more beginner-friendly.**
+
+[IMPORTANT]
+.This document is the reference of ReaLearn.
+====
+It is targeted at users who are already familiar with the ReaLearn basics and want to look up specific information.
+
+**If you are a beginner, please use the link:https://github.com/helgoboss/helgobox/wiki/ReaLearn-Home[Wiki] instead!
+It contains practical tutorials.**
+====
+
+|===
+|Last update of text: |`2024-09-27 (v2.16.9)`
+|Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
+|===
 
 == Key concepts
 
@@ -242,6 +243,7 @@ This saves you from the tedious job of setting up MIDI or OSC sources manually.
 Targets can be learned by pressing a target learn button and then invoking a <<target>> within REAPER.
 This saves you from choosing <<target-object-selectors>> and other stuff manually.
 
+[split=2]
 == User interface
 
 This section describes each general element of the Helgobox user interface that is relevant for ReaLearn.
@@ -258,7 +260,7 @@ Helgobox App::
 This is what you see when you select menu:Menu[Show app] from the plug-in.
 In the future, the App will also be available for mobile devices and remotely connect to REAPER.
 At the moment, the App only provides the user interface for link:https://www.helgoboss.org/projects/playtime[Playtime].
-With one exception: ReaLearn's <<Projection>> page.
+With one exception: ReaLearn's <<projection>> page.
 
 === Main panel
 
@@ -276,16 +278,14 @@ It contains one row for each mapping.
 
 Bottom area:: The area at the bottom.
 
-==== Header area
-
-===== Input/output section
+==== Input/output section
 
 This section is essential to connect ReaLearn to a specific controller.
 
 Also see <<best-practices-input-output>>.
 
 [#input-menu]
-====== Input menu
+===== Input menu
 
 Allows you to select the <<input-port>> to which this ReaLearn unit listens.
 ReaLearn works with MIDI or OSC input.
@@ -344,7 +344,7 @@ This is a checkbox.
 If enabled, this ReaLearn instance will additionally listen to key press and release events.
 
 [#output-menu]
-====== Output menu
+===== Output menu
 
 Here you can choose to which <<output-port>> ReaLearn should send MIDI/OSC <<feedback>>.
 
@@ -370,7 +370,7 @@ Manage OSC devices::
 See <<manage-osc-devices>> in the input section of the menu.
 
 [#osc-device-dialog]
-====== OSC device dialog
+===== OSC device dialog
 
 The OSC device dialog lets you edit the settings of a ReaLearn OSC device and can be opened via <<manage-osc-devices>>.
 
@@ -398,9 +398,9 @@ The UDP port on which the OSC device listens for OSC feedback messages.
 All OSC device configurations will be saved in the REAPER resource directory (menu:Options[Show REAPER resource path in explorer/finder]) in the file
 `Helgoboss/ReaLearn/osc.json`.
 
-===== Menu bar
+==== Menu bar
 
-====== Menu button
+===== Menu button
 
 This opens the main menu of Helgobox/ReaLearn.
 The same menu opens when you right-click an empty area.
@@ -621,7 +621,7 @@ Allows you to manage <<global-fx-to-preset-link, global FX-to-preset links>>.
 Works exactly as the <<unit-fx-to-preset-links-menu>> menu.
 
 [[fx-id-dialog]]
-====== FX ID dialog
+===== FX ID dialog
 
 The FX ID dialog is used to edit which properties of a FX trigger a preset change.
 It is opened via menu action <<edit-fx-id>>.
@@ -650,7 +650,7 @@ You can use `*` for matching zero or arbitrary many characters and `?` for match
 Instead of relying on the original plug-in name you could match plug-ins with similar file names (e.g. VST2 and VST3 at once): `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2) and `Pianoteq 7 STAGE.vst3` (VST3).
 ====
 
-====== Export to clipboard button
+===== Export to clipboard button
 
 Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance/unit or edit them in a text editor.
 See <<import-export>>.
@@ -672,25 +672,25 @@ This Lua/Luau export includes even those properties that correspond to ReaLearn'
 This gives you the perfect starting point if you want to extensively modify the current compartment (using the Luau programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
 
 [[import-from-clipboard]]
-====== Import from clipboard button
+===== Import from clipboard button
 
 Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
 It supports JSON or Luau.
 See <<import-export>>.
 
 [#projection-button]
-====== Projection button
+===== Projection button
 
 Click this button to enter ReaLearn's <<projection>> feature.
 You can choose between the old browser-based projection (which is going to disappear soon) and the new projection that is part of the Helgobox App (but not yet fully functional).
 Hopefully, the transition to the Helgobox App, including mobile versions of that App, will soon be finished.
 
-====== Help button (?)
+===== Help button (?)
 
 Provides links to the reference and other documentation.
 
 [[let-through-checkboxes]]
-===== Let through checkboxes
+==== Let through checkboxes
 
 See <<letting-through-events>>.
 
@@ -700,14 +700,14 @@ If unchecked (default), such events are filtered out.
 Unmatched:: If checked (default), mappings that are not matched by any mappings are let through.
 If unchecked, such events are filtered out.
 
-===== Show buttons
+==== Show buttons
 
 This lets you choose which mapping compartment is displayed.
 See <<compartment>>.
 
-===== Preset section
+==== Preset section
 
-====== Preset menu
+===== Preset menu
 
 This menu makes it possible to load compartment presets for the currently shown compartment.
 If you select a preset in this list, its corresponding mappings will be loaded and immediately get active.
@@ -734,20 +734,20 @@ User (Unsorted)::
 This submenu contains top-level presets which are not part of a particular preset namespace/workspace.
 This was common in older versions of ReaLearn, when namespaces/workspaces were not yet available.
 
-====== Save button
+===== Save button
 
 If you made changes to a user preset, you can save them by pressing this button.
 
-====== Save as… button
+===== Save as… button
 
 This allows you to save all currently visible mappings as a new preset.
 Please choose a descriptive name.
 
-====== Delete button
+===== Delete button
 
 This permanently deletes the currently chosen user preset.
 
-====== Auto-load button
+===== Auto-load button
 
 Activates or deactivates <<auto-load>> mode for this ReaLearn unit.
 This button is only available for the <<main-compartment>> because auto-load is only about loading <<main-preset, main presets>>.
@@ -757,10 +757,10 @@ Off:: Disables auto-load mode (the default).
 [[auto-load-based-on-unit-fx,Auto-load based on unit FX]] Based on unit FX::
 Switches auto-load mode on, letting ReaLearn decide about which main preset to load depending on the currently active <<unit-fx>>.
 
-===== Mapping group section
+==== Mapping group section
 
 [[mapping-group-menu]]
-====== Group menu
+===== Group menu
 
 See <<group>>.
 
@@ -776,43 +776,43 @@ This is a special group that can't be removed.
 _Custom group_::
 Displays all mappings in your custom group.
 
-====== Add button
+===== Add button
 
 Allows you to add a group and give it a specific name.
 
-====== Remove button
+===== Remove button
 
 Removes the currently displayed group.
 It will ask you if you want to remove all the mappings in that group as well.
 Alternatively they will automatically be moved to the default group.
 
-====== Edit button
+===== Edit button
 
 Opens the group panel, which allows you to change <<group-properties>>.
 
 image:images/screenshot-group-panel.png[Group panel]
 
-===== Notes button
+==== Notes button
 
 Allows you to save custom notes/comments for the current compartment.
 These notes are also included in compartment presets.
 
-===== Mappings toolbar
+==== Mappings toolbar
 
 [[add-one-button]]
-====== Add one button
+===== Add one button
 
 Adds a new mapping at the end of the current mapping list.
 
 [[learn-many-button]]
-====== Learn many button
+===== Learn many button
 
 Allows you to add and learn many new mappings in a convenient batch mode.
 Click this button and follow the on-screen instructions.
 Click _Stop_ when you are finished with your bulk learning strike.
 
 [#search]
-====== Search field
+===== Search field
 
 Enter text here in order to display just mappings whose name matches the text.
 
@@ -822,7 +822,7 @@ For example, you can search for all mappings tagged with the tag `mixing` by ent
 The search expression also supports wildcards `\*` and `?` for doing blurry searches. `*` stands for zero or more arbitrary characters and `?` stands for one arbitrary character.
 
 [[filter-source-button]]
-====== Filter source button
+===== Filter source button
 
 When you press this button, ReaLearn will start listening to incoming MIDI/OSC events and temporarily disable all target control.
 You can play around freely on your controller without having to worry about messing up target parameters.
@@ -843,7 +843,7 @@ Then just calm down and press btn:[Stop].
 It's easy to forget.
 
 [[filter-target-button]]
-====== Filter target button
+===== Filter target button
 
 If you want to find out what mappings exist for a particular target, press this button and touch something in REAPER.
 
@@ -853,64 +853,62 @@ Unlike <<filter-source-button>>, ReaLearn will automatically stop learning as so
 
 Press the btn:[X] button to clear the filter and show all mappings again.
 
-==== Mapping area
-
 The mapping rows area consists of multiple mapping rows.
 One for each mapping.
 
-===== Mapping row
+==== Mapping row
 
 Each mapping row represents one ReaLearn mapping.
 
 The mapping, source and target labels of a mapping row are greyed out whenever the mapping is _off_.
 See <<mapping>>.
 
-====== Mapping-enabled checkbox
+===== Mapping-enabled checkbox
 
 This checkbox at the top left of the mapping row enables or disables the mapping as a whole.
 
-====== Activity indicator (●)
+===== Activity indicator (●)
 
 This indicator at the very left of the mapping row lights up on incoming control messages whenever they match the mapping source.
 
 Attention: This doesn't necessarily mean that the message will reach the target, although it often does.
 There are certain settings in the <<glue-section>> section which allow you to filter messages even they matched the source (e.g. <<source-min-max>>).
 
-====== Up/down buttons
+===== Up/down buttons
 
 Use these buttons to move this mapping up or down the list.
 
-====== Control/feedback-enabled checkboxes (→/←)
+===== Control/feedback-enabled checkboxes (→/←)
 
 Use these checkboxes to enable/disable control and/or feedback for this mapping.
 Disabling both has the same effect as disabling the mapping as a whole.
 
 [[row-edit-button]]
-====== Edit button
+===== Edit button
 
 Opens the mapping panel for this mapping.
 
-====== Duplicate button
+===== Duplicate button
 
 Creates a new mapping just like this one right below.
 
-====== Remove button
+===== Remove button
 
 Removes this mapping from the list.
 
 [[row-learn-source-button]]
-====== Learn source button
+===== Learn source button
 
 Starts or stops learning the source of this mapping.
 See <<learn-source>>.
 
-====== Learn target button
+===== Learn target button
 
 Starts or stops learning the target of this mapping.
 
 Learning a target that is currently being automated is not possible at the moment because ReaLearn can't know if the value change notification is coming from the automation or your touch interaction.
 
-====== Right-click menu
+===== Right-click menu
 
 Each mapping row provides a right-click menu for accessing the following functions:
 
@@ -1851,6 +1849,7 @@ NOTE: If the target supports MIDI real-time control and the source is a MIDI sou
 
 The right text area shows information about which feedback values are sent from the glue section to the source.
 
+[split=1]
 [[source-types]]
 == Source types
 
@@ -1861,6 +1860,7 @@ ReaLearn supports the following <<source>> types.
 A special kind of source that will never emit any events.
 It's intended to be used on mappings which are not supposed to be controlled directly but only via <<group-interaction>>.
 
+[split=1]
 [[midi-source, MIDI source]]
 === Category "MIDI"
 
@@ -2151,6 +2151,7 @@ This is by design!
 Use <<conditional-activation>> instead.
 ====
 
+[split=1]
 === Category "REAPER"
 
 ==== MIDI device changes source
@@ -2202,10 +2203,11 @@ The convenient picker provides IDs from standardized <<virtual-control-scheme, v
 
 Lets you enter the ID manually.
 
+[split=2]
 [[target-types]]
 == Target types
 
-=== Category "Real"
+=== Global targets
 
 [#global-last-touched]
 ==== Global: Last touched
@@ -2270,6 +2272,8 @@ Lets you decide between not overriding anything, bypassing all envelopes or over
 ===== Mode menu
 
 Here you can pick the desired automation mode if _Behavior_ is _Override_.
+
+=== Project targets
 
 ==== Project: Any on (solo/mute/...)
 
@@ -2505,6 +2509,8 @@ Sets REAPER's master tempo.
 
 This target is not learnable anymore via the "Learn target" button and also not eligible for the <<global-last-touched,Last touched>> target because it causes too many "false positives".
 
+=== Marker/region targets
+
 [#marker-region-go-to]
 ==== Marker/region: Go to
 
@@ -2569,6 +2575,8 @@ This target supports the following additional <<target-property, target properti
 | target.bookmark.color | Color | Custom color of the resolved marker or region.
 
 |===
+
+=== Track targets
 
 [#track-target]
 ==== Track
@@ -2751,12 +2759,14 @@ To be used with endless rotary encoders or previous/next-style "Incremental butt
 
 Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating window.
 
+=== FX targets
+
 [#fx-target]
 ==== FX
 
 A target that allows you to define an FX, in its basic variant perfect for acquiring feedback for a specific FX.
 
-==== Act/Tags controls
+===== Act/Tags controls
 
 The setting **Act/Tags** allows you to optionally set/pin the declared FX as <<unit-fx>>.
 This works pretty much the same as described in target <<track-target>>.
@@ -2806,6 +2816,8 @@ Makes the FX instance visible if the incoming control value is greater than 0%, 
 ===== Display menu
 
 Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating window.
+
+=== FX parameter targets
 
 ==== FX parameter: Set automation touch state
 
@@ -2881,6 +2893,8 @@ String
 |
 Name of the corresponding Pot macro parameter bank. Only works if this parameter is part of a preset loaded via Pot.
 |===
+
+=== Pot targets
 
 [#pot-browse-filter-items]
 ==== Pot: Browse filter items
@@ -3004,6 +3018,8 @@ Then the target would turn inactive and stop working.
 This target supports the same additional <<target-property, target properties>> as <<pot-browse-presets>>.
 The only difference is that the ones in <<pot-load-preset>> relate to the currently loaded preset, not the one that's selected in the preset browser.
 
+=== Send/receive targets
+
 ==== Send: Automation mode
 
 Sets the track send to a specific automation mode if the incoming control value is greater than 0%, otherwise sets it back to REAPER's default automation mode "Trim/Read".
@@ -3031,6 +3047,8 @@ Sets the track send's pan value.
 ==== Send: Set volume
 
 Sets the track send's volume.
+
+=== Playtime targets
 
 ==== Playtime: Slot management action
 
@@ -3067,6 +3085,8 @@ TODO
 ==== Playtime: Browse cells
 
 TODO
+
+=== MIDI targets
 
 [#midi-send-message-target]
 ==== MIDI: Send message target
@@ -3119,6 +3139,8 @@ However, this also means that the following things won't work when controlling t
 ** It can't participate in <<realearn-load-mapping-snapshot>>.
 ====
 
+=== OSC targets
+
 [#osc-send-message]
 ==== OSC: Send message
 
@@ -3135,6 +3157,8 @@ Of course this only works if it's an OSC device.
 _Specific device:_:: Sends the OSC message to a specific device.
 Address, Argument and Range:: These correspond to the identically named settings of <<osc-source,OSC sources>>.
 Check that section for details.
+
+=== ReaLearn targets
 
 [#realearn-enable-disable-instances]
 ==== ReaLearn: Enable/disable instances
@@ -3328,8 +3352,9 @@ This target allows you to take advantage of that!
 - Use it as an alternative to <<target-value-sequence,target value sequences>> that allows you to have completely different targets within one sequence.
 ====
 
-[#virtual-target-category]
-=== Category "Virtual"
+[split=0]
+[[virtual-target-category]]
+=== Virtual target
 
 This is exactly the counterpart of the possible <<virtual-source,virtual sources>> in the <<main-compartment>>.
 Choosing a <<virtual-target>> here is like placing cables between a <<real-control-element>> and all corresponding main mappings that use this <<virtual-control-element>> as source.
@@ -3339,6 +3364,7 @@ Choosing a <<virtual-target>> here is like placing cables between a <<real-contr
 If you disable this checkbox, this virtual source will not be learnable via <<learn-source>> in the main compartment.
 This can be useful for rather unimportant <<control-element-interaction, control element interactions>> such as _Fader touch_ that would otherwise make it very hard to learn more important sources such as _Fader movement_.
 
+[split=1]
 == Further concepts
 
 This section describes further concepts.
@@ -4335,7 +4361,6 @@ Initially, they don't do anything at all.
 First, you need to give meaning to them by referring to them in activation conditions or `<Dynamic>` selector expressions.
 ====
 
-[discrete]
 ===== When modifiers on/off
 
 This mode is comparable to modifier keys on a computer keyboard.
@@ -4362,7 +4387,6 @@ The beauty of this solution lies in how you can compose different ReaLearn featu
 For example, the _absolute mode_ of the mapping that controls the modifier parameter decides if the modifier button is momentary (has to be pressed all the time) or toggled (switches between on and off everytime you press it).
 You can also be more adventurous and let the modifier on/off state change over time, using REAPER's automation envelopes.
 
-[discrete]
 ===== When bank selected
 
 This is the correct activation mode if you want control surface "bank-style" mapping.
@@ -4398,7 +4422,6 @@ With _Conditional activation_ you can do the same (and more) within just one Rea
 
 TIP: If you want to adjust the number of banks and improve bank handling in general, set a discrete value count for the corresponding bank parameter (see <<compartment-parameter>>).
 
-[discrete]
 ===== When EEL met
 
 This is for experts.
@@ -4421,7 +4444,6 @@ If you feel limited by the other activation modes, just use EEL.
 TIP: For most activation conditions which need this amount of freedom, the newer activation mode <<expression-based-activation-condition>> is a slightly better choice because it's easier to use and generally performs a bit better.
 
 [#expression-based-activation-condition]
-[discrete]
 ===== When expression met
 
 This is very similar to the previous EEL activation mode.
@@ -4432,7 +4454,6 @@ The equivalent expression to above EEL example is:
 `p[0] > 0 && p[1] > 0`
 
 [#target-based-activation-condition]
-[discrete]
 ===== When target value met
 
 This is different from all the other activation condition types in that it doesn't look at ReaLearn's internal parameter values.
