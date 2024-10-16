@@ -1,0 +1,5 @@
+[split=1]
+= Further concepts
+
+This section describes further concepts.
+You may or may not need to understand them, it depends on which ReaLearn features you are going to use and how complex your control scenarios are.

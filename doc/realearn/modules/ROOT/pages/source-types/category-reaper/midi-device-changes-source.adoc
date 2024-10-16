@@ -1,0 +1,5 @@
+
+= MIDI device changes source
+
+This source emits a value of 100% whenever any MIDI device is connected and 0% whenever any MIDI device is disconnected.
+You can map this to the REAPER action "Reset all MIDI devices" to achieve true plug and play of MIDI devices (provided the corresponding device has been enabled at least once in REAPER's MIDI device preferences).

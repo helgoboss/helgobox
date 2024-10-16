@@ -1,0 +1,50 @@
+[#midi-send-message-target]
+= MIDI: Send message target
+
+Sends arbitrary MIDI messages (also sys-ex!) in response to incoming messages.
+This target turns ReaLearn into a capable and convenient MIDI/OSC/Keyboard-to-MIDI converter.
+
+== Output menu
+
+Where to send the MIDI message.
+
+FX output:: Sends the MIDI message to the output of this ReaLearn instance - which usually means it flows into the FX below ReaLearn, e.g. a VST instrument.
+
+Feedback output:: Sends the MIDI message to the device which is set as _output_.
+
+[[midi-send-output-input-device]] Input device:: Injects the MIDI message into the current MIDI input device buffer.
+Enables a unique feature called "Global MIDI transformation", as shown in link:https://www.youtube.com/watch?v=WJiwmlJSsi8&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=11[tutorial video 11].
+
+== Device menu
+
+When choosing output <<midi-send-output-input-device>>, you can choose into which MIDI input device buffer the message will be injected.
+
+<Same as input device>:: Injects the message into the same buffer of the MIDI input device chosen as xref:user-interface/main-panel/inputoutput-section.adoc#input-menu[].
+
+_Specific input device_:: Injects the message into another specific MIDI input device.
+This can be useful for doing global MIDI transformation with controllers that expose multiple MIDI input ports.
+A practical example is shown in link:https://www.youtube.com/watch?v=WJiwmlJSsi8&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=11[tutorial video 11].
+
+== Pattern field
+
+Defines the MIDI message to be sent as xref:further-concepts/mapping-concepts.adoc#raw-midi-pattern[].
+It allows you to encode the incoming _absolute_ control value as part of the message (after it has been processed by xref:key-concepts.adoc#glue[]).
+
+== Pre-defined patterns menu (...)
+
+Provides predefined patterns.
+
+[NOTE]
+.This is a target capable of real-time control!
+====
+This target is a bit special in that it carries out its processing logic exclusively in the audio thread if it's controlled by a MIDI source.
+This has the big advantage that receiving and producing MIDI messages happens in one go (without inter-thread-communication latency), which is often important when using MIDI message conversion.
+
+However, this also means that the following things won't work when controlling this target using MIDI:
+
+* It can't take the lead in xref:user-interface/mapping-panel/glue-section.adoc#group-interaction[].
+* It won't work with timed xref:user-interface/mapping-panel/glue-section.adoc#fire-mode[fire modes].
+* If _output_ is set to xref:user-interface/main-panel/inputoutput-section.adoc#fx-output[], additional limitations apply:
+** It can't act as a follower in xref:user-interface/mapping-panel/glue-section.adoc#group-interaction[], either.
+** It can't participate in xref:target-types/realearn-targets/realearn-load-mapping-snapshot.adoc#realearn-load-mapping-snapshot[].
+====

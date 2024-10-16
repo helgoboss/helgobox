@@ -1,0 +1,4 @@
+
+= Track: Mute/unmute
+
+Mutes the track if the incoming absolute control value is greater than 0%, otherwise unmutes the track.

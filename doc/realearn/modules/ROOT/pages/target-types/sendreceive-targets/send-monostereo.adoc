@@ -1,0 +1,4 @@
+
+= Send: Mono/stereo
+
+Sets the track send to mono or back to stereo.

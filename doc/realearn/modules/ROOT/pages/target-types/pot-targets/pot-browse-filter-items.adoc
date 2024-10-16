@@ -1,0 +1,33 @@
+[#pot-browse-filter-items]
+= Pot: Browse filter items
+
+This target can be used to filter the potentially very large collection of presets in  xref:target-types/pot-targets/pot-browse-presets.adoc#pot-browse-presets[].
+The idea is to map this target to an endless rotary encoder or previous/next buttons (using xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[] mode) and then navigate within the available filter items, e.g. instruments or banks.
+
+== Kind menu
+
+Choose the kind of filter items that you want to browse.
+They correspond to the filters available in xref:further-concepts/instance-concepts.adoc#pot-browser[].
+
+== Target-specific properties
+
+This target supports the following additional xref:further-concepts/target-concepts.adoc#target-property[target properties].
+
+[cols="m,1,3"]
+|===
+|Name|Type|Description
+
+|
+target.item.name
+|
+String
+|
+Name of the filter item.
+
+|
+target.item.parent.name
+|
+String
+|
+Name of the parent filter item if there's any. E.g. the instrument to which a bank belongs or the type to which a sub type belongs.
+|===

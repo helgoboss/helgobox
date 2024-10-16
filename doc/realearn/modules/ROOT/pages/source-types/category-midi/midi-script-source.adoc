@@ -1,0 +1,23 @@
+[#midi-script-source]
+= MIDI Script source
+
+This source is feedback-only and exists for enabling more complex feedback use cases such as controlling LCDs that are not yet supported by the xref:source-types/category-midi/display.adoc#display-source[] source.
+It lets you write an EEL or Luau script that will be executed whenever ReaLearn "feels" like it needs to send some feedback to the MIDI device.
+
+== Kind menu
+
+Whether to use the EEL or Luau language.
+
+== Script field
+
+The script.
+Is disabled if the script contains more than one line.
+
+See xref:further-concepts/source-concepts.adoc#midi-source-script[] for details.
+
+== More button (…)
+
+Opens the script in a separate window (for multi-line scripts).
+
+TIP: Prefer the xref:source-types/category-midi/display.adoc#display-source[] source over this one whenever possible.
+It's easier to use.

@@ -1,0 +1,34 @@
+[#display-source]
+= Display
+
+This is a feedback-only source used to display text on MIDI-controllable hardware displays (LCDs, OLED displays, 7-segment displays, etc.).
+
+== Protocol menu
+
+Lets you choose the display protocol, which tells ReaLearn how it should communicate with the hardware display and which options it supports.
+
+Mackie LCD:: Use this for MCU-compatible LCDs.
+Depending on your particular control surface, there can be up to 8 LCDs, each of which has up to 2 lines.
+Mackie XT LCD:: Use this to control the displays of MCU XT devices (= control surface extenders, which provide additional faders and displays).
+X-Touch Mackie LCD:: Like _Mackie LCD_ but also supports colors on certain X-Touch devices.
+X-Touch Mackie XT LCD:: Like _Mackie LCD XT_ but also supports colors on certain X-Touch devices.
+Mackie 7-segment display:: Use this for MCU-compatible 7-segment displays (you know, the ones which only show digits).
+There's usually one small assignment display and a larger one for showing the time code.
+SiniCon E24:: Use this with the https://www.sinicon.io/[SiniCon E24 controller].
+Launchpad Pro - Scrolling text:: Displays looped scrolling text on a Novation Launchpad Pro.
+Only seems to work if you set _Output_ to `MIDIOUT2 (Launchpad Pro)`.
+Studiologic SL Keyboard display:: Displays text on the display of Studiologic SL keyboards (tested with SL88).
+
+== Display menu
+
+Choose the particular display or display portion to which you want to send text.
+
+== Line menu
+
+Choose the line number.
+
+CAUTION: For controllers with multiple displays and lines, ReaLearn allows you to spread your text over all available displays and lines.
+This is great if you need to display a lot of text but one display doesn't provide enough space.
+But be aware: Replacing feedback with other feedback ("feedback relay") doesn't work so nicely anymore if you make use of this feature.
+
+If you want to know how to define which text shall be sent to the displays, please see xref:further-concepts/glue-concepts.adoc#text-feedback[textual feedback] in the xref:user-interface/mapping-panel/glue-section.adoc#glue-section[].

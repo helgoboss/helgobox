@@ -1,0 +1,70 @@
+[#fx-set-parameter-value]
+= FX parameter: Set value
+
+Sets the value of a particular track FX parameter.
+
+== Parameter controls
+
+The parameter to be controlled.
+
+Please note that both xref:further-concepts/target-concepts.adoc#particular-fx-selector[] and xref:further-concepts/target-concepts.adoc#at-position-selector[] address the FX by its position in the FX chain.
+The difference between the two is that xref:further-concepts/target-concepts.adoc#particular-selector[] shows a dropdown containing the available parameters and xref:further-concepts/target-concepts.adoc#at-position-selector[] lets you enter the position as a number in a text field.
+Latter is useful if at the time of choosing the position, the FX is not available.
+
+== Target-specific properties
+
+This target supports the following additional xref:further-concepts/target-concepts.adoc#target-property[target properties].
+
+[cols="m,1,3"]
+|===
+|Name|Type|Description
+
+|
+target.fx_parameter.index
+|
+Integer
+|
+Zero-based index of the resolved FX parameter.
+
+|
+target.fx_parameter.name
+|
+String
+|
+Name of the resolved FX parameter.
+
+|
+target.fx_parameter.macro.name
+|
+String
+|
+Name of the corresponding Pot macro parameter. Only works if this parameter is part of a preset loaded via Pot.
+
+|
+target.fx_parameter.macro.section.name
+|
+String
+|
+Name of the corresponding Pot macro parameter section. Only works if this parameter is part of a preset loaded via Pot.
+
+|
+target.fx_parameter.macro.section.index
+|
+Integer
+|
+Zero-based index of the corresponding Pot macro parameter section (within the current bank). Only works if this parameter is part of a preset loaded via Pot.
+
+|
+target.fx_parameter.macro.new_section.name
+|
+String
+|
+Name of the corresponding Pot macro parameter section, but only if this parameter marks the start of a new section. Only works if this parameter is part of a preset loaded via Pot.
+
+|
+target.fx_parameter.macro.bank.name
+|
+String
+|
+Name of the corresponding Pot macro parameter bank. Only works if this parameter is part of a preset loaded via Pot.
+|===

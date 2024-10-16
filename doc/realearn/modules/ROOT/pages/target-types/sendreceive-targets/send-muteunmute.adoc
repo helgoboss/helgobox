@@ -1,0 +1,4 @@
+
+= Send: Mute/unmute
+
+Mutes/unmutes the track send.

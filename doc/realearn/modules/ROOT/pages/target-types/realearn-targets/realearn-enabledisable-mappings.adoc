@@ -1,0 +1,25 @@
+[#realearn-enable-disable-mappings]
+= ReaLearn: Enable/disable mappings
+
+This target allows you to flexibly enable or disable other mappings in this unit based on their tags:
+
+== Exclusivity menu
+
+Non-exclusive:: If the incoming control value is greater than 0%, all matching mappings will be enabled (on top of the already enabled mappings).
+If the value is 0%, all matching mappings will be disabled.
+
+Exclusive:: If the incoming control value is greater than 0%, all matching mappings will be enabled and all non-matching ones will be disabled.
+If the value is 0%, it's exactly the opposite (react to button xref:user-interface/mapping-panel/glue-section.adoc#press-only[press only] if you don't want this to happen).
+
+Exclusive (on only):: Variation of _Exclusive_ that applies exclusivity only if the incoming control value is greater than 0%.
+
+== Tags field
+
+A mapping matches when it is tagged with any of the xref:further-concepts/mapping-concepts.adoc#mapping-tag[mapping tags] entered into this field (comma-separated).
+
+== Remarks
+
+* This affects other mappings only, not _this_ mapping.
+* Mappings without tags won't be affected at all.
+
+TIP: This target is a straightforward alternative to xref:further-concepts/mapping-concepts.adoc#conditional-activation[] when it comes to bank switching!

@@ -1,0 +1,37 @@
+
+= Global: Mouse target
+
+This will control the mouse.
+
+== Action menu
+
+Move cursor to:: Moves the mouse cursor on the given axis in an absolute manner.
+This is a good choice for absolute mouse movement, that is, if you want to position the mouse cursor to a specific screen position.
+Although it's also possible to move the mouse cursor relatively with this action by controlling the target with relative messages, it's usually better to use _Move cursor by_ instead.
+
+Move cursor by:: Moves the mouse cursor on the given axis in a relative manner.
+This is a good choice if you want to move the cursor e.g. up a bit, starting from its current position.
+This only works with relative control elements such as encoders or features such as xref:user-interface/mapping-panel/glue-section.adoc#make-relative[].
+
+Press or release button:: Presses or releases a certain mouse button, depending on the incoming control value (0% = release, anything else = press).
+
+[[turn-scroll-wheel]] Turn scroll wheel:: Simulates the scroll wheel.
+
+== Axis menu
+
+Determines the direction of movement or scrolling.
+
+X (horizontal):: Horizontal movement or scrolling
+[[mouse-axis-y]] Y (vertical):: Vertical movement or scrolling
+
+== Button menu
+
+Determines which mouse button to use.
+
+TIP: One popular use of this target is to adjust the FX parameter under the mouse cursor.
+For this, it's usually best to use action <<turn-scroll-wheel>> and <<mouse-axis-y>>.
+
+TIP: You can unfold the magic of this target by combining multiple mappings.
+E.g. one can simulate mouse dragging by using one mapping to press/release the left button and another mapping to move the cursor. link:https://raw.githubusercontent.com/helgoboss/realearn/master/resources/test-projects/issue-686-mouse-target.RPP[This example project] contains multiple examples (one per group).
+
+WARNING: Feedback for this target is not fully implemented.

@@ -1,0 +1,35 @@
+
+= Mapping group section
+
+[[mapping-group-menu]]
+== Group menu
+
+See xref:further-concepts/mapping-concepts.adoc#group[].
+
+The group menu contains the following options:
+
+<All>:: Displays all mappings in the compartment, no matter to which group they belong.
+In this view, you will see the name of the group on the right side of a mapping row.
+
+<Default>:: Displays mappings that belong to the _default_ group.
+This is where mappings end up if you don't care about grouping.
+This is a special group that can't be removed.
+
+_Custom group_::
+Displays all mappings in your custom group.
+
+== Add button
+
+Allows you to add a group and give it a specific name.
+
+== Remove button
+
+Removes the currently displayed group.
+It will ask you if you want to remove all the mappings in that group as well.
+Alternatively they will automatically be moved to the default group.
+
+== Edit button
+
+Opens the group panel, which allows you to change xref:further-concepts/target-concepts.adoc#group-properties[].
+
+image:images/screenshot-group-panel.png[Group panel]

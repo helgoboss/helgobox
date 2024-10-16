@@ -1,0 +1,10 @@
+name: realearn
+title: ReaLearn
+version: 1.0
+nav:
+  - modules/ROOT/nav.adoc
+start_page: introduction.adoc
+asciidoc:
+  attributes:
+    # For making menu and button macros work
+    experimental: true

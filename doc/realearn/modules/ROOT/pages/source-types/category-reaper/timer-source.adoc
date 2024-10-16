@@ -1,0 +1,4 @@
+
+= Timer source
+
+This source fires (emits a value of 100%) repeatedly every _n_ milliseconds.

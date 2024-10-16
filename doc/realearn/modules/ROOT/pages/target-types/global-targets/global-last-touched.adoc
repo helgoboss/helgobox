@@ -1,0 +1,14 @@
+[#global-last-touched]
+= Global: Last touched
+
+This will control whatever target has been last touched in REAPER.
+It's similar to the built-in REAPER action "Adjust last touched FX parameter" but provides the following benefits:
+
+. It's applicable to all ReaLearn targets that are learnable, not just FX parameters.
+. It offers feedback.
+. It can distinguish between parameter modifications caused by ReaLearn (i.e. hardware control) and those caused in other ways (e.g. via mouse).
+
+== Pick button
+
+This opens a window that lets you pick all considered target types and types of invocations (only macOS and Windows so far).
+Last-touched targets not checked in this window will be ignored.

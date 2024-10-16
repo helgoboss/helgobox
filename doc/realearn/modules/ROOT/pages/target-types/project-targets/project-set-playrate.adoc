@@ -1,0 +1,6 @@
+
+= Project: Set playrate
+
+Sets REAPER's master playrate.
+
+CAUTION: This target doesn't currently work if the project containing ReaLearn is not the active project tab.

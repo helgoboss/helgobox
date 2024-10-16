@@ -1,0 +1,15 @@
+[#track-selectunselect]
+= Track: Select/unselect
+
+Selects the track if the incoming absolute control value is greater than 0%, otherwise unselects the track.
+
+This target stops being learnable if you activate the REAPER preference "Mouse click on volume/pan faders and track buttons changes track selection" (because this preference would generate too many false positives).
+If you change the preference, ReaLearn will take it into consideration the next time you restart REAPER.
+
+== Scroll TCP checkbox
+
+Also scrolls the track control panel to the desired track.
+
+== Scroll mixer checkbox
+
+Also scrolls the mixer control panel to the desired track.

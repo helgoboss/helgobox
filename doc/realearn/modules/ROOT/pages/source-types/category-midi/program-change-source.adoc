@@ -1,0 +1,5 @@
+
+= Program change source
+
+This source reacts to a range of incoming MIDI program-change messages.
+The higher the program number, the higher the absolute control value.

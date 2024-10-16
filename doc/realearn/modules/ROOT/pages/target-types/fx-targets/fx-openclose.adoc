@@ -1,0 +1,8 @@
+
+= FX: Open/close
+
+Makes the FX instance visible if the incoming control value is greater than 0%, otherwise hides it.
+
+== Display menu
+
+Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating window.

@@ -1,0 +1,521 @@
+
+= Target concepts
+
+[[target-object-selectors]]
+== Target object selectors
+
+Many ReaLearn xref:key-concepts.adoc#target[targets] work on some kind of _object_:
+
+* A track
+* An FX
+* An FX parameter
+* A send or receive
+
+All of those objects need to be _addressed_ somehow.
+For this purpose, ReaLearn uses so-called _object selectors_.
+
+=== Common object selectors
+
+This section describes commonly available object selectors.
+
+NOTE: The descriptions below are somewhat tailored to track objects.
+However, the same concepts can easily be applied to other objects that support these selectors.
+
+[#unit-selector]
+==== Unit selector
+
+This selector makes the target work on the current xref:further-concepts/unit-concepts.adoc#unit-track[] or current xref:further-concepts/unit-concepts.adoc#unit-fx[] of this particular ReaLearn xref:key-concepts.adoc#unit[].
+
+[#particular-selector]
+==== Particular selector
+
+Lets you pick a specific object (e.g. track) and refer to it by its unique ID.
+This is the default.
+Choose this if you want ReaLearn to always control that very particular track even in case you move it somewhere else or rename it.
+
+Please note that this is an extremely <<sticky-selectors,sticky>> selector.
+It's
+_not possible_ with this setting to create a ReaLearn preset that is reusable among different projects.
+Because a track ID is globally unique, even across projects.
+That also means it doesn't make sense to use this setting in a ReaLearn xref:key-concepts.adoc#unit[] on the monitoring FX chain.
+
+[#at-position-selector]
+==== At position selector
+
+This is the most straightforward selector.
+It lets you refer to a track by its position in the track list.
+This is great if you want to build a preset that you are going to reuse among multiple projects.
+
+However, this selector has the disadvantage that things fall apart if you reorder, insert or delete tracks.
+This is why it's not the default.
+
+Next to the dropdown you will find a text field.
+Here you should enter the position as number, starting with number `1`.
+
+[#named-selector]
+==== Named selector
+
+Allows you to choose a track depending on its name.
+In case there are multiple tracks with the same name, it will always prefer the first one.
+This will allow you to use one ReaLearn preset across multiple projects that have similar naming schemes, e.g. as monitoring FX.
+
+In the name field next to the dropdown, you can enter a name.
+
+If you don't want exact matching, you can use wildcards:
+
+[horizontal]
+`*`:: for matching zero or arbitrary many characters
+`?`:: for matching exactly one arbitrary character.
+
+.Wildcards in named selectors
+====
+`Violin *` would match `Violin 1` or `Violin 12` but not `12th Violin`.
+====
+
+[#dynamic-selector]
+==== Dynamic selector
+
+This selector allows you to _calculate_ which object (e.g. track) you want to use.
+
+When you choose this option, a text field will appear next to it.
+This lets you enter a mathematical expression whose result should be the object's _index_.
+E.g. the first track in the project has index 0, the master track -1. For your convenience, you will find a small text label next to the expression text field that always shows the current result of your formula (clamped to the target value range).
+
+NOTE: Please note that the expression language is _not_ EEL - this is a notable difference to ReaLearn's control/feedback transformation text fields!
+The expression language used here just provides very basic mathematical operations like addition (`+/-`), multiplication (`*`) etc. and it also doesn't allow or need any assignment to an output variable.
+
+The dynamic selector is a very powerful tool because you can use some special variables:
+
+[cols="m,1,1,3"]
+|===
+| Variable | Type | Applicable to | Description
+
+| none | - | All selectors |
+Special value that represents a "not set" value. See below for examples.
+
+| p | Array of floating-point numbers | All selectors |
+Allows you to access the values of ReaLearn's internal parameters. E.g. you can get the number of the first parameter by writing `p[0]`.
+
+By default, parameter values are normalized floating point values, that means they are decimal numbers between 0.0 and 1.0. This can be changed by customizing the parameter with a specific integer value count (see xref:further-concepts/compartment-concepts.adoc#compartment-parameter[]).
+
+| p1 ... p100 | Floating-point numbers | All selectors |
+Values of ReaLearn's internal parameters as single variables.
+
+_Deprecated_: Recent ReaLearn versions offer the `p` array instead. Better use that one.
+
+
+| selected_track_index | Integer >= -1 | Track selectors |
+Resolves to the zero-based index of the first currently selected track within the containing project.
+If no track is selected, this resolves to `none`. If the master track is selected, `-1`.
+
+| selected_track_tcp_index | Integer >= -1 | Track selectors |
+Like `selected_track_index` but counts only tracks that are visible in the track control panel.
+
+| selected_track_mcp_index | Integer >= -1 | Track selectors |
+Like `selected_track_index` but counts only tracks that are visible in the mixer control panel.
+
+| selected_track_indexes | Array of integers >= -1 | Track selectors |
+Lets you access the indexes of multiple selected tracks.
+
+E.g. if 2 tracks are selected, `selected_track_indexes[0]` gives you the index of the first selected track whereas `selected_track_indexes[1]` gives you the index of the second selected track. `selected_track_indexes[2]` would resolve to `none`.
+
+| this_track_index | Integer >= -1 | Track selectors |
+
+Resolves to the zero-based index of the track on which this ReaLearn instance is located.
+
+| instance_track_index | Integer >= -1 | Track selectors |
+
+Resolves to the zero-based index of the instance track of this ReaLearn instance.
+
+| instance_track_tcp_index | Integer >= -1 | Track selectors |
+
+Like `instance_track_index` but counts only tracks that are visible in the track control panel.
+
+| instance_track_mcp_index | Integer >= -1 | Track selectors |
+
+Like `instance_track_index` but counts only tracks that are visible in the mixer control panel.
+
+| this_fx_index | Integer >= 0 | FX selectors |
+
+Resolves to the zero-based index of this ReaLearn FX instance.
+
+| instance_fx_index | Integer >= 0 | FX selectors |
+
+Resolves to the zero-based index of the instance FX of this ReaLearn instance.
+
+| tcp_fx_indexes | Array of integers >= 0 | FX selectors |
+
+Lets you access the indexes of FXs in a track control panel.
+
+E.g. `tcp_fx_indexes[2]` will resolve to the index of the third FX displayed in the track control panel.
+
+| tcp_fx_parameter_indexes | Array of integers >= 0 | FX parameter selectors |
+
+Lets you access the indexes of FX parameters in a track control panel.
+
+E.g. `selected_fx_parameter_indexes[2]` will resolve to the index of the third FX parameter displayed in the track control panel.
+
+This only makes sense if used in conjunction with `tcp_fx_indexes`.
+
+|===
+
+.Simple example
+====
+`p1 * 99`
+
+* Will point to track with index 0 (first track) if xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] 1 is set to the minimum and to track with index 99 (= track number 100) if it's set to the maximum.
+* If you use a formula like that, you should make sure that xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] 1 is controlled with a step size that allows for exactly 100 different values.
+This conforms to ReaLearn's default step size 0.01 = 1%.
+* Since ReaLearn 2.13, this is easier because it adds support for integer parameters:
+** Set the xref:user-interface/main-panel/menu-bar.adoc#set-compartment-parameter-value-count[] of the parameter to 100
+** You can now treat the parameter in the formula as an integer (just `p1` instead of `p1 * 99`).
+** Most importantly, ReaLearn will take care of using the correct step size automatically when setting up a mapping for controlling that parameter.
+====
+
+.More complex example
+====
+`p1 * 3 * 100 + p2 * 99`
+
+This will treat xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] 1 as a kind of bank selector that allows you to choose between exactly 4 banks (0, 1, 2, 3) of 100 tracks each.
+xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] 2 will select the track number within the bank.
+You see, this is very flexible.
+====
+
+=== Additional object selectors for tracks
+
+==== <This> selector
+
+Track which hosts this ReaLearn instance.
+If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
+
+[#selected-selector]
+==== <Selected> selector
+
+Currently selected track.
+If multiple tracks are selected, refers only to the first one.
+
+==== <All selected> selector
+
+All currently selected tracks.
+This makes track targets (not FX target and not send targets) do their job on _all_ selected tracks.
+The feedback value always corresponds to the highest value among all selected tracks.
+
+CAUTION: If you select many tracks, things can become quite slow!
+
+==== <Master> selector
+
+Master track of the project which hosts this ReaLearn instance.
+
+* If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
+* If you don't have ReaLearn on the monitoring FX chain but you want to control an FX on the monitoring FX chain, this option is the right choice as well.
+Make sure to enable the "Monitoring FX" checkbox.
+
+==== All named selector
+
+Allows you to use wildcards (see <<named-selector>>) to make track targets do their thing on all matching tracks instead of only the first one.
+
+==== At TCP position selector
+
+Like <<at-position-selector>> but just considers tracks that are visible in the track control panel.
+
+==== At MCP position selector
+
+Like <<at-position-selector>> but just considers tracks that are visible in the mixer control panel.
+
+==== Dynamic (TCP) selector
+
+Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the track control panel.
+
+==== Dynamic (MCP) selector
+
+Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the mixer control panel.
+
+==== By ID or name (legacy) selector
+
+This lets you refer to a track by its unique ID and name as fallback.
+This was the default behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
+
+IMPORTANT: **This selector is deprecated!** You shouldn't use it anymore.
+
+=== Additional target selectors for FXs
+
+==== <This> selector
+
+Always points to the own ReaLearn FX xref:key-concepts.adoc#instance[].
+Perfect for changing own parameters, e.g. for usage of the conditional activation or <<dynamic-selector>> features (especially important if you want to create reusable presets that make use of these features).
+
+[[fx-focused-selector]]
+==== Focused selector
+
+Currently or last focused FX. _Track_ and _Input FX_ settings are ignored.
+
+[#particular-fx-selector]
+==== Particular selector
+
+Lets you pick a specific FX in the FX chain.
+Renaming the FX or moving it within the FX chain is fine - ReaLearn will still keep controlling exactly this FX.
+Please note that this only makes sense if you address the containing track using <<particular-selector>> as well.
+
+[#named-fx-selector]
+==== Named selector
+
+Lets you address the FX by its name in the FX chain.
+Just as with tracks, you can use wildcards to have a blurry search.
+
+[#all-named-fx-selector]
+==== All named selector
+
+Allows you to use wildcards (see <<named-fx-selector>>) to make FX targets do their thing on all matching FX instances instead of only the first one.
+
+==== By ID or position (legacy) selector
+
+This refers to the FX by its unique ID with its position as fallback.
+This was the default behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
+
+IMPORTANT: **This selector is deprecated!** You shouldn't use it anymore.
+
+[[sticky-selectors]]
+=== Sticky selectors
+
+We call object selectors _sticky_ if they refer to a particular object (e.g. a track).
+
+Sticky selectors:: `<Master>`, `<This>`, `Particular`
+
+Non-sticky selectors:: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All selected>`, `Named`, `All named`, `At position`, `From Playtime column`
+
+[[target-property]]
+== Target property
+
+Targets can expose properties, which you can use for xref:further-concepts/glue-concepts.adoc#text-feedback[] or xref:further-concepts/glue-concepts.adoc#dynamic-feedback[].
+
+Which properties are available, depends very much on the type of the target type.
+
+There are some properties which are available for (almost) any target (for very target-specific properties, please look up the corresponding target in xref:target-types.adoc#target-types[]):
+
+.Common target properties
+[cols="m,1,3"]
+|===
+|Name | Type | Description
+
+|
+global.realearn.time
+|
+Decimal
+|
+Time in milliseconds since ReaLearn has been loaded (the first instance).
+
+|
+mapping.name
+|
+String
+|
+Name of the mapping. Contains the explicitly assigned mapping name, never an automatically generated one.
+
+|
+target.text_value
+|
+String
+|
+Short text representing the current target value, including a possible unit.
+
+If the target value can be represented using some kind of name, this name is preferred over a possibly alternative numeric representation. Example: Let's assume the 4th track in our project is called "Guitar" and the mapping target is xref:target-types/project-targets/project-browse-tracks.adoc#browse-tracks-target[]. Then `target.text_value` contains the text _Guitar_, not the text _4_.
+
+This is the default value shown if textual feedback is enabled and the textual feedback
+expression is empty.
+
+|
+target.available
+|
+Boolean
+|
+A boolean value indicating whether the target is currently available or not.
+
+Most targets that are _active_ are also _available_. But some targets can be _active_ and _unavailable_. Example: xref:target-types/pot-targets/pot-preview-preset.adoc#pot-preview-preset[] is not _available_ if no preview is available for the preset currently selected in Pot browser. But the target is still considered _active_ in this case!
+
+Usually used together with xref:further-concepts/glue-concepts.adoc#dynamic-feedback[], for example in order to display different things on displays depending on the target's availability.
+
+|
+target.discrete_value
+|
+Integer
+|
+The current target value as zero-based integer. This only works for discrete targets.
+
+|
+target.discrete_value_count
+|
+Integer
+|
+The number of possible values in the current target. This only works for discrete targets.
+
+|
+target.numeric_value
+|
+Decimal
+|
+The current target value as a "human-friendly" number without its unit.
+
+The purpose of this placeholder is to allow for more freedom in formatting numerical target values than
+when using `target.text_value`. This can be done using xref:further-concepts/glue-concepts.adoc#dynamic-feedback[].
+
+|
+target.numeric_value.unit
+|
+String
+|
+Contains the unit of `target.numeric_value` (e.g. _dB_).
+
+|
+target.normalized_value
+|
+Decimal
+|
+The current target value as normalized number, that is, a value between 0.0 and 1.0 (the so-called unit interval). You can think of this number as a percentage, and indeed, it's currently always formatted as percentage.
+
+This value is available for most targets and good if you need a totally uniform and predictable representation of the target value that doesn't differ between target types.
+
+By default, this number is formatted as percentage _without_ the percent sign. Future versions of ReaLearn might offer user-defined
+formatting. This will also be the preferred form to format on/off states in a
+custom way (where 0% represents _off_).
+
+|
+target.type.name
+|
+String
+|
+Short name representing the type of the mapping target.
+
+|
+target.type.long_name
+|
+String
+|
+Long name representing the type of the mapping target.
+
+|
+target.track.index
+|
+Integer
+|
+Zero-based index of the first resolved target track (if supported).
+
+|
+target.track.name
+|
+String
+|
+Name of the first resolved target track (if supported).
+
+|
+target.track.color
+|
+Color
+|
+Custom color of the first resolved target track (if supported).
+
+|
+target.fx.index
+|
+Integer
+|
+Zero-based index of the first resolved target FX (if supported).
+
+|
+target.fx.name
+|
+String
+|
+Name of the first resolved target FX (if supported).
+
+|
+target.route.index
+|
+Integer
+|
+Zero-based index of the first resolved target send/receive/output (if supported).
+
+|
+target.route.name
+|
+String
+|
+Name of the first resolved target send/receive/output (if supported).
+|===
+
+[[target-value-polling]]
+== Target value polling
+
+Target value polling makes ReaLearn query the current value of a target every few milliseconds as part of the main application loop in order to send up-to-date feedback to your controller at all times.
+
+IMPORTANT: Target value polling is not necessary for most targets because usually ReaLearn takes advantage of REAPER's internal notification system to get notified about target value changes (which is good for performance).
+For the few targets for which it is, this option is enabled by default in order to give you the best feedback experience out-of-the-box.
+
+Remarks:
+
+* For most targets that support polling, if you disable polling, automatic feedback for that target will simply stop working.
+This means you will not receive up-to-date feedback anymore whenever you change the target value within REAPER itself (not using ReaLearn).
+* The xref:target-types/fx-parameter-targets/fx-parameter-set-value.adoc#fx-set-parameter-value[] target is an exception.
+Automatic feedback will still work, even without _Poll for feedback_ enabled.
+But in the following corner cases it might not:
+** If the FX is on the monitoring FX chain.
+** If you change a preset from within the FX GUI.
+
+[[target-activation-condition]]
+== Target activation condition
+
+xref:key-concepts.adoc#target[Targets] can have activation conditions as well.
+They are very specific to the type of the target.
+
+.Typical target conditions
+====
+* xref:user-interface/mapping-panel/target-section.adoc#track-must-be-selected[]
+* xref:user-interface/mapping-panel/target-section.adoc#fx-must-have-focus[]
+====
+
+[[continuous-vs-discrete-value-range]]
+== Continuous vs. discrete value range
+
+ReaLearn xref:key-concepts.adoc#target[targets] can have a _continuous_ or _discrete_ value range.
+
+[[continuous-value-range]]
+=== Continuous value range
+
+A _continuous_ value range is a range of arbitrary floating point numbers between 0.0 and 1.0. You can also think of them as _percentages_ between 0.0% and 100.0%.
+Continuous value ranges don't have steps.
+
+.Some targets with a continuous value range.
+====
+* xref:target-types/track-targets/track-set-volume.adoc#track-set-volume[]
+* xref:target-types/project-targets/project-set-tempo.adoc#project-set-tempo[]
+====
+
+[[discrete-value-range]]
+=== Discrete value range
+
+A _discrete_ value range is a range of integers, e.g. 0 to 9. That would be 0, 1, 2, 3, 4, 5, 6, 7, 8, 9. That's it!
+No other values are possible.
+Discrete value ranges have steps.
+
+.Some targets with a discrete value range.
+====
+* xref:target-types/fx-targets/fx-browse-presets.adoc#fx-browse-presets[]
+* xref:target-types/project-targets/project-browse-tracks.adoc#browse-tracks-target[]
+====
+
+[[group-properties]]
+== Group properties
+
+A group doesn't just have a name.
+It has a few properties that are also available for mappings and thus affect all mappings in that group:
+
+Tags::
+Tags defined in the group will be merged with the tags in each mapping.
+
+Control/feedback-enabled::
+Lets you switch off control and/or feedback off for all mappings in that group.
+
+Activation condition::
+The activation condition that you provide here is combined with the one that you provide in the mapping.
+Only if both, the group activation conditions and the mapping activation condition are satisfied, the corresponding mapping will be active.
+Read more about
+xref:further-concepts/mapping-concepts.adoc#conditional-activation[conditional activation] in the section about the xref:user-interface/mapping-panel.adoc#mapping-panel[Mapping panel].

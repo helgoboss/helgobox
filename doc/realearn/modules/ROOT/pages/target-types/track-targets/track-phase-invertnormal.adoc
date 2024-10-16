@@ -1,0 +1,4 @@
+
+= Track: Phase invert/normal
+
+Inverts the track phase if the incoming absolute control value is greater than 0%, otherwise switches the track phase back to normal.

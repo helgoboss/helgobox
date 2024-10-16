@@ -1,0 +1,5 @@
+[#pot-preview-preset]
+= Pot: Preview preset
+
+Auditions a preset selected via xref:target-types/pot-targets/pot-browse-presets.adoc#pot-browse-presets[].
+Only works if it's a sound preset and a sound preview file is available.

@@ -1,0 +1,188 @@
+
+= Unit concepts
+
+[[letting-through-events]]
+== Letting through events
+
+ReaLearn by default "eats" incoming MIDI events for which there's at least one active mapping with that source.
+In other words, it doesn't forward MIDI events which are used to control a target parameter.
+However, unmatched MIDI events are forwarded!
+You can change this using xref:user-interface/main-panel/let-through-checkboxes.adoc#let-through-checkboxes[].
+
+The exact behavior differs depending on what you choose as xref:user-interface/main-panel/inputoutput-section.adoc#input-menu[]:
+
+* If input is set to xref:user-interface/main-panel/inputoutput-section.adoc#fx-input[]
+** MIDI events arrive from ReaLearn's FX input.
+If they get forwarded, they get forwarded to the FX output, usually to the plug-in which is located right below ReaLearn FX.
+The default setting often makes much sense here, especially if you put ReaLearn right above another instrument plug-in.
+* If input is set to a MIDI hardware device
+** MIDI events arrive directly from the MIDI hardware device.
+If they get forwarded, they get forwarded to REAPER's tracks as they would usually do without ReaLearn.
+If they don't get forwarded, it means they get filtered and will never make it to the tracks.
+ReaLearn completely eats them, globally!
+That means, ReaLearn can act as global MIDI filter.
+** Please note, with input set to a real MIDI device, MIDI events coming from _FX input_ are _always_ forwarded to the FX output.
+** Also, MIDI events captured from a real MIDI device input are *never* forwarded to ReaLearn's FX output.
++
+TIP: This global MIDI filter feature is only available in REAPER v6.36+.
+* If input is set to a OSC device
+** You won't see the checkboxes because they don't make sense for OSC.
+* The checkboxes don't have any effect on computer keyboard input.
+Keys are always passed through when doing text entry and never passed through if a mapping matches.
+
+[[auto-load]]
+== Auto-load
+
+If you activate xref:user-interface/main-panel/preset-section.adoc#auto-load-based-on-unit-fx[], ReaLearn will start to observe the <<unit-fx>> of this ReaLearn unit and keep loading xref:further-concepts/compartment-concepts.adoc#main-preset[main presets] according to which <<fx-to-preset-link, FX-to-preset links>> you have defined.
+By default, the unit FX is set to `<Focused>`, which means, it will reflect whatever FX is currently focused.
+Whenever the unit FX changes, it will check if you have linked a compartment preset to it and will automatically load it.
+Whenever the unit FX switches to an unlinked FX or the FX loses focus, ReaLearn falls back to the mapping list or preset that was active before activating auto-load.
+
+Of course this makes sense only if you actually have linked some presets.
+Section <<unit-fx-to-preset-link>> describes how to do that.
+
+[[fx-to-preset-link]]
+== FX-to-preset link
+
+A link between a FX and a xref:further-concepts/compartment-concepts.adoc#main-preset[].
+Used in <<auto-load>>.
+
+[[unit-fx-to-preset-link]]
+=== Unit FX-to-preset link
+
+A link saved as part of a xref:key-concepts.adoc#unit[].
+
+[[global-fx-to-preset-link]]
+=== Global FX-to-preset link
+
+This is like a <<unit-fx-to-preset-link>> but the link is saved globally.
+This is useful if you have only one controller or if you have x controllers (= and therefore x ReaLearn units) and want both of them to always auto-load the same preset if the unit FX points to the same plug-in.
+
+* All links will be saved _globally_, not just within this project!
+* Location: REAPER resource directory (menu:Options[Show REAPER resource path in explorer/finder]) at `Data/helgoboss/realearn/auto-load-configs/fx.json`.
+
+[[unit-key]]
+== Unit key
+
+Each ReaLearn unit has a key that's used to address this particular ReaLearn unit when using the <<projection>> feature.
+By default, the unit key is a random cryptic string which ensures that every unit is uniquely addressable.
+The result is that scanning the QR code of this ReaLearn unit will let your mobile device connect for sure with this unique unit, not with another one - remember, you can use many units of ReaLearn in parallel.
+This is usually what you want.
+
+But a side effect is that with every new ReaLearn unit that you create, you first have to point your mobile device to it in order to see its
+<<projection>> (by scanning the QR code).
+Let's assume you have in many of your projects exactly one ReaLearn unit that lets your favorite MIDI controller control track volumes.
+By customizing the unit key, you can tell your mobile device that it should always show the <<projection>> of this very ReaLearn unit - no matter in which REAPER project you are and even if they control the volumes of totally different tracks.
+
+You can achieve this by setting the unit key of each volume-controlling ReaLearn unit to exactly the same value, in each project, using xref:user-interface/main-panel/bottom-area.adoc#set-unit-data-button[].
+Ideally it's a descriptive name without spaces, such as "track-volumes".
+You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control ReaLearn units in each project.
+
+[CAUTION]
+====
+
+Make sure to not have more than one ReaLearn unit with the same unit key active at the same time because then it's not clear to which your mobile device will connect!
+====
+
+*At the moment, the unit key is part of the ReaLearn preset!* That means, opening a preset, copying/cutting a ReaLearn FX, importing from clipboard - all of that will overwrite the unit key.
+This might change in future in favor of a more nuanced approach!
+
+[#unit-track]
+== Unit track
+
+The second line of the bottom panel shows the current track chosen as **Unit track** for this unit of ReaLearn.
+This can be something like "Track 3" or "The currently selected track".
+Mappings in this ReaLearn unit can refer to this track by choosing the track selector xref:further-concepts/target-concepts.adoc#unit-selector[].
+
+The unit track can be changed via target xref:target-types/track-targets/track.adoc#track-target[].
+
+[#unit-fx]
+== Unit FX
+
+The second line of the bottom panel also shows the current FX chosen as **Unit FX** for this unit of ReaLearn.
+This can be something like "FX 5 on track 3" or "The currently focused track".
+Mappings in this ReaLearn unit can refer to this FX by choosing the FX selector xref:further-concepts/target-concepts.adoc#unit-selector[].
+
+The unit FX can be changed via target xref:target-types/fx-targets/fx.adoc#fx-target[].
+
+[[unit-tag]]
+== Unit tag
+
+Each unit can have arbitrarily many tags.
+
+Tags are important if you want to dynamically enable or disable instances using the xref:target-types/realearn-targets/realearn-enabledisable-instances.adoc#realearn-enable-disable-instances[] target.
+
+[[projection]]
+== Projection
+
+Projection is a quite unique feature that allows you to project a schematic representation of your currently active controller to a mobile device (e.g. a tablet computer).
+You can put this device close to your controller in order to see immediately which control element is mapped to which parameter.
+This is an attempt to solve an inherent problem with generic controllers: That it's easy to forget which control element is mapped to which target parameter.
+
+== Logging
+
+Logging can be enabled or disabled via xref:user-interface/main-panel/menu-bar.adoc#logging-menu[].
+
+[[logging-of-real-control-messages]]
+=== Logging of real control messages
+
+Each log entry contains the following information:
+
+* Timestamp in seconds
+* Helgobox xref:further-concepts/instance-concepts.adoc#instance-id[]
+* Message purpose
+** *Real control:* A message used for controlling targets.
+** *Real learn:* A message used for learning a source.
+* Actual message (MIDI messages will be shown as hexadecimal byte sequence, short MIDI messages also as decimal byte sequence and decoded)
+* Match result
+** *unmatched:* The message didn't match any mappings.
+** *matched:* The message matched at least one of the mappings.
+** *consumed:* Only for short MIDI messages.
+This short message is part of a (N)RPN or 14-bit CC message and there's at least one active mapping that has a (N)RPN or 14-bit CC source.
+That means it will not be processed.
+The complete (N)RPN or 14-bit CC message will be.
+
+[[logging-of-real-feedback-messages]]
+=== Logging of real feedback messages
+
+The log entries look similar to the ones described above, with the following notable differences.
+
+* Message purpose
+** *Feedback output:* A message sent to your controller as response to target value changes.
+** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation (see xref:user-interface/mapping-panel/advanced-settings-dialog.adoc#mapping-lifecycle-actions[Mapping lifecycle actions]).
+** *Target output:* A message sent because of either the xref:target-types/midi-targets/midi-send-message-target.adoc#midi-send-message-target[MIDI: Send message] or xref:target-types/osc-targets/osc-send-message.adoc#osc-send-message[OSC: Send message] target.
+
+[[superior-units]]
+== Superior units
+
+When a unit is made superior via menu entry xref:user-interface/main-panel/menu-bar.adoc#make-unit-superior[], this unit is allowed to suspend other units which share the same input and/or output device (hardware devices only, not FX input or output!).
+
+[TIP]
+====
+Making units superior is **rarely needed**!
+
+This option was initially introduced in order to add more flexibility to the <<auto-load>> feature.
+The idea was to let a controller _fall back_ to some default behavior if the currently focused FX is closed.
+Multiple instances were necessary to make this work with one of them (the auto-load instance) being superior.
+
+However, since ReaLearn 2.14.0, falling back to initial mappings when the FX loses focus in auto-load mode became much easier and doesn't require multiple units anymore!
+Your initial mappings or initial preset will be memorized and reloaded once the FX loses focus.
+See <<auto-load>> for more information.
+====
+
+Behavior:
+
+* By default, ReaLearn units are not superior, just normal.
+This is most of the time okay, even if you have multiple units that share the same input and output ... as long as you don't have any conflicting mappings active at the same time.
+* For example, if 2 units use the same input or output device and they use different control elements, they can peacefully coexist.
+And even if they share a control element for the _control direction_, they are still fine with it.
+The same control element will control 2 mappings, why not!
+* Things start to get hairy as soon as 2 units want to send _feedback_ to the same control elements at the same time.
+You should avoid this.
+You should not even do this within one ReaLearn unit.
+This can't work.
+* Sometimes you want one unit to suspend/cover/cancel/mute another one!
+You can do this by making this unit _superior_.
+Then, whenever this unit has at least one active mapping, all non-superior units with the same control and/or feedback device will be disabled for control and/or feedback.
+* You can have multiple superior units.
+Make sure they get along with each other :)

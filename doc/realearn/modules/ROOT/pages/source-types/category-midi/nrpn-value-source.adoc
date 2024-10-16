@@ -1,0 +1,29 @@
+
+= (N)RPN value source
+
+This source reacts to incoming non-registered (NRPN) or registered (RPN) MIDI parameter-number messages.
+The higher the emitted value, the higher the absolute control value.
+
+(N)RPN messages are not widely used.
+If they are, then mostly to take advantage of their ability to transmit 14-bit values (up to 16384 different values instead of only 128), resulting in a higher resolution.
+
+== RPN checkbox
+
+If unchecked, this source reacts to unregistered parameter-number messages (NRPN).
+If checked, it reacts to registered ones (RPN).
+
+== Number field
+
+The number of the registered or unregistered parameter-number message.
+This is a value between 0 and 16383.
+
+== 14-bit values checkbox
+
+If unchecked, this source reacts to (N)RPN messages with 7-bit resolution, including increment/decrement messages.
+
+If checked, it reacts to those with 14-bit resolution.
+In practice, this if often checked.
+
+== Character menu
+
+See xref:further-concepts/source-concepts.adoc#midi-source-character[].

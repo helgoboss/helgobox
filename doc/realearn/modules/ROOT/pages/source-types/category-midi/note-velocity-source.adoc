@@ -1,0 +1,10 @@
+
+= Note velocity source
+
+This source reacts to incoming MIDI note-on and note-off messages.
+The higher the velocity of the incoming note-on message, the higher the absolute control value.
+Note-off messages are always translated to 0%, even if there's a note-off velocity.
+
+== Note menu
+
+Optionally restricts this source to messages with a certain note number (note numbers represent keys on the MIDI keyboard, e.g. 60 corresponds to C4).

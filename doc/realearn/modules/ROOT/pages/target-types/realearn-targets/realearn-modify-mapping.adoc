@@ -1,0 +1,24 @@
+
+= ReaLearn: Modify mapping
+
+Triggers a modification of another ReaLearn mapping.
+
+== Kind menu
+
+The kind of modification.
+
+Learn target:: Switches "Learn target" on or off for the destination mapping.
+Use button btn:[...] to pick the considered target types and invocations to be included in the learning process.
+
+Set target to last touched:: Sets the target of the destination mapping to the last-touched target.
+Use button btn:[...] to pick the considered target types and invocations.
+
+== Unit menu
+
+Allows you to pick another ReaLearn unit.
+
+== Mapping menu
+
+Allows you to pick the destination mapping.
+
+TIP: This target is great to "pin" targets to certain control elements on demand.

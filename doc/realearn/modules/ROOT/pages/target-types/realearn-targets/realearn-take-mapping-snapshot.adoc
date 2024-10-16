@@ -1,0 +1,27 @@
+[#realearn-take-mapping-snapshot]
+= ReaLearn: Take mapping snapshot
+
+Memorizes target values for all or certain mappings in this ReaLearn units and saves them in a snapshot of your choice.
+
+== Snapshot menu
+
+Choose the snapshot to which you want to save the mapping values.
+
+<Last loaded>:: Always chooses the snapshot which is currently active (was last loaded) for the given tags.
++
+Only works if tags are not empty and if all tags have the same last-loaded snapshot.
+So the best is if you always enter exactly one tag.
++
+By ID:: Enter the unique ID of the snapshot, e.g. `scene_1`.
+
+== Tags field
+
+Allows you to restrict the set of mappings whose target values will be memorized.
+
+* If this field is empty, target values of all mappings will be memorized.
+* If this field contains tags (comma-separated), target values will be memorized only for mappings that are tagged with any of these.
+
+== Active mappings only checkbox
+
+By default, even target values of inactive (but control-enabled) mappings end up in the snapshot!
+If you don't like that, tick this checkbox.

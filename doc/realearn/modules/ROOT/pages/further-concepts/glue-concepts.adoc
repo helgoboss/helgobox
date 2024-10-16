@@ -1,0 +1,258 @@
+
+= Glue concepts
+
+[[target-value-sequence]]
+== Target value sequence
+
+A target value sequence represents a list of possible target values.
+It can be entered using into the xref:user-interface/mapping-panel/glue-section.adoc#target-value-sequence-field[].
+
+The mapping will set the target only to values contained in that sequence.
+Such a sequence doesn't just support single values but also ranges with customizable step sizes.
+All values are entered comma-separated using the target unit specified with the xref:user-interface/mapping-panel/target-section.adoc#target-unit-button[].
+
+.Single values
+====
+Enter this sequence for a volume target with target unit switched to *dB*:
+
+`-20, -14, -12, -6, -3.5, 0`
+
+When you move your knob or rotary encoder or press a button using xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[], ReaLearn will step through the entered dB values for you.
+====
+
+.Value ranges
+====
+
+Enter this sequence for a target with a continuous value range and target unit switched to *%*:
+
+`10 - 30, 50 - 70 (5), 80 - 90 (2)`
+
+It will first step in 1% steps from 10% to 30%, then in 2% steps from 50% to 70% and finally from 80% to 90% in 2% steps.
+It's important that the numbers and the range dash are separated by spaces!
+====
+
+.Non-monotonic or non-strict-monotonic sequences
+====
+Let's look at this sequence:
+
+`20, 10, 10, -5, 8`
+
+It's non-monotonic: It decreases, and then increases again.
+Even if it would just decrease, it would be non-strict monotonic because it contains duplicates (value 10).
+
+When using xref:further-concepts/mapping-concepts.adoc#absolute-control[], it's no problem stepping through such sequences.
+
+However, xref:further-concepts/mapping-concepts.adoc#relative-control[] only supports strictly increasing or strictly decreasing sequences.
+So if you control this sequence e.g. via xref:further-concepts/mapping-concepts.adoc#rotary-endless-encoder[] or via xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[], the sequence will be stepped through like this: -5, 8, 10, 20.
+
+Alternative: Use xref:user-interface/mapping-panel/glue-section.adoc#make-absolute[]!
+====
+
+[[feedback-type]]
+== Feedback type
+
+The _feedback type_ determines whether to send numeric, text or dynamic feedback to the source.
+It can be set using the xref:user-interface/mapping-panel/glue-section.adoc#feedback-type-controls[].
+
+[[numeric-feedback-type]]
+=== Numeric feedback: EEL transformation
+
+Sends numeric feedback to the source.
+This is the default.
+
+Numeric feedback can be combined with an EEL feedback transformation formula.
+This is similar to xref:user-interface/mapping-panel/glue-section.adoc#control-transformation[] but used for translating a target value back to a source value for feedback purposes.
+
+Be aware: Here `x` is the desired source value (= output value) and `y` is the current target value (= input value), so you must assign the desired source value to `x`.
+
+.Simple feedback transformation formula
+====
+`x = y * 2`
+====
+
+ReaLearn's feedback processing order is:
+
+. Apply target interval.
+. Apply reverse.
+. Apply transformation.
+. Apply source interval.
+
+[[text-feedback]]
+=== Text feedback: Text expression
+
+With this option, ReaLearn will send text feedback values to the source.
+This only works with sources that are capable of displaying text: That is any xref:source-types/category-osc.adoc#osc-source[OSC source] with argument type _String_, xref:source-types/category-midi/display.adoc#display-source[MIDI Display] and xref:source-types/category-midi/midi-script-source.adoc#midi-script-source[].
+
+Text feedback can be combined with a _text expression_, which lets you define which text is going to be sent to the source _whenever the target value changes_ and immediately when entering the text.
+Whatever text you enter here, will be sent verbatim to the source.
+
+Of course, entering a fixed text here is not very exciting.
+Most likely you want to display dynamic text such as the name of the currently selected track or the current target value, nicely formatted!
+You can do that by using placeholders, delimited by double braces.
+
+.Simple text expression
+====
+`{{target.text_value}}`
+====
+
+See xref:further-concepts/target-concepts.adoc#target-property[] for a list of properties that you can use in placeholders.
+
+[#dynamic-feedback]
+=== Dynamic feedback: Lua script
+
+This feedback type puts you fully in charge about which feedback to send to the source.
+It does so by letting you define a Luau script that builds numeric, textual or even arbitrarily structured feedback.
+
+==== General mechanics
+
+ReaLearn executes your script whenever one of the ReaLearn-provided properties used in your script might have changed its value.
+
+The script receives an input and must produce an output.
+
+Script input::
+* The input is a function `context.prop` which you can use to query arbitrary properties, e.g. target or mapping properties.
+Those properties are the very same properties that you can use in <<text-feedback,textual feedback>>.
++
+.How to use `context.prop()`
+====
+[source,lua]
+----
+local preset_name = context.prop("target.preset.name")
+local param_name = context.prop("target.fx_parameter.name")
+----
+====
++
+* Values returned by this function can be `nil`!
+E.g. target-related properties return a `nil` value whenever the mapping or target turns inactive, which is a very common situation.
+So it's important to prepare your Luau code for that, otherwise script execution fails and no feedback will be sent.
+One way to deal with a `nil` value returned by `context.prop` is to also return `nil` as `value` (see below).
+
+Script output::
+* The output that the script is supposed to return is a table which looks as in the following example.
++
+.Result table structure
+====
+[source,lua]
+----
+return {
+    feedback_event = {
+        -- The feedback value <1>
+        value = "Arbitrary text",
+        -- An optional color <2>
+        color = { r = 0, g = 255, b = 0 },
+        -- An optional background color <3>
+        background_color = nil,
+    }
+}
+----
+
+<1> In this example it's a text value, but it can be anything!
+<2> Has the same effect as color in xref:user-interface/mapping-panel/glue-section.adoc#feedback-style-menu[]
+<3> Has the same effect as background color in xref:user-interface/mapping-panel/glue-section.adoc#feedback-style-menu[]
+====
++
+* The most important thing here is `value`.
+It can either be ...
+** ... a string (ideal for display sources)
+** ... a number (ideal for LEDs and motor faders)
+** ... `nil` (which means "turn the source off", e.g. turn off the LED, turn down the motorfader, clear the display text)
+** ... or anything else (`true`, `false` or an arbitrary table ... at the moment, this is only useful for the xref:source-types/category-midi/midi-script-source.adoc#midi-script-source[] source because other sources don't know how to deal with it)
+
+
+.`global.realearn.time`
+====
+Displays the number of milliseconds passed since ReaLearn was loaded:
+
+[source,lua]
+----
+local millis = context.prop("global.realearn.time")
+return {
+    feedback_event = {
+        value = "" .. millis .. "ms"
+    },
+}
+----
+====
+
+.Animation
+====
+Creates an animation to make a long FX name visible on a tiny screen:
+
+[source,lua]
+----
+function create_left_right_animation(global_millis, max_char_count, frame_length, text)
+    if text == nil then
+        return nil
+    end
+    if #text > max_char_count then
+        local frame_count = #text - max_char_count
+        local frame_index = math.floor(global_millis / frame_length) % (frame_count * 2)
+        local text_offset
+        if frame_index < frame_count then
+            text_offset = frame_index
+        else
+            local distance = frame_index - frame_count
+            text_offset = frame_count - distance
+        end
+        return text:sub(text_offset + 1, text_offset + max_char_count)
+    else
+        return text
+    end
+end
+
+-- The maximum number of characters we want to display at once
+local max_char_count = 10
+-- How many milliseconds to remain in one position
+local frame_length = 150
+local millis = context.prop("global.realearn.time")
+local fx_name = context.prop("target.fx.name")
+local animation = create_left_right_animation(millis, 10, frame_length, fx_name)
+return {
+    feedback_event = {
+        value = animation
+    },
+}
+----
+====
+
+.Structured feedback values
+====
+Returns a structured feedback value ...
+
+[source,lua]
+----
+return {
+    feedback_event = {
+        value = {
+            available = context.prop("target.available"),
+            more_info = {
+                index = context.prop("target.discrete_value"),
+                count = context.prop("target.discrete_value_count"),
+            },
+        }
+    },
+}
+----
+
++...+ which can then be processed by a xref:source-types/category-midi/midi-script-source.adoc#midi-script-source[] source:
+
+[source,lua]
+----
+return {
+    address = 0x4bb0,
+    messages = {
+        { 0xb0, 0x4b, y.more_info.index, y.more_info.count }
+    }
+}
+----
+
+This example is not realistic, it just shows how you can access the value table returned by the glue section feedback script.
+====
+
+You can share code between multiple feedback scripts by using xref:further-concepts/compartment-concepts.adoc#compartment-wide-lua-code[], with the following limitations (which hopefully will be lifted over time):
+
+* The shared code is not yet available to the Lua code editor window.
+That means writing `require("compartment")` will evaluate to `nil` in the editor.
+You might see a corresponding error message when the editor tries to compile your code.
+* When ReaLearn queries the script in advance to know which target properties it needs, the shared code is also not available yet.
+Currently, you need to make sure that the target properties are queried even if `require("compartment")` evaluates to `nil`.

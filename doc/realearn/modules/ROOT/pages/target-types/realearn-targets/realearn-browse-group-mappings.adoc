@@ -1,0 +1,34 @@
+[#realearn-browse-group-mappings]
+= ReaLearn: Browse group mappings
+
+This target lets you choose an arbitrary mapping group in this compartment and cycle through it with an encoder/fader/knob or incremental (previous/next) buttons.
+
+"Cycling through" means that you move from one mapping in the group to the next one by hitting the next mapping's target with the _Target Max_ value in its glue section (by default 100%).
+
+== Group menu
+
+The group that you want to browse.
+
+== Exclusivity menu
+
+Non-exclusive:: Really just hits the target of the mapping which is next in the line and doesn't do anything with the other mappings.
+In many cases this is enough, e.g. if the targets of the mappings in the cycled group are the same and just "Target Max" is different.
+Or if the target itself already takes care of exclusivity.
+
+Exclusive:: Doesn't just hit the target of the mapping which is next in the line but also hits the targets of all other mappings in the cycled group with their respective _Target Min_ value (by default 0%).
+Be careful with this, you often won't need it.
+
+Inactive mappings are skipped!
+
+[TIP]
+====
+A mapping group lends itself perfectly for defining things that should happen _in sequence_.
+This target allows you to take advantage of that!
+
+- Combine it with xref:target-types/realearn-targets/realearn-enabledisable-mappings.adoc#realearn-enable-disable-mappings[] to browse different banks.
+- Combine it with xref:target-types/realearn-targets/realearn-enabledisable-instances.adoc#realearn-enable-disable-instances[] to browse completely different controller setups (or banks).
+- Combine it with targets that don't provide a "Browse ..." variant themselves.
+- Use it as an alternative to xref:further-concepts/glue-concepts.adoc#target-value-sequence[target value sequences] that allows you to have completely different targets within one sequence.
+====
+
+[split=0]

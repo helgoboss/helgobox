@@ -1,0 +1,22 @@
+
+= Category "Keyboard"
+
+This source reacts to pressing or releasing a key on your computer keyboard.
+It emits a value of 100% when the key is pressed and 0% when released.
+
+In order to set the key, simply click the btn:[Learn] button and press the key of your choice.
+
+In addition to the key label, ReaLearn might show some warnings regarding the portability of your keystroke.
+This helps you to avoid keyboard shortcuts that don't reliably work cross-platform (in other operating systems) or on other keyboard layouts.
+You can ignore portability warnings if you use just this operating system and don't plan to share your keyboard presets with other users.
+
+[TIP]
+====
+* This only works if xref:user-interface/main-panel/inputoutput-section.adoc#computer-keyboard[] is enabled in the xref:user-interface/main-panel/inputoutput-section.adoc#input-menu[].
+* If you hold a key, it will not keep firing.
+This is by design!
+Use xref:user-interface/mapping-panel/glue-section.adoc#fire-after-timeout-keep-firing[] instead.
+* Key combinations are not supported.
+This is by design!
+Use xref:further-concepts/mapping-concepts.adoc#conditional-activation[] instead.
+====

@@ -1,0 +1,15 @@
+[#track-set-automation-touch-state]
+= Track: Set automation touch state
+
+When you use REAPER's "Touch" automation mode, REAPER needs a way to know if you are currently touching the control element which is bound to the automation envelope or not.
+As long as you keep touching it, it will overwrite existing automation.
+As soon as you release it, REAPER will leave the envelope untouched.
+
+Classical control surfaces implement this very intuitively by providing touch-sensitive faders.
+With this target, you can easily reproduce exactly this behavior via ReaLearn.
+You do this by mapping the touch event (which is usually nothing else than a MIDI note on/off message) to this target.
+The touch state is scoped to a particular track and parameter type which you can choose in the *Type* dropdown.
+
+However, ReaLearn wouldn't be ReaLearn if it wouldn't allow you to let totally different sources take control of the touch state.
+For example, if you have a push encoder, you could map the "push" event to the touch state, allowing you to write automation only while you are touching the encoder.
+Or if you don't have a push encoder, you could just use some spare button.

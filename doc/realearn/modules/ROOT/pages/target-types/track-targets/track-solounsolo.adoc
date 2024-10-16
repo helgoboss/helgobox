@@ -1,0 +1,15 @@
+[#track-solounsolo]
+= Track: Solo/unsolo
+
+Soloes the track if the incoming absolute control value is greater than 0%, otherwise unsoloes the track.
+
+== Behavior menu
+
+See the REAPER user guide for details.
+
+Solo in place:: Soloes the track while respecting REAPER's routing.
+This is REAPER's default and since ReaLearn v2.4.0 also ReaLearn's default.
+Solo (ignore routing):: Soloes the track muting everything else, no matter the routing.
+Use REAPER preference:: Follows whatever is set in the REAPER preferences.
+
+Learning this target by pressing the "Solo" button of the _master_ track is currently not possible but of course you can just select it manually in the dropdown menu.

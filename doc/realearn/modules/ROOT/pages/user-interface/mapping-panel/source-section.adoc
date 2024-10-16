@@ -1,0 +1,20 @@
+
+= Source section
+
+All xref:source-types.adoc#source-types[] share the following UI elements.
+
+== Learn button
+
+Starts or stops learning the xref:key-concepts.adoc#source[] of this mapping.
+
+== Category menu
+
+Lets you choose the source category.
+
+== Type menu
+
+Lets you choose the source type.
+Available types depend on the selected category.
+
+All other UI elements in this section depend on the chosen source type.
+See xref:source-types.adoc#source-types[].

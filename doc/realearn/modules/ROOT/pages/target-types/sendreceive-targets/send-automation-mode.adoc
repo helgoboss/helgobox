@@ -1,0 +1,4 @@
+
+= Send: Automation mode
+
+Sets the track send to a specific automation mode if the incoming control value is greater than 0%, otherwise sets it back to REAPER's default automation mode "Trim/Read".

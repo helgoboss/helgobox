@@ -1,0 +1,40 @@
+
+= Design decisions
+
+WARNING: Expert level!
+
+This section sheds a bit light about why some features in ReaLearn exist and why they were built as they are.
+Just in case you are interested.
+
+[[decision-advanced-settings-via-yaml]]
+== Advanced settings via YAML
+
+The xref:user-interface/mapping-panel/advanced-settings-dialog.adoc#advanced-settings-dialog[] makes it possible to configure a few advanced mapping settings by entering text in the YAML configuration language.
+
+Deciding for textual configuration and YAML in particular was a conscious decision with the goal to provide a developer-friendly framework for rapidly extending ReaLearn with advanced features that don't urgently need a graphical user interface.
+
+[qanda]
+Why ask the user to enter text instead of providing a convenient graphical user interface?::
+* That's mostly a tradeoff due to the fact that my time available for developing ReaLearn is limited.
+* It's much work to develop a graphical user interface for every feature.
+In fact, programming the user interface often takes most of the time whereas implementing the actual logic is not that much effort.
+* It's true that some sorts of functionality really benefit from having a fancy graphical user interface.
+But there's also functionality for which having it is not too important, e.g. functionality that is of configurational nature and not used that often.
+* Also, one of ReaLearn's goals is to give power users and programmers extra powers.
+Textual configuration can be more powerful in many situations once the user knows how to go about it.
+
+Why YAML?::
+* YAML has the advantage of being popular among programmers, widely supported, highly structured and relatively well readable/writable by both humans and machines.
+* Many text editors offer built-in support for editing YAML.
+* Makes it easy to provide data for even very complex features.
+
+Why not a scripting language?::
+* Using a scripting language would spoil any future possibility to add a graphical user interface on top of some of the functionality.
+* It wouldn't allow ReaLearn to apply future optimizations and improvements.
+ReaLearn is rather declarative in nature and a scripting language would destroy this quality.
+* It's hard to come up with a stable and good API.
+* It's harder to use than a configuration language.
+
+Why don't you save the text, just the structure?::
+* Mostly because saving just the structure makes the entered data become a natural part of ReaLearn's main preset format (JSON).
+* Once we would start saving the actual text, it would be hard to go back.

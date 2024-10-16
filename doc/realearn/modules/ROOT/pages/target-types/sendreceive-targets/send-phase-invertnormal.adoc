@@ -1,0 +1,4 @@
+
+= Send: Phase invert/normal
+
+Inverts the track send phase or switches it back to normal.

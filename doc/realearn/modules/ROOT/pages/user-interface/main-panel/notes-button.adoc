@@ -1,0 +1,5 @@
+
+= Notes button
+
+Allows you to save custom notes/comments for the current compartment.
+These notes are also included in compartment presets.

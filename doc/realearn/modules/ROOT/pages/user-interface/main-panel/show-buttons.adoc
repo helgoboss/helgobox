@@ -1,0 +1,5 @@
+
+= Show buttons
+
+This lets you choose which mapping compartment is displayed.
+See xref:key-concepts.adoc#compartment[].

@@ -1,0 +1,81 @@
+[#project-invoke-reaper-action]
+= Project: Invoke REAPER action
+
+Triggers or sets the value of a particular REAPER action in the main section.
+
+== Section menu
+
+Specifies in which context the action is going to be invoked.
+
+Main:: Invokes a main action.
+Active MIDI editor:: Invokes a MIDI editor action, applied to the currently active MIDI editor.
+Active MIDI event list editor:: Invokes a MIDI event list action, applied to the currently active MIDI editor.
+Media explorer:: Invokes a media explorer action.
+
+[[invocation-type]]
+== Invocation type
+
+Specifies _how_ the picked action is going to be controlled.
+
+Trigger:: Invokes the action with the incoming absolute control value, but only if it's greater than 0%.
+Most suitable for simple trigger-like actions that neither have an on/off state nor are annotated with "(MIDI CC/OSC only)" or similar.
+
+Absolute 14-bit:: Invokes the action with the incoming absolute control value, even if it's 0%.
+Most suitable for actions which either have an on/off state or are annotated with "(MIDI CC/OSC only)" or similar.
+The resolution of the invocation is 14-bit, no matter what's the resolution of your control element).
+
+Absolute 7-bit:: Just like the previous invocation mode but uses 7-bit resolution.
+Might be necessary for actions provided by 3rd-party extensions which don't interpret 14-bit control values correctly.
+In all other circumstances, 14-bit is probably the better default choice.
+
+Relative:: Invokes the action with the incoming relative control value (absolute ones are ignored).
+Only works for actions that are annotated with ("MIDI CC relative only") or similar.
+
+== Pick! button
+
+Opens REAPER's action dialog so you can select the desired action.
+
+== With track checkbox
+
+Allows you to choose a track which ReaLearn will select before executing the action.
+This makes it possible to combine ReaLearn's flexible track selection capabilities with the plethora of REAPER actions that work on the currently selected track.
+
+== Limitations
+
+The particular action decides if toggling/feedback works completely, has limitations or is not possible at all.
+There are multiple types of actions so it's not possible to settle with one invocation type and be done with it.
+The types of actions can roughly be divided into:
+
+Actions that take care of toggling themselves _and_ report on/off state::
+* Example: "25. Track: Toggle record arm for track 01"
+* If you want toggle behavior, you have 2 options:
+** a) Set Invoke to "Absolute" and Mode to "Toggle button" (preferred).
+** b) Set Invoke to "Trigger" and Mode to "Normal".
+* Feedback is completely supported.
+
+Actions that take care of toggling themselves but _don't_ report on/off state::
+* Example: "40175. Item properties: Toggle mute"
+* Toggle behavior is achieved as described in (1) but support for toggling and feedback has limitations (explained in (4)).
+
+Actions that don't take care of toggling themselves ("trigger only")::
+* Example: "1007. Transport: Play"
+* There's no way to make such an action toggle because the action is not designed to do so.
+* If the action reports an on/off state, feedback is completely supported though, otherwise not at all!
+
+Actions that have a complete range of values as state::
+* Example: "994. View: Adjust vertical zoom (MIDI CC/OSC only)"
+* Since ReaLearn 2 and REAPER 6.20, there's special support for this type of actions.
+Starting from the first time this action is triggered, ReaLearn will track its current value.
+* That's why toggling is supported.
+Because ReaLearn itself takes care of toggling, you need to set _Invoke_ to "Absolute" and Mode to "Toggle button".
+* Feedback is also supported.
+* Toggling/feedback for this type of actions comes with some inherent limitations that are related to the fact that a) REAPER itself doesn't necessarily use actions to invoke its own functions and b) MIDI CC/OSC actions don't have the concept of a "current value" (unlike e.g. toggle actions or FX parameters).
+* The bottom line of these limitations is that toggling/feedback will only work if the action itself is used to trigger the change and if the action is an absolute action (not relative).
+* Limitations in detail:
++
+. In most cases, feedback will not work when changing the value in REAPER directly (e.g. when adjusting vertical zoom directly via the REAPER user interface).
+. It will only work for actions that support some kind of absolute value range (usually the case for all non-relative MIDI CC/OSC actions).
+. When the action is invoked via ReaLearn, the feedback will only work if "Invoke" is "Trigger" or "Absolute".
+It won't work with "Relative".
+. When the action is invoked from ReaScript or other extensions, it will only work if the invocation was done via `KBD_OnMainActionEx()` and an absolute value change.
+. When the action is invoked via a native REAPER action mapping, it will only work if the invocation is done using absolute MIDI CC/OSC (not relative).

@@ -1,0 +1,18 @@
+[#cc-value-source]
+= CC value source
+
+This source reacts to incoming MIDI control-change messages.
+
+== CC menu
+
+Optionally restricts this source to messages with a certain MIDI control-change controller number.
+
+== Character menu
+
+See xref:further-concepts/source-concepts.adoc#midi-source-character[].
+
+== 14-bit values checkbox
+
+If unchecked, this source reacts to MIDI control-change messages with 7-bit resolution (usually the case).
+If checked, it reacts to MIDI control-change messages with 14-bit resolution.
+This is not so common but sometimes used by controllers with high-precision faders.

@@ -1,0 +1,121 @@
+[#advanced-settings-dialog]
+= Advanced settings dialog
+
+This dialog allows access to advanced configuration by entering text in the https://en.wikipedia.org/wiki/YAML[YAML] configuration language.
+It can be opened using the xref:user-interface/mapping-panel/general-section.adoc#advanced-settings-button[] of the mapping panel.
+
+See xref:design-decisions.adoc#decision-advanced-settings-via-yaml[] to learn why this feature exists and why YAML.
+
+WARNING: Expert level!
+
+== The YAML language
+
+This is not a programming language, so you can't write loops, conditions or anything like that.
+Instead, think of it as a language for writing configuration.
+Do you know INI files?
+REAPER uses INI files to save configuration.
+YAML is a bit like that, just much more expressive because it allows you to not only express flat key-value pairs (e.g. `edit_fontsize=29`) but also deeply nested configuration data and lists.
+
+[IMPORTANT]
+.YAML is indentation-sensitive
+====
+Indentation matters!
+The bright side of this is that it always looks clean.
+The dark side is that ReaLearn will refuse to save your settings if you messed up the indentation.
+
+Therefore: Be consistent with your indentation (e.g. use always an indentation of 2 spaces for nesting) and have an utmost attention to detail when doing copy and paste from the examples in this section!
+====
+
+[IMPORTANT]
+.Verbatim text is not saved
+====
+When you close the text editor and ReaLearn saves your advanced settings as part of the mapping, it will not save the text that you have entered _verbatim_.
+It will save a structural representation of what you entered (and it will strip comments!).
+That means if you open the advanced settings again, your could text could look a bit different, in particular it can have a different formatting.
+But don't worry, it _means_ exactly the same to ReaLearn.
+====
+
+== Supported configuration properties
+
+In this section you will find examples that cover all currently supported configuration properties.
+You can copy and paste the stuff you need to the text editor, remove the parts that you don't need and adjust the rest.
+Comments (lines starting with `#`) will be removed automatically.
+
+[#mapping-lifecycle-actions]
+=== Mapping lifecycle actions
+
+ReaLearn allows you to define MIDI messages to be sent to the output whenever a mapping turns active or inactive.
+See xref:further-concepts/mapping-concepts.adoc#mapping-activation-state[].
+
+Example use cases:
+
+* Accessing device-specific features via system-exclusive MIDI messages.
+* Choosing a different LED color/style depending on the active mapping.
+* Initializing a sys-ex-controllable display with some mapping-specific text (more difficult).
+
+These are the available configuration properties:
+
+[source,yaml]
+----
+# Contains stuff to be done whenever this mapping becomes active.
+on_activate:
+  # A list of MIDI messages to be sent to the output when this mapping becomes active.
+  #
+  # At the moment, only messages of type "raw" are supported. Although this covers all possible types
+  # of MIDI messages, it's a bit hard to express e.g. simple NOTE ON or CC messages with this notation.
+  # In particular, you would need to know how MIDI messages are presented as byte sequences. Future ReaLearn
+  # versions will provide more convenient ways to describe simple MIDI messages.
+  send_midi_feedback:
+    # This is an example of a system-exclusive message ("SysEx"). It's usually expressed in hexadecimal string
+    # notation. Make sure to include the leading F0 and trailing F7, which is the begin and end marker of all
+    # system-exclusive messages!
+    - raw: F0 00 20 6B 7F 42 02 00 10 77 01 F7
+    # Instead of above hexadecimal string notation, you could also use an array of decimal numbers to describe a raw
+    # message. The following is a NOTE ON of note 74 on channel 1 with velocity 100.
+    - raw:
+        # NOTE ON on channel 1
+        - 144
+        # Note number 74
+        - 74
+        # Note velocity 100
+        - 100
+
+# Contains stuff to be done whenever this mapping becomes inactive.
+on_deactivate:
+  # A list of MIDI messages to be sent to the output when this mapping becomes inactive.
+  send_midi_feedback:
+    # Supports exactly the same kinds of messages as described above in "on_activate".
+    - raw: F0 00 20 6B 7F 42 02 00 10 77 14 F7
+----
+
+Please remember that YAML comments (e.g. `# The following line does this and that`) _will not be saved_!
+In case you want to explain something, you need to write it as YAML property, such as in the following example:
+
+[source,yaml]
+----
+comment: "The following configuration makes the rightmost pad of the MiniLab mkII light up in red color."
+on_activate:
+  send_midi_feedback:
+    - raw: F0 00 20 6B 7F 42 02 00 10 77 01 F7
+----
+
+ReaLearn will ignore any unknown properties.
+
+TIP: If you use input xref:user-interface/main-panel/inputoutput-section.adoc#fx-input[] and find that MIDI lifecycle messages aren't sent, no matter what, make sure "Send feedback only if track armed" is disabled (see xref:user-interface/main-panel/menu-bar.adoc#unit-options[])!
+
+WARNING: Disabling the complete ReaLearn instance will cause all mappings in all units of that instance to deactivate.
+However, sending MIDI messages on deactivation in this case will only work if the output is a device!
+If it is xref:user-interface/main-panel/inputoutput-section.adoc#fx-output[], it will not send anything because REAPER will not give that ReaLearn instance any chance to output MIDI messages once it's disabled.
+Instead, the MIDI message will queue up and be sent once you enable that instance again ... which is probably not what you want.
+
+== Open in text editor button (Windows and Linux only)
+
+Opens the settings in the system text editor or whatever program is associated with YAML files.
+It depends on your system setup if this works or not.
+If it does and if your text editor is good, this can make editing larger YAML snippets more convenient (e.g. by providing syntax highlighting).
+
+As soon as you save the file and close the editor, the text will automatically appear in the "Advanced settings" text area.
+
+== Help button
+
+Will open an online version of the user guide section that describes the available configuration properties.

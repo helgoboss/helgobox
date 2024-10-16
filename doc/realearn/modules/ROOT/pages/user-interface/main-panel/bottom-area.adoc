@@ -1,0 +1,39 @@
+
+= Bottom area
+
+== Unit menu
+
+Press the button will reveal a menu with the following actions to manage xref:key-concepts.adoc#unit[Units]:
+
+Remove current unit:: Removes the current unit.
+This can't be undone!
+_List of units_:: Switch to an arbitrary unit by clicking on it.
+Add unit:: Adds a new unit within this instance.
+The new unit will automatically be named after the randomly-generated unit key.
+You can change the name by pressing the <<set-unit-data-button>>.
+
+== Info area
+
+In the center you can see the info area, made up of 3 rows:
+
+Row 1::
+* The current scroll position.
+* The xref:further-concepts/instance-concepts.adoc#instance-id[] of this Helgobox xref:key-concepts.adoc#instance[].
+* The xref:further-concepts/unit-concepts.adoc#unit-key[] of the currently visible ReaLearn xref:key-concepts.adoc#unit[].
+* xref:further-concepts/unit-concepts.adoc#unit-tag[] assigned to this ReaLearn xref:key-concepts.adoc#unit[].
+
+Row 2::
+* Information about the current xref:further-concepts/unit-concepts.adoc#unit-track[] and xref:further-concepts/unit-concepts.adoc#unit-fx[].
+* Information whether control and/or feedback is currently inactive unit-wide.
+
+Row 3::
+* Information about what version of Helgobox is running.
+
+[[set-unit-data-button]]
+== Unit data… button
+
+Press this button to change various key-value data of this ReaLearn unit as a whole.
+
+Unit key…:: Allows you to change the xref:further-concepts/unit-concepts.adoc#unit-key[] of this xref:key-concepts.adoc#unit[].
+Unit name:: The display name of this xref:key-concepts.adoc#unit[].
+Tags:: Lets you assign xref:further-concepts/unit-concepts.adoc#unit-tag[] to this xref:key-concepts.adoc#unit[] as a comma-separated list.

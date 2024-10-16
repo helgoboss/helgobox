@@ -1,0 +1,6 @@
+
+= Pitch wheel source
+
+This source reacts to incoming MIDI pitch-bend change messages.
+The higher the pitch-wheel position, the higher the absolute control value.
+The center position corresponds to an absolute control value of 50%.

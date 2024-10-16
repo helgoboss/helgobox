@@ -1,1 +1,1 @@
-The ReaLearn Reference is now available link:realearn-user-guide.adoc[here].
+The ReaLearn Reference is now available at https://docs.helgoboss.org.

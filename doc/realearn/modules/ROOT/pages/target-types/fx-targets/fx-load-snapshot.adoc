@@ -1,0 +1,14 @@
+[#fx-load-snapshot]
+= FX: Load snapshot
+
+Restores a certain state of a particular FX.
+Before using this target, you need to take a snapshot of the desired FX state using the btn:[Take!] button.
+This snapshot will be saved as part of ReaLearn's state itself and as a direct consequence as a part of your project.
+This makes your project nicely self-contained.
+It's perfect for activating particular FX presets because it will always restore the desired state, even if the preset list has changed.
+
+This target supports feedback, but only if the snapshot is loaded via ReaLearn itself.
+
+Please note that some plug-ins have _very large_ states.
+Therefore, you should keep an eye on the snapshot size, which will be displayed once you take the snapshot.
+ReaLearn's own state will grow with every new snapshot mapping, so this can quickly add up and make REAPER/ReaLearn slow!

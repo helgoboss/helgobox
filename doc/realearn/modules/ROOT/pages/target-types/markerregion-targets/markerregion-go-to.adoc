@@ -1,0 +1,65 @@
+[#marker-region-go-to]
+= Marker/region: Go to
+
+Navigates to a specific marker or region.
+Here's the behavior in detail:
+
+Regions::
+* If the project is stopped, the editor cursor immediately jumps to the start position of the given region.
+* If the project is playing, playback will continue with the given region as soon as the currently playing region (or measure if not within a region) has finished playing.
+This is called "smooth seek".
+* *Attention:* This currently doesn't work if the project containing ReaLearn is not the active project tab.
+
+Markers::
+* If the project is stopped, the editor cursor immediately jumps to the given marker.
+* If the project is playing, playback will immediately be continued at the given marker.
+
+The advantage over REAPER's built-in actions is that this target allows to target arbitrarily many markers/regions (either by position or by ID) … and that it supports visual feedback!
+If you assign this target to a button which has an LED, you will see which marker/region is currently playing just by looking at your controller.
+
+Please note that this doesn't work when recording!
+
+== Marker/region selector menu
+
+This dropdown lets you choose if you want to refer to a marker/region by its user-assigned ID or by its position on the timeline.
+
+== Marker/region menu
+
+This dropdown displays the markers or regions (depending on the _Regions_ checkbox state).
+
+== Now! button
+
+This sets the target to the currently playing (or currently focused, if stopped) marker/region.
+
+== Behavior menu
+
+Determines whether to use immediate or smooth seeking.
+
+== Regions checkbox
+
+Switches between markers and regions.
+
+== Set loop points checkbox
+
+For regions, this will additionally set the loop points to the region start and end position.
+
+== Set time selection checkbox
+
+For regions, this will additionally set the time selection to the region start and end position.
+
+== Target-specific properties
+
+This target supports the following additional xref:further-concepts/target-concepts.adoc#target-property[target properties].
+
+[cols="m,1,3"]
+|===
+|Name|Type|Description
+
+|target.bookmark.id | Intger | (Numeric) ID of the bookmark
+|target.bookmark.index | Integer | Index of the bookmark (counting both markers and regions)
+|target.bookmark.index_within_type | Integer | Index of the bookmark (counting only markers or regions, respectively)
+|target.bookmark.name | String | Name of the bookmark
+| target.bookmark.color | Color | Custom color of the resolved marker or region.
+
+|===
+

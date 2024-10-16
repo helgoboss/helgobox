@@ -1,0 +1,35 @@
+[#realearn-enable-disable-instances]
+= ReaLearn: Enable/disable instances
+
+This target allows you to flexibly enable or disable other ReaLearn instances based on the unit tags of their units.
+
+== Exclusivity menu
+
+Non-exclusive:: If the incoming control value is greater than 0%, all matching ReaLearn instances will be enabled (on top of the already enabled instances).
+If the value is 0%, all matching ReaLearn instances will be disabled.
+
+Exclusive:: If the incoming control value is greater than 0%, all matching ReaLearn instances will be enabled and all non-matching ones will be disabled.
+If the value is 0%, it's exactly the opposite (react to button xref:user-interface/mapping-panel/glue-section.adoc#press-only[press only] if you don't want this to happen).
+
+Exclusive (on only):: Variation of _Exclusive_ that applies exclusivity only if the incoming control value is greater than 0%.
+
+== Tags field
+
+A ReaLearn instance matches when at least one of its units is tagged with any of the xref:further-concepts/unit-concepts.adoc#unit-tag[unit tags] entered into this field (comma-separated).
+
+== Remarks
+
+* This affects other ReaLearn units only.
+It doesn't match against this unit.
+* ReaLearn instances which don't contain units with tags won't be affected at all.
+* Only affects instances in the same project.
+If _this_ ReaLearn instance is on the monitoring FX chain, it only affects other instances in the monitoring FX chain.
+
+TIP: This target is great for switching between completely different controller setups!
+
+CAUTION: You enter xref:further-concepts/unit-concepts.adoc#unit-tag[unit tags] here, but it will enable/disable whole xref:key-concepts.adoc#instance[instances]!
+I know, this is counter-intuitive.
+In some cases, it would be good to have a way to enable/disable units.
+However, that doesn't exist yet.
+Create a feature request if you need that.
+

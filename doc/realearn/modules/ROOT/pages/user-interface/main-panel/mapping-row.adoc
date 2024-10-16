@@ -1,0 +1,70 @@
+
+= Mapping row
+
+Each mapping row represents one ReaLearn mapping.
+
+The mapping, source and target labels of a mapping row are greyed out whenever the mapping is _off_.
+See xref:key-concepts.adoc#mapping[].
+
+== Mapping-enabled checkbox
+
+This checkbox at the top left of the mapping row enables or disables the mapping as a whole.
+
+== Activity indicator (●)
+
+This indicator at the very left of the mapping row lights up on incoming control messages whenever they match the mapping source.
+
+Attention: This doesn't necessarily mean that the message will reach the target, although it often does.
+There are certain settings in the xref:user-interface/mapping-panel/glue-section.adoc#glue-section[] section which allow you to filter messages even they matched the source (e.g. xref:user-interface/mapping-panel/glue-section.adoc#source-min-max[]).
+
+== Up/down buttons
+
+Use these buttons to move this mapping up or down the list.
+
+== Control/feedback-enabled checkboxes (→/←)
+
+Use these checkboxes to enable/disable control and/or feedback for this mapping.
+Disabling both has the same effect as disabling the mapping as a whole.
+
+[[row-edit-button]]
+== Edit button
+
+Opens the mapping panel for this mapping.
+
+== Duplicate button
+
+Creates a new mapping just like this one right below.
+
+== Remove button
+
+Removes this mapping from the list.
+
+[[row-learn-source-button]]
+== Learn source button
+
+Starts or stops learning the source of this mapping.
+See xref:key-concepts.adoc#learn-source[].
+
+== Learn target button
+
+Starts or stops learning the target of this mapping.
+
+Learning a target that is currently being automated is not possible at the moment because ReaLearn can't know if the value change notification is coming from the automation or your touch interaction.
+
+== Right-click menu
+
+Each mapping row provides a right-click menu for accessing the following functions:
+
+Copy:: Copies this mapping to the clipboard.
+Paste (replace):: Replaces this mapping with the mapping in the clipboard.
+If the clipboard contains just a part of a mapping (source, mode or target), then just this part gets replaced.
+Paste (insert below):: Creates a new mapping that's like the mapping in the clipboard and places it below this mapping.
+Copy part:: Copies just a part of the mapping (activation condition, source, mode or target).
+Move to group:: Lets you move this mapping to another mapping group.
+Advanced:: Provides access to expert features.
+Copy as Lua::: Copies this mapping as Lua/Luau code.
+This is an indispensable tool if you want to build your mappings in Luau because it gives you a readily executable code snippet that you can adjust as desired.
+Copy as Lua (include default values)::: Includes even default values.
+Paste from Lua (replaces)::: Like _Paste (replace)_ but treats the clipboard content as Luau code.
+Paste from Lua (insert below)::: Like _Paste (insert below)_ but treats the clipboard content as Luau code.
+Log debug info (now)::: Logs debug information about this particular mapping.

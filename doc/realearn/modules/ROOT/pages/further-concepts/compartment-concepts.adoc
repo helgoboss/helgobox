@@ -1,0 +1,424 @@
+
+= Compartment concepts
+
+[[compartment-preset]]
+== Compartment preset
+
+=== Main presets vs. controller presets
+
+[[main-preset]]
+==== Main preset
+
+The term _main preset_ is just a shortcut for saying "compartment preset in the main compartment".
+
+[[controller-preset]]
+==== Controller preset
+
+The term _controller preset_ is just a shortcut for saying "compartment preset in the controller compartment".
+
+=== Factory preset vs. User preset
+
+[[factory-compartment-preset]]
+==== Factory preset
+
+Factory presets are built-in compartment presets.
+You can't change them yourself.
+But you can "make them your own" by making a copy of them.
+See <<writing-presets-with-luau>>.
+
+[[user-compartment-preset]]
+==== User preset
+
+User presets are made by users, for example by you.
+
+* Saving your mappings as a preset is optional.
+All controller mappings are saved together with your current ReaLearn unit anyway, no worries.
+But as soon as you want to reuse these mappings in other ReaLearn unit or for xref:further-concepts/unit-concepts.adoc#auto-load[], it makes of course sense to save them as a preset!
+* All of your presets end up in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) at
+`Data/helgoboss/realearn/presets` followed by `main` (for main compartment presets) or `controller` (for controller compartment presets).
+They are JSON files and very similar to what you get when you press
+_Export to clipboard_.
+* They can even be in a subdirectory.
+Please note that the subdirectory name becomes a part of the preset ID, so better don't move existing presets around if you want preset references of existing ReaLearn units to stay intact.
+* JSON files can also contain custom data sections.
+For example, the ReaLearn Companion app adds a custom data section to controller presets in order to memorize the positions and shapes of all control elements.
+
+[#writing-presets-with-luau]
+=== Writing presets with Luau
+
+It is possible to write compartment presets with the link:https://luau.org/[Luau language] instead of building them via the user interface.
+Many of the more complex ReaLearn factory presets are written in Lua, e.g. the "DAW control" preset.
+
+A good way to get started writing Luau presets is to create your personal compartment preset user workspace.
+
+A preset workspace is a subdirectory within the compartment preset parent directory that may contain a bunch of presets and other files.
+
+Important facts about preset workspaces/namespaces:
+
+* It may contain both Luau presets (`.preset.luau`) and conventional JSON presets (`.json`)!
+* The name of the workspace (subdirectory) is at the same time the first part of the preset ID.
+For example, if the subdirectory name is `helgoboss` and it contains a preset file `my-preset.json`, the final ID of that preset will be `helgoboss/my-preset`.
+* That also means that presets from different workspaces never conflict with each other.
+* Therefore, a preset "workspace" is at the same time a preset "namespace".
+Those terms are sometimes used interchangeably.
+* It's important that the ID of a preset doesn't change, especially if you want to use that preset with xref:further-concepts/unit-concepts.adoc#auto-load[].
+If you change the ID, it's another preset from ReaLearn's perspective!
+* Conversely, the name of the workspace directory and the name/path of the preset file within the workspace directory should not change!
+* The only thing that is allowed to change is the file extension.
+This makes it possible to convert a preset from JSON to Luau and vice versa.
+* Preset workspaces are self-contained.
+What does that mean?
+Luau presets can use the `require` statement to share common Luau code.
+However, this is only possible within one preset workspace.
+* As a result, it is safe to have multiple completely different preset workspace, and it's guaranteed that they don't conflict with each other.
+This makes preset sharing easy (it's just a matter of copying the preset workspace directory).
+* There's one special preset workspace: The _user workspace_.
+It's the workspace whose directory has the same name as your macOS/Windows/Linux user.
+Special features:
+** The user workspace is where ReaLearn puts your presets when you save them via the user interface (as `.json` files).
+** All `require` statements in Luau code imported via *Import from clipboard* are resolved against this user workspace.
+
+You can create a preset workspace by pressing *Menu → Compartment presets → Create compartment preset workspace (including factory presets)* (done for each compartment type separately).
+This will create a randomly-named preset workspace directory within the compartment preset parent directory.
+If this is your first preset workspace, it is best practice to turn it into your personal _user workspace_ by renaming the generated directory to your macOS/Windows/Linux username (name must match exactly!).
+
+Maybe the user workspace directory exists already.
+Most likely because you have saved presets from the user interface, in which case it should contain only JSON files.
+In that case you can safely move all files and directories from the generated preset workspace directory into that existing directory.
+
+The generated workspace contains:
+
+* A README file with some general information and tips.
+* A copy of all ReaLearn factory presets for that compartment.
+** Mainly Luau presets (ending with `.preset.luau`).
+** You can use them as inspiration for your own ones.
+** Most of the factory presets in the main compartment are quite advanced.
+One of the easier ones is
+`generic/numbered/fx-paraameters.preset.luau`.
+* A bunch of Luau SDK files in the first directory level of the workspace.
+** They contain Luau types and utility functions.
+** You can require them within your own Luau files in that workspace and use them to build presets.
+** However, the usage of the SDK files is completely optional!
+The only important thing about building ReaLearn presets is that the returned table conforms to the ReaLearn compartment API (= has the structure that you get when you do *Export from clipboard → Export ... compartment as Lua*).
+It doesn't matter if you use Luau's type system to build that table or the provided utility functions or your own or none.
+** The SDK files can change in incompatible ways in newer ReaLearn versions.
+Only ReaLearn's built-in compartment API is guaranteed to stay backward-compatible!
+
+Luau presets have a YAML frontmatter comment section right at the top of the file that contain meta information about the preset.
+The following properties are possible:
+
+[cols="m,1,3"]
+|===
+
+|
+name
+|
+required
+|
+Preset display name
+
+|
+realearn_version
+|
+required
+|
+The ReaLearn version for which this preset was built.
+
+This can effect the way the preset is loaded, e.g. it can lead to different interpretation
+or migration of properties. So care should be taken to set this correctly!
+
+
+|
+author
+|
+|
+Preset author
+
+
+|
+description
+|
+|
+Preset description.
+
+Preferably in link:https://en.wikipedia.org/wiki/Markdown[Markdown] format, but can also be plain text.
+
+|
+setup_instructions
+|
+|
+Setup instructions.
+
+Preferably in link:https://en.wikipedia.org/wiki/Markdown[Markdown] format, but can also be plain text.
+
+|
+device_manufacturer
+|
+controller compartment only
+|
+Manufacturer of the device represented by the controller preset.
+
+|
+device_name
+|
+controller compartment only
+|
+Name of the device represented by the controller preset.
+
+|
+midi_identity_pattern
+|
+controller compartment only
+|
+MIDI identity compatibility pattern.
+
+Will be used for auto-adding controllers and for finding the correct controller preset when calculating auto-units.
+
+|
+midi_output_port_patterns
+|
+controller compartment only
+|
+Possible MIDI identity compatibility patterns.
+
+Will be used for auto-adding controllers and for finding the correct controller preset when calculating auto-units.
+
+It should only be provided if the device in question doesn't reply to device queries or if it exposes
+multiple ports which all respond with the same device identity and only one of the ports is the correct one.
+Example: APC Key 25 mk2, which exposes a "Control" and a "Keys" port.
+
+ReaLearn will match any in the list. OS-prefixes are alowed, e.g. `macos:` will only match on macOS.
+
+|
+provided_schemes
+|
+controller compartment only
+|
+Provided virtual control schemes.
+
+Will be used for finding the correct controller preset when calculating auto units.
+
+The order matters! It directly influences the choice of the best-suited main presets. In particular, schemes that are more specific to this particular controller (e.g. "novation/launchpad-mk3") should come first. Generic schemes (e.g. "grid") should come last. When auto-picking a main preset, matches of more specific schemes will be favored over less specific ones.
+
+|
+used_schemes
+|
+main compartment only
+|
+Used virtual control schemes.
+
+Will be used for finding the correct controller preset when calculating auto units.
+
+|
+required_features
+|
+main compartment only
+|
+A set of features that a Helgobox instance needs to provide for the preset to make sense.
+
+Will be used for determining whether an auto unit should be created for a specific instance or not. Example: If the required feature is "playtime" and a controller is configured with
+this main preset but the instance doesn't contain a Playtime Clip Matrix, this instance will not load the main preset.
+
+Currently, only feature `playtime` is supported, which matches if the Helgobox instance contains a Playtime Matrix.
+
+|===
+
+[#compartment-parameter]
+== Compartment parameter
+
+Each ReaLearn compartment contains 100 freely assignable parameters.
+Compartment parameters can be used in the following ways:
+
+* For xref:further-concepts/mapping-concepts.adoc#conditional-activation[] (lets the parameter value influence which mappings are active)
+* For xref:further-concepts/target-concepts.adoc#dynamic-selector[] (lets the parameter value influence which object (track, FX etc.) is targeted for a specific mapping)
+* As source xref:source-types/category-reaper/realearn-parameter.adoc#parameter-source[] (lets the parameter value control any ReaLearn target)
+
+They can be customized as described in xref:user-interface/main-panel/menu-bar.adoc#compartment-parameters-menu[].
+Parameter customizations are saved together with the compartment preset.
+Parameter values will be reset whenever you load a preset (just the ones in that compartment).
+
+[[continuous-vs-discrete-compartment-parameters]]
+=== Continuous vs. discrete compartment parameters
+
+By default, <<compartment-parameter,compartment parameters>> have a xref:further-concepts/target-concepts.adoc#continuous-value-range[].
+Although that makes them very versatile, it's often easier to work with a xref:further-concepts/target-concepts.adoc#discrete-value-range[].
+
+Entering a value count (see xref:user-interface/main-panel/menu-bar.adoc#set-compartment-parameter-value-count[]) makes the parameter have a xref:further-concepts/target-concepts.adoc#discrete-value-range[] with the given number of integer values.
+For example, a value count of 10 means that the parameter can represent exactly 10 values (0 to 9).
+
+[CAUTION]
+====
+*Choose the value count wisely and think twice before changing it to a different value at a later point in time!*
+
+You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in xref:user-interface/mapping-panel/glue-section.adoc#target-min-max[].
+If you do that and later change the value count, these value references will not be valid anymore.
+They will point to other integers than you intended to.
+So if you are not sure, better pick a large value count and stick to it!
+====
+
+[[compartment-wide-lua-code]]
+== Compartment-wide Lua code
+
+Each compartment may contain arbitrary Luau code to be reused by multiple mapping MIDI source and feedback scripts.
+This avoids code duplication and decreases memory usage.
+It even allows the usage of shared state.
+
+The code that you provide here is treated as a module that MIDI source and feedback scripts can import using `require("compartment")`.
+That means you need to export everything that you want the MIDI source and feedback scripts to see, simply by returning it.
+
+.Compartment-wide Lua code
+====
+The following compartment-wide Lua code exports 2 functions named `get_text` and `get_number`:
+
+[source,lua]
+----
+local module = {}
+
+local function private_function()
+    return "i'm private"
+end
+
+function module.get_text()
+    return "hello world"
+end
+
+function module.get_number()
+    return 5
+end
+
+return module
+----
+
+These functions can then be reused in MIDI source and feedback scripts:
+
+[source,lua]
+----
+local compartment = require("compartment")
+local text = compartment.get_text()
+local number = compartment.get_number()
+----
+====
+
+Compartment-wide Lua code is part of the compartment, that means it's also saved as part of a compartment preset!
+
+[[virtual-control]]
+== Virtual control
+
+_Virtual control_ make it possible to create <<main-preset,main presets>>
+that can be reused with many different xref:key-concepts.adoc#controller[controllers].
+
+The idea is simple:
+
+1. You define a <<controller-preset>> for a DAW controller, mapping each <<real-control-element>> (e.g. its first fader, which emits MIDI CC7 messages) to a corresponding <<virtual-control-element>> (e.g. named `ch1/fader`) by using a xref:key-concepts.adoc#virtual-target[].
+2. You define a <<main-preset>>, mapping each <<virtual-control-element>> to some xref:key-concepts.adoc#real-target[] by using a xref:key-concepts.adoc#virtual-source[].
+For example, you map `ch1/fader` to the xref:target-types/track-targets/track-set-volume.adoc#track-set-volume[] target.
+3. ReaLearn creates a sort of wire between the xref:key-concepts.adoc#controller-compartment[] and the xref:key-concepts.adoc#main-compartment[].
+So you can now control the track volume by moving the first fader.
+4. Most importantly, the main preset is now generic because it's not built for a specific controller anymore!
+
+See xref:best-practices.adoc#using-the-controller-compartment[] for more information how to do this in detail!
+
+[[virtual-feedback]]
+== Virtual feedback
+
+_Virtual feedback_ is just like <<virtual-control>>, but in the opposite direction (from REAPER to your xref:key-concepts.adoc#controller[]).
+
+== Real vs. virtual control elements
+
+Wait ... control elements that are not real!?
+Yes!
+In ReaLearn, they exist.
+We can distinguish between <<real-control-element>> and <<virtual-control-element>>.
+
+[[real-control-element]]
+=== Real control element
+
+A _real_ control element is an element that really exists on a xref:key-concepts.adoc#controller[], e.g. a fader that you can touch.
+
+[[virtual-control-element]]
+=== Virtual control element
+
+A _virtual_ control element is an abstraction of a <<real-control-element>>.
+It enables <<virtual-control>> and <<virtual-feedback>>.
+
+Each virtual control element has a _type_ and an _ID_.
+
+[[virtual-control-element-id]]
+==== Virtual control element ID
+
+A number or name that uniquely identifies the control element on the device.
+
+Numbers are especially suited for the 8-knobs/8-buttons layouts.
+In a row of 8 knobs one would typically assign number 1 to the leftmost and number 8 to the rightmost one.
+It's your choice.
+
+For more advanced virtual control scenarios it can be useful to think in names instead of numbers.
+You can use up to 32 alphanumeric and punctuation characters (no exotic characters, e.g. no umlauts).
+
+[[virtual-control-element-type]]
+==== Virtual control element type
+
+If you want to define a virtual control element, you should first decide which type is should have: _Multi_ or _Button_.
+This distinction is used by ReaLearn to optimize its user interface.
+
+IMPORTANT: For numbered control elements, the type is even part of the <<virtual-control-element-id>>.
+For example, "Multi 1" is considered a different virtual control element than "Button 1".
+For named control elements, this is not the case. `col1/row1/pad` defined as Multi is considered the same as `col1/row1/pad` defined as Button.
+
+[[virtual-control-element-type-multi]] Multi::
+Represents a control element that you can "move", that is, something that allows you to choose between more than 2 values.
+Usually everything which is _not_ a simple on/off button :) Here's a list of typical _multis_:
+* Fader
+* Knob
+* Pitch wheel
+* Mod wheel
+* Endless encoder
+* XY pad (1 axis)
+* Touch strip
+* Rotary (endless) encoder
+* Velocity-sensitive pads or keys
+
+[[virtual-control-element-type-button]] Button::
+Represents a control element that distinguishes between two possible states only (e.g. on/off), or even just one ("trigger").
+Usually it has the form factor of a button that you can "press".
+Here's a list of typical _buttons_:
+
+* Play button
+* Switch
+* Sustain pedal (a simple on/off one, not a half-pedaling one!)
+
+Please note that velocity-sensitive keys should be exposed as <<virtual-control-element-type-button>> - unless you know for sure that you are not interested in the velocity sensitivity.
+
+[[virtual-control-scheme]]
+==== Virtual control scheme
+
+If you want your main preset to be compatible with as many controller presets as possible, try to use predefined names instead of inventing your own virtual control naming scheme.
+
+When you define a virtual source or virtual target, there's a convenient picker that provides names for the following standardized virtual control schemes:
+
+DAW control (`daw`)::
+The names you see here are heavily inspired by the wording used on Mackie Control devices.
+
+Grid (`grid`)::
+For controls divided into rows and column, as for example found on the Novation Launchpad.
+
+Numbered (`numbered`)::
+Simply lets you pick among any number between 1 and 100.
+
+== Order in which mappings are processed
+
+Since ReaLearn 2.10.0, mappings are processed from top to button, exactly in the order in which they are defined within the corresponding compartment.
+This matters if you want to map multiple targets to one button and the order of execution matters.
+
+*Important:* There's an exception.
+ReaLearn's processing of its own VST parameters is always deferred.
+
+- That means changing a ReaLearn parameter in one mapping and relying on it in the next one (in terms of conditional activation or in a `<Dynamic>` expression), will not work!
+- You can work around that by delaying execution of the next mapping via xref:user-interface/mapping-panel/glue-section.adoc#fire-mode[fire mode] but that's a dirty hack.
+ReaLearn's parameters are not supposed to be used that way!
+- Imagine a railway: ReaLearn's targets can be considered as trains.
+Triggering a target means moving the train forward.
+ReaLearn's parameters can be considered as railway switches.
+Changing a parameter means setting a course.
+The course needs to be set in advance, at least one step before!
+Not at the same time as moving the train over the switch.

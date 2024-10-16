@@ -1,0 +1,8 @@
+
+= Track: Show/hide
+
+Shows the track if the incoming absolute control value is greater than 0%, otherwise hides it.
+
+== Area menu
+
+Lets you decide if you want it to show/hide in the track control panel or the mixer.

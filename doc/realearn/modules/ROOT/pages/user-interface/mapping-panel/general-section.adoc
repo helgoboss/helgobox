@@ -1,0 +1,85 @@
+
+= General section
+
+This section provides the following mapping-related elements.
+
+== Name field
+
+Here you can enter a descriptive name for the mapping.
+This is especially useful in combination with the search function if there are many mappings to keep track of.
+
+If you clear the name, ReaLearn will name the mapping automatically based on its target.
+
+== Tags field
+
+Use this to assign arbitrary xref:further-concepts/mapping-concepts.adoc#mapping-tag[] to this mapping (comma-separated).
+
+== Control/feedback-enabled checkboxes (→/←)
+
+Use these checkboxes to enable/disable control and/or feedback for this mapping.
+Disabling both has the same effect as disabling the mapping as a whole.
+
+== Active menu
+
+This dropdown can be used to enable xref:further-concepts/mapping-concepts.adoc#conditional-activation[] for this mapping.
+
+== Feedback menu
+
+Normal::
+Makes ReaLearn send feedback whenever the target value changes.
+This is the recommended option in most cases.
+
+Prevent echo feedback::
+This option mainly exists for motorized faders that don't like getting feedback while being moved.
+If checked, ReaLearn won't send feedback if the target value change was caused by incoming source events of this mapping.
+However, it will still send feedback if the target value change was caused by something else, e.g. a mouse action within REAPER itself.
+
+Send feedback after control::
+This checkbox mainly exists for "fixing" controllers which allow their LEDs to be controlled via incoming MIDI/OSC _but at the same time_ insist on controlling these LEDs themselves.
+For example, some Behringer X-Touch Compact buttons exhibit this behavior in MIDI mode.
+Such a behavior can lead to wrong LED states which don't reflect the actual state in REAPER.
++
+If this option is not selected (the normal case and recommended for most controllers), ReaLearn will send feedback to the controller _only_ if the target value has changed.
+For example, if you use a button to toggle a target value on and off, the target value will change only when pressing the button, not when releasing it.
+As a consequence, feedback will be sent only when pressing the button, not when releasing it.
++
+If this option is selected, ReaLearn will send feedback even after releasing the button - although the target value has not been changed by it.
++
+Another case where this option comes in handy is if you use a target which doesn't support proper feedback because REAPER doesn't notify ReaLearn about value changes (e.g. "Track FX all enable") and you have "Poll for feedback" disabled.
+By choosing this option, ReaLearn will send feedback whenever the target value change was caused by ReaLearn itself, which improves the situation at least a bit.
+
+== Show in projection checkbox
+
+When unticked, this mapping will not show up in xref:further-concepts/unit-concepts.adoc#projection[].
+Useful e.g. for feedback-only mappings or buttons with multiple assignments.
+
+[[advanced-settings-button]]
+== Advanced settings button
+
+This button is for experts.
+There are some advanced mapping-related settings in ReaLearn that are not adjustable via its graphical user interface but only by writing text-based configuration.
+Pressing this button should open a small window in which you can write the configuration for this mapping.
+
+If the button label ends with a number, that number denotes the number of top-level configuration properties set for that mapping.
+That way you can immediately see if a mapping has advanced settings or not.
+
+You can learn more about the available properties in the section
+xref:user-interface/mapping-panel/advanced-settings-dialog.adoc#advanced-settings-dialog[].
+
+== Find in mapping list button
+
+Scrolls the mapping rows panel so that the corresponding mapping row for this mapping gets visible.
+
+== Beep on success checkbox
+
+Makes the mapping play a sound whenever the target has been invoked successfully.
+Nice for trigger-like targets such as xref:target-types/realearn-targets/realearn-take-mapping-snapshot.adoc#realearn-take-mapping-snapshot[] for which there's no other good way to know if it worked.
+
+== Previous/next buttons
+
+Allows you to jump to the previous or next mapping.
+Considers only mappings that are currently visible in the mapping rows panel.
+
+== Enabled checkbox
+
+Enables or disables the mapping as a whole.

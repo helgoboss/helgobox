@@ -1,0 +1,529 @@
+
+= Mapping concepts
+
+== Absolute vs. relative control
+
+We can distinguish between two fundamentally different ways of xref:key-concepts.adoc#control[]: _Absolute_ and _relative_ control.
+
+[[absolute-control]]
+=== Absolute control
+
+Imagine someone tells you: "Change the volume to -6 dB!" You go ahead and move the fader to -6 dB.
+
+That's absolute control in a nutshell!
+Absolute control uses <<absolute-control-value, absolute control values>>.
+
+[TIP]
+====
+Often, absolute control involves an <<absolute-control-element>>, but it doesn't have to!
+
+ReaLearn can simulate absolute control even with a <<relative-control-element>> (see xref:user-interface/mapping-panel/glue-section.adoc#make-absolute[]).
+====
+
+[[relative-control]]
+=== Relative control
+
+Imagine someone tells you: "Raise the volume by 2 dB!" You go ahead and move the fader up by 2 dB.
+Before it was -6 dB, that means it's -4 dB now.
+
+That's relative control!
+Relative control uses <<relative-control-value, relative control values>>.
+
+[TIP]
+====
+Often, relative control involves a <<relative-control-element>>, but it doesn't have to!
+ReaLearn masters multiple ways of turning absolute control into relative one:
+
+* Buttons or keys naturally emit absolute control values.
+But using xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[], they can be used for relative control (previous/next style buttons).
+* Knobs naturally emit absolute control values.
+But using xref:user-interface/mapping-panel/glue-section.adoc#make-relative[] or xref:user-interface/mapping-panel/glue-section.adoc#performance-control[], they can be used for relative control.
+====
+
+== Absolute vs. relative control elements
+
+We can distinguish between control elements with regard to what sort of <<control-value>> they emit: In this dimension, we have <<absolute-control-element>> and <<relative-control-element>>.
+
+[[absolute-control-element]]
+=== Absolute control element
+
+A xref:key-concepts.adoc#control-element[] is _absolute_ if it emits absolute values.
+You can think of an absolute value as a percentage: The value is something between 0% and 100%, where 0% represents the minimum possible value and 100% the maximum.
+
+.Typical absolute control elements
+[[fader]] Fader::
+A fader is a vertical or horizontal element with a thumb that you can move.
+When moving a fader up from bottom to top, it will continuously emit values from 0% to 100%.
+
+[[knob]] Knob::
+A knob is a circular element with boundaries on the left and right.
+When moving a knob clockwise, it will continuously emit values from 0% (at the left boundary) to 100% (at the right boundary).
+
+[[momentary-button]] Momentary button::
+A momentary button is a button that emits 100% when pressed and 0% when released.
+ReaLearn can easily use momentary buttons to toggle a target.
+See xref:user-interface/mapping-panel/glue-section.adoc#toggle-button-mode[].
+
+[[toggle-button]] Toggle button::
+A toggle button is a button that emits 100% when pressed and 0% when pressed again.
++
+IMPORTANT: You don't want toggle buttons on the hardware side!
+They are much less flexible than momentary buttons!
+Momentary buttons can be turned into toggle buttons by ReaLearn, but not vice versa!
+If you have to put up with a hardware toggle button, use xref:further-concepts/source-concepts.adoc#midi-source-character[] xref:further-concepts/source-concepts.adoc#toggle-only-button[].
+
+[[velocity-sensitive-key]] Velocity-sensitive key:: A key emits a value between 0% and 100% when pressed, depending on the velocity with which the key was hit.
+When released, it will emit 0%.
+
+[[aftertouch]] Aftertouch:: When pressing the key a bit more into the keybed after it has already been pressed, it will continuously emit increasing values starting at 0%.
+When releasing pressure, it will continuously emit decreasing values until reaching 0% again.
+
+[[pitch-wheel]] Pitch wheel:: When moving a pitch wheel up, it will continuously emit increasing values starting at 50%.
+When letting it snap back, it will continuously emit decreasing value until reaching 50% again.
+When moving it down, it will continuously emit decreasing values, and so on.
+
+[[touch-strip]] Touch strips:: When touching the strip somewhere in the middle, it will emit a value around 50%.
+When dragging upward, it will continuously emit increasing values starting from where you touched it first.
+
+[[relative-control-element]]
+=== Relative control element
+
+A xref:key-concepts.adoc#control-element[] is _relative_ if it emits relative values.
+You can think of a relative value as an _instruction_.
+It can be one of the following two instructions:
+
+Please decrease!:: We call such a value a *decrement*.
+Please increase!:: We call such a value an *increment*.
+
+.Typical relative control elements
+[[rotary-endless-encoder]] Rotary endless encoder::
+A rotary endless encoder (or just _encoder_) is a circular, like a knob.
+But unlike a knob, it doesn't have boundaries.
+When moving a rotary endless encoder clockwise, it will continuously emit increments.
+When moving it counter-clockwise, it will continuously emit decrements.
++
+IMPORTANT: It happens very often that controllers have rotary endless encoders, but they will act like knobs by default, sending absolute messages.
+That is a great waste and you should change that setting as soon as possible on the hardware side.
+
+[[control-value]]
+== Control value
+
+A _control value_ is the signal that travels through a ReaLearn xref:key-concepts.adoc#mapping[] from xref:key-concepts.adoc#source[] to xref:key-concepts.adoc#target[] when it receives an event from an xref:key-concepts.adoc#input-port[].
+A control value can be absolute or relative.
+
+[[feedback-value]]
+== Feedback value
+
+A _feedback value_ is the signal that travels through a ReaLearn xref:key-concepts.adoc#mapping[] back from xref:key-concepts.adoc#target[] to xref:key-concepts.adoc#source[] when the target changes its value.
+A feedback value is always absolute.
+
+== Absolute vs. relative control values
+
+[[absolute-control-value]]
+=== Absolute control value
+
+An _absolute_ control value is conceptually a percentage between 0.0% and 100.0%.
+
+Internally, it is represented by a high-precision floating point number between 0.0 and 1.0. E.g. 0.25 is 25%.
+
+[[relative-control-value]]
+=== Relative control value
+
+A _relative_ control value is a number of increments or decrements.
+
+Internally, it is represented as a positive or negative integer.
+E.g. control value -2 means a decrement of 2.
+
+[[mapping-tag]]
+== Mapping tag
+
+Each mapping can have arbitrarily many tags.
+Such tags can be used to organize mappings in a way that is much more flexible than groups.
+
+Tags are not just something for people that love to keep things tidy!
+They also get meaning in combination with certain ReaLearn targets such as xref:target-types/realearn-targets/realearn-enabledisable-mappings.adoc#realearn-enable-disable-mappings[].
+
+[[group]]
+== Mapping group
+
+Mapping groups are part of the currently shown compartment and enable you to divide the list of mappings into multiple groups.
+
+Groups can be useful …
+
+* To apply an activation condition to multiple mappings at once.
+* To enable/disable control/feedback for multiple mappings at once.
+* To keep track of mappings if there are many of them.
+
+You can decide which group is displays using xref:user-interface/main-panel/mapping-group-section.adoc#mapping-group-menu[].
+
+You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows and Linux, control-click on macOS) of the corresponding mapping row and choosing "Move to group".
+
+Groups are saved as part of the project, VST plug-in preset and compartment preset.
+
+[[mapping-activation-state]]
+== Mapping activation state
+
+A mapping is considered as *on* or *active* (terms are used interchangeably) only if all following criteria are fulfilled:
+
+. The mapping is complete, that is, both source and target are completely specified
+. The mapping is enabled as a whole
+. The mapping has control and/or feedback enabled
+. The <<mapping-activation-condition>> is fulfilled
+. The xref:further-concepts/target-concepts.adoc#target-activation-condition[] is fulfilled
+. The target is valid
++
+====
+Example: A track target can be invalid when it's using xref:further-concepts/target-concepts.adoc#selected-selector[] but no track is currently selected).
+====
+
+In all other cases, mapping is *off* or *inactive*.
+In that case, it doesn't have any effect!
+
+(Controller) mappings with xref:key-concepts.adoc#virtual-target[] are always considered active as long as the feedback checkbox is ticked.
+
+[[mapping-signal-flow]]
+== Mapping signal flow
+
+Here's how ReaLearn processes an incoming control event that matches a mapping source.
+
+1. ReaLearn converts the event coming from the xref:key-concepts.adoc#input-port[] to a <<control-value>>.
+2. ReaLearn feeds the <<control-value>> to the mapping's xref:key-concepts.adoc#glue[].
+The glue section is responsible for transforming control values before they reach the xref:key-concepts.adoc#target[].
+This transformation can change the type of the control value, e.g. from relative to absolute - it depends on the settings in the glue section and the mapping's target.
+The glue section can even "eat" control values so that they don't arrive at the target at all.
+3. Finally, ReaLearn converts the transformed <<control-value>> into some target instruction (e.g. "set volume to -6.0 dB") and executes it.
+
+Feedback (from target to source) works in a similar fashion but is restricted to absolute control values.
+Even if the source is relative (e.g. an encoder), ReaLearn will always emit absolute feedback, because relative feedback doesn't make sense.
+
+[[conditional-activation]]
+== Conditional activation
+
+Conditional activation is a powerful feature that allows you to dynamically activate or deactivate a mapping depending on its <<mapping-activation-condition>>.
+
+.Control A when a button is not pressed, control B when it is
+====
+Here's how you would implement a typical use case.
+You want your rotary encoder to control target A when the button is not pressed and control target B when it's pressed.
+
+. Create a mapping for the button
+** As "Target", you need to choose ReaLearn itself (Type: xref:target-types/fx-parameter-targets/fx-parameter-set-value.adoc#fx-set-parameter-value[], Track: `<This>`, FX: "… VSTi: ReaLearn (Helgoboss)").
+As "Parameter", choose an arbitrary ReaLearn parameter, e.g. "Parameter 1".
+** As "Mode", choose either "Absolute" (if you want to switch the encoder function just momentarily) or "Toggle" (if you want the button to toggle between the two encoder functions).
+. Create a mapping with target A
+** Set "Active" to "When modifiers on/off", "Modifier A" to "Parameter 1" and disable the checkbox beside it.
+Set "Modifier B" to `<None>`.
+** This basically means "Hey, ReaLearn!
+Please activate this mapping only if ReaLearn Parameter 1 is *off*!" (remember, we control ReaLearn Parameter 1 using the button).
+** At this point, turning your encoder should control target A, but only if you don't press the button!
+. Create a mapping with target B
+** Just as in step 2, set "Active" to "When modifiers on/off" and "Modifier A" to "Parameter 1". *But*: Now *enable* the checkbox beside it.
+Set "Modifier B" to `<None>`.
+** This basically means "Hey, ReaLearn!
+Please activate this mapping only if ReaLearn Parameter 1 is *on*!"
+** At this point, turning your encoder should control target A if you don't press the button and control target B if you press the button.
+====
+
+[[mapping-activation-condition]]
+== Mapping activation condition
+
+The activation condition of a mapping determines under which circumstances a mapping is active or inactive, based on the value of a xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] or based on the state of arbitrary xref:key-concepts.adoc#target[targets].
+It is especially practical if your controller has a limited amount of control elements and you want to give control elements several responsibilities.
+It let's you easily implement use cases such as:
+
+* "This knob should control the track pan, but only when my sustain pedal is pressed, otherwise it should control track volume!" (modifier use cases)
+* "I want to have two buttons for switching between different banks where each bank represents a group of mappings." (bank use cases)
+* "I want to control the volume of this track only if it's not muted." (target-state based use cases)
+
+TIP: Since ReaLearn 2.11.0, xref:target-types/realearn-targets/realearn-enabledisable-mappings.adoc#realearn-enable-disable-mappings[] provides a slightly less powerful but more straightforward way to implement use cases that were before only achievable with parameter-based conditional activation.
+
+There are 6 different activation modes:
+
+* *Always:* Mapping is always active (the default)
+* *When modifiers on/off:* Mapping becomes active only if something is pressed / not pressed
+* *When bank selected:* Allows you to step through different groups of mappings (sometimes also called "pages")
+* *When EEL met* Let an EEL formula decide (total freedom)
+* *When expression met:* Let an expression decide (total freedom)
+* *When target value met:* Let the current value of the target of another mapping decide
+
+[NOTE]
+====
+At this occasion, some words about ReaLearn's own freely assignable FX parameters.
+
+ReaLearn itself isn't just able to control parameters of other FX, it also offers FX parameters itself.
+At the moment it offers 200 FX parameters, 100 for the main compartment and 100 for the controller compartment.
+You can control them just like parameters in other FX:
+
+- Via automation envelopes,
+- via track controls,
+- via REAPER's own MIDI/OSC learn
+- … and of course via ReaLearn itself.
+
+Initially, they don't do anything at all.
+First, you need to give meaning to them by referring to them in activation conditions or `<Dynamic>` selector expressions.
+====
+
+
+=== When modifiers on/off
+
+This mode is comparable to modifier keys on a computer keyboard.
+For example, when you press `Ctrl+V`
+for pasting text, `Ctrl` is a modifier because it modifies the meaning of the `V` key.
+When this modifier is "on" (= pressed), it activates the "paste text" and deactivates the "write the letter V" functionality of the `V` key.
+
+In ReaLearn, the modifier is one of the FX parameters.
+It's considered to be "on" if the parameter has a value greater than 0 and "off" if the value is 0.
+
+You can choose up to 2 modifier parameters, "Modifier A" and "Modifier B".
+If you select "<None>", the modifier gets disabled (it won't have any effect on activation).
+The checkbox to the right of the dropdown lets you decide if the modifier must be "on" for the mapping to become active or "off".
+
+Example: The following setting means that this mapping becomes active _only_ if both "Parameter 1" and "Parameter 2" are "on".
+
+* *Modifier A:* "Parameter 1"
+* *Checkbox A:* Checked
+* *Modifier B:* "Parameter 2"
+* *Checkbox B:* Checked
+
+Now you just have to map 2 controller buttons to "Parameter 1" and "Parameter 2" via ReaLearn (by creating 2 additional mappings - in the same ReaLearn instance or another one, up to you) et voilà, it works.
+The beauty of this solution lies in how you can compose different ReaLearn features to obtain exactly the result you want.
+For example, the _absolute mode_ of the mapping that controls the modifier parameter decides if the modifier button is momentary (has to be pressed all the time) or toggled (switches between on and off everytime you press it).
+You can also be more adventurous and let the modifier on/off state change over time, using REAPER's automation envelopes.
+
+
+=== When bank selected
+
+This is the correct activation mode if you want control surface "bank-style" mapping.
+
+TIP: For this kind of use cases you should consider the new xref:target-types/realearn-targets/realearn-enabledisable-mappings.adoc#realearn-enable-disable-mappings[] target, which is available since ReaLearn 2.11.0 as an alternative.
+It's slightly less powerful than conditional activation but probably easier to use, partly because you can dictate which mappings should be active "from outside", not from the perspective of the mapping itself.
+
+You can tell ReaLearn to only activate your mapping if a certain parameter has a particular value.
+The particular value is called "Bank".
+Why?
+Let's assume you mapped 2 buttons "Previous" and "Next" to increase/decrease the value of the parameter (by using "Incremental button" mode, you will learn how to do that further below).
+And you have multiple mappings where each one uses "When bank selected" with the same parameter but a different "Bank".
+Then the result is that you can press "Previous" and "Next" and it will switch between different mappings within that parameter.
+If you assign the same "Bank" to multiple mappings, it's like putting those mappings into one group which can be activated/deactivated as a whole.
+
+Switching between different programs via "Previous" and "Next" buttons is just one possibility.
+Here are some other ones:
+
+* *Browse banks using a rotary encoder:* Just map the rotary encoder to the "Bank" parameter and restrict the target range as desired.
+* *Activate each bank with a separate button:* Map each button to the "Bank" parameter (with absolute mode "Normal") and set "Target Min/Max" to a distinct value.
+E.g. set button 1 min/max both to 0% and button 2 min/max both to 1%.
+Then pressing button 1 will activate bank 0 and pressing button 2 will activate bank 1.
+
+In previous versions of ReaLearn you could use other methods to achieve a similar behavior, but it always involved using multiple ReaLearn instances:
+
+* *By enabling/disabling other ReaLearn instances:* You can use one main ReaLearn instance containing a bunch of mappings with xref:target-types/fx-targets/fx-enabledisable.adoc#fx-enabledisable[FX: Enable/disable] target in order to enable/disable other ReaLearn FX instances.
+Then each of the other ReaLearn instances acts as one mapping bank/group.
+* *By switching between presets of another ReaLearn instance:* You can use one main ReaLearn instance containing a mapping with xref:target-types/fx-targets/fx-browse-presets.adoc#fx-browse-presets[] target in order to browse presets of another ReaLearn FX instance.
+Then each preset in the other ReaLearn instance acts as one mapping bank/group.
+However, that method is pretty limited and hard to maintain because presets are something global (not saved together with your REAPER project).
+
+With _Conditional activation_ you can do the same (and more) within just one ReaLearn unit.
+
+TIP: If you want to adjust the number of banks and improve bank handling in general, set a discrete value count for the corresponding bank parameter (see xref:further-concepts/compartment-concepts.adoc#compartment-parameter[]).
+
+
+=== When EEL met
+
+This is for experts.
+It allows you to write a formula in https://www.cockos.com/EEL2/[EEL2] language that determines if the mapping becomes active or not, based on potentially all parameter values.
+This is the most flexible of all parameter-based activation modes.
+The other modes can be easily simulated.
+The example modifier condition scenario mentioned above written as formula would be:
+
+----
+y = p1 > 0 && p2 > 0
+----
+
+`y` represents the result.
+If `y` is greater than zero, the mapping will become active, otherwise it will become inactive. `p1` to `p100` contain the current parameter values.
+Each of them has a value between 0.0 (= 0%) and 1.0 (= 100%).
+
+This activation mode accounts for ReaLearn's philosophy to allow for great flexibility instead of just implementing one particular use case.
+If you feel limited by the other activation modes, just use EEL.
+
+TIP: For most activation conditions which need this amount of freedom, the newer activation mode <<expression-based-activation-condition>> is a slightly better choice because it's easier to use and generally performs a bit better.
+
+[#expression-based-activation-condition]
+
+=== When expression met
+
+This is very similar to the previous EEL activation mode.
+But instead of EEL, it lets you use the same expression language as used in xref:further-concepts/target-concepts.adoc#dynamic-selector[dynamic selectors] to express the activation condition.
+
+The equivalent expression to above EEL example is:
+
+`p[0] > 0 && p[1] > 0`
+
+[#target-based-activation-condition]
+
+=== When target value met
+
+This is different from all the other activation condition types in that it doesn't look at ReaLearn's internal parameter values.
+Instead, it looks at the target of another mapping (the so-called "lead mapping") and switches our mapping (the so-called "follow mapping") on or off depending on the target value of the lead mapping.
+
+It works like this:
+
+. Create the lead mapping and give it a target, e.g. xref:target-types/track-targets/track-selectunselect.adoc#track-selectunselect[].
+* This lead mapping doesn't need to have a source.
+It can even be completely disabled!
+. In the **Mapping** dropdown, pick this newly created mapping.
+. In the **Expression** text field to the right, enter `y > 0`.
+* This means you want the follow mapping to be active whenever the target value of the lead mapping is greater than 0.0. Or in other words, when it's "switched on".
+
+You can detect an inactive target by using `y == none`.
+
+[[raw-midi-pattern]]
+== Raw MIDI pattern
+
+xref:source-types/category-midi/raw-midi-sysex-source.adoc#raw-midi-source[] and xref:target-types/midi-targets/midi-send-message-target.adoc#midi-send-message-target[] allow to enter so-called MIDI patterns, an advanced ReaLearn concept.
+
+=== Pattern basics
+
+In its most basic form, the pattern is a sequence of bytes notated as hexadecimal numbers.
+This is typical notation, especially for system-exclusive MIDI messages.
+
+.A SysEx pattern
+====
+----
+F0 00 20 6B 7F 42 02 00 10 77 00 F7
+----
+
+If you enter this and ReaLearn receives this system-exclusive message from the input, it will fire a 100% value.
+If feedback is set up correctly, this message will be sent to the device whenever the target value changes.
+====
+
+Remarks:
+
+* You can check if the correct feedback messages are sent to the device by enabling xref:further-concepts/unit-concepts.adoc#logging-of-real-feedback-messages[].
+* Each byte is written using 2 hexadecimal digits.
+* Spaces between the bytes can be omitted.
+* You can express all types of MIDI messages using this raw notation (e.g. pitch wheel), not just system-exclusive ones.
+If you do this, it will work as expected for the _feedback_ direction.
+Please note that it will not work for the _control_ direction at the moment (I don't think this is needed).
+* If you want a system-exclusive MIDI message, you _must_ include its start (`F0`) and end status byte (`F7`)!
+
+=== Binary notation
+
+ReaLearn also supports binary notation of a byte.
+You need to enclose the binary digits of one byte in brackets.
+
+.Binary notation
+====
+----
+F0 00 20 [0110 1011] 7F 42 02 00 10 77 00 F7
+----
+
+This is equivalent to the previous example (`6B` in hexadecimal notation is the same as `0110 1011` in binary notation).
+====
+
+Remarks:
+
+* Between the brackets, each digit represents one bit.
+The left bit is the most significant one.
+* Spaces between the two nibbles (4 bits) can be omitted.
+
+=== Variable patterns (extracting and encoding a value)
+
+For the xref:key-concepts.adoc#feedback[] direction, the examples I've shown you so far aren't real-world examples, because there's no point in sending the same MIDI message to the device over and over again!
+If you really would want to send a constant MIDI message to the device, you would be much better off using a xref:user-interface/mapping-panel/advanced-settings-dialog.adoc#mapping-lifecycle-actions[Mapping lifecycle action], which allow you to send raw MIDI messages once when a mapping is initialized, not on every target value change.
+
+But even for the xref:key-concepts.adoc#control[] direction, you might want to react to a whole _range_ of system-exclusive messages, not just a fixed one.
+One part of your message might represent a variable value.
+You might want to extract it and control the target with it.
+
+Fortunately, ReaLearn offers a uniform way to extract a variable value from the raw MIDI message (control) or encode the current target value as part of it (feedback).
+Bytes which contain a variable value (or a part of it) _must_ be expressed using binary notation.
+
+.Variable pattern
+====
+----
+F0 00 20 6B 7F 42 02 00 10 77 [0000 dcba] F7
+----
+
+The second nibble of the second last byte contains the lowercase letters `dcba`.
+This is the portion of the byte that denotes the variable value.
+====
+
+Each letter represents one bit of the variable value:
+
+[horizontal]
+`a`:: Bit 1 (least significant bit of the variable value)
+`b`:: Bit 2
+`c`:: Bit 3
+`d`:: Bit 4
+…
+`m`:: Bit 13
+`n`:: Bit 14
+`o`:: Bit 15
+`p`:: Bit 16 (most significant bit of the variable value)
+
+=== Resolution of variable patterns
+
+The resolution of the variable value always corresponds to the letter in the whole pattern which represents the highest bit number.
+In the example above, the resolution is 4 bit because there's no letter greater than `d` in the pattern.
+
+.Another variable pattern
+====
+In this example, the resolution is 7 bit because `n` is the greatest letter in the whole pattern.
+
+----
+F0 00 20 6B 7F 42 02 00 10 [00nm lkji] [hgfe dcba] F7
+----
+====
+
+Remarks:
+
+* The highest resolution currently supported is 16 bit (= 65536 different values).
+* You can put these letter bits anywhere in the pattern (but only within bytes that use binary notation).
+
+=== Byte order
+
+This form of notation is slightly unconventional, but I think it's very flexible because it gives you much control over the resulting MIDI message.
+This amount of control seems appropriate considering the many different ways hardware manufacturers used and still use to encode their MIDI data.
+
+When a number is expressed within more than one byte, manufacturers sometimes put the most significant byte first and sometimes the least significant one, there's no rule.
+This notation supports both because you decide where the bits end up:
+
+.Most significant byte first
+====
+----
+F0 00 20 6B 7F 42 02 00 10 [ponm lkji] [hgfe dcba] F7
+----
+====
+
+.Least significant byte first
+====
+----
+F0 00 20 6B 7F 42 02 00 10 [hgfe dcba] [ponm lkji] F7
+----
+====
+
+=== More examples
+
+."Romeo and Juliet" bits (separated by 2 bytes)
+====
+----
+F0 [1111 000b] [a101 0100] F7
+----
+====
+
+.Simple on/off value (1 bit only)
+====
+----
+F0 A0 [1111 010a] F7
+----
+====
+
+.Pitch wheel simulation
+====
+This behaves like pitch wheel because the pattern describes exactly the way how pitch wheel messages are encoded.
+
+----
+E0 [0gfe dcba] [0nml kjih]
+----
+====

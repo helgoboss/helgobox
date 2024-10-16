@@ -1,0 +1,79 @@
+[#seek-target]
+= Project: Seek
+
+Allows you to use faders, knobs, encoders or incremental buttons to seek within portions of your project … with feedback that indicates the current position!
+
+== Feedback menu
+
+Determines how frequently ReaLearn captures feedback and sends it to your feedback output.
+
+Beat:: Roughly every beat.
+
+Fast:: As fast as possible, thereby giving the satisfying feeling of continuity.
+
+== Behavior menu
+
+Determines whether to use immediate or smooth seeking.
+
+== Seek play checkbox
+
+Doesn't just change the edit cursor but also changes the play position when the project is currently being played.
+
+== Move view checkbox
+
+Allow to scroll / change viewport when seeking.
+
+== "Use" checkboxes
+
+The following checkboxes determine which time ranges will be taken into consideration as reference for seeking (control) and feedback.
+
+If you don't tick any "Use" checkbox, ReaLearn will seek within the currently visible viewport.
+
+If you tick multiple options, this is the order of fallbacks:
+
+* If there's no time selection, the loop points will be used.
+* If there are no loop points, the current region is used.
+* If there's no current region, the project will be used.
+* If the project is empty, the viewport will be used.
+
+=== Use time selection checkbox
+
+Can use the currently set time selection as reference.
+
+=== Use loop points checkbox
+
+Can use the currently set loop points as reference.
+
+=== Use regions checkbox
+
+Can use the current region as reference.
+
+=== Use project checkbox
+
+Can use the complete project as reference, from start to end.
+
+== Target-specific properties
+
+This target supports the following additional xref:further-concepts/target-concepts.adoc#target-property[target properties].
+
+[cols="m,1,3"]
+|===
+|Name|Type|Description
+
+|target.position.project_default | String | Position in the current transport time unit
+|target.position.time | String | _minute:second.milli_
+|target.position.measures_beats_time | String | _measure.beat.milli_
+|target.position.measures_beats | String | _measure.beat.milli_
+|target.position.seconds | String | _second.milli_
+|target.position.samples | String | _sample_
+|target.position.hmsf | String | _hour:minute:second:milli_
+|target.position.absolute_frames | String | _frames_
+|target.position.project_default.mcu | String | Like `target.position.project_default` but tailored to Mackie Control timecode displays
+|target.position.time.mcu | String | Like `target.position.time` but tailored to Mackie Control timecode displays
+|target.position.measures_beats_time.mcu | String | Like `target.position.measures_beats_time` but tailored to Mackie Control timecode displays
+|target.position.measures_beats.mcu | String | Like `target.position.measures_beats` but tailored to Mackie Control timecode displays
+|target.position.seconds.mcu | String | Like `target.position.seconds` but tailored to Mackie Control timecode displays
+|target.position.samples.mcu | String | Like `target.position.samples` but tailored to Mackie Control timecode displays
+|target.position.hmsf.mcu | String | Like `target.position.hmsf` but tailored to Mackie Control timecode displays
+|target.position.absolute_frames.mcu | String | Like `target.position.absolute_frames` but tailored to Mackie Control timecode displays
+|===

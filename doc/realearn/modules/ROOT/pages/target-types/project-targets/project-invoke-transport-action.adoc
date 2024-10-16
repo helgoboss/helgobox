@@ -1,0 +1,17 @@
+
+= Project: Invoke transport action
+
+Invokes a transport-related action.
+
+== Action menu
+
+Specifies which transport action should be invoked.
+
+Play/stop:: Starts playing the containing project if the incoming absolute control value is greater than 0%, otherwise invokes stop.
+Play/pause:: Starts playing the containing project if the incoming absolute control value is greater than 0%, otherwise invokes pause.
+Stop:: Stops the containing project if the incoming absolute control value is greater than 0%.
+Useful for distinguishing feedback between _paused_ and _stopped_ state.
+Pause:: Pauses the containing project if the incoming absolute control value is greater than 0%.
+Useful for distinguishing feedback between _paused_ and _stopped_ state.
+Record:: Starts/enables recording for the current project if the incoming absolute control value is greater than 0%, otherwise disables recording.
+Repeat:: Enables repeat for the containing project if the incoming absolute control value is greater than 0%, otherwise disables it.

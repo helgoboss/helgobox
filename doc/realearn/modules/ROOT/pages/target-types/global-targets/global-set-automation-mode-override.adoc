@@ -1,0 +1,12 @@
+
+= Global: Set automation mode override
+
+Sets the global automation mode override to the desired value if the incoming control value is greater than 0%, otherwise removes the override.
+
+== Behavior menu
+
+Lets you decide between not overriding anything, bypassing all envelopes or overriding with a specific automation mode.
+
+== Mode menu
+
+Here you can pick the desired automation mode if _Behavior_ is _Override_.

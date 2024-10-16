@@ -1,0 +1,8 @@
+
+= Track: Set monitoring mode
+
+Sets the track to a specific input monitoring mode if the incoming control value is greater than 0%, otherwise sets it back to "Off".
+
+== Mode menu
+
+Here you can pick the desired monitoring mode.

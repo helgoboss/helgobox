@@ -1,0 +1,8 @@
+[#realearn-dummy-target]
+= ReaLearn: Dummy target
+
+This target simply does nothing when invoked and also doesn't provide any meaningful feedback on its own.
+
+It's sometimes useful to have such a dummy target, e.g. combined with xref:user-interface/mapping-panel/glue-section.adoc#group-interaction[].
+Or if you want to use ReaLearn as a MIDI filter which just "eats" an incoming MIDI message.
+Or if you want to send some text feedback to a hardware display, if the text is just a constant string or uses a placeholder that doesn't need target context.

@@ -1,0 +1,24 @@
+
+= Introduction
+
+link:https://www.helgoboss.org/projects/realearn[ReaLearn] is a versatile controller integration tool for REAPER.
+It is part of link:https://www.helgoboss.org/projects/helgobox[Helgobox].
+
+This reference describes each user interface element, each concept and each feature of ReaLearn in detail.
+You should use it whenever you want to know more about a specific user interface element or if you want to take a deeper dive into a specific functionality of ReaLearn.
+**If you have never used ReaLearn before, please start with the link:https://github.com/helgoboss/helgobox/wiki/ReaLearn-Home[Wiki] instead!
+It's much more beginner-friendly.**
+
+[IMPORTANT]
+.This document is the reference of ReaLearn.
+====
+It is targeted at users who are already familiar with the ReaLearn basics and want to look up specific information.
+
+**If you are a beginner, please use the link:https://github.com/helgoboss/helgobox/wiki/ReaLearn-Home[Wiki] instead!
+It contains practical tutorials.**
+====
+
+|===
+|Last update of text: |`2024-09-27 (v2.16.9)`
+|Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
+|===

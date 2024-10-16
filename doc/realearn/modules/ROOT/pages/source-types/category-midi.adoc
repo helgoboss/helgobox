@@ -1,0 +1,10 @@
+[[midi-source, MIDI source]]
+= Category "MIDI"
+
+Most types in the MIDI category have the following UI elements in common.
+
+Channel menu::
+Optionally restricts this source to messages from a certain MIDI channel.
+Only available for sources that emit MIDI channel messages.
+
+The remaining UI elements in this section depend on the chosen source type.

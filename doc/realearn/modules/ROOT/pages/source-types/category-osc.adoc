@@ -1,0 +1,67 @@
+[#osc-source,OSC source]
+= Category "OSC"
+
+OSC sources allow configuration of the following aspects:
+
+== Address field
+
+This needs to correspond exactly to the address of the corresponding control element on your OSC device.
+
+Example: `/1/fader1`
+
+You don't need to figure that out yourself, just use the btn:[Learn] button.
+
+== Argument section
+
+Each OSC message consists of an arbitrary number of arguments.
+In most cases, e.g. with faders, knobs or buttons, it's just one argument.
+X/Y controls often send 2 arguments, one for each axis.
+There are rare cases in which messages have even more arguments.
+
+=== Argument number menu
+
+The first dropdown menu allows you to choose the number of the argument that ReaLearn should look at and process. `1` denotes the first argument, `2` the second one, and so on.
+
+=== Argument type menu
+
+The second dropdown menu lets you choose the argument type which ReaLearn should use to construct a proper feedback message.
+
+This is usually the same type as the one used for control direction.
+For control direction, choosing an explicit type is irrelevant because ReaLearn handles whatever type arrives automatically in the best possible way.
+
+If you use _Learn_, the type is filled automatically.
+* The value to be sent will be derived from the type (see <<feedback-arguments-field>>):
+
+[cols="m,m"]
+|===
+| Type | Property
+
+| Float | value.float
+| Double | value.double
+| Int | value.int
+| Long | value.long
+| Bool | value.bool
+| Nil | nil
+| Inf | inf
+| String | value.string
+| Color | style.color
+|===
+
+If you want more control over what feedback values are sent, use the <<feedback-arguments-field>> field.
+
+== Range field
+
+Values of argument types _Float_ and _Double_ are by default interpreted as decimal values between 0.0 and 1.0. You can change that by entering a different value range here.
+Even negative numbers are allowed.
+
+Customizing the value range is especially important for argument types _Int_ and _Long_ because they don't have a standard value range.
+
+== Is relative checkbox
+
+Some messages transmitted by OSC devices are meant to be interpreted as relative increments/decrements instead of absolute values, e.g. jog wheels.
+When you enable this checkbox, ReaLearn will treat each received _1_ value as an increment and _0_ value a decrement.
+
+[#feedback-arguments-field]
+== Feedback arguments field
+
+Allows you to modify the xref:further-concepts/source-concepts.adoc#osc-feedback-arguments-expression[].

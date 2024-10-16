@@ -1,0 +1,61 @@
+[#pot-browse-presets]
+= Pot: Browse presets
+
+Use this target to browse a collection of presets.
+By default, this is the complete collection of presets available in all supported databases, so potentially thousands of presets.
+If you want to browse just a subset, see xref:target-types/pot-targets/pot-browse-filter-items.adoc#pot-browse-filter-items[].
+
+The idea is to map this target to an endless rotary encoder or previous/next buttons (using xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[] mode) and then navigate within the available presets.
+Once you have selected a preset, you can audition it via xref:target-types/pot-targets/pot-preview-preset.adoc#pot-preview-preset[] (if it's a sound preset) and load it via xref:target-types/pot-targets/pot-load-preset.adoc#pot-load-preset[].
+
+== Target-specific properties
+
+This target supports the following additional xref:further-concepts/target-concepts.adoc#target-property[target properties].
+
+[cols="m,1,3"]
+|===
+|Name|Type|Description
+
+|
+target.preset.name
+|
+String
+|
+Name of the preset.
+
+|
+target.preset.product.name
+|
+String
+|
+Name of the product to which this preset belongs, if available.
+
+|
+target.preset.file_ext
+|
+String
+|
+File extension of the preset, in case it's a file-based preset.
+
+|
+target.preset.author
+|
+String
+|
+Name of the preset author, if available.
+
+|
+target.preset.vendor
+|
+String
+|
+Name of the preset vendor, if available.
+
+|
+target.preset.comment
+|
+String
+|
+Preset comment, if available.
+
+|===

@@ -1,0 +1,59 @@
+
+= Mappings toolbar
+
+[[add-one-button]]
+== Add one button
+
+Adds a new mapping at the end of the current mapping list.
+
+[[learn-many-button]]
+== Learn many button
+
+Allows you to add and learn many new mappings in a convenient batch mode.
+Click this button and follow the on-screen instructions.
+Click _Stop_ when you are finished with your bulk learning strike.
+
+[#search]
+== Search field
+
+Enter text here in order to display just mappings whose name matches the text.
+
+You can search for mappings that have a certain tag by entering the tag name prefixed with the hash character `#`.
+For example, you can search for all mappings tagged with the tag `mixing` by entering `#mixing`.
+
+The search expression also supports wildcards `\*` and `?` for doing blurry searches. `*` stands for zero or more arbitrary characters and `?` stands for one arbitrary character.
+
+[[filter-source-button]]
+== Filter source button
+
+When you press this button, ReaLearn will start listening to incoming MIDI/OSC events and temporarily disable all target control.
+You can play around freely on your controller without having to worry about messing up target parameters.
+Whenever ReaLearn detects a valid source, it will filter the mapping list by showing only mappings which have that source.
+
+This is a great way to find out what a specific knob/fader/button etc. is mapped to.
+Please note that the list can end up empty (if no mapping has that source).
+
+As soon as you press btn:[Stop], the current filter setting will get locked.
+This in turn is useful for temporarily focusing on mappings with a particular source.
+
+When you are done, and you want to see all mappings again, press the btn:[X]
+button to the right, which clears the filter.
+
+TIP: Before you freak out thinking that ReaLearn doesn't work anymore because it won't let you control targets, have a quick look at this button.
+ReaLearn might still be in "filter source" mode.
+Then just calm down and press btn:[Stop].
+It's easy to forget.
+
+[[filter-target-button]]
+== Filter target button
+
+If you want to find out what mappings exist for a particular target, press this button and touch something in REAPER.
+
+As soon as you have touched a valid target, the list will show all mappings with that target.
+
+Unlike <<filter-source-button>>, ReaLearn will automatically stop learning as soon as a target was touched.
+
+Press the btn:[X] button to clear the filter and show all mappings again.
+
+The mapping rows area consists of multiple mapping rows.
+One for each mapping.

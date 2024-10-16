@@ -1,0 +1,23 @@
+
+= Category "Virtual"
+
+See xref:key-concepts.adoc#virtual-source[].
+
+== Type menu
+
+See xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type[].
+
+== ID section
+
+See xref:further-concepts/compartment-concepts.adoc#virtual-control-element-id[].
+
+=== Pick menu
+
+The convenient picker provides IDs from standardized xref:further-concepts/compartment-concepts.adoc#virtual-control-scheme[virtual control schemes]:
+
+=== ID field
+
+Lets you enter the ID manually.
+
+
+[split=2]

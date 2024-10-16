@@ -1,0 +1,155 @@
+[[target-section]]
+= Target section
+
+All xref:target-types.adoc#target-types[] share the following UI elements.
+
+== Learn button
+
+Starts or stops learning the target of this mapping.
+
+== Menu
+
+Opens a small menu related to the target section:
+
+Pick recently touched target (by type)::
+Gives you a list of recently touched parameters or executed actions in REAPER.
+When you click one of it, the target will be populated accordingly.
+It's an alternative to btn:[Learn].
++
+Please note that not all targets can be picked that way, some have to be configured manually.
+
+Go there (if supported):: If applicable, this makes the target of this mapping visible in REAPER.
+E.g. if the target is a track FX parameter, the corresponding track FX window will be displayed.
+
+== Category menu
+
+Lets you choose the target category.
+
+== Type menu
+
+Lets you choose a target type within that category.
+
+== Value section and field
+
+Reflects the current value of this mapping target and lets you change it (either via slider and text field or via buttons, depending on the target character).
+
+If the target can't be resolved at the moment, it will show "Target currently inactive!" instead.
+
+[[target-unit-button]]
+== Target unit button
+
+On the right side of the current value you will see a button with a label such as `1. dB (%)`.
+This button displays the currently selected target unit (unrelated to the xref:key-concepts.adoc#unit[] concept) which is used for displaying and entering target values.
+
+The number in the parentheses denotes the unit which is used for displaying and entering target step sizes.
+
+Clicking the button switches between available target units.
+Currently, there are two options:
+
+(1) Use native target units::
+Uses the target-specific unit, e.g. dB for volume targets.
+If the target doesn't have any specific units, it will displayed as `1. - (-)`.
+
+(2) Use percentages::
+Uses percentages for everything, which can be nice to get a uniform way of displaying/entering values instead of having to deal with the sometimes clunky target-specific units.
+
+== Common elements for track targets
+
+When choosing a track, the following additional elements are available.
+
+[[track-must-be-selected]]
+=== Track must be selected checkbox
+
+If checked, this mapping will be active only if the track set in _Track_ is currently selected.
+See xref:further-concepts/target-concepts.adoc#target-activation-condition[].
+
+=== Selection ganging checkbox
+
+If checked and if the track in question is selected, all other selected tracks will be adjusted as well.
+This uses REAPER's built-in selection-ganging feature and therefore should behave exactly like it.
+
+=== Respect grouping checkbox
+
+If checked, track grouping will be taken into account when adjusting the value.
+This uses REAPER's built-in track grouping feature and therefore should behave exactly like it.
+
+NOTE: In older REAPER versions (< 6.69+dev1102), this can only be enabled together with selection ganging when using it on volume, pan or width targets.
+
+== Common elements for on/off targets
+
+Targets which control an on/off-style property of tracks (e.g. xref:target-types/track-targets/track-solounsolo.adoc#track-solounsolo[Track: Solo/unsolo]) additionally provide the following elements.
+
+[[exclusive-menu]]
+=== Exclusive menu
+
+By default, this is set to <<exclusive-no>>.
+
+[[exclusive-no]] No:: Makes the track target affect just this track.
+Within project:: Switches the property on (off) for this track and off (on) for all other tracks in the project.
+Within folder:: Switches the property on (off) for this track and off (on) for all other tracks in the same folder and same level.
+Within project (on only):: Variation of _Within project_ that applies exclusivity only when switching the property on for this track.
+In other words, it never switches the property on for other tracks.
+Within folder (on only):: Variation of _Within folder_ that applies exclusivity only when switching the property on for this track.
+In other words, it never switches the property on for other tracks.
+
+== Common elements for send targets
+
+Only available for targets that work on a send/receive.
+
+=== Kind menu
+
+The kind of send/receive that you want to control.
+
+Send:: Send from the track above to another track of your choice.
+If you choose xref:further-concepts/target-concepts.adoc#particular-selector[], ReaLearn will memorize the ID of the destination track.
+That way you will still control the correct send even if you delete another send in that track.
+
+Receive:: Receive from another track of your choice to the track above (opposite direction of send).
+If you choose the xref:further-concepts/target-concepts.adoc#particular-selector[] selector, ReaLearn will memorize the ID of the source track.
+
+Output:: Send from the track above to a hardware output.
+Please note that with hardware outputs, xref:further-concepts/target-concepts.adoc#particular-selector[] is the same as xref:further-concepts/target-concepts.adoc#at-position-selector[] because hardware outputs don't have unique IDs.
+
+=== Send/Receive/Output section
+
+This lets you choose the actual send/receive/output.
+
+== Common elements for FX targets
+
+The following elements and selectors are available for targets associated with a particular FX instance.
+
+=== FX section
+
+The FX instance associated with this target.
+ReaLearn will search for the FX in the output or input FX chain of the above selected track.
+
+=== Input FX checkbox
+
+If unchecked, the _FX_ dropdown will show FX instances in the track's normal FX chain.
+If checked, it will show FX instances in the track's input FX chain.
+
+=== Monitoring FX checkbox
+
+This appears instead of the input FX checkbox if you select track `<Master>`.
+If you check this, you can target FX instances on REAPER's global monitoring FX chain.
+
+WARNING: Because of a limitation in the REAPER API, learning and feedback for monitoring FX doesn't work!
+
+[[fx-must-have-focus]]
+=== FX must have focus checkbox
+
+If checked, this mapping will be active only if the selected FX instance is currently _focused_.
+
+If the FX instance is displayed in a floating window, _focused_ means that the floating window is active.
+If it's displayed within the FX chain window, _focused_ means that the FX chain window is currently open and the FX instance is the currently selected FX in that FX chain.
+
+Of course, this flag doesn't have any effect if you chose the xref:further-concepts/target-concepts.adoc#fx-focused-selector[].
+
+== Common elements for pollable targets
+
+The following elements are available only for the few targets that might need polling (= regular value querying) in order to support automatic feedback in all cases.
+
+=== Poll for feedback checkbox
+
+Enables or disables xref:further-concepts/target-concepts.adoc#target-value-polling[].
+In the probably rare case that the polling causes performance issues, you can untick this checkbox.

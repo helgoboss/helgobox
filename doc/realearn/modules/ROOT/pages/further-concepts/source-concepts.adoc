@@ -1,0 +1,303 @@
+
+= Source concepts
+
+[[midi-source-character]]
+== MIDI source character
+
+MIDI control-change messages serve a very wide spectrum of MIDI control use cases.
+Even though some control-change controller numbers have a special purpose according to the MIDI specification (e.g. CC 7 = channel volume), nothing prevents one from using them for totally different purposes.
+In practice that happens quite often, especially when using general-purpose controllers.
+Also, there's no strict standard whatsoever that specifies how relative values (increments/decrements) shall be emitted and which controller numbers emit them.
+
+Therefore, you explicitly need to tell ReaLearn about it by setting the _source character_.
+
+The good news is: If you use "Learn source", ReaLearn will try to guess the source character for you by looking at the emitted values.
+Naturally, the result is not always correct.
+The best guessing result can be achieved by turning the knob or encoder quickly and "passionately" into clockwise direction.
+Please note that guessing doesn't support encoder type 3.
+
+The possible source characters are:
+
+Range element (knob, fader, etc.)::
+A control element that emits continuous absolute values.
+Examples: Fader, knob, modulation wheel, pitch bend, ribbon controller.
+Would also include a endless rotary encoder which is (maybe unknowingly) configured to transmit absolute values.
+
+Button (momentary)::
+A control element that can be pressed and emits absolute values.
+It emits a > 0% value when pressing it and optionally a 0% value when releasing it.
+Examples: Damper pedal.
+
+Encoder (relative type _x_)::
+A control element that emits relative values, usually an endless rotary encoder.
+The _x_ specifies _how_ the relative values are sent.
+This 1:1 corresponds to the relative modes in REAPER's built-in MIDI learn:
+
+Type 1:::
+* 127 = decrement; 0 = none; 1 = increment
+* 127 > value > 63 results in higher decrements (64 possible decrement amounts)
+* 1 < value +<=+ 63 results in higher increments (63 possible increment amounts)
+
+Type 2:::
+* 63 = decrement; 64 = none; 65 = increment
+* 63 > value >= 0 results in higher decrements (64 possible decrement amounts)
+* 65 < value +<=+ 127 results in higher increments (63 possible increment amounts)
+
+Type 3:::
+* 65 = decrement; 0 = none; 1 = increment
+* 65 < value +<=+ 127 results in higher decrements (63 possible decrement amounts)
+* 1 < value +<=+ 64 results in higher increments (64 possible increment amounts)
+
+[[toggle-only-button,Toggle-only button]] Toggle-only button (avoid!):: A control element that can be pressed and emits absolute values.
+ReaLearn will simply emit 100%, no matter what the hardware sends.
++
+This is a workaround for controllers that don't have momentary buttons!
+You should only use this character if there's absolutely no way to configure this control element as a momentary button.
++
+[NOTE]
+.Background
+====
+ReaLearn can make a momentary hardware button work like a full-blown toggle button.
+Its toggle mode is inherently more powerful than your controller's built-in toggle mode!).
+
+However, the opposite is not true.
+It can't make a toggle hardware button act like a momentary button.
+====
++
+[CAUTION]
+.Combination with xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[]
+====
+If you use the toggle-only source character in combination with mode xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[], you must leave source max at the (default) theoretical maximum value for that source (e.g. 127 for MIDI CC).
+Even if your controller device only sends 0 and 1 and in all other mappings you would enter the controller's concrete (instead of theoretically possible) maximum value.
+Otherwise, for this special case, a fixed out-of-range-behavior will set in that will just ignore all button presses.
+====
+
+[[midi-source-script]]
+== MIDI source script
+
+MIDI source scripts are EEL or Luau scripts to configure the xref:source-types/category-midi/midi-script-source.adoc#midi-script-source[].
+
+=== General mechanics
+
+Each script receives an input and must produce an output.
+
+Script input::
+* The main input is the current feedback value, which the script can access as a variable.
+
+Script output::
+* The main output that the script is supposed to return is the MIDI message to be sent to the MIDI device.
+* Additionally, the script can provide a so-called _feedback address_, which is supposed to uniquely identify the LED, motor fader or display.
++
+It's important to provide an address if you want ReaLearn to handle feedback relay correctly, e.g. that it switches off the LED when not in use anymore and doesn't switch it off if another mapping "takes over" the same LED.
+By convention, the constant (non-variable) bytes of the MIDI message should be used as address.
+The examples below might help to understand.
+
+=== EEL script specifics
+
+Scripts written in EEL work as follows.
+
+Script input::
+* EEL scripts can access numeric feedback values only.
+The current numeric feedback value is available as variable `y`, a floating point number between 0.0 and 1.0. This is essentially the current normalized target value after being processed by the "Glue" section of the mapping.
+
+Script output::
+* In order to provide the output MIDI message, you must assign the raw bytes of that message to subsequent slots of the EEL script's virtual local address space (by indexing via brackets) *and*
+set the variable `msg_size` to the number of bytes to be sent.
+If you forget the latter step, nothing will be sent because that variable defaults to zero!
+* In order to provide the address, simply assign an appropriate number to the `address` variable.
+
+.Creating a 3-byte MIDI message
+====
+[source,eel]
+----
+address = 0x4bb0;
+msg_size = 3;
+0[] = 0xb0;
+1[] = 0x4b;
+2[] = y * 64;
+----
+====
+
+=== Luau script specifics
+
+Scripts written in Luau work as follows.
+
+Script input::
+* Luau scripts can access numeric, text and dynamic feedback values.
+* Here's the list of input variables:
+`y`::: The feedback value, either numeric (`type(y) == "number"`) or text (`type(y) == "string")`.
+`context.feedback_event.color`::: The color as set in the xref:user-interface/mapping-panel/glue-section.adoc#glue-section[] section.
+Either the default color (`== nil`) or an RGB color (table with properties `r`, `g` and `b`).
+`context.feedback_event.background_color`::: The background color.
+
+Script output::
+* A Luau script can even generate multiple output messages.
+* You need to return a table which contains the following keys:
+`address`::: The feedback address.
+`messages`::: An array containing all the messages, where each message itself is an array contaning the message bytes.
+
+.Creating a 3-byte MIDI message, assuming that `y` is a numeric normalized value.
+====
+[source,lua]
+----
+return {
+    address = 0x4bb0,
+    messages = {
+        { 0xb0, 0x4b, math.floor(y * 10) }
+    }
+}
+----
+====
+
+.Creating a MIDI sys-ex message that changes the color of some fictional device LED/display.
+====
+[source,lua]
+----
+local color = context.feedback_event.color
+if color == nil then
+    -- This means no specific color is set. Choose whatever you need.
+    color = { r = 0, g = 0, b = 0 }
+end
+return {
+    address = 0x4b,
+    -- Whatever messages your device needs to set that color.
+    messages = {
+        { 0xf0, 0x02, 0x4b, color.r, color.g, color.b, 0xf7 }
+    }
+}
+----
+====
+
+.Creating a 3-byte MIDI message, assuming that `y` is a text value.
+====
+[source,lua]
+----
+local lookup_table = {
+    playing = 5,
+    stopped = 6,
+    paused = 7,
+}
+return {
+    messages = {
+        { 0xb0, 0x4b, lookup_table[y] or 0 }
+    }
+}
+----
+====
+
+[TIP]
+====
+
+Please note that this kind of simple mapping from text values to integer numbers doesn't need a script.
+You can use the `feedback_value_table` xref:user-interface/mapping-panel/glue-section.adoc#glue-section[] property instead, which can only be set via API though.
+Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
+====
+
+You can share code between multiple MIDI scripts by using xref:further-concepts/compartment-concepts.adoc#compartment-wide-lua-code[], with the following limitations (which hopefully will be lifted over time):
+
+* The shared code is not yet available to the Lua code editor window.
+That means writing `require("compartment")` will evaluate to `nil` in the editor.
+You might see a corresponding error message when the editor tries to compile your code.
+
+[[osc-feedback-arguments-expression]]
+== OSC feedback arguments expression
+
+This expression is used to enable for more flexible feedback for the xref:source-types/category-osc.adoc#osc-source[].
+
+It allows you to define exactly which feedback value is sent at which argument position.
+If this field is non-empty, the argument type will be ignored for the xref:key-concepts.adoc#feedback[] direction.
+
+The format of this field is very simple: You enter feedback value property keys separated by spaces.
+Each entered property key corresponds to one argument position.
+
+.Custom feedback with 2 arguments
+====
+If you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see xref:user-interface/mapping-panel/glue-section.adoc#feedback-style-menu[]) as RRGGBB string at argument 2, you would enter:
+
+----
+value.string style.color.rrggbb
+----
+====
+
+The following properties are available:
+
+[cols="m,m,1"]
+|===
+| Property | Type | Description
+
+|
+value.float
+|
+Float
+|
+Numeric feedback value interpreted as float
+
+|
+value.double
+|
+Double
+|
+Numeric feedback value interpreted as double
+
+|
+value.bool
+|
+Bool
+|
+Numeric feedback interpreted as bool (on/off only)
+
+|
+value.string
+|
+String
+|
+Numeric or textual feedback value formatted as string
+
+
+|
+style.color.rrggbb
+|
+String
+|
+Feedback value color formatted as RRGGBB string
+
+
+|
+style.background_color.rrggbb
+|
+String
+|
+Feedback value background color formatted as RRGGBB string
+
+
+
+|
+style.color
+|
+Color
+|
+Feedback value color as native OSC color
+
+
+|
+style.background_color
+|
+Color
+|
+Feedback value background color as native OSC color
+
+
+|
+nil
+|
+Nil
+|
+Nil value
+
+|
+inf
+|
+Infinity
+|
+Infinity value
+|===

@@ -1,0 +1,7 @@
+
+= Note number source
+
+This source reacts to incoming MIDI note-on messages.
+The higher the note number (= key on a MIDI keyboard), the higher the absolute control value.
+
+This essentially turns your MIDI keyboard into a "huge fader" with the advantage that you can jump to any value at any time.

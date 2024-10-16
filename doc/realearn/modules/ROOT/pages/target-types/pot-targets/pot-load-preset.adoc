@@ -1,0 +1,19 @@
+[#pot-load-preset]
+= Pot: Load preset
+
+Loads a preset selected via xref:target-types/pot-targets/pot-browse-presets.adoc#pot-browse-presets[].
+
+NOTE: This needs at least REAPER version 6.69+dev1030! Also, it only works if you have the VST2/VST2i version of the corresponding plug-in installed.
+- *NKS audio file presets:* Loading supported via ReaSamplOmatic5000
+
+== Track/FX controls
+
+You must tell the target at which FX slot to load the corresponding plug-in.
+The best idea is to use FX selector xref:further-concepts/target-concepts.adoc#at-position-selector[].
+Selectors such as xref:further-concepts/target-concepts.adoc#particular-fx-selector[] or xref:further-concepts/target-concepts.adoc#named-fx-selector[] are not suited because the target might replace the plug-in with another one, in which the unique FX ID and the FX name can change.
+Then the target would turn inactive and stop working.
+
+== Target-specific properties
+
+This target supports the same additional xref:further-concepts/target-concepts.adoc#target-property[target properties] as xref:target-types/pot-targets/pot-browse-presets.adoc#pot-browse-presets[].
+The only difference is that the ones in <<pot-load-preset>> relate to the currently loaded preset, not the one that's selected in the preset browser.

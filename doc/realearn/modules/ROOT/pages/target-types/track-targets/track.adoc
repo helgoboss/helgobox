@@ -1,0 +1,25 @@
+[#track-target]
+= Track
+
+A target that allows you to define a track.
+
+== Act/Tags controls
+
+**Act/Tags** stands for "Action / Unit tags" and decides what happens when a control messages arrives, e.g. a button press.
+
+=== Action menu
+
+None (feedback only):: With this setting, nothing will happen.
+It's suited very well as neutral target for textual feedback with an expression that contains a track property, e.g. `{{ target.track.name }}`.
+
+Set (as unit track):: The button press will set the track defined in this target as xref:further-concepts/unit-concepts.adoc#unit-track[] _without resolving it before_.
+For example, if this target defines to use the currently selected track (xref:further-concepts/target-concepts.adoc#selected-selector[]), pressing the button will make the unit track dynamically reflect whatever track is selected.
+
+Pin (as unit track):: The button press will resolve the track defined in this target and set the result as xref:further-concepts/unit-concepts.adoc#unit-track[].
+For example, if this target defines to use the currently selected track, pressing the button will check which track is currently selected and set the unit track to exactly this track.
+It will stay that way even if the user selects another track.
+
+=== Unit tags field
+
+The text field lets you define xref:further-concepts/unit-concepts.adoc#unit-tag[unit tags] to determine for which xref:key-concepts.adoc#unit[units] the xref:further-concepts/unit-concepts.adoc#unit-track[] should be changed.
+If it's empty, the current unit will be affected.

@@ -1,0 +1,30 @@
+[#browse-tracks-target]
+= Project: Browse tracks
+
+Steps through tracks.
+To be used with endless rotary encoders or xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[].
+
+== Scroll TCP checkbox
+
+See xref:target-types/track-targets/track-selectunselect.adoc#track-selectunselect[Track: Select/unselect] target.
+
+== Scroll mixer checkbox
+
+See xref:target-types/track-targets/track-selectunselect.adoc#track-selectunselect[Track: Select/unselect] target.
+
+== Scope menu
+
+Decides which tracks are considered and how.
+
+All tracks:: Considers all tracks even those which are hidden.
+
+Only tracks visible in TCP:: Considers only those tracks which are visible in the track control panel.
+
+Only tracks visible in TCP (allow 2 selections):: Like "Only tracks visible in TCP" but makes it possible to have 2 selections.
+One for the MCP and one for the TCP.
+These selections can be moved independently.
+This can make sense if you have a bunch of tracks that you only show in the TCP and another separate bunch of tracks that you only show in the MCP.
+
+Only tracks visible in MCP:: Considers only those tracks which are visible in the mixer control panel.
+
+Only tracks visible in MCP (allow 2 selections):: See above.

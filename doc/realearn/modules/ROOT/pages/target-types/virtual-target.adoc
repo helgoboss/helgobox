@@ -1,0 +1,10 @@
+[[virtual-target-category]]
+= Virtual target
+
+This is exactly the counterpart of the possible xref:key-concepts.adoc#virtual-source[virtual sources] in the xref:key-concepts.adoc#main-compartment[].
+Choosing a xref:key-concepts.adoc#virtual-target[] here is like placing cables between a xref:further-concepts/compartment-concepts.adoc#real-control-element[] and all corresponding main mappings that use this xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] as source.
+
+== Learnable checkbox
+
+If you disable this checkbox, this virtual source will not be learnable via xref:key-concepts.adoc#learn-source[] in the main compartment.
+This can be useful for rather unimportant xref:key-concepts.adoc#control-element-interaction[control element interactions] such as _Fader touch_ that would otherwise make it very hard to learn more important sources such as _Fader movement_.

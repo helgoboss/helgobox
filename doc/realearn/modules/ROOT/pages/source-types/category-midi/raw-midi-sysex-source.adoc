@@ -1,0 +1,10 @@
+[#raw-midi-source]
+= Raw MIDI / SysEx source
+
+This source primarily deals with system-exclusive MIDI messages.
+It supports both control and feedback direction!
+
+== Pattern field
+
+Pattern describing the raw MIDI message.
+See xref:further-concepts/mapping-concepts.adoc#raw-midi-pattern[].

@@ -1,0 +1,465 @@
+[#glue-section]
+= Glue section
+
+The xref:key-concepts.adoc#glue[] section is divided into several subsections some of which make sense for all kinds of sources and others only for some.
+Having so many settings available at the same time can be a bit daunting.
+ReaLearn helps you by hiding settings that don't make sense in the current context.
+
+It shows or hides them based on criteria like this:
+
+* Is control and/or feedback enabled for the mapping?
+* What are the characteristics of the source and target?
+* What's the current setting of <<absolute-mode>> and <<make-absolute>>?
+
+== Reset to defaults button
+
+Resets the settings to some sensible defaults.
+
+== Reverse checkbox
+
+If checked, this inverses the direction of the change.
+E.g. the target value will decrease when moving the fader upward and increase when moving it downward.
+
+[#target-min-max]
+== Target Min/Max controls
+
+This restricts the controlled value range of the target.
+It enables you to "squeeze" target values into a specific range.
+
+.Squeezing the track volume value range
+====
+If you set this to "-6 dB to 0 dB" for a _Track volume_ target, the volume will always stay within that dB range when controlled via this mapping.
+However, it wouldn't prevent the volume from exceeding that range if changed e.g. in REAPER itself.
+====
+
+This setting can be used with all targets that work with xref:further-concepts/mapping-concepts.adoc#absolute-control-value[absolute control values] (all targets except xref:target-types/project-targets/project-invoke-reaper-action.adoc#project-invoke-reaper-action[Project: Invoke REAPER action] with relative xref:target-types/project-targets/project-invoke-reaper-action.adoc#invocation-type[]).
+
+[#target-value-sequence-field]
+== Value sequence field
+
+Allows you to define a xref:further-concepts/glue-concepts.adoc#target-value-sequence[].
+All values are entered comma-separated using the target unit specified with the xref:user-interface/mapping-panel/target-section.adoc#target-unit-button[].
+
+You can provide only one of <<target-min-max>> or <<target-value-sequence-field>>.
+
+[#group-interaction]
+== Group interaction
+
+Lets you control not just _this_ mapping but also _all other mappings in the same xref:further-concepts/mapping-concepts.adoc#group[]_.
+
+TIP: If you want to control _other_ mappings only and not _this_ mapping, just pick a target that doesn't have any effect, for example the xref:target-types/realearn-targets/realearn-dummy-target.adoc#realearn-dummy-target[].
+
+None::
+Switches group interaction off.
+This is the default.
+Incoming control events will just affect _this_
+mapping, not others.
+
+[[same-control]] Same control::
+This will broadcast any incoming control value to all other mappings in the same group.
+The glue section of this mapping will be ignored when controlling the other mappings.
+The glue sections of the other mappings will be respected, including the <<source-min-max>>.
+
+[[same-target-value]] Same target value::
+This will set the target value of each other mapping in the same group to the target value of this mapping.
+Nice: It will respect the <<target-min-max>> of both this mapping and the other mappings.
+All other settings of the glue section will not be processed.
+Needless to say, this kind of control is always absolute, which means it can lead to parameter jumps.
+Therefore, it's most suited for on/off targets.
+If you don't like this, choose <<same-control>> instead.
+
+[[inverse-control]] Inverse control::
+This is like <<same-control>> but broadcasts the _inverse_ of the incoming control value.
+
+[[inverse-target-value]] Inverse target value::
+This is like <<same-target-value>> but sets the target values of the other mappings to the
+_inverse_ value.
+This is very useful in practice with buttons because it essentially gives you exclusivity within one group.
+It's a great alternative to the xref:user-interface/mapping-panel/target-section.adoc#exclusive-menu[] which is available for some targets.
+Unlike the latter, <<inverse-target-value>> allows for exclusivity between completely different target types and completely custom groupings - independent of e.g. organization of tracks into folders.
+
+Inverse target value (on only)::
+Variation of <<inverse-target-value>> that applies the inverse only when the target value is > 0%.
+
+Inverse target value (off only)::
+Variation of <<inverse-target-value>> that applies the inverse only when the target value is 0%.
+
+[[feedback-type-controls]]
+== Feedback type controls
+
+Lets you set the xref:further-concepts/glue-concepts.adoc#feedback-type[].
+
+[#feedback-style-menu]
+== Feedback style menu (...)
+
+The ... button provides options to change the _feedback style_.
+At the moment, it's all about setting colors.
+
+TIP: If you use xref:further-concepts/glue-concepts.adoc#dynamic-feedback[], changes made here don't have any effect because you are supposed to provide style properties as part of the Luau script result (which is much more flexible).
+
+Color / Background color::
+With this you can define the color and background color of the displayed text.
+Of course this will only work if the source supports it!
+
+<Default color>:::
+Chooses the default color, that is the one which is preferred for the corresponding controller and display type.
+
+<Pick color...>:::
+Opens a color picker so you can choose the color of your choice.
+
+_Property name_::: Maybe you don't want a fixed color but a dynamic one that changes whenever your target changes.
+Choose one of the properties to make that happen.
+Do a full-text search in the reference to learn about the meaning of the property.
+
+[[source-min-max]]
+== Source Min/Max controls
+
+The observed range of xref:further-concepts/mapping-concepts.adoc#absolute-control-value[absolute control values] coming from the source.
+Doesn't have an effect on xref:further-concepts/mapping-concepts.adoc#relative-control-value[relative control values].
+
+By restricting that range, you basically tell ReaLearn to react only to a sub range of a control element, e.g. only the upper half of a fader or only the lower velocity layer of a key press.
+
+This range also determines the minimum and maximum xref:key-concepts.adoc#feedback[] value.
+
+[[out-of-range-behavior]]
+== Out-of-range behavior menu
+
+This determines ReaLearn's behavior if the source value is not within <<source-min-max>> or the target value not within <<target-min-max>>.
+
+There are the following options:
+
+|===
+| | *Control direction (absolute mode only)* | *Feedback direction*
+| *Min or max* | If the source value is < _Source Min_, ReaLearn will behave as if _Source Min_ was received (or 0% if _Source Min_ = _Source Max_).
+
+If the source value is > _Source Max_, ReaLearn will behave as if _Source Max_ was received (or 100% if _Source Min_ = _Source Max_). | If the target value is < _Target Min_, ReaLearn will behave as if _Target Min_ was detected (or 0% if _Target Min_ = _Target Max_).
+
+If the target value is > _Target Max_, ReaLearn will behave as if _Target Max_ was detected (or 100% if _Target Min_ = _Target Max_).
+
+ | *Min* | ReaLearn will behave as if _Source Min_ was received (or 0% if _Source Min_ = _Source Max_). | ReaLearn will behave as if _Target Min_ was detected (or 0% if _Target Min_ = _Target Max_). Useful for getting radio-button-like feedback.
+
+ | *Ignore* | Target value won't be touched. | No feedback will be sent.
+|===
+
+[[absolute-mode]]
+== Mode ("Absolute mode") menu
+
+Lets you choose an _absolute mode_, that is, the way incoming absolute source values are handled.
+
+TIP: Not all modes make sense at all times!
+It mostly depends on the character of the source.
+If a mode doesn't make sense given the current source, it will be marked as `NOT APPLICABLE`.
+In this case, you should choose another mode or change the source.
+
+Normal::
+
+Takes and optionally transforms absolute source control values _the normal way_. _Normal_ means that the current target value is irrelevant and the target will just be set to whatever absolute control value is coming in (potentially transformed).
+
+[[incremental-button,Incremental button mode]] Incremental button::
+With this you can "go relative" with buttons instead of encoders in a "previous/next fashion".
+
+Let's assume you use the _MIDI Note velocity_ and select _Incremental button_ mode.
+Then it works like this: Each time you press the key, the target value will increase, according to the mode's settings.
+You can even make the amount of change velocity-sensitive!
+If you want the target value to decrease, just check the _Reverse_ checkbox.
+
+[[toggle-button-mode,Toggle button mode]]
+Toggle button::
+Toggle button mode is used to toggle a target between on and off states.
+It only makes sense for momentary buttons (which fire a value > 0 on each press).
++
+Here's how it works in detail:
++
+* If the current target value is within the first half of the target min/max range, it's considered as _off_ and will therefore be switched _on_ (set to _target max_).
+If it's within the second half, it's considered as _on_ and will therefore be switched _off_ (set to _target min_).
+* It works a bit differently if _target min_ and _target max_ have the same value (which is a common technique to set the target to a specific value on the press of a button).
+Instead of toggling between _target min_ and _target max_, this mode now toggles between this specific value (= _target min_ = _target max_) and 0%.
+This is useful whenever you have a set of buttons each of which sets the same target to a different value, and you want them to toggle between the specified value and an initial value (0%).
++
+This mode is not supported for controller mappings that have a virtual target.
++
+[TIP]
+====
+Sometimes the controller itself provides a toggle mode for buttons. *Don't use it!*
+
+Always set up your controller buttons to work in momentary mode!
+It's impossible for the controller to know which state (on/off) a target currently has.
+Therefore, if you use the controller's built-in toggle function, it's quite likely that it gets out of sync with the actual target state at some point.
+
+ReaLearn's own toggle mode has a clear advantage here.
+====
+
+[[make-relative]] Make relative::
+This converts incoming absolute fader/knob movements into relative adjustments of the target value.
+It somewhat resembles takeover mode <<takeover-mode-parallel>> but has important differences:
+
+- It's guaranteed that a full fader/knob swipe from 0% to 100% always results in a swipe over the full target range (assuming the target was at 0% initially).
+- It doesn't need to know the current target value.
+Which means it also works for mappings with xref:key-concepts.adoc#virtual-target[virtual targets].
+
+[[performance-control]] Performance control::
+This mode emulates the behavior of a typical soft synth modulation matrix mapping: It uses the target value that has been set in REAPER (not via this ReaLearn mapping) as an offset and starts changing it from there.
+
+[#takeover-mode]
+== Takeover mode menu
+
+If you are not using motorized faders, absolute mode is inherently prone to parameter jumps.
+A parameter jump occurs if you touch a control element (e.g. fader) whose position in no way reflects the current target value.
+This can result in audible jumps because the value is changed abruptly instead of continuously.
+You can deal with this by setting the right takeover mode.
+
+ReaLearn provides multiple takeover modes that decide how to deal with situations when a target parameter jump would occur.
+
+Off::
+
+The default setting: Jumps allowed.
+
+[[pick-up]] Pick up::
+This is the same as _Soft takeover_ in REAPER's built-in MIDI learn.
+It prevents jumps by not changing the target value until your control element reaches it.
++
+In certain cases, this mode can cause the target value to get stuck.
+This happens with faders/knobs that cause jumps themselves when moved very rapidly.
+If you don't like that, you might want to try <<pick-up-tolerant>>.
+
+[[pick-up-tolerant]] Pick up (tolerant)::
+This is like <<pick-up>> but makes extra sure that the target value doesn't get stuck.
++
+However, unlike <<pick-up>>, this mode will jump if you cause a jump on your controller!
+Imagine using a touch strip.
+This kind of control element allows you to jump to arbitrary values at any time.
+Tolerant mode will not prevent this kind of jumps!
+
+Long time no see::
+This is similar to <<pick-up>> with the difference that the current target value will gradually "come your way".
+This results in seamless and fast reunification of control and target value but it can feel weird because the target value can temporarily move in the opposite direction of the fader movement.
+In older ReaLearn versions this was called "Slowly approach if jump too big".
+
+[[takeover-mode-parallel]] Parallel::
+With this mode, the target will simply follow your fader moves, in exactly the same tempo - without any scaling.
+Reunification only happens when both control and target value meet at the "borders".
+
+Catch up::
+This mode is sometimes called "Proportional" or "Value scaling" mode.
+It's like "Parallel" mode but the target value is allowed to move slower than the control value - hence the control can catch up (converge) faster.
+
+[[control-transformation]]
+== Control transformation (EEL) field
+
+This feature allows you to write a formula that transforms incoming control values.
+
+While very powerful because it allows for arbitrary transformations (velocity curves, random values - you name it), it's not everybody's cup of tea to write something like that.
+The formula must be written in the language https://www.cockos.com/EEL2/[EEL2].
+Some REAPER power users might be familiar with it because REAPER's JSFX uses the same language.
+
+Luckily, ReaLearn has a fancy editor which visualizes the formula and has some predefined templates built-in (available on Windows and macOS only at the moment).
+Press the "*...*" button to open the editor.
+Code changes are applied immediately.
+
+The most simple formula is `y = x`, which means there will be no transformation at all. `y = x / 2` means that incoming control values will be halved.
+You get the idea: `y` represents the desired target control value (= output value) and `x` the incoming source control value (= input value).
+Both are 64-bit floating point numbers between 0.0 (0%) and 1.0 (100%).
+
+The script can be much more complicated than the mentioned examples and make use of all built-in EEL2 language features.
+The important thing is to assign the desired value to `y` at some point.
+
+The following variables/functions are available in the formula:
+
+`y`:: Initially contains the _current_ target value.
+You can use that value in order to calculate the new value.
+With this, you can essentially craft your own relative mode!
+
+`y_last`:: This contains the last value of the target before it was affected by this particular mapping.
++
+Allows you to come up with a performance control mode typical for synth parameter mappings, just like the built-in <<performance-control>> mode but more customizable.
+Try this for example: `y = y_last + x * (1 - y_last)`
+
+`rel_time`:: This contains the number of milliseconds since this mapping has last been triggered with a control message coming from the source.
++
+As soon as you use this and a control message comes in, ReaLearn will start invoking your formula _repeatedly_!
+That means, this variable is your entrance ticket to smooth transitions and continuous parameter modulation.
++
+A few examples:
++
+* Smooth transition from current value to control value: `rel_time; y = abs(x - y) < 0.05 ? stop : y + 0.1 * (x - y)`
+* Sinus LFO: `y = (sin(rel_time / 500) + 1) / 2`
+* Linear transition to control value (1 second): `y = abs(x - y) < 0.05 ? stop : x * min(rel_time / 500, 1)`
+* 2 seconds chaos: `y = rel_time < 2000 ? rand(1) : stop`
+* Setting a value with delay: `y = rel_time < 2000 ? none : stop(0.5)`
+
+`stop` and `stop(...)`::
+In combination with `rel_time`, this stops repeated invocation of the formula until the mapping is triggered again.
++
+Good for building transitions with a defined end.
++
+Stopping the invocation at some point is also important if the same parameter should be controlled by other mappings as well.
+Otherwise, if multiple mappings continuously change the target parameter, only the last one wins.
++
+This also exists as a function, which lets you do both, returning a target value *and* stopping the transition.
+Pass the desired value in the parentheses, e.g. `stop(0.5)`.
+
+`none`::
+Usually, each repeated (see `rel_time`) invocation always results in a target invocation (unless the target is not retriggerable and already has the desired value).
+Sometimes this is not desired.
+In this case, one can return `none`, in which case the target will not be touched.
++
+Good for transitions that are not continuous, especially if other mappings want to control the parameter as well from time to time.
+
+ReaLearn's control processing order is like this:
+
+. Apply source interval
+. Apply transformation
+. Apply reverse
+. Apply target interval
+. Apply rounding
+
+[[step-size]]
+== Step size Min/Max controls
+
+When you deal with relative adjustments of target values in terms of increments/decrements, then you have great flexibility because you can influence the _amount_ of those increments/decrements.
+This is done via the _Step size_ setting, which is available for all
+_continuous_ targets.
+
+Step size Min:: Specifies how much to increase/decrease the target value when an increment/decrement is received.
+
+Step size Max:: Is used to limit the effect of acceleration (for rotary encoders which support acceleration and virtual control elements that are mapped as &quot;Incremental button" and have a &quot;Speed&quot; > 1x) and changes in velocity (for velocity-sensitive buttons/keys that are used as "Incremental button").
+If you set this to the same value as _Step size Min_, encoder acceleration or changes in velocity will have absolutely no effect on the incrementation/decrementation amount.
+If you set it to 100%, the effect is maximized.
+
+== Speed Min/Max controls
+
+When you choose a target with a xref:further-concepts/target-concepts.adoc#discrete-value-range[], the <<step-size>> label will change into
+_Speed_.
+If a target is discrete, it cannot have arbitrarily small step sizes.
+It rather has one predefined atomic step size.
+Allowing arbitrary step size adjustment wouldn't make sense.
+That's why _Speed_ allows you to _multiply_ (positive numbers) or _"divide"_ (negative numbers) value increments with a factor instead.
+Negative numbers are most useful for rotary encoders because they will essentially lower their sensitivity.
+Virtual targets are always discrete.
+
+.Speed example
+====
+Let's assume you selected the discrete target xref:target-types/fx-targets/fx-browse-presets.adoc#fx-browse-presets[], which is considered discrete because an FX with for example 5 presets has 6 well-defined possible values (including the <no preset> option), there's nothing inbetween.
+And let's also assume that you have a controller like Midi Fighter Twister whose rotary encoders don't support built-in acceleration.
+
+Now you slightly move an encoder clock-wise and your controller sends an increment +1. If the _Speed Min_ slider was at 1 (default), this will just navigate to the next preset (+1).
+If the _Speed Min_ slider was at 2, this will jump to the 2nd-next preset (+2).
+And so on.
+====
+
+Remarks:
+
+* There are FX plug-ins out there which report their parameter as discrete with an insanely small step size (e.g. some Native Instrument plug-ins).
+This kind of defeats the purpose of discrete parameters and one can argue that those parameters should actually be continuous.
+In such a case, moving your rotary encoder might need _a lot_ of turning even if you set _Speed_ to the apparent maximum of 100! In this case you will be happy to know that the text field next to the slider allows you to enter values higher than 100.
+* You can set the "Speed" slider to a negative value, e.g. -2. This is the opposite.
+It means you need to make your encoder send 2 increments in order to move to the next preset.
+Or -5: You need to make your encoder send 5 increments to move to the next preset.
+This is like slowing down the encoder movement.
+
+== Encoder filter menu
+
+Allows you to react to clockwise or counter-clockwise xref:further-concepts/mapping-concepts.adoc#rotary-endless-encoder[] movements only, e.g. if you want to invoke one action on clockwise movement and another one on counter-clockwise movement.
+Or if you want to use different step sizes for different movements.
+
+Increment & decrement:: ReaLearn will process both increments and decrements.
+Increment only:: ReaLearn will ignore decrements.
+Decrement only:: ReaLearn will ignore increments.
+
+== Wrap checkbox
+
+If unchecked, the target value will not change anymore if there's an incoming decrement but the target already reached its minimum value.
+If checked, the target value will jump to its maximum value instead.
+It works analogously if there's an incoming increment and the target already reached its maximum value.
+
+If this flag is enabled for controller mappings which have a virtual target, every main mapping controlled by that virtual control element will _rotate_ - even if the main mapping itself doesn't have _rotate_ enabled.
+
+[[make-absolute]]
+== Make absolute
+
+Check this box if you want to emulate an absolute control element with a relative encoder or with -/+ (incremental) buttons.
+
+This is useful if you have configured your controller to be relative all the way (which is good!) but you want to use a control transformation EEL formula - which is not possible if you change the target with relative increments.
+It works by keeping an internal absolute value, incrementing or decrementing it accordingly and then processing it just like normal absolute control values.
+
+By checking this box:
+
+* You lose the possibility to be perfectly free of parameter jumps (but you can try to mitigate that loss by using the jump settings).
+* You gain support for control-direction EEL transformation, non-continuous target value sequences and source range.
+* You can still use some of the relative-only features: Step size and rotate!
+
+[#fire-mode]
+== Fire mode menu
+
+Normally, when a button gets pressed, it controls the target immediately.
+However, by using this dropdown and by changing the values below it, you can change this behavior.
+This dropdown provides different fire modes that decide how exactly ReaLearn should cope with button presses.
+
+Fire on press (or release if > 0 ms)::
+This mode is essential in order to be able to distinguish between different press durations.
++
+* *Min* and *Max* decide how long a button needs to be pressed to have an effect.
+* By default, both min and max will be at 0 ms, which means that the duration doesn't matter and both press (> 0%) and release (0%) will be instantly forwarded.
+If you change _Min_ to e.g. 1000 ms and _Max_ to 5000 ms, it will behave as follows:
+* If you press the control element and instantly release it, nothing will happen.
+* If you press the control element, wait for a maximum of 5 seconds and then release it, the control value of the press (> 0%) will be forwarded.
+* It will never forward the control value of a release (0%), so this is probably only useful for targets with trigger character.
+* The main use case of this setting is to assign multiple functions to one control element, depending on how long it has been pressed.
+For this, use settings like the following:
+* Short press: 0 ms - 250 ms
+* Long press: 250 ms - 5000 ms
+
+Fire after timeout::
+This mode is more "satisfying" because it will let ReaLearn "fire" immediately once a certain time has passed since the press of the button.
+However, obviously it doesn't have the concept of a "Maximum" press duration, so it can't be used to execute different things depending on different press durations (or only as the last part in the press duration chain, so to say).
+
+Timeout::: Sets the timeout in milliseconds.
+If this is zero, everything will behave as usual.
+
+[[fire-after-timeout-keep-firing]]Fire after timeout, keep firing (turbo)::
+Welcome to turbo mode.
+It will keep hitting your target (always with the initial button press velocity) at a specific rate.
+Optionally with an initial delay.
+Epic!
+
+Timeout::: This is the initial delay before anything happens.
+Can be zero, then turbo stage is entered instantly on press.
+
+Rate::: This is how frequently the target will be hit once the timeout has passed.
+In practice, it won't happen more frequently than once every 30 ms (REAPER's main thread loop frequency).
+
+Fire on double press::
+This reacts to double presses of a button (analog to double-clicks with the mouse).
+
+Fire after single press (if hold < Max ms)::
+
+If you want to do something in response to a double press, chances are that you want to do something _else_ in response to just a single press.
+The _Normal_ fire mode will fire no matter what!
+That's why there's an additional _Single press_ mode that will not respond to double presses.
+The response happens _slightly_ delayed - because ReaLearn needs to wait a bit to see if it's going to be a double press or not.
+
+Max::: With this, it's even possible to distinguish between single, double _and_ long press.
+In order to do that, you must set the _Max_ value of the _Single press_ mapping to a value that is lower than the _Timeout_ value of your _After timeout_ mapping.
+That way you can use one button for 3 different actions!
++
+====
+* Mapping 1 "Single press" with Max = 499ms
+* Mapping 2 "Double press"
+* Mapping 3 "After timeout" with Timeout = 500ms
+====
+
+== Button filter menu
+
+This allows you to easily ignore button presses or releases.
+
+Press & release::
+ReaLearn will process both button presses (control value = 0%) and button releases (control value > 0%).
+This is the default.
+
+[[press-only,press-only]] Press only::
+Makes ReaLearn ignore the release of the button.
+The same thing can be achieved by setting
+_Source Min_ to 1. However, doing so would also affect the feedback direction, which is often undesirable because it will mess with the button LED color or on/off state.
+
+Release only:: Makes ReaLearn ignore the press of the button (just processing its release).
+Rare, but possible.
