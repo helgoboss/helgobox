@@ -3817,7 +3817,7 @@ pub enum VirtualTrackType {
     ByIndexMcp,
     #[display(fmt = "By ID or name (legacy)")]
     ByIdOrName,
-    #[display(fmt = "From clip column")]
+    #[display(fmt = "From Playtime column")]
     FromClipColumn,
 }
 

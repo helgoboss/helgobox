@@ -515,7 +515,7 @@ impl HeaderPanel {
                             MainMenuAction::DryRunLuaScript(text_from_clipboard_clone),
                         ),
                         item_with_opts(
-                            "Freeze clip matrix",
+                            "Freeze Playtime matrix",
                             ItemOpts {
                                 enabled: has_clip_matrix,
                                 checked: false,
