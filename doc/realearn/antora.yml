@@ -1,5 +1,5 @@
 name: realearn
-title: ReaLearn
+title: ReaLearn Reference
 version: ~
 nav:
   - modules/ROOT/nav.adoc

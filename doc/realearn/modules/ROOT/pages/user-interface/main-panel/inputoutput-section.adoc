@@ -1,6 +1,8 @@
 
 = Input/output section
 
+image:realearn/screenshots/main-panel-input-output.png[Screenshot]
+
 This section is essential to connect ReaLearn to a specific controller.
 
 Also see xref:best-practices.adoc#best-practices-input-output[].

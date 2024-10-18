@@ -1,6 +1,8 @@
 
 = Source section
 
+image:realearn/screenshots/mapping-panel-source.png[Screenshot]
+
 All xref:source-types.adoc#source-types[] share the following UI elements.
 
 == Learn button

@@ -1,5 +1,6 @@
-
 = Menu bar
+
+image:realearn/screenshots/main-panel-menu-bar.png[Screenshot]
 
 == Menu button
 

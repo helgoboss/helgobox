@@ -1,6 +1,8 @@
 
 = Preset section
 
+image:realearn/screenshots/main-panel-preset.png[Screenshot]
+
 == Preset menu
 
 This menu makes it possible to load compartment presets for the currently shown compartment.

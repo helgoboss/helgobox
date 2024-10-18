@@ -1452,6 +1452,7 @@ mod macos_impl {
     use crate::domain::CompartmentKind;
     use crate::infrastructure::plugin::UnitShell;
     use crate::infrastructure::ui::copy_text_to_clipboard;
+    use std::borrow::Cow;
     use std::cell::Ref;
     use std::fs;
     use std::path::PathBuf;
@@ -1480,20 +1481,47 @@ mod macos_impl {
             Screenshooter::new(dirs::download_dir().unwrap().join("realearn-screenshots"));
         // Main panel
         let main_panel_window = Window::from_hwnd(realearn.outcome.fx.floating_window().unwrap());
-        shooter.save(main_panel_window, "main-panel").await;
+        let main_panel_image = shooter.capture(main_panel_window).await;
+        shooter.save_image(&main_panel_image, "main-panel");
+        let main_panel_parts = [
+            ("main-panel-input-output", (14, 110, 714, 124)),
+            ("main-panel-menu-bar", (720, 112, 774, 66)),
+            ("main-panel-let-through-checkboxes", (854, 168, 640, 66)),
+            ("main-panel-show-buttons", (2, 236, 1490, 62)),
+            ("main-panel-preset", (2, 302, 1490, 62)),
+            ("main-panel-group", (6, 362, 994, 62)),
+            ("main-panel-notes-button", (1350, 362, 136, 62)),
+            ("main-panel-mapping-toolbar", (6, 423, 1492, 62)),
+            ("main-panel-mapping-row", (4, 477, 1450, 148)),
+            ("main-panel-bottom", (10, 1224, 1482, 120)),
+        ];
+        for (name, crop) in main_panel_parts {
+            shooter.save_image_part(&main_panel_image, name, crop);
+        }
         // Mapping panel
-        let mapping1 = main_unit_model(main_unit_shell)
+        let mapping = main_unit_model(main_unit_shell)
             .mappings(CompartmentKind::Main)
             .next()
             .cloned()
             .unwrap();
-        let mapping1_panel = main_unit_shell
+        let mapping_panel = main_unit_shell
             .panel()
             .panel_manager()
             .borrow_mut()
-            .edit_mapping(&mapping1);
-        let mapping1_window = mapping1_panel.view_context().require_window();
-        shooter.save(mapping1_window, "mapping-panel").await;
+            .edit_mapping(&mapping);
+        let mapping_window = mapping_panel.view_context().require_window();
+        let mapping_image = shooter.capture(mapping_window).await;
+        shooter.save_image(&mapping_image, "mapping-panel");
+        let mapping_panel_parts = [
+            ("mapping-panel-general", (4, 52, 1434, 190)),
+            ("mapping-panel-source", (0, 240, 558, 462)),
+            ("mapping-panel-target", (564, 240, 878, 462)),
+            ("mapping-panel-glue", (0, 704, 1438, 662)),
+            ("mapping-panel-bottom", (2, 1370, 1438, 172)),
+        ];
+        for (name, crop) in mapping_panel_parts {
+            shooter.save_image_part(&mapping_image, name, crop);
+        }
         // Group panel
         let group_panel = main_unit_shell.panel().header_panel().edit_group().unwrap();
         let group_window = group_panel.view_context().require_window();
@@ -1519,19 +1547,39 @@ mod macos_impl {
         }
 
         pub async fn save(&self, window: Window, name: &str) {
+            let img = self.capture(window).await;
+            self.save_image(&img, name);
+        }
+
+        pub async fn capture(&self, window: Window) -> DynamicImage {
             millis(100).await;
-            let img = xcap::Window::all()
+            xcap::Window::all()
                 .unwrap()
                 .iter()
                 .find(|w| w.app_name() == "REAPER" && w.title() == window.text().unwrap())
                 .expect("couldn't find window to take screenshot from")
-                .capture_image();
-            self.save_img(img.unwrap(), name);
+                .capture_image()
+                .unwrap()
+                .into()
         }
 
-        fn save_img(&self, img: RgbaImage, name: &str) {
-            let mut img: DynamicImage = img.into();
-            img = img.resize(900, 900, imageops::FilterType::Lanczos3);
+        pub fn save_image_part(
+            &self,
+            img: &DynamicImage,
+            name: &str,
+            (x, y, width, height): (u32, u32, u32, u32),
+        ) {
+            let cropped_img = img.crop_imm(x, y, width, height);
+            self.save_image(&cropped_img, name);
+        }
+
+        pub fn save_image(&self, img: &DynamicImage, name: &str) {
+            const MAX_DIM: u32 = 900;
+            let img = if img.height() > MAX_DIM || img.width() > MAX_DIM {
+                Cow::Owned(img.resize(MAX_DIM, MAX_DIM, imageops::FilterType::Lanczos3))
+            } else {
+                Cow::Borrowed(img)
+            };
             img.save(self.dir.join(format!("{name}.png"))).unwrap();
         }
     }

@@ -1,6 +1,8 @@
 
 = Mappings toolbar
 
+image:realearn/screenshots/main-panel-mapping-toolbar.png[Screenshot]
+
 [[add-one-button]]
 == Add one button
 

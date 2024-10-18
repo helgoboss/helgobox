@@ -1,6 +1,8 @@
 [[target-section]]
 = Target section
 
+image:realearn/screenshots/mapping-panel-target.png[Screenshot]
+
 All xref:target-types.adoc#target-types[] share the following UI elements.
 
 == Learn button

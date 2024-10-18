@@ -1,5 +1,7 @@
 
 = Notes button
 
+image:realearn/screenshots/main-panel-notes-button.png[Screenshot]
+
 Allows you to save custom notes/comments for the current compartment.
 These notes are also included in compartment presets.

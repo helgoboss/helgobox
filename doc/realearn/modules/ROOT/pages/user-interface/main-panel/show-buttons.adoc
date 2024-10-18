@@ -1,5 +1,6 @@
-
 = Show buttons
+
+image:realearn/screenshots/main-panel-show-buttons.png[Screenshot]
 
 This lets you choose which mapping compartment is displayed.
 See xref:key-concepts.adoc#compartment[].

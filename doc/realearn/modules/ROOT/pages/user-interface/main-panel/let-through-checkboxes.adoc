@@ -1,6 +1,8 @@
 [[let-through-checkboxes]]
 = Let through checkboxes
 
+image:realearn/screenshots/main-panel-let-through-checkboxes.png[Screenshot]
+
 See xref:further-concepts/unit-concepts.adoc#letting-through-events[].
 
 Matched:: If checked, even events matched by at least one mapping are let through.

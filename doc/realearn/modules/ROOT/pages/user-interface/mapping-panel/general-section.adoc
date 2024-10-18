@@ -1,6 +1,8 @@
 
 = General section
 
+image:realearn/screenshots/mapping-panel-general.png[Screenshot]
+
 This section provides the following mapping-related elements.
 
 == Name field
@@ -69,17 +71,3 @@ xref:user-interface/mapping-panel/advanced-settings-dialog.adoc#advanced-setting
 == Find in mapping list button
 
 Scrolls the mapping rows panel so that the corresponding mapping row for this mapping gets visible.
-
-== Beep on success checkbox
-
-Makes the mapping play a sound whenever the target has been invoked successfully.
-Nice for trigger-like targets such as xref:target-types/realearn-targets/realearn-take-mapping-snapshot.adoc#realearn-take-mapping-snapshot[] for which there's no other good way to know if it worked.
-
-== Previous/next buttons
-
-Allows you to jump to the previous or next mapping.
-Considers only mappings that are currently visible in the mapping rows panel.
-
-== Enabled checkbox
-
-Enables or disables the mapping as a whole.

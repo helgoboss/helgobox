@@ -1,6 +1,8 @@
 [#glue-section]
 = Glue section
 
+image:realearn/screenshots/mapping-panel-glue.png[Screenshot]
+
 The xref:key-concepts.adoc#glue[] section is divided into several subsections some of which make sense for all kinds of sources and others only for some.
 Having so many settings available at the same time can be a bit daunting.
 ReaLearn helps you by hiding settings that don't make sense in the current context.

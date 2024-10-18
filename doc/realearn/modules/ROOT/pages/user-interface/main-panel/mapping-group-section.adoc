@@ -1,5 +1,7 @@
 = Mapping group section
 
+image:realearn/screenshots/main-panel-group.png[Screenshot]
+
 [[mapping-group-menu]]
 == Group menu
 

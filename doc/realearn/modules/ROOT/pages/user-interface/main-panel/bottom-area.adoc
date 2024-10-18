@@ -1,6 +1,8 @@
 
 = Bottom area
 
+image:realearn/screenshots/main-panel-bottom.png[Screenshot]
+
 == Unit menu
 
 Press the button will reveal a menu with the following actions to manage xref:key-concepts.adoc#unit[Units]:

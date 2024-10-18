@@ -1,6 +1,8 @@
 
 = Mapping row
 
+image:realearn/screenshots/main-panel-mapping-row.png[Screenshot]
+
 Each mapping row represents one ReaLearn mapping.
 
 The mapping, source and target labels of a mapping row are greyed out whenever the mapping is _off_.

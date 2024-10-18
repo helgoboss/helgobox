@@ -1,10 +1,12 @@
-
 = Bottom section
 
-The section at the bottom has two functions:
+image:realearn/screenshots/mapping-panel-bottom.png[Screenshot]
+
+The section at the bottom has the following functions:
 
 - To provide context-sensitive help for the glue section
 - To provide control information, feedback information and error reporting
+- To provide navigation and general mapping control
 
 == Help
 
@@ -27,4 +29,16 @@ NOTE: If the target supports MIDI real-time control and the source is a MIDI sou
 
 The right text area shows information about which feedback values are sent from the glue section to the source.
 
-[split=1]
+== Beep on success checkbox
+
+Makes the mapping play a sound whenever the target has been invoked successfully.
+Nice for trigger-like targets such as xref:target-types/realearn-targets/realearn-take-mapping-snapshot.adoc#realearn-take-mapping-snapshot[] for which there's no other good way to know if it worked.
+
+== Previous/next buttons
+
+Allows you to jump to the previous or next mapping.
+Considers only mappings that are currently visible in the mapping rows panel.
+
+== Enabled checkbox
+
+Enables or disables the mapping as a whole.
