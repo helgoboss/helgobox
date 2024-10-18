@@ -1,0 +1,9 @@
+= ReaLearn Reference
+:experimental:
+
+This reference is written in AsciiDoc and follows the directory conventions of the documentation site generator link:https://antora.org/[Antora].
+
+A good place to start is link:modules/ROOT/pages/introduction.adoc[].
+
+Screenshots are generated on macOS as part of the Helgobox integration test.
+After executing the tests via menu:Extensions[Helgobox > Run integration test], they can be found at `DOCUMENTS_DIR/realearn-screenshots` and should then be copied to link:modules/ROOT/images/realearn/screenshots[].

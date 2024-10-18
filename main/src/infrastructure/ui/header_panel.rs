@@ -1876,7 +1876,7 @@ impl HeaderPanel {
         }
     }
 
-    fn edit_group(&self) {
+    pub fn edit_group(&self) -> anyhow::Result<SharedView<GroupPanel>> {
         let compartment = self.active_compartment();
         let weak_group = match self
             .main_state
@@ -1895,10 +1895,11 @@ impl HeaderPanel {
                     Rc::downgrade(group)
                 }
             }
-            _ => return,
+            _ => bail!("no specific group selected"),
         };
         let panel = GroupPanel::new(self.session.clone(), weak_group);
-        open_child_panel(&self.group_panel, panel, self.view.require_window());
+        let shared_panel = open_child_panel(&self.group_panel, panel, self.view.require_window());
+        Ok(shared_panel)
     }
 
     fn update_group(&self) {
@@ -2805,7 +2806,9 @@ impl View for HeaderPanel {
             root::ID_PRESET_BROWSE_BUTTON => self.browse_presets(),
             root::ID_GROUP_ADD_BUTTON => self.add_group(),
             root::ID_GROUP_DELETE_BUTTON => self.remove_group(),
-            root::ID_GROUP_EDIT_BUTTON => self.edit_group(),
+            root::ID_GROUP_EDIT_BUTTON => {
+                let _ = self.edit_group();
+            }
             root::ID_NOTES_BUTTON => self.edit_compartment_notes(),
             root::ID_ADD_MAPPING_BUTTON => self.add_mapping(),
             root::ID_LEARN_MANY_MAPPINGS_BUTTON => {

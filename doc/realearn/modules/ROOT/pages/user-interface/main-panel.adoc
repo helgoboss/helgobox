@@ -1,9 +1,8 @@
-
 = Main panel
 
 The main panel is what you see immediately when you open the Helgobox plug-in window.
 
-image:images/screenshot-main-panel-annotated.svg[Main panel]
+image:realearn/screenshots/main-panel-annotated.svg[Main panel]
 
 It's divided into 3 larger areas:
 

@@ -123,6 +123,10 @@ impl UnitPanel {
         self.header_panel.show_pot_browser();
     }
 
+    pub fn header_panel(&self) -> SharedView<HeaderPanel> {
+        self.header_panel.clone()
+    }
+
     fn open_sub_panels(&self, window: Window) {
         self.header_panel.clone().open(window);
         self.mapping_rows_panel.clone().open(window);
@@ -273,6 +277,10 @@ impl UnitPanel {
                 },
             );
         });
+    }
+
+    pub fn panel_manager(&self) -> &SharedIndependentPanelManager {
+        &self.panel_manager
     }
 
     fn handle_changed_target_value(&self, event: TargetValueChangedEvent) {

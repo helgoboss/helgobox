@@ -667,13 +667,14 @@ pub fn open_child_panel<T: View + 'static>(
     panel_slot: &RefCell<Option<SharedView<T>>>,
     panel: T,
     parent_window: Window,
-) {
+) -> SharedView<T> {
     let panel = SharedView::new(panel);
     let panel_clone = panel.clone();
     if let Some(existing_panel) = panel_slot.replace(Some(panel)) {
         existing_panel.close();
     };
-    panel_clone.open(parent_window);
+    panel_clone.clone().open(parent_window);
+    panel_clone
 }
 
 pub fn close_child_panel_if_open(panel: &RefCell<Option<SharedView<impl View + ?Sized>>>) {

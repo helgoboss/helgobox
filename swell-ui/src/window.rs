@@ -93,7 +93,7 @@ impl Window {
 
     pub fn center_on_screen(&self) {
         let screen_size = Window::screen_size();
-        let window_size = self.size();
+        let window_size = self.client_size();
         self.move_to_pixels(Point::new(
             (screen_size.width - window_size.width) * 0.5,
             (screen_size.height - window_size.height) * 0.5,
@@ -113,15 +113,15 @@ impl Window {
         ));
     }
 
-    pub fn size(self) -> Dimensions<Pixels> {
-        let rect = self.rect();
+    pub fn client_size(self) -> Dimensions<Pixels> {
+        let rect = self.client_rect();
         Dimensions::new(
             Pixels(rect.right as u32 - rect.left as u32),
             Pixels(rect.bottom as u32 - rect.top as u32),
         )
     }
 
-    pub fn rect(self) -> raw::RECT {
+    pub fn client_rect(self) -> RECT {
         let mut rect = RECT::default();
         unsafe { Swell::get().GetClientRect(self.raw, &mut rect) };
         rect
@@ -637,7 +637,7 @@ impl Window {
         unsafe {
             extern "C" fn resize_proc(arg1: raw::HWND, _arg2: raw::LPARAM) -> raw::BOOL {
                 if let Some(win) = Window::new(arg1) {
-                    win.resize(win.parent().unwrap().size());
+                    win.resize(win.parent().unwrap().client_size());
                 }
                 0
             }
@@ -950,7 +950,7 @@ impl XBridgeWindow {
     /// Usually an empty window.
     pub fn create(parent_window: Window) -> Result<Self, &'static str> {
         let mut x_window_id: core::ffi::c_ulong = 0;
-        let rect = parent_window.rect();
+        let rect = parent_window.client_rect();
         let x_bridge_hwnd = unsafe {
             Swell::get().SWELL_CreateXBridgeWindow(
                 parent_window.raw(),

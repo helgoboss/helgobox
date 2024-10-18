@@ -7,6 +7,9 @@ use reaper_rx::{ActionRx, ActionRxProvider, ControlSurfaceRx, MainRx};
 
 make_available_globally_in_any_non_rt_thread!(Global);
 
+/// Spawns the given future in the main thread.
+///
+/// This only works if the future support is already running (= if the backbone shell is already woken up).
 pub fn spawn_in_main_thread(
     future: impl std::future::Future<Output = Result<(), Box<dyn std::error::Error>>> + 'static,
 ) {

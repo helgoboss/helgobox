@@ -216,6 +216,12 @@ sys-info = "0.9.1"
 # For converting virtual umlaut/special keys into character codes (keyboard source)
 winapi = { workspace = true, features = ["winuser"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+# For taking screenshots for docs
+xcap = "0.0.13"
+# For taking screenshots for docs
+dirs.workspace = true
+
 
 [build-dependencies]
 # For making Git commit hash available to code

@@ -25,7 +25,7 @@ use crate::infrastructure::ui::util::{
 use crate::infrastructure::ui::{
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
     get_text_from_clipboard, serialize_data_object, DataObject, IndependentPanelManager,
-    SerializationFormat, SharedMainState,
+    MappingPanel, SerializationFormat, SharedMainState,
 };
 use core::iter;
 use helgobox_api::persistence::{ApiObject, Envelope};
@@ -468,11 +468,11 @@ impl MappingRowPanel {
         self.require_mapping().borrow().qualified_id()
     }
 
-    fn edit_mapping(&self) {
+    fn edit_mapping(&self) -> SharedView<MappingPanel> {
         self.main_state.borrow_mut().stop_filter_learning();
         self.panel_manager()
             .borrow_mut()
-            .edit_mapping(self.require_mapping().deref());
+            .edit_mapping(self.require_mapping().deref())
     }
 
     fn panel_manager(&self) -> SharedIndependentPanelManager {
@@ -925,7 +925,9 @@ impl View for MappingRowPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             root::IDC_MAPPING_ROW_ENABLED_CHECK_BOX => self.update_is_enabled(),
-            root::ID_MAPPING_ROW_EDIT_BUTTON => self.edit_mapping(),
+            root::ID_MAPPING_ROW_EDIT_BUTTON => {
+                self.edit_mapping();
+            }
             root::ID_UP_BUTTON => {
                 let _ = self.move_mapping_within_list(-1);
             }

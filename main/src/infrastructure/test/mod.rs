@@ -1,6 +1,6 @@
 use crate::domain::{FinalSourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
 use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
-use crate::infrastructure::plugin::{BackboneShell, SET_STATE_PARAM_NAME};
+use crate::infrastructure::plugin::{BackboneShell, NewInstanceOutcome, SET_STATE_PARAM_NAME};
 use approx::assert_abs_diff_eq;
 use base::future_util::millis;
 use base::{Global, SenderToNormalThread};
@@ -11,6 +11,7 @@ use reaper_high::{Fx, FxParameter, Reaper, Track};
 use reaper_medium::{Db, ReaperPanValue, StuffMidiMessageTarget};
 use std::ffi::CString;
 use std::future::Future;
+use swell_ui::Window;
 use FinalSourceFeedbackValue::Midi;
 use MidiSourceValue::{ParameterNumber, Plain};
 
@@ -32,6 +33,9 @@ impl Test {
     }
 
     pub async fn test(&mut self) {
+        #[cfg(target_os = "macos")]
+        self.step("Take screenshots", macos_impl::take_screenshots())
+            .await;
         self.step("Basics", basics()).await;
         self.step("(N)RPN", nrpn_test()).await;
         self.step(
@@ -113,41 +117,37 @@ async fn setup() -> RealearnTestInstance {
     let reaper = Reaper::get();
     let project = reaper.create_empty_project_in_new_tab();
     let track = project.add_track().unwrap();
-    let fx = track
-        .normal_fx_chain()
-        .add_fx_by_original_name(HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING)
-        .expect("couldn't find ReaLearn plug-in");
+    let outcome = BackboneShell::create_new_instance_on_track(&track)
+        .await
+        .expect("couldn't create test instance");
     // Then
-    assert!(fx.parameter_count() >= PLUGIN_PARAMETER_COUNT + 2);
-    moment().await;
-    let session = BackboneShell::get()
-        .find_session_by_containing_fx(&fx)
-        .expect("couldn't find session associated with ReaLearn FX instance");
+    assert!(outcome.fx.parameter_count() >= PLUGIN_PARAMETER_COUNT + 2);
+    let unit_model = outcome.instance_shell.main_unit_shell().model();
     let (feedback_sender, feedback_receiver) =
         SenderToNormalThread::new_unbounded_channel("test feedback");
-    session
+    unit_model
         .borrow()
         .use_integration_test_feedback_sender(feedback_sender);
     RealearnTestInstance {
-        fx,
+        outcome,
         feedback_receiver,
     }
 }
 
 struct RealearnTestInstance {
-    fx: Fx,
+    outcome: NewInstanceOutcome,
     feedback_receiver: crossbeam_channel::Receiver<FinalSourceFeedbackValue>,
 }
 
 impl RealearnTestInstance {
     /// Returns the containing track.
     pub fn track(&self) -> &Track {
-        self.fx.track().unwrap()
+        self.outcome.fx.track().unwrap()
     }
 
     /// Returns the ReaLearn VST parameter at the given index.
     pub fn parameter_by_index(&self, index: u32) -> FxParameter {
-        self.fx.parameter_by_index(index)
+        self.outcome.fx.parameter_by_index(index)
     }
 
     /// Returns all recorded feedback and removes it from the list.
@@ -1424,7 +1424,9 @@ fn load_realearn_preset(realearn: &RealearnTestInstance, json: &str) {
     let preset_c_string = CString::new(json).expect("couldn't convert preset into c string");
     unsafe {
         let bytes = preset_c_string.into_bytes_with_nul();
+        // TODO-high CONTINUE Use instance shell
         realearn
+            .outcome
             .fx
             .set_named_config_param(SET_STATE_PARAM_NAME, bytes.as_ptr() as _)
             .unwrap();
@@ -1441,4 +1443,88 @@ async fn send_midi_multi<T: ShortMessage + Copy, const I: usize>(messages: [Opti
         Reaper::get().stuff_midi_message(StuffMidiMessageTarget::VirtualMidiKeyboardQueue, *msg);
     }
     moment().await;
+}
+
+#[cfg(target_os = "macos")]
+mod macos_impl {
+    use super::*;
+    use crate::application::UnitModel;
+    use crate::domain::CompartmentKind;
+    use crate::infrastructure::plugin::UnitShell;
+    use crate::infrastructure::ui::copy_text_to_clipboard;
+    use std::cell::Ref;
+    use std::fs;
+    use std::path::PathBuf;
+    use swell_ui::View;
+    use xcap::image::{imageops, DynamicImage, RgbaImage};
+
+    pub async fn take_screenshots() {
+        // Given
+        let realearn = setup().await;
+        // When
+        load_realearn_preset(&realearn, include_str!("presets/basics.json"));
+        moment().await;
+        // Then
+        realearn.outcome.fx.show_in_floating_window();
+        let instance_shell = realearn.outcome.instance_shell;
+        let main_unit_shell = instance_shell.main_unit_shell();
+        let shooter =
+            Screenshooter::new(dirs::download_dir().unwrap().join("realearn-screenshots"));
+        // Main panel
+        let main_panel_window = Window::from_hwnd(realearn.outcome.fx.floating_window().unwrap());
+        shooter.save(main_panel_window, "main-panel").await;
+        // Mapping panel
+        let mapping1 = main_unit_model(main_unit_shell)
+            .mappings(CompartmentKind::Main)
+            .next()
+            .cloned()
+            .unwrap();
+        let mapping1_panel = main_unit_shell
+            .panel()
+            .panel_manager()
+            .borrow_mut()
+            .edit_mapping(&mapping1);
+        let mapping1_window = mapping1_panel.view_context().require_window();
+        shooter.save(mapping1_window, "mapping-panel").await;
+        // Group panel
+        let group_panel = main_unit_shell.panel().header_panel().edit_group().unwrap();
+        let group_window = group_panel.view_context().require_window();
+        shooter.save(group_window, "group-panel").await;
+        group_panel.close();
+        // Log and copy screenshot directory
+        log(format!("Screenshot directory: {:?}", &shooter.dir));
+        copy_text_to_clipboard(shooter.dir.to_string_lossy().to_string());
+    }
+
+    fn main_unit_model(main_unit_shell: &UnitShell) -> Ref<UnitModel> {
+        main_unit_shell.model().borrow()
+    }
+
+    struct Screenshooter {
+        dir: PathBuf,
+    }
+
+    impl Screenshooter {
+        pub fn new(dir: PathBuf) -> Self {
+            fs::create_dir_all(&dir).unwrap();
+            Self { dir }
+        }
+
+        pub async fn save(&self, window: Window, name: &str) {
+            millis(100).await;
+            let img = xcap::Window::all()
+                .unwrap()
+                .iter()
+                .find(|w| w.app_name() == "REAPER" && w.title() == window.text().unwrap())
+                .expect("couldn't find window to take screenshot from")
+                .capture_image();
+            self.save_img(img.unwrap(), name);
+        }
+
+        fn save_img(&self, img: RgbaImage, name: &str) {
+            let mut img: DynamicImage = img.into();
+            img = img.resize(900, 900, imageops::FilterType::Lanczos3);
+            img.save(self.dir.join(format!("{name}.png"))).unwrap();
+        }
+    }
 }

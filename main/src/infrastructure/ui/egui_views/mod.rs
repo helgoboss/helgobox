@@ -14,7 +14,7 @@ pub fn open<S: 'static>(
 ) {
     let title = title.into();
     window.set_text(title.as_str());
-    let window_size = window.size();
+    let window_size = window.client_size();
     #[cfg(windows)]
     let (width, height, scale) = {
         let dpi_factor = window.dpi_scaling_factor();

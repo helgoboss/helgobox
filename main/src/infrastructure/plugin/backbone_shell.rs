@@ -45,6 +45,7 @@ use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::dynamic_toolbar::add_or_remove_toolbar_button;
+use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
 use crate::infrastructure::plugin::hidden_helper_panel::HiddenHelperPanel;
 use crate::infrastructure::plugin::persistent_toolbar::add_toolbar_button_persistently;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
@@ -57,6 +58,7 @@ use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::open_child_panel;
 use crate::infrastructure::ui::welcome_panel::WelcomePanel;
 use anyhow::{bail, Context};
+use base::future_util::millis;
 use base::hash_util::NonCryptoHashSet;
 use base::metrics_util::MetricsHook;
 use camino::{Utf8Path, Utf8PathBuf};
@@ -70,15 +72,16 @@ use helgobox_api::runtime::{AutoAddedControllerEvent, GlobalInfoEvent};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use reaper_high::{
-    ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
+    ChangeEvent, CrashInfo, Fx, GroupingBehavior, Guid, MiddlewareControlSurface, Project, Reaper,
+    Track,
 };
 use reaper_low::{raw, PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    reaper_str, AccelMsg, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
-    HookPostCommand, HookPostCommand2, Hwnd, HwndInfo, HwndInfoType, MenuHookFlag,
-    MidiInputDeviceId, MidiOutputDeviceId, ReaProject, ReaperStr, RegistrationHandle,
-    SectionContext, ToolbarIconMap, WindowContext,
+    reaper_str, AccelMsg, AcceleratorPosition, ActionValueChange, CommandId, GangBehavior, Hmenu,
+    HookCustomMenu, HookPostCommand, HookPostCommand2, Hwnd, HwndInfo, HwndInfoType,
+    InputMonitoringMode, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId, ReaProject,
+    ReaperStr, RecordingInput, RegistrationHandle, SectionContext, ToolbarIconMap, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -550,6 +553,60 @@ impl BackboneShell {
         TEMP_DIR.as_ref()
     }
 
+    /// Creates a new track in the given project and adds a new Helgobox instance to it.
+    pub async fn create_new_instance_in_project(
+        project: Project,
+        track_name: &str,
+    ) -> anyhow::Result<NewInstanceOutcome> {
+        let track = project.insert_track_at(0)?;
+        track.set_name(track_name);
+        track.set_recording_input(Some(RecordingInput::Midi {
+            device_id: None,
+            channel: None,
+        }));
+        track.arm(
+            false,
+            GangBehavior::DenyGang,
+            GroupingBehavior::PreventGrouping,
+        );
+        track.set_input_monitoring_mode(
+            InputMonitoringMode::Normal,
+            GangBehavior::DenyGang,
+            GroupingBehavior::PreventGrouping,
+        );
+        Self::create_new_instance_on_track(&track).await
+    }
+
+    /// Creates a new Helgobox instance on the given track.
+    pub async fn create_new_instance_on_track(track: &Track) -> anyhow::Result<NewInstanceOutcome> {
+        let fx = track
+            .normal_fx_chain()
+            .add_fx_by_original_name(HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING)
+            .with_context(|| {
+                if Reaper::get().vst_scan_is_enabled() {
+                    "Looks like Helgobox VST plug-in is not installed! Did you follow the official installation instructions?"
+                } else {
+                    "It was not possible to add Helgobox VST plug-in, probably because you have VST scanning disabled in the REAPER preferences!\n\nPlease open REAPER's FX browser and press F5 to rescan. After that, try again!\n\nAs an alternative, re-enable VST scanning in Preferences/Plug-ins/VST and restart REAPER."
+                }
+            })?;
+        fx.hide_floating_window()?;
+        // The rest needs to be done async because the instance initializes itself async
+        // (because FX not yet available when plug-in instantiated).
+        millis(1).await;
+        let instance_shell = Self::get().with_instance_shell_infos(
+            |infos| -> anyhow::Result<SharedInstanceShell> {
+                let last_info = infos.last().context("instance was not registered")?;
+                let shared_instance = last_info
+                    .instance_shell
+                    .upgrade()
+                    .context("instance gone")?;
+                Ok(shared_instance)
+            },
+        )?;
+        let outcome = NewInstanceOutcome { fx, instance_shell };
+        Ok(outcome)
+    }
+
     /// This will cause all main processors to "switch all lights off".
     ///
     /// Doing this on main processor drop is too late as audio won't be running anymore and the MIDI devices will
@@ -609,10 +666,15 @@ impl BackboneShell {
     /// plug-in instance is around). Stuff that must be around even while asleep should be put into [Self::init].
     ///
     /// The opposite function is [Self::go_to_sleep].
-    pub fn wake_up(&self) {
+    ///
+    /// # Errors
+    ///
+    /// Returns and error if not sleeping.
+    pub fn wake_up(&self) -> anyhow::Result<()> {
         let prev_state = self.state.replace(AppState::WakingUp);
         let AppState::Sleeping(mut sleeping_state) = prev_state else {
-            panic!("App was not sleeping");
+            self.state.replace(prev_state);
+            bail!("App was not sleeping");
         };
         // (Re)load presets, links and controllers
         let _ = self
@@ -705,6 +767,7 @@ impl BackboneShell {
             async_runtime,
         };
         self.state.replace(AppState::Awake(awake_state));
+        Ok(())
     }
 
     // Executed whenever the last ReaLearn instance goes away.
@@ -1624,8 +1687,14 @@ impl BackboneShell {
     pub fn show_hide_playtime() {
         #[cfg(feature = "playtime")]
         {
-            let result = playtime_impl::show_or_hide_playtime();
-            crate::base::notification::notify_user_on_anyhow_error(result);
+            // It's possible that the backbone shell is not yet woken up at this point, in which case
+            // spawning wouldn't work.
+            let _ = Self::get().wake_up();
+            spawn_in_main_thread(async {
+                let result = playtime_impl::show_or_hide_playtime().await;
+                notification::notify_user_on_anyhow_error(result);
+                Ok(())
+            })
         }
     }
 
@@ -2925,12 +2994,18 @@ pub fn reaper_main_window() -> Window {
     Window::from_hwnd(Reaper::get().main_window())
 }
 
+pub struct NewInstanceOutcome {
+    pub fx: Fx,
+    pub instance_shell: SharedInstanceShell,
+}
+
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::infrastructure::data::LicenseManager;
     use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
     use crate::infrastructure::plugin::BackboneShell;
     use anyhow::Context;
+    use base::future_util::millis;
     use base::metrics_util::{record_duration, record_occurrence};
     use base::Global;
     use camino::Utf8PathBuf;
@@ -2955,42 +3030,10 @@ mod playtime_impl {
         }
     }
 
-    fn add_and_show_playtime() -> anyhow::Result<()> {
+    async fn add_and_show_playtime() -> anyhow::Result<()> {
         let project = Reaper::get().current_project();
-        let track = project.insert_track_at(0)?;
-        track.set_name("Playtime");
-        track.set_recording_input(Some(RecordingInput::Midi {
-            device_id: None,
-            channel: None,
-        }));
-        track.arm(
-            false,
-            GangBehavior::DenyGang,
-            GroupingBehavior::PreventGrouping,
-        );
-        track.set_input_monitoring_mode(
-            InputMonitoringMode::Normal,
-            GangBehavior::DenyGang,
-            GroupingBehavior::PreventGrouping,
-        );
-        let fx = track
-            .normal_fx_chain()
-            .add_fx_by_original_name(HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING)
-            .with_context(|| {
-                if Reaper::get().vst_scan_is_enabled() {
-                    "Looks like Helgobox VST plug-in is not installed! Did you follow the official installation instructions?"
-                } else {
-                    "It was not possible to add Helgobox VST plug-in, probably because you have VST scanning disabled in the REAPER preferences!\n\nPlease open REAPER's FX browser and press F5 to rescan. After that, try again!\n\nAs an alternative, re-enable VST scanning in Preferences/Plug-ins/VST and restart REAPER."
-                }
-            })?;
-        fx.hide_floating_window()?;
-        // The rest needs to be done async because the instance initializes itself async
-        // (because FX not yet available when plug-in instantiated).
-        Global::task_support()
-            .do_later_in_main_thread_from_main_thread_asap(|| {
-                enable_playtime_for_first_helgobox_instance_and_show_it().unwrap();
-            })
-            .unwrap();
+        BackboneShell::create_new_instance_in_project(project, "Playtime").await?;
+        enable_playtime_for_first_helgobox_instance_and_show_it()?;
         Ok(())
     }
 
@@ -3064,19 +3107,19 @@ mod playtime_impl {
         Ok(())
     }
 
-    pub fn show_or_hide_playtime() -> anyhow::Result<()> {
+    pub async fn show_or_hide_playtime() -> anyhow::Result<()> {
         let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
         let Some(playtime_api) = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
         else {
             // Project doesn't have any Helgobox instance yet. Add one.
-            add_and_show_playtime()?;
+            add_and_show_playtime().await?;
             return Ok(());
         };
         let helgobox_instance =
             playtime_api.HB_FindFirstPlaytimeHelgoboxInstanceInProject(std::ptr::null_mut());
         if helgobox_instance == -1 {
             // Project doesn't have any Playtime-enabled Helgobox instance yet. Add one.
-            add_and_show_playtime()?;
+            add_and_show_playtime().await?;
             return Ok(());
         }
         playtime_api.HB_ShowOrHidePlaytime(helgobox_instance);

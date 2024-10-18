@@ -107,7 +107,7 @@ impl IndependentPanelManager {
     /// Opens a panel for editing the given mapping.
     ///
     /// If the window is already open, it will be closed and reopened.
-    pub fn edit_mapping(&mut self, mapping: &SharedMapping) {
+    pub fn edit_mapping(&mut self, mapping: &SharedMapping) -> SharedView<MappingPanel> {
         let existing_panel = self
             .mapping_panels
             .iter()
@@ -115,10 +115,11 @@ impl IndependentPanelManager {
         if let Some(p) = existing_panel {
             // There's a panel already which show's this mapping.
             p.bring_to_foreground();
-            return;
+            return p.clone();
         }
         let panel = self.request_panel();
-        panel.show(mapping.clone());
+        panel.clone().show(mapping.clone());
+        panel
     }
 
     /// Hides panels of mappings which don't exist anymore.

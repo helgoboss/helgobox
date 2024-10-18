@@ -357,10 +357,10 @@ To be used like this:
 
 == Documentation
 
-All documentation is written in AsciiDoc:
+All documentation is written in AsciiDoc.
 
-- link:doc/realearn-user-guide.adoc[User guide]
-- link:ARCHITECTURE.adoc[Architecture]
+- link:doc/realearn/README.adoc[ReaLearn Reference]
+- link:ARCHITECTURE.adoc[Software architecture documentation]
 
 Some SVGs embedded in the architecture documentation are generated via link:https://nodejs.org/[NodeJS] / link:https://svgjs.dev/[SVG.js] in link:doc/svg-gen/index.js[].
 After modifying this file, you need to execute the following command in the project root:
