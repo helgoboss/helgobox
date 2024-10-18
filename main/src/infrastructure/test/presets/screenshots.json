@@ -2,7 +2,6 @@
   "mainUnit": {
     "version": "2.16.10",
     "id": "I3iqzlfV",
-    "letMatchedEventsThrough": true,
     "stayActiveWhenProjectInBackground": "Always",
     "controlDeviceId": "62",
     "feedbackDeviceId": "fx-output",
