@@ -210,6 +210,12 @@ unsafe extern "C" fn view_dialog_proc(
                 // messages are passed through to the XBridge window. This is SWELL functionality
                 // (check the SWELL code).
                 KEYBOARD_MSG_FOR_X_BRIDGE => 0,
+                raw::WM_MOUSEMOVE => view
+                    .mouse_moved(Point::new(
+                        Pixels(loword(lparam as _) as _),
+                        Pixels(hiword(lparam as _) as _),
+                    ))
+                    .into(),
                 raw::WM_SIZE => view.resized().into(),
                 raw::WM_SETFOCUS => view.focused().into(),
                 raw::WM_COMMAND => {

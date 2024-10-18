@@ -138,6 +138,14 @@ pub trait View: Debug {
         false
     }
 
+    /// WM_MOUSEMOVE.
+    ///
+    /// Should return `true` if processed.
+    fn mouse_moved(self: SharedView<Self>, position: Point<Pixels>) -> bool {
+        let _ = position;
+        false
+    }
+
     /// WM_KEYDOWN.
     ///
     /// Should return `true` if processed.

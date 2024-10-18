@@ -7486,6 +7486,11 @@ impl View for MappingPanel {
             false
         }
     }
+
+    // fn mouse_moved(self: SharedView<Self>, position: Point<Pixels>) -> bool {
+    //     // dbg!(position);
+    //     false
+    // }
 }
 
 const SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 570;
