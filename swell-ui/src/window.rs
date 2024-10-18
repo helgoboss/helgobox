@@ -1,5 +1,5 @@
 use crate::{
-    menu_tree, DialogUnits, Dimensions, FontDescriptor, Menu, MenuBar, Pixels, Point,
+    menu_tree, DialogUnits, Dimensions, FontDescriptor, Menu, MenuBar, Pixels, Point, Rect,
     SwellStringArg, ViewManager,
 };
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
@@ -768,6 +768,14 @@ impl Window {
                 0,
             );
         }
+    }
+
+    pub fn window_rect(self) -> Rect {
+        let mut rect = RECT::default();
+        unsafe {
+            Swell::get().GetWindowRect(self.raw, &mut rect as *mut _);
+        }
+        rect.into()
     }
 
     pub fn move_to_pixels(self, point: Point<Pixels>) {

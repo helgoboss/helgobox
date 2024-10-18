@@ -1,3 +1,5 @@
+use reaper_low::raw;
+use reaper_low::raw::RECT;
 use std::ops::{Add, Mul, Sub};
 
 /// An abstract unit used for dialog dimensions, independent of HiDPI and stuff.
@@ -231,4 +233,22 @@ pub struct DialogScaling {
     pub y_scale: f64,
     pub width_scale: f64,
     pub height_scale: f64,
+}
+
+pub struct Rect {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl From<raw::RECT> for Rect {
+    fn from(value: RECT) -> Self {
+        Self {
+            x: value.left,
+            y: value.top,
+            width: (value.right - value.left) as _,
+            height: (value.bottom - value.top) as _,
+        }
+    }
 }
