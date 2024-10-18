@@ -89,10 +89,10 @@ Helgobox is fired up just like any other VST instrument in REAPER: By adding it 
 Initially, you see the Helgobox plug-in, which mainly provides the ReaLearn user interface:
 
 .Main panel (containing the list of mappings)
-image::doc/images/screenshot-main-panel-annotated.svg[]
+image::doc/realearn/modules/ROOT/images/realearn/screenshots/main-panel.png[]
 
 .Mapping panel (for editing one particular mapping)
-image::doc/images/screenshot-mapping-panel.png[]
+image::doc/realearn/modules/ROOT/images/realearn/screenshots/mapping-panel.png[]
 
 But there's also the Helgobox app, which mainly provides the Playtime user interface.
 You can open it either from the plug-in's menu or by using the convenient "Playtime" button in the main toolbar.

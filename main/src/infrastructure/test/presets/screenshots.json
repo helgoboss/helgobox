@@ -1,0 +1,177 @@
+{
+  "mainUnit": {
+    "version": "2.16.10",
+    "id": "I3iqzlfV",
+    "letMatchedEventsThrough": true,
+    "stayActiveWhenProjectInBackground": "Always",
+    "controlDeviceId": "62",
+    "feedbackDeviceId": "fx-output",
+    "defaultGroup": {},
+    "defaultControllerGroup": {},
+    "mappings": [
+      {
+        "id": "134104a5-8eb1-4a07-b8a9-b65d0a8f74d3",
+        "name": "Track volume",
+        "source": {
+          "category": "virtual",
+          "type": 1,
+          "channel": 0,
+          "number": 64,
+          "controlElementIndex": "ch1/fader"
+        },
+        "mode": {
+          "minStepFactor": 1,
+          "maxStepFactor": 5
+        },
+        "target": {
+          "type": 2,
+          "trackIndex": 2,
+          "fxAnchor": "id",
+          "useSelectionGanging": false,
+          "useTrackGrouping": false,
+          "soloBehavior": 1,
+          "seekBehavior": "Immediate",
+          "mouseAction": {
+            "kind": "MoveTo",
+            "axis": "X"
+          },
+          "takeMappingSnapshot": {
+            "kind": "ById",
+            "id": ""
+          }
+        }
+      },
+      {
+        "id": "HYAJ4Toj7uJ1-c7rgYdiV",
+        "name": "Send volume",
+        "source": {
+          "category": "virtual",
+          "type": 1,
+          "channel": 0,
+          "number": 64,
+          "controlElementIndex": "ch1/v-pot"
+        },
+        "mode": {
+          "minStepFactor": 1,
+          "maxStepFactor": 5
+        },
+        "target": {
+          "type": 3,
+          "trackName": "Synth",
+          "fxAnchor": "id",
+          "useSelectionGanging": false,
+          "useTrackGrouping": false,
+          "soloBehavior": 1,
+          "seekBehavior": "Immediate",
+          "mouseAction": {
+            "kind": "MoveTo",
+            "axis": "X"
+          },
+          "takeMappingSnapshot": {
+            "kind": "ById",
+            "id": ""
+          }
+        }
+      },
+      {
+        "id": "9Ag8hTcHPi6bm8WtAh7hH",
+        "name": "Track pan",
+        "source": {
+          "type": 7,
+          "channel": 0,
+          "number": 64,
+          "controlElementIndex": "ch1/v-pot"
+        },
+        "mode": {
+          "minStepFactor": 1,
+          "maxStepFactor": 5
+        },
+        "target": {
+          "type": 4,
+          "trackName": "Piano",
+          "fxAnchor": "id",
+          "useSelectionGanging": false,
+          "useTrackGrouping": false,
+          "soloBehavior": 1,
+          "seekBehavior": "Immediate",
+          "mouseAction": {
+            "kind": "MoveTo",
+            "axis": "X"
+          },
+          "takeMappingSnapshot": {
+            "kind": "ById",
+            "id": ""
+          }
+        }
+      },
+      {
+        "id": "DKpyUNeMHTkNF8ARLrVJK",
+        "name": "Selected track volume",
+        "source": {
+          "type": 3,
+          "channel": 0,
+          "number": 64,
+          "controlElementIndex": "ch1/v-pot"
+        },
+        "mode": {
+          "minStepFactor": 1,
+          "maxStepFactor": 5
+        },
+        "target": {
+          "type": 2,
+          "trackGUID": "selected",
+          "fxAnchor": "id",
+          "useSelectionGanging": false,
+          "useTrackGrouping": false,
+          "soloBehavior": 1,
+          "seekBehavior": "Immediate",
+          "mouseAction": {
+            "kind": "MoveTo",
+            "axis": "X"
+          },
+          "takeMappingSnapshot": {
+            "kind": "ById",
+            "id": ""
+          }
+        }
+      },
+      {
+        "id": "0QrJZ0hi6dyw6aKlLvgqT",
+        "name": "Arm selected",
+        "source": {
+          "category": "virtual",
+          "type": 3,
+          "channel": 0,
+          "number": 64,
+          "controlElementType": "Button",
+          "controlElementIndex": "ch1/record-ready"
+        },
+        "mode": {
+          "minStepFactor": 1,
+          "maxStepFactor": 5
+        },
+        "target": {
+          "type": 5,
+          "trackGUID": "selected",
+          "fxAnchor": "id",
+          "useSelectionGanging": false,
+          "useTrackGrouping": false,
+          "soloBehavior": 1,
+          "seekBehavior": "Immediate",
+          "mouseAction": {
+            "kind": "MoveTo",
+            "axis": "X"
+          },
+          "takeMappingSnapshot": {
+            "kind": "ById",
+            "id": ""
+          }
+        }
+      }
+    ],
+    "instanceFx": {
+      "address": "Focused"
+    }
+  },
+  "additionalUnits": []
+}

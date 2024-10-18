@@ -1461,8 +1461,16 @@ mod macos_impl {
     pub async fn take_screenshots() {
         // Given
         let realearn = setup().await;
+        let project = realearn.track().project();
+        let reverb_track = project.add_track().unwrap();
+        reverb_track.set_name("Reverb");
+        let piano_track = project.add_track().unwrap();
+        piano_track.set_name("Piano");
+        let synth_track = project.add_track().unwrap();
+        synth_track.set_name("Synth");
+        synth_track.add_send_to(&reverb_track);
         // When
-        load_realearn_preset(&realearn, include_str!("presets/basics.json"));
+        load_realearn_preset(&realearn, include_str!("presets/screenshots.json"));
         moment().await;
         // Then
         realearn.outcome.fx.show_in_floating_window();
