@@ -1528,7 +1528,7 @@ mod macos_impl {
         shooter.save(group_window, "group-panel").await;
         group_panel.close();
         // Log and copy screenshot directory
-        log(format!("Screenshot directory: {:?}", &shooter.dir));
+        log(format!("Screenshot directory: {:?}\n", &shooter.dir));
         copy_text_to_clipboard(shooter.dir.to_string_lossy().to_string());
     }
 
