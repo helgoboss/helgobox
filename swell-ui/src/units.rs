@@ -235,20 +235,52 @@ pub struct DialogScaling {
     pub height_scale: f64,
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct Rect {
-    pub x: i32,
-    pub y: i32,
+    pub left: i32,
+    pub top: i32,
     pub width: u32,
     pub height: u32,
+}
+
+impl Rect {
+    pub fn contains(&self, point: Point<i32>) -> bool {
+        point.x >= self.left
+            && point.y >= self.top
+            && point.x < self.right()
+            && point.y < self.bottom()
+    }
+
+    pub fn right(&self) -> i32 {
+        self.left + self.width as i32
+    }
+
+    pub fn bottom(&self) -> i32 {
+        self.top + self.height as i32
+    }
+
+    // pub fn normalize(&self, parent_height: u32) -> Self {
+    //     #[cfg(target_os = "macos")]
+    //     {
+    //         Self {
+    //             top: parent_height as i32 - self.top,
+    //             ..*self
+    //         }
+    //     }
+    //     #[cfg(not(target_os = "macos"))]
+    //     {
+    //         *self
+    //     }
+    // }
 }
 
 impl From<raw::RECT> for Rect {
     fn from(value: RECT) -> Self {
         Self {
-            x: value.left,
-            y: value.top,
-            width: (value.right - value.left) as _,
-            height: (value.bottom - value.top) as _,
+            left: value.left,
+            top: value.top,
+            width: (value.right - value.left).abs() as _,
+            height: (value.bottom - value.top).abs() as _,
         }
     }
 }

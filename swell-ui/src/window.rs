@@ -37,6 +37,11 @@ impl Window {
         Self::new(window_ptr as _).ok_or("couldn't obtain window from raw window handle")
     }
 
+    /// Attention: On macOS, this returns the first subview, not the first child window.
+    pub fn next_child(prev_child: Window) -> Option<Window> {
+        get_related_window(prev_child, raw::GW_HWNDNEXT)
+    }
+
     pub fn screen_size() -> Dimensions<Pixels> {
         Dimensions::new(Self::screen_width(), Self::screen_height())
     }
@@ -113,18 +118,40 @@ impl Window {
         ));
     }
 
+    pub fn screen_to_client(&self, rect: &RECT) -> Rect {
+        let mut top_left = raw::POINT {
+            x: rect.left,
+            y: rect.top,
+        };
+        let mut bottom_right = raw::POINT {
+            x: rect.right,
+            y: rect.bottom,
+        };
+        unsafe {
+            let swell = Swell::get();
+            swell.ScreenToClient(self.raw, &mut top_left as *mut _);
+            swell.ScreenToClient(self.raw, &mut bottom_right as *mut _);
+        }
+        Rect {
+            left: top_left.x,
+            top: top_left.y,
+            width: (bottom_right.x - top_left.x) as _,
+            height: (bottom_right.y - top_left.y) as _,
+        }
+    }
+
     pub fn client_size(self) -> Dimensions<Pixels> {
         let rect = self.client_rect();
         Dimensions::new(
-            Pixels(rect.right as u32 - rect.left as u32),
-            Pixels(rect.bottom as u32 - rect.top as u32),
+            Pixels(rect.right() as u32 - rect.left as u32),
+            Pixels(rect.bottom() as u32 - rect.top as u32),
         )
     }
 
-    pub fn client_rect(self) -> RECT {
+    pub fn client_rect(self) -> Rect {
         let mut rect = RECT::default();
         unsafe { Swell::get().GetClientRect(self.raw, &mut rect) };
-        rect
+        rect.into()
     }
 
     pub fn raw_hwnd(self) -> Hwnd {
@@ -269,10 +296,8 @@ impl Window {
     }
 
     /// Attention: On macOS, this returns the first subview, not the first child window.
-    pub fn first_child(&self) -> Option<Window> {
-        let swell = Swell::get();
-        let ptr = unsafe { swell.GetWindow(self.raw, raw::GW_CHILD as _) };
-        Window::new(ptr)
+    pub fn first_child(self) -> Option<Window> {
+        get_related_window(self, raw::GW_CHILD)
     }
 
     #[cfg(target_os = "linux")]
@@ -633,6 +658,19 @@ impl Window {
         }
     }
 
+    pub fn children(self) -> impl Iterator<Item = Window> {
+        let mut child = self.first_child();
+        child.into_iter().chain(
+            (0..)
+                .map(move |_| {
+                    child = Window::next_child(child?);
+                    child
+                })
+                .take_while(|w| w.is_some())
+                .map(|w| w.unwrap()),
+        )
+    }
+
     pub fn resize_first_child_according_to_parent(self) {
         unsafe {
             extern "C" fn resize_proc(arg1: raw::HWND, _arg2: raw::LPARAM) -> raw::BOOL {
@@ -770,12 +808,13 @@ impl Window {
         }
     }
 
-    pub fn window_rect(self) -> Rect {
+    /// Uses the OS coordinate system. On macOS, y == 0 is at the bottom of the screen!
+    pub fn window_rect(self) -> raw::RECT {
         let mut rect = RECT::default();
         unsafe {
             Swell::get().GetWindowRect(self.raw, &mut rect as *mut _);
         }
-        rect.into()
+        rect
     }
 
     pub fn move_to_pixels(self, point: Point<Pixels>) {
@@ -950,7 +989,7 @@ impl XBridgeWindow {
     /// Usually an empty window.
     pub fn create(parent_window: Window) -> Result<Self, &'static str> {
         let mut x_window_id: core::ffi::c_ulong = 0;
-        let rect = parent_window.client_rect();
+        let rect: raw::RECT = parent_window.client_rect().into();
         let x_bridge_hwnd = unsafe {
             Swell::get().SWELL_CreateXBridgeWindow(
                 parent_window.raw(),
@@ -1046,4 +1085,10 @@ impl ZOrder {
             ZOrder::Top => 0 as _,
         }
     }
+}
+
+fn get_related_window(window: Window, relation: u32) -> Option<Window> {
+    let swell = Swell::get();
+    let ptr = unsafe { swell.GetWindow(window.raw, relation as _) };
+    Window::new(ptr)
 }

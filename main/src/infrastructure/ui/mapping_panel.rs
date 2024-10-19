@@ -36,8 +36,8 @@ use helgobox_api::persistence::{
     TrackToolAction, VirtualControlElementCharacter,
 };
 use swell_ui::{
-    DeviceContext, DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView,
-    Window,
+    DeviceContext, DialogUnits, Pixels, Point, SharedView, SwellStringArg, View, ViewContext,
+    WeakView, Window,
 };
 
 use crate::application::{
@@ -74,6 +74,7 @@ use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::menus::{get_midi_input_device_list_label, get_param_name};
+use crate::infrastructure::ui::ui_element_container::{UiElement, UiElementContainer};
 use crate::infrastructure::ui::util::colors::ColorPair;
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, colors, compartment_parameter_dropdown_contents,
@@ -106,6 +107,7 @@ pub struct MappingPanel {
     extra_panel: RefCell<Option<SharedView<dyn View>>>,
     last_touched_mode_parameter: RefCell<Prop<Option<ModeParameter>>>,
     last_touched_source_character: RefCell<Prop<Option<DetailedSourceCharacter>>>,
+    ui_element_container: RefCell<UiElementContainer>,
     // Fires when a mapping is about to change or the panel is hidden.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
@@ -164,6 +166,7 @@ impl MappingPanel {
             extra_panel: Default::default(),
             last_touched_mode_parameter: Default::default(),
             last_touched_source_character: Default::default(),
+            ui_element_container: Default::default(),
             party_is_over_subject: Default::default(),
         }
     }
@@ -3896,6 +3899,89 @@ impl<'a> MutableMappingPanel<'a> {
     }
 }
 
+const SOURCE_MIN_MAX_ELEMENTS: &[u32] = &[
+    root::ID_SETTINGS_SOURCE_LABEL,
+    #[cfg(not(target_os = "macos"))]
+    root::ID_SETTINGS_SOURCE_GROUP,
+    root::ID_SETTINGS_SOURCE_MIN_LABEL,
+    root::ID_SETTINGS_SOURCE_MAX_LABEL,
+    root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL,
+    root::ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL,
+    root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL,
+    root::ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL,
+];
+const OUT_OF_RANGE_ELEMENTS: &[u32] = &[
+    root::ID_MODE_OUT_OF_RANGE_LABEL_TEXT,
+    root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX,
+];
+const GROUP_INTERACTION_ELEMENTS: &[u32] = &[
+    root::ID_MODE_GROUP_INTERACTION_LABEL_TEXT,
+    root::ID_MODE_GROUP_INTERACTION_COMBO_BOX,
+];
+const VALUE_SEQUENCE_ELEMENTS: &[u32] = &[
+    root::ID_SETTINGS_TARGET_SEQUENCE_LABEL_TEXT,
+    root::ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL,
+];
+const TARGET_MIN_MAX_ELEMENTS: &[u32] = &[
+    root::ID_SETTINGS_TARGET_LABEL_TEXT,
+    #[cfg(not(target_os = "macos"))]
+    root::ID_SETTINGS_TARGET_GROUP,
+    root::ID_SETTINGS_MIN_TARGET_LABEL_TEXT,
+    root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL,
+    root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL,
+    root::ID_SETTINGS_MIN_TARGET_VALUE_TEXT,
+    root::ID_SETTINGS_MAX_TARGET_LABEL_TEXT,
+    root::ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL,
+    root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL,
+    root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
+];
+const FEEDBACK_TYPE_ELEMENTS: &[u32] = &[root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX];
+const ROUND_TARGET_VALUE_ELEMENTS: &[u32] = &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX];
+const TAKEOVER_MODE_ELEMENTS: &[u32] = &[root::ID_MODE_TAKEOVER_LABEL, root::ID_MODE_TAKEOVER_MODE];
+const CONTROL_TRANSFORMATION_ELEMENTS: &[u32] = &[
+    root::ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL,
+    root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL,
+    root::ID_MODE_EEL_CONTROL_TRANSFORMATION_DETAIL_BUTTON,
+];
+const ABSOLUTE_MODE_ELEMENTS: &[u32] = &[
+    root::ID_SETTINGS_MODE_COMBO_BOX,
+    root::ID_SETTINGS_MODE_LABEL,
+];
+const STEP_MIN_ELEMENTS: &[u32] = &[
+    root::ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT,
+    #[cfg(not(target_os = "macos"))]
+    root::ID_SETTINGS_STEP_SIZE_GROUP,
+    root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
+    root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
+    root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
+];
+const STEP_MAX_ELEMENTS: &[u32] = &[
+    root::ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT,
+    root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
+    root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
+    root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
+];
+const MAKE_ABSOLUTE_ELEMENTS: &[u32] = &[root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX];
+const RELATIVE_FILTER_ELEMENTS: &[u32] = &[root::ID_MODE_RELATIVE_FILTER_COMBO_BOX];
+const FIRE_MODE_ELEMENTS: &[u32] = &[
+    root::ID_MODE_FIRE_COMBO_BOX,
+    root::ID_MODE_FIRE_LINE_2_LABEL_1,
+    root::ID_MODE_FIRE_LINE_2_SLIDER_CONTROL,
+    root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL,
+    root::ID_MODE_FIRE_LINE_2_LABEL_2,
+    root::ID_MODE_FIRE_LINE_3_LABEL_1,
+    root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL,
+    root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL,
+    root::ID_MODE_FIRE_LINE_3_LABEL_2,
+];
+const REVERSE_ELEMENTS: &[u32] = &[root::ID_SETTINGS_REVERSE_CHECK_BOX];
+const FEEDBACK_TRANSFORMATION_ELEMENTS: &[u32] = &[
+    root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
+    root::IDC_MODE_FEEDBACK_TYPE_BUTTON,
+];
+const ROTATE_ELEMENTS: &[u32] = &[root::ID_SETTINGS_ROTATE_CHECK_BOX];
+const BUTTON_FILTER_ELEMENTS: &[u32] = &[root::ID_MODE_BUTTON_FILTER_COMBO_BOX];
+
 impl<'a> ImmutableMappingPanel<'a> {
     // For hitting target with on/off or -/+ depending on target character.
     fn hit_target_special(&self, state: bool) -> Result<(), &'static str> {
@@ -4146,7 +4232,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_control_visibilities(&self) {
         let source = self.source;
         // Show/hide stuff
-        self.show_if(
+        self.enable_if(
             source.supports_type(),
             &[
                 root::ID_SOURCE_TYPE_LABEL_TEXT,
@@ -4155,15 +4241,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
     }
 
-    fn show_if(&self, condition: bool, control_resource_ids: &[u32]) {
-        for id in control_resource_ids {
-            self.view.require_control(*id).set_visible(condition);
-        }
-    }
-
     fn enable_if(&self, condition: bool, control_resource_ids: &[u32]) {
         for id in control_resource_ids {
             if let Some(control) = self.view.require_window().find_control(*id) {
+                self.panel
+                    .ui_element_container
+                    .borrow_mut()
+                    .set_visible(*id, condition);
                 control.set_visible(condition);
             }
         }
@@ -6160,7 +6244,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             } else {
                 (Some("Target inactive!"), false, false, None, false)
             };
-        self.show_if(
+        self.enable_if(
             read_enabled,
             &[
                 root::ID_TARGET_VALUE_LABEL_TEXT,
@@ -6402,38 +6486,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         // For all source characters
         {
             let show_source_min_max = is_relevant(ModeParameter::SourceMinMax);
-            self.enable_if(
-                show_source_min_max,
-                &[
-                    root::ID_SETTINGS_SOURCE_LABEL,
-                    #[cfg(not(target_os = "macos"))]
-                    root::ID_SETTINGS_SOURCE_GROUP,
-                    root::ID_SETTINGS_SOURCE_MIN_LABEL,
-                    root::ID_SETTINGS_SOURCE_MAX_LABEL,
-                    root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL,
-                    root::ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL,
-                    root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL,
-                    root::ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL,
-                ],
-            );
+            self.enable_if(show_source_min_max, SOURCE_MIN_MAX_ELEMENTS);
             let show_reverse = is_relevant(ModeParameter::Reverse);
-            self.enable_if(show_reverse, &[root::ID_SETTINGS_REVERSE_CHECK_BOX]);
+            self.enable_if(show_reverse, REVERSE_ELEMENTS);
             let show_out_of_range_behavior = is_relevant(ModeParameter::OutOfRangeBehavior);
-            self.enable_if(
-                show_out_of_range_behavior,
-                &[
-                    root::ID_MODE_OUT_OF_RANGE_LABEL_TEXT,
-                    root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX,
-                ],
-            );
+            self.enable_if(show_out_of_range_behavior, OUT_OF_RANGE_ELEMENTS);
             let show_group_interaction = is_relevant(ModeParameter::GroupInteraction);
-            self.enable_if(
-                show_group_interaction,
-                &[
-                    root::ID_MODE_GROUP_INTERACTION_LABEL_TEXT,
-                    root::ID_MODE_GROUP_INTERACTION_COMBO_BOX,
-                ],
-            );
+            self.enable_if(show_group_interaction, GROUP_INTERACTION_ELEMENTS);
             let target_controls_make_sense = if target_wants_relative_control
                 && (!feedback_is_on || !target_can_report_current_value)
             {
@@ -6444,78 +6503,32 @@ impl<'a> ImmutableMappingPanel<'a> {
             let show_target_value_sequence = target_controls_make_sense
                 && is_relevant(ModeParameter::TargetValueSequence)
                 && real_target.is_some();
-            self.enable_if(
-                show_target_value_sequence,
-                &[
-                    root::ID_SETTINGS_TARGET_SEQUENCE_LABEL_TEXT,
-                    root::ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL,
-                ],
-            );
+            self.enable_if(show_target_value_sequence, VALUE_SEQUENCE_ELEMENTS);
             let show_target_min_max = target_controls_make_sense
                 && is_relevant(ModeParameter::TargetMinMax)
                 && real_target.is_some();
-            self.enable_if(
-                show_target_min_max,
-                &[
-                    root::ID_SETTINGS_TARGET_LABEL_TEXT,
-                    #[cfg(not(target_os = "macos"))]
-                    root::ID_SETTINGS_TARGET_GROUP,
-                    root::ID_SETTINGS_MIN_TARGET_LABEL_TEXT,
-                    root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL,
-                    root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL,
-                    root::ID_SETTINGS_MIN_TARGET_VALUE_TEXT,
-                    root::ID_SETTINGS_MAX_TARGET_LABEL_TEXT,
-                    root::ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL,
-                    root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL,
-                    root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
-                ],
-            );
+            self.enable_if(show_target_min_max, TARGET_MIN_MAX_ELEMENTS);
             let show_feedback_transformation = is_relevant(ModeParameter::FeedbackTransformation)
                 || is_relevant(ModeParameter::TextualFeedbackExpression);
             self.enable_if(
                 show_feedback_transformation,
-                &[
-                    root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
-                    root::IDC_MODE_FEEDBACK_TYPE_BUTTON,
-                ],
+                FEEDBACK_TRANSFORMATION_ELEMENTS,
             );
             let show_feedback_type = is_relevant(ModeParameter::FeedbackType);
-            self.enable_if(
-                show_feedback_type,
-                &[root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX],
-            );
+            self.enable_if(show_feedback_type, FEEDBACK_TYPE_ELEMENTS);
         }
         // For knobs/faders and buttons
         {
             let show_round_controls = is_relevant(ModeParameter::RoundTargetValue)
                 && self.target_with_context().is_known_to_be_roundable();
-            self.enable_if(
-                show_round_controls,
-                &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
-            );
+            self.enable_if(show_round_controls, ROUND_TARGET_VALUE_ELEMENTS);
             let show_takeover =
                 target_can_report_current_value && is_relevant(ModeParameter::TakeoverMode);
-            self.enable_if(
-                show_takeover,
-                &[root::ID_MODE_TAKEOVER_LABEL, root::ID_MODE_TAKEOVER_MODE],
-            );
+            self.enable_if(show_takeover, TAKEOVER_MODE_ELEMENTS);
             let show_control_transformation = is_relevant(ModeParameter::ControlTransformation);
-            self.enable_if(
-                show_control_transformation,
-                &[
-                    root::ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL,
-                    root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL,
-                    root::ID_MODE_EEL_CONTROL_TRANSFORMATION_DETAIL_BUTTON,
-                ],
-            );
+            self.enable_if(show_control_transformation, CONTROL_TRANSFORMATION_ELEMENTS);
             let show_absolute_mode = is_relevant(ModeParameter::AbsoluteMode);
-            self.enable_if(
-                show_absolute_mode,
-                &[
-                    root::ID_SETTINGS_MODE_COMBO_BOX,
-                    root::ID_SETTINGS_MODE_LABEL,
-                ],
-            );
+            self.enable_if(show_absolute_mode, ABSOLUTE_MODE_ELEMENTS);
             self.enable_if(
                 show_round_controls
                     || show_takeover
@@ -6536,38 +6549,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                 step_min_is_relevant || step_max_is_relevant,
                 &[root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT],
             );
-            self.enable_if(
-                step_min_is_relevant,
-                &[
-                    root::ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT,
-                    #[cfg(not(target_os = "macos"))]
-                    root::ID_SETTINGS_STEP_SIZE_GROUP,
-                    root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
-                    root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
-                    root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
-                ],
-            );
-            self.enable_if(
-                step_max_is_relevant,
-                &[
-                    root::ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT,
-                    root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
-                    root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
-                    root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
-                ],
-            );
+            self.enable_if(step_min_is_relevant, STEP_MIN_ELEMENTS);
+            self.enable_if(step_max_is_relevant, STEP_MAX_ELEMENTS);
             let show_rotate = is_relevant(ModeParameter::Rotate);
-            self.enable_if(show_rotate, &[root::ID_SETTINGS_ROTATE_CHECK_BOX]);
+            self.enable_if(show_rotate, ROTATE_ELEMENTS);
             let show_make_absolute = is_relevant(ModeParameter::MakeAbsolute);
-            self.enable_if(
-                show_make_absolute,
-                &[root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX],
-            );
+            self.enable_if(show_make_absolute, MAKE_ABSOLUTE_ELEMENTS);
             let show_relative_filter = is_relevant(ModeParameter::RelativeFilter);
-            self.enable_if(
-                show_relative_filter,
-                &[root::ID_MODE_RELATIVE_FILTER_COMBO_BOX],
-            );
+            self.enable_if(show_relative_filter, RELATIVE_FILTER_ELEMENTS);
             self.enable_if(
                 step_min_is_relevant
                     || step_max_is_relevant
@@ -6580,22 +6569,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         // For buttons
         {
             let show_button_filter = is_relevant(ModeParameter::ButtonFilter);
-            self.enable_if(show_button_filter, &[root::ID_MODE_BUTTON_FILTER_COMBO_BOX]);
+            self.enable_if(show_button_filter, BUTTON_FILTER_ELEMENTS);
             let show_fire_mode = is_relevant(ModeParameter::FireMode);
-            self.enable_if(
-                show_fire_mode,
-                &[
-                    root::ID_MODE_FIRE_COMBO_BOX,
-                    root::ID_MODE_FIRE_LINE_2_LABEL_1,
-                    root::ID_MODE_FIRE_LINE_2_SLIDER_CONTROL,
-                    root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL,
-                    root::ID_MODE_FIRE_LINE_2_LABEL_2,
-                    root::ID_MODE_FIRE_LINE_3_LABEL_1,
-                    root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL,
-                    root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL,
-                    root::ID_MODE_FIRE_LINE_3_LABEL_2,
-                ],
-            );
+            self.enable_if(show_fire_mode, FIRE_MODE_ELEMENTS);
             self.enable_if(
                 show_button_filter || show_fire_mode,
                 &[root::ID_MODE_BUTTON_GROUP_BOX],
@@ -6749,7 +6725,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 initiator,
             );
         }
-        self.show_if(
+        self.enable_if(
             label.is_some(),
             &[
                 root::ID_MODE_FIRE_LINE_2_SLIDER_CONTROL,
@@ -6791,7 +6767,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 initiator,
             );
         }
-        self.show_if(
+        self.enable_if(
             option.is_some(),
             &[
                 root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL,
@@ -7138,6 +7114,15 @@ impl View for MappingPanel {
             self.glue_color_panel.clone().open(window);
             self.help_color_panel.clone().open(window);
         }
+        let mut container = self.ui_element_container.borrow_mut();
+        for child in window.children() {
+            let element = UiElement {
+                id: child.resource_id(),
+                rect: window.screen_to_client(&child.window_rect()),
+                visible: child.is_visible(),
+            };
+            container.add_element(element);
+        }
         true
     }
 
@@ -7186,6 +7171,7 @@ impl View for MappingPanel {
 
     fn on_destroy(self: SharedView<Self>, _window: Window) {
         self.window_cache.replace(None);
+        self.ui_element_container.replace(Default::default());
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
@@ -7490,10 +7476,18 @@ impl View for MappingPanel {
         }
     }
 
-    // fn mouse_moved(self: SharedView<Self>, position: Point<Pixels>) -> bool {
-    //     // dbg!(position);
-    //     false
-    // }
+    fn mouse_moved(self: SharedView<Self>, position: Point<Pixels>) -> bool {
+        let container = self.ui_element_container.borrow();
+        let mut resource_ids =
+            container.hit_test(Point::new(position.x.get() as _, position.y.get() as _));
+        let mode_param = resource_ids
+            .find(|id| *id != 0)
+            .and_then(find_mode_parameter_associated_with_resource);
+        self.last_touched_mode_parameter
+            .borrow_mut()
+            .set(mode_param);
+        false
+    }
 }
 
 const SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 570;
@@ -8546,4 +8540,40 @@ impl Section {
             Section::Help => colors::help(),
         }
     }
+}
+
+fn find_mode_parameter_associated_with_resource(id: u32) -> Option<ModeParameter> {
+    use ModeParameter::*;
+    const RESOURCES_TO_MODE_PARAM: &[(&[u32], ModeParameter)] = &[
+        (SOURCE_MIN_MAX_ELEMENTS, SourceMinMax),
+        (REVERSE_ELEMENTS, Reverse),
+        (OUT_OF_RANGE_ELEMENTS, OutOfRangeBehavior),
+        (TAKEOVER_MODE_ELEMENTS, TakeoverMode),
+        (CONTROL_TRANSFORMATION_ELEMENTS, ControlTransformation),
+        (VALUE_SEQUENCE_ELEMENTS, TargetValueSequence),
+        (TARGET_MIN_MAX_ELEMENTS, TargetMinMax),
+        (STEP_MIN_ELEMENTS, StepSizeMin),
+        (STEP_MAX_ELEMENTS, StepSizeMax),
+        (RELATIVE_FILTER_ELEMENTS, RelativeFilter),
+        (FIRE_MODE_ELEMENTS, FireMode),
+        (MAKE_ABSOLUTE_ELEMENTS, MakeAbsolute),
+        (FEEDBACK_TYPE_ELEMENTS, FeedbackType),
+        (ROUND_TARGET_VALUE_ELEMENTS, RoundTargetValue),
+        (ABSOLUTE_MODE_ELEMENTS, AbsoluteMode),
+        (GROUP_INTERACTION_ELEMENTS, GroupInteraction),
+        (FEEDBACK_TRANSFORMATION_ELEMENTS, FeedbackTransformation),
+        (ROTATE_ELEMENTS, Rotate),
+        (BUTTON_FILTER_ELEMENTS, ButtonFilter),
+    ];
+    // 0 => TextualFeedbackExpression,
+    // 0 => StepFactorMin,
+    // 0 => StepFactorMax,
+    RESOURCES_TO_MODE_PARAM
+        .iter()
+        .find_map(|(elements, param)| {
+            if !elements.contains(&id) {
+                return None;
+            }
+            Some(*param)
+        })
 }
