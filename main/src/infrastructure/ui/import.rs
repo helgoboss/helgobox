@@ -209,50 +209,59 @@ pub fn deserialize_data_object(
     };
     // That didn't work. Execute as Lua.
     let lua = SafeLua::new()?;
-    let value = execute_lua_import_script(&lua, text, conversion_context.compartment(), true)?;
-    // At first try deserializing as Lua API object
-    let lua_api_object_result = SafeLua::from_value::<ApiObject>(value.clone())
-        .and_then(|api_object| {
-            DataObject::try_from_api_object(api_object, conversion_context)
-                .context("converting API object to data object")
-        })
-        .map(UntaggedDataObject::Tagged);
-    let lua_api_object_error = match lua_api_object_result {
-        Ok(object) => return Ok(object),
-        Err(e) => e,
-    };
-    // That wasn't it. Try deserializing as Lua preset.
-    // We don't need the full metadata here (controller/main-preset specific), just the common one.
-    // Actually only the version is important because it might influence import behavior.
-    let lua_preset_result = parse_lua_frontmatter::<CommonPresetMetaData>(text)
-        .and_then(|meta_data| {
-            let compartment = SafeLua::from_value::<persistence::Compartment>(value)?;
-            warn_about_unknown_props("importing as Lua preset", &compartment.unknown_props);
-            // When importing a Lua preset, we expect at least the "mappings" property. It's not strictly necessary
-            // for a preset to have mappings, but when importing stuff it's important that we have good error reporting.
-            // If we accept pretty much all possible tables as valid Lua preset, the user will never see an error
-            // message when he made a grave error, e.g. providing a completely different data structure with only
-            // unknown properties.
-            compartment
-                .mappings
-                .as_ref()
-                .context("property \"mappings\" not provided")?;
-            Ok((meta_data, compartment))
-        })
-        .and_then(|(meta_data, compartment)| {
-            let compartment_data =
-                to_data::convert_compartment(conversion_context.compartment(), compartment)?;
-            let common_preset_data = CommonPresetData {
-                version: meta_data.realearn_version,
-                name: meta_data.name,
-                data: Box::new(compartment_data),
+    let lua_execution_result =
+        execute_lua_import_script(&lua, text, conversion_context.compartment(), true);
+    let (lua_execution_error, lua_api_object_error, lua_preset_error) = match lua_execution_result {
+        Err(e) => (Some(e), None, None),
+        Ok(value) => {
+            // At first try deserializing as Lua API object
+            let lua_api_object_result = SafeLua::from_value::<ApiObject>(value.clone())
+                .and_then(|api_object| {
+                    DataObject::try_from_api_object(api_object, conversion_context)
+                        .context("converting API object to data object")
+                })
+                .map(UntaggedDataObject::Tagged);
+            let lua_api_object_error = match lua_api_object_result {
+                Ok(object) => return Ok(object),
+                Err(e) => e,
             };
-            Ok(common_preset_data)
-        })
-        .map(UntaggedDataObject::PresetLike);
-    let lua_preset_error = match lua_preset_result {
-        Ok(object) => return Ok(object),
-        Err(e) => e,
+            // That wasn't it. Try deserializing as Lua preset.
+            // We don't need the full metadata here (controller/main-preset specific), just the common one.
+            // Actually only the version is important because it might influence import behavior.
+            let lua_preset_result = parse_lua_frontmatter::<CommonPresetMetaData>(text)
+                .and_then(|meta_data| {
+                    let compartment = SafeLua::from_value::<persistence::Compartment>(value)?;
+                    warn_about_unknown_props("importing as Lua preset", &compartment.unknown_props);
+                    // When importing a Lua preset, we expect at least the "mappings" property. It's not strictly necessary
+                    // for a preset to have mappings, but when importing stuff it's important that we have good error reporting.
+                    // If we accept pretty much all possible tables as valid Lua preset, the user will never see an error
+                    // message when he made a grave error, e.g. providing a completely different data structure with only
+                    // unknown properties.
+                    compartment
+                        .mappings
+                        .as_ref()
+                        .context("property \"mappings\" not provided")?;
+                    Ok((meta_data, compartment))
+                })
+                .and_then(|(meta_data, compartment)| {
+                    let compartment_data = to_data::convert_compartment(
+                        conversion_context.compartment(),
+                        compartment,
+                    )?;
+                    let common_preset_data = CommonPresetData {
+                        version: meta_data.realearn_version,
+                        name: meta_data.name,
+                        data: Box::new(compartment_data),
+                    };
+                    Ok(common_preset_data)
+                })
+                .map(UntaggedDataObject::PresetLike);
+            let lua_preset_error = match lua_preset_result {
+                Ok(object) => return Ok(object),
+                Err(e) => e,
+            };
+            (None, Some(lua_api_object_error), Some(lua_preset_error))
+        }
     };
     // Nothing fits :(
     bail!(
@@ -261,10 +270,12 @@ pub fn deserialize_data_object(
         {json_data_object_error}\n\n\
         Invalid JSON preset:\n\
         {json_preset_error:#}\n\n\
+        Invalid Lua code:\n\
+        {lua_execution_error:#?}\n\n\
         Invalid Lua API object:\n\
-        {lua_api_object_error:#}\n\n\
+        {lua_api_object_error:#?}\n\n\
         Invalid Lua preset:\n\
-        {lua_preset_error}"
+        {lua_preset_error:#?}"
     );
 }
 
