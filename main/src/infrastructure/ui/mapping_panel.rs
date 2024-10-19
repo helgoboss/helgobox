@@ -41,17 +41,17 @@ use swell_ui::{
 };
 
 use crate::application::{
-    format_osc_feedback_args, get_bookmark_label_by_id, get_fx_label, get_fx_param_label,
-    get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
-    parse_osc_feedback_args, Affected, AutomationModeOverrideType, BookmarkAnchorType, Change,
-    CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext,
-    MappingCommand, MappingModel, MappingModificationKind, MappingProp, MappingRefModel,
-    MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel,
-    ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, SessionProp,
-    SharedMapping, SharedUnitModel, SourceCategory, SourceCommand, SourceModel, SourceProp,
-    TargetCategory, TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
-    TargetProp, TargetUnit, TrackRouteSelectorType, UnitModel, VirtualFxParameterType,
-    VirtualFxType, VirtualTrackType, WeakUnitModel, KEY_UNDEFINED_LABEL,
+    build_smart_command_name_from_action, format_osc_feedback_args, get_bookmark_label_by_id,
+    get_fx_label, get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label,
+    get_route_label, parse_osc_feedback_args, Affected, AutomationModeOverrideType,
+    BookmarkAnchorType, Change, CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction,
+    MappingChangeContext, MappingCommand, MappingModel, MappingModificationKind, MappingProp,
+    MappingRefModel, MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake, MidiSourceType,
+    ModeCommand, ModeModel, ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType,
+    SessionProp, SharedMapping, SharedUnitModel, SourceCategory, SourceCommand, SourceModel,
+    SourceProp, TargetCategory, TargetCommand, TargetModel, TargetModelFormatVeryShort,
+    TargetModelWithContext, TargetProp, TargetUnit, TrackRouteSelectorType, UnitModel,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakUnitModel, KEY_UNDEFINED_LABEL,
 };
 use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::{
@@ -928,11 +928,14 @@ impl MappingPanel {
                         move |r| {
                             if let PromptForActionResult::Selected(command_id) = r {
                                 let session = weak_session.upgrade().expect("session gone");
+                                let action = Reaper::get()
+                                    .main_section()
+                                    .action_by_command_id(command_id);
                                 let mut mapping = shared_mapping.borrow_mut();
                                 let cmd = MappingCommand::ChangeTarget(
-                                    TargetCommand::SetSmartCommandName(Some(
-                                        command_id.get().to_string(),
-                                    )),
+                                    TargetCommand::SetSmartCommandName(
+                                        build_smart_command_name_from_action(&action),
+                                    ),
                                 );
                                 session.borrow_mut().change_mapping_from_ui_expert(
                                     &mut mapping,
