@@ -318,7 +318,7 @@ unsafe extern "C" fn view_dialog_proc(
             }
         })
     })
-    .unwrap_or(0)
+        .unwrap_or(0)
 }
 
 fn loword(wparam: usize) -> u16 {
