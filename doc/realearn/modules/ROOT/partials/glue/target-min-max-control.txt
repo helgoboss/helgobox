@@ -1,1 +1,0 @@
-Makes sure the target value will end up in the specified range.

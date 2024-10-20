@@ -23,13 +23,15 @@ Please note that not all targets can be picked that way, some have to be configu
 Go there (if supported):: If applicable, this makes the target of this mapping visible in REAPER.
 E.g. if the target is a track FX parameter, the corresponding track FX window will be displayed.
 
+[#category]
 == Category menu
 
 Lets you choose the target category.
 
+[#type]
 == Type menu
 
-Lets you choose a target type within that category.
+Lets you choose a target type within that category. See xref:target-types.adoc[].
 
 == Value section and field
 
@@ -37,8 +39,8 @@ Reflects the current value of this mapping target and lets you change it (either
 
 If the target can't be resolved at the moment, it will show "Target currently inactive!" instead.
 
-[[target-unit-button]]
-== Target unit button
+[[display-unit]]
+== Display unit button
 
 On the right side of the current value you will see a button with a label such as `1. dB (%)`.
 This button displays the currently selected target unit (unrelated to the xref:key-concepts.adoc#unit[] concept) which is used for displaying and entering target values.

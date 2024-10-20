@@ -1,0 +1,1 @@
+sets the observed range of absolute control values coming from the source

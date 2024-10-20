@@ -1,4 +1,3 @@
-
 = Source section
 
 image:realearn/screenshots/mapping-panel-source.png[Screenshot]
@@ -9,14 +8,13 @@ All xref:source-types.adoc#source-types[] share the following UI elements.
 
 Starts or stops learning the xref:key-concepts.adoc#source[] of this mapping.
 
+[#category]
 == Category menu
 
 Lets you choose the source category.
 
+[#type]
 == Type menu
 
-Lets you choose the source type.
-Available types depend on the selected category.
-
-All other UI elements in this section depend on the chosen source type.
+Lets you choose the source type within that category.
 See xref:source-types.adoc#source-types[].

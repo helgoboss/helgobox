@@ -1,0 +1,1 @@
+allows to adjust when ReaLearn sends feedback in order to improve compatibility with certain controllers

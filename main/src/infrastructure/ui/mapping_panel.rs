@@ -73,7 +73,9 @@ use crate::domain::{
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
-use crate::infrastructure::ui::help::HelpTopic;
+use crate::infrastructure::ui::help::{
+    ConceptTopic, HelpTopic, HelpTopicDescription, MappingTopic, SourceTopic, TargetTopic,
+};
 use crate::infrastructure::ui::menus::{get_midi_input_device_list_label, get_param_name};
 use crate::infrastructure::ui::ui_element_container::{UiElement, UiElementContainer};
 use crate::infrastructure::ui::util::colors::ColorPair;
@@ -870,7 +872,7 @@ impl MappingPanel {
         Ok(())
     }
 
-    fn open_help_for_current_ui_element(&self) -> Option<()> {
+    fn open_detailed_help_for_current_ui_element(&self) -> Option<()> {
         let topic = self.active_help_topic.borrow().get()?;
         let help_url = topic.get_details()?;
         open_in_browser(&help_url.doc_url);
@@ -4004,18 +4006,42 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_help_internal(&self) -> Option<()> {
         let topic = self.panel.active_help_topic.borrow().get()?;
         let details = topic.get_details()?;
-        self.view
-            .require_control(root::ID_MAPPING_HELP_LEFT_SUBJECT_LABEL)
-            .set_text(format!("{topic}: In control direction it ..."));
-        self.view
-            .require_control(root::ID_MAPPING_HELP_LEFT_CONTENT_LABEL)
-            .set_multi_line_text(details.control_desc);
-        self.view
-            .require_control(root::ID_MAPPING_HELP_RIGHT_SUBJECT_LABEL)
-            .set_text("... and in feedback direction: (Press F1 to learn more)");
-        self.view
-            .require_control(root::ID_MAPPING_HELP_RIGHT_CONTENT_LABEL)
-            .set_multi_line_text(details.feedback_desc);
+        const HAS_NO_EFFECT: &str = "has no effect";
+        let left_label = self
+            .view
+            .require_control(root::ID_MAPPING_HELP_LEFT_SUBJECT_LABEL);
+        let left_content = self
+            .view
+            .require_control(root::ID_MAPPING_HELP_LEFT_CONTENT_LABEL);
+        let right_label = self
+            .view
+            .require_control(root::ID_MAPPING_HELP_RIGHT_SUBJECT_LABEL);
+        let right_content = self
+            .view
+            .require_control(root::ID_MAPPING_HELP_RIGHT_CONTENT_LABEL);
+        match details.description {
+            HelpTopicDescription::General(desc) => {
+                left_label.set_text(format!("{topic}:"));
+                left_content.set_multi_line_text(format!("This {desc}."));
+                right_label.set_text("");
+                right_content.set_multi_line_text("");
+            }
+            HelpTopicDescription::DirectionDependent {
+                control_desc,
+                feedback_desc,
+            } => {
+                left_label.set_text(format!("{topic}: In control direction, ..."));
+                left_content.set_multi_line_text(format!(
+                    "... this {}.",
+                    control_desc.unwrap_or(HAS_NO_EFFECT)
+                ));
+                right_label.set_text("In feedback direction, ... (Press F1 to learn more)");
+                right_content.set_multi_line_text(format!(
+                    "... this {}.",
+                    feedback_desc.unwrap_or(HAS_NO_EFFECT)
+                ));
+            }
+        }
         Some(())
     }
 
@@ -4045,7 +4071,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn clear_help(&self) {
         self.view
             .require_control(root::ID_MAPPING_HELP_LEFT_SUBJECT_LABEL)
-            .set_text("Help");
+            .set_text("");
         for id in [
             root::ID_MAPPING_HELP_RIGHT_SUBJECT_LABEL,
             root::ID_MAPPING_HELP_LEFT_CONTENT_LABEL,
@@ -6999,7 +7025,7 @@ impl View for MappingPanel {
             let element = UiElement {
                 id: child.resource_id(),
                 rect: window.screen_to_client(&child.window_rect()),
-                visible: child.is_visible(),
+                visible: true,
             };
             container.add_element(element);
         }
@@ -7365,7 +7391,7 @@ impl View for MappingPanel {
 
     fn key_up(self: SharedView<Self>, key_code: u8) -> bool {
         match key_code as u32 {
-            raw::VK_F1 => self.open_help_for_current_ui_element().is_some(),
+            raw::VK_F1 => self.open_detailed_help_for_current_ui_element().is_some(),
             _ => false,
         }
     }
@@ -8423,42 +8449,146 @@ impl Section {
 }
 
 fn find_help_topic_for_resource(id: u32) -> Option<HelpTopic> {
-    use ModeParameter::*;
     const RESOURCES_TO_HELP_TOPIC: &[(&[u32], HelpTopic)] = &[
-        (SOURCE_MIN_MAX_ELEMENTS, HelpTopic::Glue(SourceMinMax)),
-        (REVERSE_ELEMENTS, HelpTopic::Glue(Reverse)),
-        (OUT_OF_RANGE_ELEMENTS, HelpTopic::Glue(OutOfRangeBehavior)),
-        (TAKEOVER_MODE_ELEMENTS, HelpTopic::Glue(TakeoverMode)),
+        // Concepts
+        (
+            &[root::ID_MAPPING_PANEL_MAPPING_LABEL],
+            HelpTopic::Concept(ConceptTopic::Mapping),
+        ),
+        (
+            &[root::ID_MAPPING_PANEL_SOURCE_LABEL],
+            HelpTopic::Concept(ConceptTopic::Source),
+        ),
+        (
+            &[root::ID_SETTINGS_TARGET_LABEL_TEXT],
+            HelpTopic::Concept(ConceptTopic::Target),
+        ),
+        (
+            &[root::ID_MAPPING_PANEL_GLUE_LABEL],
+            HelpTopic::Concept(ConceptTopic::Glue),
+        ),
+        // Mapping
+        (
+            &[
+                root::ID_MAPPING_PANEL_FEEDBACK_LABEL,
+                root::ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX,
+            ],
+            HelpTopic::Mapping(MappingTopic::FeedbackMode),
+        ),
+        (
+            &[root::ID_MAPPING_ADVANCED_BUTTON],
+            HelpTopic::Mapping(MappingTopic::AdvancedSettings),
+        ),
+        (
+            &[root::ID_MAPPING_FIND_IN_LIST_BUTTON],
+            HelpTopic::Mapping(MappingTopic::FindInMappingList),
+        ),
+        (
+            &[root::ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX],
+            HelpTopic::Mapping(MappingTopic::ShowInProjection),
+        ),
+        (
+            &[root::IDC_BEEP_ON_SUCCESS_CHECK_BOX],
+            HelpTopic::Mapping(MappingTopic::BeepOnSuccess),
+        ),
+        (
+            &[root::IDC_MAPPING_ENABLED_CHECK_BOX],
+            HelpTopic::Mapping(MappingTopic::Enabled),
+        ),
+        (
+            &[root::ID_MAPPING_PANEL_PREVIOUS_BUTTON],
+            HelpTopic::Mapping(MappingTopic::PreviousMapping),
+        ),
+        (
+            &[root::ID_MAPPING_PANEL_NEXT_BUTTON],
+            HelpTopic::Mapping(MappingTopic::NextMapping),
+        ),
+        // Source
+        (
+            &[root::ID_SOURCE_CATEGORY_COMBO_BOX],
+            HelpTopic::Source(SourceTopic::Category),
+        ),
+        (
+            &[root::ID_SOURCE_TYPE_COMBO_BOX],
+            HelpTopic::Source(SourceTopic::Type),
+        ),
+        // Target
+        (
+            &[root::ID_TARGET_CATEGORY_COMBO_BOX],
+            HelpTopic::Target(TargetTopic::Category),
+        ),
+        (
+            &[root::ID_TARGET_TYPE_BUTTON],
+            HelpTopic::Target(TargetTopic::Type),
+        ),
+        // Glue
+        (
+            SOURCE_MIN_MAX_ELEMENTS,
+            HelpTopic::Glue(ModeParameter::SourceMinMax),
+        ),
+        (REVERSE_ELEMENTS, HelpTopic::Glue(ModeParameter::Reverse)),
+        (
+            OUT_OF_RANGE_ELEMENTS,
+            HelpTopic::Glue(ModeParameter::OutOfRangeBehavior),
+        ),
+        (
+            TAKEOVER_MODE_ELEMENTS,
+            HelpTopic::Glue(ModeParameter::TakeoverMode),
+        ),
         (
             CONTROL_TRANSFORMATION_ELEMENTS,
-            HelpTopic::Glue(ControlTransformation),
+            HelpTopic::Glue(ModeParameter::ControlTransformation),
         ),
         (
             VALUE_SEQUENCE_ELEMENTS,
-            HelpTopic::Glue(TargetValueSequence),
+            HelpTopic::Glue(ModeParameter::TargetValueSequence),
         ),
-        (TARGET_MIN_MAX_ELEMENTS, HelpTopic::Glue(TargetMinMax)),
-        (STEP_MIN_ELEMENTS, HelpTopic::Glue(StepSizeMin)),
-        (STEP_MAX_ELEMENTS, HelpTopic::Glue(StepSizeMax)),
-        (RELATIVE_FILTER_ELEMENTS, HelpTopic::Glue(RelativeFilter)),
-        (FIRE_MODE_ELEMENTS, HelpTopic::Glue(FireMode)),
-        (MAKE_ABSOLUTE_ELEMENTS, HelpTopic::Glue(MakeAbsolute)),
-        (FEEDBACK_TYPE_ELEMENTS, HelpTopic::Glue(FeedbackType)),
+        (
+            TARGET_MIN_MAX_ELEMENTS,
+            HelpTopic::Glue(ModeParameter::TargetMinMax),
+        ),
+        (
+            STEP_MIN_ELEMENTS,
+            HelpTopic::Glue(ModeParameter::StepSizeMin),
+        ),
+        (
+            STEP_MAX_ELEMENTS,
+            HelpTopic::Glue(ModeParameter::StepSizeMax),
+        ),
+        (
+            RELATIVE_FILTER_ELEMENTS,
+            HelpTopic::Glue(ModeParameter::RelativeFilter),
+        ),
+        (FIRE_MODE_ELEMENTS, HelpTopic::Glue(ModeParameter::FireMode)),
+        (
+            MAKE_ABSOLUTE_ELEMENTS,
+            HelpTopic::Glue(ModeParameter::MakeAbsolute),
+        ),
+        (
+            FEEDBACK_TYPE_ELEMENTS,
+            HelpTopic::Glue(ModeParameter::FeedbackType),
+        ),
         (
             ROUND_TARGET_VALUE_ELEMENTS,
-            HelpTopic::Glue(RoundTargetValue),
+            HelpTopic::Glue(ModeParameter::RoundTargetValue),
         ),
-        (ABSOLUTE_MODE_ELEMENTS, HelpTopic::Glue(AbsoluteMode)),
+        (
+            ABSOLUTE_MODE_ELEMENTS,
+            HelpTopic::Glue(ModeParameter::AbsoluteMode),
+        ),
         (
             GROUP_INTERACTION_ELEMENTS,
-            HelpTopic::Glue(GroupInteraction),
+            HelpTopic::Glue(ModeParameter::GroupInteraction),
         ),
         (
             FEEDBACK_TRANSFORMATION_ELEMENTS,
-            HelpTopic::Glue(FeedbackTransformation),
+            HelpTopic::Glue(ModeParameter::FeedbackTransformation),
         ),
-        (ROTATE_ELEMENTS, HelpTopic::Glue(Rotate)),
-        (BUTTON_FILTER_ELEMENTS, HelpTopic::Glue(ButtonFilter)),
+        (ROTATE_ELEMENTS, HelpTopic::Glue(ModeParameter::Rotate)),
+        (
+            BUTTON_FILTER_ELEMENTS,
+            HelpTopic::Glue(ModeParameter::ButtonFilter),
+        ),
     ];
     RESOURCES_TO_HELP_TOPIC
         .iter()

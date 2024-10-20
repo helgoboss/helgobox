@@ -2,7 +2,7 @@
 = Advanced settings dialog
 
 This dialog allows access to advanced configuration by entering text in the https://en.wikipedia.org/wiki/YAML[YAML] configuration language.
-It can be opened using the xref:user-interface/mapping-panel/general-section.adoc#advanced-settings-button[] of the mapping panel.
+It can be opened using the xref:user-interface/mapping-panel/general-section.adoc#advanced-settings[] of the mapping panel.
 
 See xref:design-decisions.adoc#decision-advanced-settings-via-yaml[] to learn why this feature exists and why YAML.
 

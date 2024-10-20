@@ -1,0 +1,1 @@
+sets the observed range of feedback values coming from the target

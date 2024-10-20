@@ -1,0 +1,1 @@
+specifies how incoming absolute control values are interpreted and handled

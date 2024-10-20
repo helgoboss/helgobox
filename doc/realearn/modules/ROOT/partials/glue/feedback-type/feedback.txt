@@ -1,0 +1,1 @@
+specifies whether to send simple numeric, simple text or script-generated feedback values to the source

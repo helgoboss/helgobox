@@ -1,0 +1,1 @@
+determines what to do if the absolute control value coming from the source is not within source min/max

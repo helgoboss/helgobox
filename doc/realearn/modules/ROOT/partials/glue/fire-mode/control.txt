@@ -1,0 +1,1 @@
+allows to distinguish between different ways of pressing a button, such as long-press, short-press or double-press

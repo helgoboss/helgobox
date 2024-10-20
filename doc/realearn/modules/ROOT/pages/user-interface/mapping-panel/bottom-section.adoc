@@ -14,13 +14,6 @@ Context-sensitive help for the glue section.
 Whenever you touch a setting in the glue section, some text will appear which explains what this element does, both for the _control_ and for the
 _feedback_ direction (if applicable).
 
-== "If source is a" menu
-
-It often depends on the kind of source what effect a setting has.
-Therefore, this dropdown always contains a list of sources.
-It only displays relevant kinds of sources.
-If a source kind is impossible according to the current source settings or if it's not supported by the setting, it won't appear in the list.
-
 == Activity info area
 
 The left text area shows information about how an incoming control value was handled and possible target control errors.
@@ -29,16 +22,19 @@ NOTE: If the target supports MIDI real-time control and the source is a MIDI sou
 
 The right text area shows information about which feedback values are sent from the glue section to the source.
 
+[#beep-on-success]
 == Beep on success checkbox
 
 Makes the mapping play a sound whenever the target has been invoked successfully.
 Nice for trigger-like targets such as xref:target-types/realearn-targets/realearn-take-mapping-snapshot.adoc#realearn-take-mapping-snapshot[] for which there's no other good way to know if it worked.
 
+[#previous-next-mapping]
 == Previous/next buttons
 
 Allows you to jump to the previous or next mapping.
 Considers only mappings that are currently visible in the mapping rows panel.
 
+[#enabled]
 == Enabled checkbox
 
 Enables or disables the mapping as a whole.

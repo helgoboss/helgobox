@@ -1,0 +1,1 @@
+plays a sound whenever the target has been invoked successfully

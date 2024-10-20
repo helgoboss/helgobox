@@ -1,0 +1,1 @@
+emulates an absolute control element with a relative encoder or with -/+ buttons (= incremental buttons)

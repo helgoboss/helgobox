@@ -1,0 +1,1 @@
+scrolls the mapping list so that the corresponding row for this mapping becomes visible

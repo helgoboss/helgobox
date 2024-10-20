@@ -1,10 +1,10 @@
-
 = General section
 
 image:realearn/screenshots/mapping-panel-general.png[Screenshot]
 
 This section provides the following mapping-related elements.
 
+[#name]
 == Name field
 
 Here you can enter a descriptive name for the mapping.
@@ -12,19 +12,23 @@ This is especially useful in combination with the search function if there are m
 
 If you clear the name, ReaLearn will name the mapping automatically based on its target.
 
+[#tags]
 == Tags field
 
 Use this to assign arbitrary xref:further-concepts/mapping-concepts.adoc#mapping-tag[] to this mapping (comma-separated).
 
+[#control-feedback-enabled]
 == Control/feedback-enabled checkboxes (→/←)
 
 Use these checkboxes to enable/disable control and/or feedback for this mapping.
 Disabling both has the same effect as disabling the mapping as a whole.
 
+[#active]
 == Active menu
 
 This dropdown can be used to enable xref:further-concepts/mapping-concepts.adoc#conditional-activation[] for this mapping.
 
+[#feedback-mode]
 == Feedback menu
 
 Normal::
@@ -50,12 +54,13 @@ If this option is selected, ReaLearn will send feedback even after releasing the
 Another case where this option comes in handy is if you use a target which doesn't support proper feedback because REAPER doesn't notify ReaLearn about value changes (e.g. "Track FX all enable") and you have "Poll for feedback" disabled.
 By choosing this option, ReaLearn will send feedback whenever the target value change was caused by ReaLearn itself, which improves the situation at least a bit.
 
+[#show-in-projection]
 == Show in projection checkbox
 
 When unticked, this mapping will not show up in xref:further-concepts/unit-concepts.adoc#projection[].
 Useful e.g. for feedback-only mappings or buttons with multiple assignments.
 
-[[advanced-settings-button]]
+[[advanced-settings]]
 == Advanced settings button
 
 This button is for experts.
@@ -68,6 +73,7 @@ That way you can immediately see if a mapping has advanced settings or not.
 You can learn more about the available properties in the section
 xref:user-interface/mapping-panel/advanced-settings-dialog.adoc#advanced-settings-dialog[].
 
+[#find-in-mapping-list]
 == Find in mapping list button
 
 Scrolls the mapping rows panel so that the corresponding mapping row for this mapping gets visible.

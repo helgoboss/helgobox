@@ -1,9 +1,11 @@
+use crate::infrastructure::ui::help::SourceTopic::{Category, Type};
 use derive_more::Display;
 use helgoboss_learn::ModeParameter;
 use include_dir::{include_dir, Dir};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Display)]
 pub enum HelpTopic {
+    Concept(ConceptTopic),
     Mapping(MappingTopic),
     Source(SourceTopic),
     Target(TargetTopic),
@@ -11,26 +13,62 @@ pub enum HelpTopic {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Display)]
+pub enum ConceptTopic {
+    Mapping,
+    Source,
+    Target,
+    Glue,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Display)]
 pub enum MappingTopic {
-    Bla,
+    #[display(fmt = "Feedback mode")]
+    FeedbackMode,
+    #[display(fmt = "Show in projection")]
+    ShowInProjection,
+    #[display(fmt = "Advanced settings")]
+    AdvancedSettings,
+    #[display(fmt = "Find in mapping list")]
+    FindInMappingList,
+    #[display(fmt = "Beep on success")]
+    BeepOnSuccess,
+    #[display(fmt = "Go to previous mapping")]
+    PreviousMapping,
+    #[display(fmt = "Go to next mapping")]
+    NextMapping,
+    #[display(fmt = "Enabled")]
+    Enabled,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Display)]
 pub enum SourceTopic {
+    #[display(fmt = "Source category")]
+    Category,
     #[display(fmt = "Source type")]
-    Kind,
+    Type,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Display)]
 pub enum TargetTopic {
+    #[display(fmt = "Target category")]
+    Category,
     #[display(fmt = "Target type")]
-    Kind,
+    Type,
+    #[display(fmt = "Display unit")]
+    DisplayUnit,
 }
 
 pub struct HelpTopicDetails {
     pub doc_url: String,
-    pub control_desc: &'static str,
-    pub feedback_desc: &'static str,
+    pub description: HelpTopicDescription,
+}
+
+pub enum HelpTopicDescription {
+    General(&'static str),
+    DirectionDependent {
+        control_desc: Option<&'static str>,
+        feedback_desc: Option<&'static str>,
+    },
 }
 
 pub static PARTIALS_DIR: Dir<'_> =
@@ -47,68 +85,131 @@ impl HelpTopic {
         let help_section_id: &'static str = help_section.into();
         let details = HelpTopicDetails {
             doc_url: format!("{}#{id}", help_section.doc_base_url()),
-            control_desc: get_partial_content(&format!("{help_section_id}/{id}-control.txt"))
-                .unwrap_or_default(),
-            feedback_desc: get_partial_content(&format!("{help_section_id}/{id}-feedback.txt"))
-                .unwrap_or_default(),
+            description: if let Some(content) =
+                get_partial_content(&format!("{help_section_id}/{id}/general.txt"))
+            {
+                HelpTopicDescription::General(content)
+            } else {
+                HelpTopicDescription::DirectionDependent {
+                    control_desc: get_partial_content(&format!(
+                        "{help_section_id}/{id}/control.txt"
+                    )),
+                    feedback_desc: get_partial_content(&format!(
+                        "{help_section_id}/{id}/feedback.txt"
+                    )),
+                }
+            },
         };
         Some(details)
     }
 
     fn qualified_id(&self) -> Option<(HelpSection, &'static str)> {
-        let id = match self {
-            HelpTopic::Mapping(t) => match t {
-                _ => return None,
-            },
-            HelpTopic::Source(t) => match t {
-                _ => return None,
-            },
-            HelpTopic::Target(t) => match t {
-                _ => return None,
-            },
-            HelpTopic::Glue(mode_parameter) => {
-                use ModeParameter::*;
-                match mode_parameter {
-                    SourceMinMax => (HelpSection::Glue, "source-min-max"),
-                    Reverse => (HelpSection::Glue, "reverse"),
-                    OutOfRangeBehavior => (HelpSection::Glue, "out-of-range-behavior"),
-                    TakeoverMode => (HelpSection::Glue, "takeover-mode"),
-                    ControlTransformation => (HelpSection::Glue, "control-transformation"),
-                    TargetValueSequence => (HelpSection::Glue, "value-sequence"),
-                    TargetMinMax => (HelpSection::Glue, "target-min-max"),
-                    FeedbackType | FeedbackTransformation | TextualFeedbackExpression => {
-                        (HelpSection::Glue, "feedback-type")
-                    }
-                    StepSizeMin | StepSizeMax => (HelpSection::Glue, "step-size-min-max"),
-                    StepFactorMin | StepFactorMax => (HelpSection::Glue, "speed-min-max"),
-                    RelativeFilter => (HelpSection::Glue, "encoder-filter"),
-                    Rotate => (HelpSection::Glue, "wrap"),
-                    FireMode => (HelpSection::Glue, "fire-mode"),
-                    ButtonFilter => (HelpSection::Glue, "button-filter"),
-                    MakeAbsolute => (HelpSection::Glue, "make-absolute"),
-                    RoundTargetValue => (HelpSection::Glue, "round-target-value"),
-                    AbsoluteMode => (HelpSection::Glue, "absolute-mode"),
-                    GroupInteraction => (HelpSection::Glue, "group-interaction"),
-                    _ => return None,
+        let qualified_id = match self {
+            HelpTopic::Concept(t) => {
+                use ConceptTopic::*;
+                let id = match t {
+                    Mapping => "mapping",
+                    Source => "source",
+                    Target => "target",
+                    Glue => "glue",
+                };
+                (HelpSection::Concept, id)
+            }
+            HelpTopic::Mapping(t) => {
+                use MappingTopic::*;
+                match t {
+                    FeedbackMode => (HelpSection::MappingTop, "feedback-mode"),
+                    ShowInProjection => (HelpSection::MappingTop, "show-in-projection"),
+                    AdvancedSettings => (HelpSection::MappingTop, "advanced-settings"),
+                    FindInMappingList => (HelpSection::MappingTop, "find-in-mapping-list"),
+                    BeepOnSuccess => (HelpSection::MappingBottom, "beep-on-success"),
+                    PreviousMapping | NextMapping => (HelpSection::MappingBottom, "previous-next"),
+                    Enabled => (HelpSection::MappingBottom, "enabled"),
                 }
             }
+            HelpTopic::Source(t) => {
+                use SourceTopic::*;
+                let id = match t {
+                    Category => "category",
+                    Type => "type",
+                };
+                (HelpSection::Source, id)
+            }
+            HelpTopic::Target(t) => {
+                use TargetTopic::*;
+                let id = match t {
+                    Category => "category",
+                    Type => "type",
+                    DisplayUnit => "display-unit",
+                };
+                (HelpSection::Target, id)
+            }
+            HelpTopic::Glue(mode_parameter) => {
+                use ModeParameter::*;
+                let id = match mode_parameter {
+                    SourceMinMax => "source-min-max",
+                    Reverse => "reverse",
+                    OutOfRangeBehavior => "out-of-range-behavior",
+                    TakeoverMode => "takeover-mode",
+                    ControlTransformation => "control-transformation",
+                    TargetValueSequence => "value-sequence",
+                    TargetMinMax => "target-min-max",
+                    FeedbackType | FeedbackTransformation | TextualFeedbackExpression => {
+                        "feedback-type"
+                    }
+                    StepSizeMin | StepSizeMax => "step-size-min-max",
+                    StepFactorMin | StepFactorMax => "speed-min-max",
+                    RelativeFilter => "encoder-filter",
+                    Rotate => "wrap",
+                    FireMode => "fire-mode",
+                    ButtonFilter => "button-filter",
+                    MakeAbsolute => "make-absolute",
+                    RoundTargetValue => "round-target-value",
+                    AbsoluteMode => "absolute-mode",
+                    GroupInteraction => "group-interaction",
+                    _ => return None,
+                };
+                (HelpSection::Glue, id)
+            }
         };
-        Some(id)
+        Some(qualified_id)
     }
 }
 
 #[derive(Copy, Clone, strum::IntoStaticStr)]
 #[strum(serialize_all = "kebab-case")]
 enum HelpSection {
+    MappingTop,
+    MappingBottom,
+    Source,
+    Target,
     Glue,
+    Concept,
 }
 
 impl HelpSection {
     fn doc_base_url(&self) -> String {
         match self {
-            HelpSection::Glue => format!("{GENERAL_DOC_BASE_URL}/mapping-panel/glue-section.html"),
+            HelpSection::Concept => {
+                format!("{GENERAL_DOC_BASE_URL}/key-concepts.html")
+            }
+            HelpSection::MappingTop => {
+                format!("{GENERAL_DOC_BASE_URL}/user-interface/mapping-panel/general-section")
+            }
+            HelpSection::Source => {
+                format!("{GENERAL_DOC_BASE_URL}/user-interface/mapping-panel/source-section")
+            }
+            HelpSection::Target => {
+                format!("{GENERAL_DOC_BASE_URL}/user-interface/mapping-panel/target-section")
+            }
+            HelpSection::Glue => {
+                format!("{GENERAL_DOC_BASE_URL}/user-interface/mapping-panel/glue-section")
+            }
+            HelpSection::MappingBottom => {
+                format!("{GENERAL_DOC_BASE_URL}/user-interface/mapping-panel/bottom-section")
+            }
         }
     }
 }
 
-const GENERAL_DOC_BASE_URL: &str = "https://docs.helgoboss.org/realearn/user-interface";
+const GENERAL_DOC_BASE_URL: &str = "https://docs.helgoboss.org/realearn";

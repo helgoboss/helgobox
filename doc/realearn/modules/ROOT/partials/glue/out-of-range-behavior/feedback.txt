@@ -1,0 +1,1 @@
+determines what to do if the feedback value is not within target min/max

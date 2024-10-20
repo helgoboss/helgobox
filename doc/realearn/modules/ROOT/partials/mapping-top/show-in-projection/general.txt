@@ -1,0 +1,1 @@
+allows to exclude this mapping from ReaLearn's projection view
