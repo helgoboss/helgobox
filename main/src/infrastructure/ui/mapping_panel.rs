@@ -267,7 +267,6 @@ impl MappingPanel {
                                     Multiple => {
                                         view.invalidate_source_controls();
                                         view.invalidate_mode_controls();
-                                        view.invalidate_help();
                                     }
                                     One(p) => {
                                         use SourceProp as P;
@@ -275,7 +274,6 @@ impl MappingPanel {
                                             P::Category | P::MidiSourceType | P::ReaperSourceType | P::ControlElementType => {
                                                 view.invalidate_source_controls();
                                                 view.invalidate_mode_controls();
-                                                view.invalidate_help();
                                             }
                                             P::Channel => {
                                                 view.invalidate_source_control_visibilities();
@@ -293,14 +291,12 @@ impl MappingPanel {
                                                 view.invalidate_source_line_4(initiator);
                                                 view.invalidate_source_line_5(initiator);
                                                 view.invalidate_mode_controls();
-                                                view.invalidate_help();
                                             }
                                             P::CustomCharacter |
                                             P::OscArgTypeTag => {
                                                 view.invalidate_source_line_4_combo_box_2();
                                                 view.invalidate_source_line_5(initiator);
                                                 view.invalidate_mode_controls();
-                                                view.invalidate_help();
                                             }
                                             P::MidiClockTransportMessage => {
                                                 view.invalidate_source_line_3_combo_box_2();
@@ -342,7 +338,6 @@ impl MappingPanel {
                                             P::OscArgIsRelative => {
                                                 view.invalidate_source_controls();
                                                 view.invalidate_mode_controls();
-                                                view.invalidate_help();
                                             }
                                             P::Keystroke => {
                                                 view.invalidate_source_line_3(initiator);
@@ -353,14 +348,12 @@ impl MappingPanel {
                                 P::InMode(p) => match p {
                                     Multiple => {
                                         view.invalidate_mode_controls();
-                                        view.invalidate_help();
                                     }
                                     One(p) => {
                                         use ModeProp as P;
                                         match p {
                                             P::AbsoluteMode => {
                                                 view.invalidate_mode_controls();
-                                                view.invalidate_help();
                                             }
                                             P::TargetValueInterval => {
                                                 view.invalidate_mode_min_target_value_controls(
@@ -411,7 +404,6 @@ impl MappingPanel {
                                             }
                                             P::MakeAbsolute => {
                                                 view.invalidate_mode_controls();
-                                                view.invalidate_help();
                                             }
                                             P::GroupInteraction => {
                                                 view.invalidate_mode_group_interaction_combo_box();
@@ -421,7 +413,6 @@ impl MappingPanel {
                                             }
                                             P::FeedbackType => {
                                                 view.invalidate_mode_controls();
-                                                view.invalidate_help();
                                             }
                                             P::FeedbackColor | P::FeedbackBackgroundColor => {
                                                 view.invalidate_mode_feedback_type_button();
@@ -440,7 +431,6 @@ impl MappingPanel {
                                     Multiple => {
                                         view.invalidate_target_controls(None);
                                         view.invalidate_mode_controls();
-                                        view.invalidate_help();
                                     }
                                     One(p) => {
                                         use TargetProp as P;
@@ -449,7 +439,6 @@ impl MappingPanel {
                                                 view.invalidate_window_title();
                                                 view.invalidate_target_controls(None);
                                                 view.invalidate_mode_controls();
-                                                view.invalidate_help();
                                             }
                                             P::TrackType | P::TrackIndex | P::TrackId | P::TrackName
                                             | P::TrackExpression | P::BookmarkType | P::BookmarkAnchorType
@@ -1962,13 +1951,6 @@ impl<'a> MutableMappingPanel<'a> {
         self.change_mapping(MappingCommand::SetVisibleInProjection(checked));
     }
 
-    fn update_mode_hint(&self, mode_parameter: ModeParameter) {
-        self.panel
-            .active_help_topic
-            .borrow_mut()
-            .set(Some(HelpTopic::Glue(mode_parameter)));
-    }
-
     fn handle_source_line_4_check_box_change(&mut self) {
         let checked = self
             .view
@@ -2304,7 +2286,6 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_rotate(&mut self) {
-        self.update_mode_hint(ModeParameter::Rotate);
         let checked = self
             .view
             .require_control(root::ID_SETTINGS_ROTATE_CHECK_BOX)
@@ -2313,7 +2294,6 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_feedback_type(&mut self) {
-        self.update_mode_hint(ModeParameter::FeedbackType);
         let index = self
             .view
             .require_control(root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX)
@@ -2325,7 +2305,6 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_make_absolute(&mut self) {
-        self.update_mode_hint(ModeParameter::MakeAbsolute);
         let checked = self
             .view
             .require_control(root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX)
@@ -2342,7 +2321,6 @@ impl<'a> MutableMappingPanel<'a> {
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid out-of-range behavior");
-        self.update_mode_hint(ModeParameter::SpecificOutOfRangeBehavior(behavior));
         self.change_mapping(MappingCommand::ChangeMode(
             ModeCommand::SetOutOfRangeBehavior(behavior),
         ));
@@ -2355,7 +2333,6 @@ impl<'a> MutableMappingPanel<'a> {
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid group interaction");
-        self.update_mode_hint(ModeParameter::SpecificGroupInteraction(interaction));
         self.change_mapping(MappingCommand::ChangeMode(
             ModeCommand::SetGroupInteraction(interaction),
         ));
@@ -2368,12 +2345,10 @@ impl<'a> MutableMappingPanel<'a> {
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid fire mode");
-        self.update_mode_hint(ModeParameter::SpecificFireMode(mode));
         self.change_mapping(MappingCommand::ChangeMode(ModeCommand::SetFireMode(mode)));
     }
 
     fn update_mode_round_target_value(&mut self) {
-        self.update_mode_hint(ModeParameter::RoundTargetValue);
         let checked = self
             .view
             .require_control(root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX)
@@ -2384,7 +2359,6 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_takeover_mode(&mut self) {
-        self.update_mode_hint(ModeParameter::TakeoverMode);
         let mode = self
             .view
             .require_control(root::ID_MODE_TAKEOVER_MODE)
@@ -2397,7 +2371,6 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_button_usage(&mut self) {
-        self.update_mode_hint(ModeParameter::ButtonFilter);
         let mode = self
             .view
             .require_control(root::ID_MODE_BUTTON_FILTER_COMBO_BOX)
@@ -2410,7 +2383,6 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_encoder_usage(&mut self) {
-        self.update_mode_hint(ModeParameter::RelativeFilter);
         let mode = self
             .view
             .require_control(root::ID_MODE_RELATIVE_FILTER_COMBO_BOX)
@@ -2423,7 +2395,6 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_reverse(&mut self) {
-        self.update_mode_hint(ModeParameter::Reverse);
         let checked = self
             .view
             .require_control(root::ID_SETTINGS_REVERSE_CHECK_BOX)
@@ -2446,7 +2417,6 @@ impl<'a> MutableMappingPanel<'a> {
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid mode type");
-        self.update_mode_hint(ModeParameter::SpecificAbsoluteMode(mode));
         let _ = self.session.change_mapping_with_closure(
             self.mapping,
             None,
@@ -2618,7 +2588,6 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_target_value_sequence(&mut self) {
-        self.update_mode_hint(ModeParameter::TargetValueSequence);
         let control_id = root::ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL;
         let text = self
             .view
@@ -2644,7 +2613,6 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_eel_control_transformation(&mut self) {
-        self.update_mode_hint(ModeParameter::ControlTransformation);
         let control_id = root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL;
         let value = self
             .view
@@ -2663,7 +2631,6 @@ impl<'a> MutableMappingPanel<'a> {
         } else {
             ModeParameter::FeedbackTransformation
         };
-        self.update_mode_hint(mode_parameter);
         let control_id = root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL;
         let value = self
             .view
@@ -2679,28 +2646,24 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_min_target_value_from_slider(&mut self, slider: Window) {
-        self.update_mode_hint(ModeParameter::TargetMinMax);
         self.change_mapping(MappingCommand::ChangeMode(ModeCommand::SetMinTargetValue(
             slider.slider_unit_value(),
         )));
     }
 
     fn update_mode_max_target_value_from_slider(&mut self, slider: Window) {
-        self.update_mode_hint(ModeParameter::TargetMinMax);
         self.change_mapping(MappingCommand::ChangeMode(ModeCommand::SetMaxTargetValue(
             slider.slider_unit_value(),
         )));
     }
 
     fn update_mode_min_source_value_from_slider(&mut self, slider: Window) {
-        self.update_mode_hint(ModeParameter::SourceMinMax);
         self.change_mapping(MappingCommand::ChangeMode(ModeCommand::SetMinSourceValue(
             slider.slider_unit_value(),
         )));
     }
 
     fn update_mode_max_source_value_from_slider(&mut self, slider: Window) {
-        self.update_mode_hint(ModeParameter::SourceMinMax);
         self.change_mapping(MappingCommand::ChangeMode(ModeCommand::SetMaxSourceValue(
             slider.slider_unit_value(),
         )));
@@ -2743,7 +2706,6 @@ impl<'a> MutableMappingPanel<'a> {
             self.change_mapping(MappingCommand::ChangeMode(size_command(value)));
             size_param
         };
-        self.update_mode_hint(mode_param);
     }
 
     fn handle_mode_fire_line_2_slider_change(&mut self, slider: Window) {
