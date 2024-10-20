@@ -1,5 +1,4 @@
 use anyhow::Context;
-use const_format::concatcp;
 use derive_more::Display;
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use itertools::Itertools;
@@ -73,8 +72,8 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::bindings::root::ID_MAPPING_HELP_LEFT_SUBJECT_LABEL;
 use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
+use crate::infrastructure::ui::help::HelpTopic;
 use crate::infrastructure::ui::menus::{get_midi_input_device_list_label, get_param_name};
 use crate::infrastructure::ui::ui_element_container::{UiElement, UiElementContainer};
 use crate::infrastructure::ui::util::colors::ColorPair;
@@ -108,7 +107,7 @@ pub struct MappingPanel {
     is_invoked_programmatically: Cell<bool>,
     window_cache: RefCell<Option<WindowCache>>,
     extra_panel: RefCell<Option<SharedView<dyn View>>>,
-    last_touched_mode_parameter: RefCell<Prop<Option<ModeParameter>>>,
+    active_help_topic: RefCell<Prop<Option<HelpTopic>>>,
     ui_element_container: RefCell<UiElementContainer>,
     // Fires when a mapping is about to change or the panel is hidden.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -166,7 +165,7 @@ impl MappingPanel {
             is_invoked_programmatically: false.into(),
             window_cache: None.into(),
             extra_panel: Default::default(),
-            last_touched_mode_parameter: Default::default(),
+            active_help_topic: Default::default(),
             ui_element_container: Default::default(),
             party_is_over_subject: Default::default(),
         }
@@ -882,15 +881,11 @@ impl MappingPanel {
         Ok(())
     }
 
-    fn open_help_for_current_ui_element(&self) -> anyhow::Result<()> {
-        let mode_param = self
-            .last_touched_mode_parameter
-            .borrow()
-            .get()
-            .context("no element selected")?;
-        let help_url = get_help_url(mode_param).context("no help URL available")?;
-        open_in_browser(help_url);
-        Ok(())
+    fn open_help_for_current_ui_element(&self) -> Option<()> {
+        let topic = self.active_help_topic.borrow().get()?;
+        let help_url = topic.get_details()?;
+        open_in_browser(&help_url.doc_url);
+        Some(())
     }
 
     fn change_mapping(&self, val: MappingCommand) {
@@ -1969,9 +1964,9 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn update_mode_hint(&self, mode_parameter: ModeParameter) {
         self.panel
-            .last_touched_mode_parameter
+            .active_help_topic
             .borrow_mut()
-            .set(Some(mode_parameter));
+            .set(Some(HelpTopic::Glue(mode_parameter)));
     }
 
     fn handle_source_line_4_check_box_change(&mut self) {
@@ -4039,24 +4034,27 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_help(&self) {
-        let Some(mode_parameter) = self.panel.last_touched_mode_parameter.borrow().get() else {
+        if self.invalidate_help_internal().is_none() {
             self.clear_help();
-            return;
-        };
-        let (control_hint, feedback_hint) = self
-            .get_control_and_feedback_hint(DetailedSourceCharacter::RangeControl, mode_parameter);
+        }
+    }
+
+    fn invalidate_help_internal(&self) -> Option<()> {
+        let topic = self.panel.active_help_topic.borrow().get()?;
+        let details = topic.get_details()?;
         self.view
             .require_control(root::ID_MAPPING_HELP_LEFT_SUBJECT_LABEL)
-            .set_text(format!("{mode_parameter}: In control direction it ..."));
+            .set_text(format!("{topic}: In control direction it ..."));
         self.view
             .require_control(root::ID_MAPPING_HELP_LEFT_CONTENT_LABEL)
-            .set_multi_line_text(control_hint.unwrap_or_default());
+            .set_multi_line_text(details.control_desc);
         self.view
             .require_control(root::ID_MAPPING_HELP_RIGHT_SUBJECT_LABEL)
             .set_text("... and in feedback direction: (Press F1 to learn more)");
         self.view
             .require_control(root::ID_MAPPING_HELP_RIGHT_CONTENT_LABEL)
-            .set_multi_line_text(feedback_hint.unwrap_or_default());
+            .set_multi_line_text(details.feedback_desc);
+        Some(())
     }
 
     fn get_control_and_feedback_hint(
@@ -6290,7 +6288,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_help_listeners(&self) {
         self.panel.when(
-            self.panel.last_touched_mode_parameter.borrow().changed(),
+            self.panel.active_help_topic.borrow().changed(),
             |view, _| {
                 view.invalidate_help();
             },
@@ -7396,18 +7394,16 @@ impl View for MappingPanel {
         let container = self.ui_element_container.borrow();
         let mut resource_ids =
             container.hit_test(Point::new(position.x.get() as _, position.y.get() as _));
-        let mode_param = resource_ids
+        let help_topic = resource_ids
             .find(|id| !NO_HELP_ELEMENTS.contains(id))
-            .and_then(find_mode_parameter_associated_with_resource);
-        self.last_touched_mode_parameter
-            .borrow_mut()
-            .set(mode_param);
+            .and_then(find_help_topic_for_resource);
+        self.active_help_topic.borrow_mut().set(help_topic);
         false
     }
 
     fn key_up(self: SharedView<Self>, key_code: u8) -> bool {
         match key_code as u32 {
-            raw::VK_F1 => self.open_help_for_current_ui_element().is_ok(),
+            raw::VK_F1 => self.open_help_for_current_ui_element().is_some(),
             _ => false,
         }
     }
@@ -8464,33 +8460,45 @@ impl Section {
     }
 }
 
-fn find_mode_parameter_associated_with_resource(id: u32) -> Option<ModeParameter> {
+fn find_help_topic_for_resource(id: u32) -> Option<HelpTopic> {
     use ModeParameter::*;
-    const RESOURCES_TO_MODE_PARAM: &[(&[u32], ModeParameter)] = &[
-        (SOURCE_MIN_MAX_ELEMENTS, SourceMinMax),
-        (REVERSE_ELEMENTS, Reverse),
-        (OUT_OF_RANGE_ELEMENTS, OutOfRangeBehavior),
-        (TAKEOVER_MODE_ELEMENTS, TakeoverMode),
-        (CONTROL_TRANSFORMATION_ELEMENTS, ControlTransformation),
-        (VALUE_SEQUENCE_ELEMENTS, TargetValueSequence),
-        (TARGET_MIN_MAX_ELEMENTS, TargetMinMax),
-        (STEP_MIN_ELEMENTS, StepSizeMin),
-        (STEP_MAX_ELEMENTS, StepSizeMax),
-        (RELATIVE_FILTER_ELEMENTS, RelativeFilter),
-        (FIRE_MODE_ELEMENTS, FireMode),
-        (MAKE_ABSOLUTE_ELEMENTS, MakeAbsolute),
-        (FEEDBACK_TYPE_ELEMENTS, FeedbackType),
-        (ROUND_TARGET_VALUE_ELEMENTS, RoundTargetValue),
-        (ABSOLUTE_MODE_ELEMENTS, AbsoluteMode),
-        (GROUP_INTERACTION_ELEMENTS, GroupInteraction),
-        (FEEDBACK_TRANSFORMATION_ELEMENTS, FeedbackTransformation),
-        (ROTATE_ELEMENTS, Rotate),
-        (BUTTON_FILTER_ELEMENTS, ButtonFilter),
+    const RESOURCES_TO_HELP_TOPIC: &[(&[u32], HelpTopic)] = &[
+        (SOURCE_MIN_MAX_ELEMENTS, HelpTopic::Glue(SourceMinMax)),
+        (REVERSE_ELEMENTS, HelpTopic::Glue(Reverse)),
+        (OUT_OF_RANGE_ELEMENTS, HelpTopic::Glue(OutOfRangeBehavior)),
+        (TAKEOVER_MODE_ELEMENTS, HelpTopic::Glue(TakeoverMode)),
+        (
+            CONTROL_TRANSFORMATION_ELEMENTS,
+            HelpTopic::Glue(ControlTransformation),
+        ),
+        (
+            VALUE_SEQUENCE_ELEMENTS,
+            HelpTopic::Glue(TargetValueSequence),
+        ),
+        (TARGET_MIN_MAX_ELEMENTS, HelpTopic::Glue(TargetMinMax)),
+        (STEP_MIN_ELEMENTS, HelpTopic::Glue(StepSizeMin)),
+        (STEP_MAX_ELEMENTS, HelpTopic::Glue(StepSizeMax)),
+        (RELATIVE_FILTER_ELEMENTS, HelpTopic::Glue(RelativeFilter)),
+        (FIRE_MODE_ELEMENTS, HelpTopic::Glue(FireMode)),
+        (MAKE_ABSOLUTE_ELEMENTS, HelpTopic::Glue(MakeAbsolute)),
+        (FEEDBACK_TYPE_ELEMENTS, HelpTopic::Glue(FeedbackType)),
+        (
+            ROUND_TARGET_VALUE_ELEMENTS,
+            HelpTopic::Glue(RoundTargetValue),
+        ),
+        (ABSOLUTE_MODE_ELEMENTS, HelpTopic::Glue(AbsoluteMode)),
+        (
+            GROUP_INTERACTION_ELEMENTS,
+            HelpTopic::Glue(GroupInteraction),
+        ),
+        (
+            FEEDBACK_TRANSFORMATION_ELEMENTS,
+            HelpTopic::Glue(FeedbackTransformation),
+        ),
+        (ROTATE_ELEMENTS, HelpTopic::Glue(Rotate)),
+        (BUTTON_FILTER_ELEMENTS, HelpTopic::Glue(ButtonFilter)),
     ];
-    // 0 => TextualFeedbackExpression,
-    // 0 => StepFactorMin,
-    // 0 => StepFactorMax,
-    RESOURCES_TO_MODE_PARAM
+    RESOURCES_TO_HELP_TOPIC
         .iter()
         .find_map(|(elements, param)| {
             if !elements.contains(&id) {
@@ -8498,34 +8506,4 @@ fn find_mode_parameter_associated_with_resource(id: u32) -> Option<ModeParameter
             }
             Some(*param)
         })
-}
-
-fn get_help_url(mode_parameter: ModeParameter) -> Option<&'static str> {
-    use ModeParameter::*;
-    const GLUE: &str =
-        "https://docs.helgoboss.org/realearn/user-interface/mapping-panel/glue-section.html#";
-    let url = match mode_parameter {
-        SourceMinMax => concatcp!(GLUE, "source-min-max"),
-        Reverse => concatcp!(GLUE, "reverse"),
-        OutOfRangeBehavior => concatcp!(GLUE, "out-of-range-behavior"),
-        TakeoverMode => concatcp!(GLUE, "takeover-mode"),
-        ControlTransformation => concatcp!(GLUE, "control-transformation"),
-        TargetValueSequence => concatcp!(GLUE, "value-sequence"),
-        TargetMinMax => concatcp!(GLUE, "target-min-max"),
-        FeedbackType | FeedbackTransformation | TextualFeedbackExpression => {
-            concatcp!(GLUE, "feedback-type")
-        }
-        StepSizeMin | StepSizeMax => concatcp!(GLUE, "step-size-min-max"),
-        StepFactorMin | StepFactorMax => concatcp!(GLUE, "speed-min-max"),
-        RelativeFilter => concatcp!(GLUE, "encoder-filter"),
-        Rotate => concatcp!(GLUE, "wrap"),
-        FireMode => concatcp!(GLUE, "fire-mode"),
-        ButtonFilter => concatcp!(GLUE, "button-filter"),
-        MakeAbsolute => concatcp!(GLUE, "make-absolute"),
-        RoundTargetValue => concatcp!(GLUE, "round-target-value"),
-        AbsoluteMode => concatcp!(GLUE, "absolute-mode"),
-        GroupInteraction => concatcp!(GLUE, "group-interaction"),
-        _ => return None,
-    };
-    Some(url)
 }

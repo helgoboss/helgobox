@@ -87,3 +87,5 @@ pub mod instance_panel;
 pub mod welcome_panel;
 
 mod ui_element_container;
+
+mod help;
