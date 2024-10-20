@@ -687,19 +687,10 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     ];
     let footer_controls = [
         ltext(
-            "Help",
-            ids.named_id("ID_MAPPING_HELP_SUBJECT_LABEL"),
+            "Help left",
+            ids.named_id("ID_MAPPING_HELP_LEFT_SUBJECT_LABEL"),
             context.rect(7, 475, 183, 9),
         ) + NOT_WS_GROUP,
-        ltext(
-            "If source is a",
-            ids.named_id("ID_MAPPING_HELP_APPLICABLE_TO_LABEL"),
-            context.rect(235, 475, 43, 9),
-        ) + NOT_WS_GROUP,
-        dropdown(
-            ids.named_id("ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX"),
-            context.rect(281, 473, 161, 15),
-        ) + WS_TABSTOP,
         edittext(
             ids.named_id("ID_MAPPING_HELP_LEFT_CONTENT_LABEL"),
             context.rect(7, 488, 210, 22),
@@ -714,6 +705,11 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             + WS_DISABLED
             + WS_GROUP
             + WS_TABSTOP,
+        ltext(
+            "Help right",
+            ids.named_id("ID_MAPPING_HELP_RIGHT_SUBJECT_LABEL"),
+            context.rect(7 + 225, 475, 183, 9),
+        ) + NOT_WS_GROUP,
         edittext(
             ids.named_id("ID_MAPPING_HELP_RIGHT_CONTENT_LABEL"),
             context.rect(7 + 225, 488, 210, 22),

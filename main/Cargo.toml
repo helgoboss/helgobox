@@ -221,6 +221,8 @@ winapi = { workspace = true, features = ["winuser"] }
 xcap = "0.0.13"
 # For taking screenshots for docs
 dirs.workspace = true
+# For concatening constant URLs
+const_format = "0.2.33"
 
 
 [build-dependencies]

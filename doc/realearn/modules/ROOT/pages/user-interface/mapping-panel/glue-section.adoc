@@ -17,6 +17,7 @@ It shows or hides them based on criteria like this:
 
 Resets the settings to some sensible defaults.
 
+[#reverse]
 == Reverse checkbox
 
 If checked, this inverses the direction of the change.
@@ -36,13 +37,13 @@ However, it wouldn't prevent the volume from exceeding that range if changed e.g
 
 This setting can be used with all targets that work with xref:further-concepts/mapping-concepts.adoc#absolute-control-value[absolute control values] (all targets except xref:target-types/project-targets/project-invoke-reaper-action.adoc#project-invoke-reaper-action[Project: Invoke REAPER action] with relative xref:target-types/project-targets/project-invoke-reaper-action.adoc#invocation-type[]).
 
-[#target-value-sequence-field]
+[#value-sequence]
 == Value sequence field
 
 Allows you to define a xref:further-concepts/glue-concepts.adoc#target-value-sequence[].
 All values are entered comma-separated using the target unit specified with the xref:user-interface/mapping-panel/target-section.adoc#target-unit-button[].
 
-You can provide only one of <<target-min-max>> or <<target-value-sequence-field>>.
+You can provide only one of <<target-min-max>> or <<value-sequence>>.
 
 [#group-interaction]
 == Group interaction
@@ -123,7 +124,7 @@ By restricting that range, you basically tell ReaLearn to react only to a sub ra
 
 This range also determines the minimum and maximum xref:key-concepts.adoc#feedback[] value.
 
-[[out-of-range-behavior]]
+[#out-of-range-behavior]
 == Out-of-range behavior menu
 
 This determines ReaLearn's behavior if the source value is not within <<source-min-max>> or the target value not within <<target-min-max>>.
@@ -202,6 +203,11 @@ Which means it also works for mappings with xref:key-concepts.adoc#virtual-targe
 [[performance-control]] Performance control::
 This mode emulates the behavior of a typical soft synth modulation matrix mapping: It uses the target value that has been set in REAPER (not via this ReaLearn mapping) as an offset and starts changing it from there.
 
+[#round-target-value]
+== Round target value checkbox
+
+Rounds target value to the next integer. Only a few targets support that, such as xref::target-types/project-targets/project-set-tempo.adoc[].
+
 [#takeover-mode]
 == Takeover mode menu
 
@@ -245,7 +251,7 @@ Catch up::
 This mode is sometimes called "Proportional" or "Value scaling" mode.
 It's like "Parallel" mode but the target value is allowed to move slower than the control value - hence the control can catch up (converge) faster.
 
-[[control-transformation]]
+[#control-transformation]
 == Control transformation (EEL) field
 
 This feature allows you to write a formula that transforms incoming control values.
@@ -315,7 +321,7 @@ ReaLearn's control processing order is like this:
 . Apply target interval
 . Apply rounding
 
-[[step-size]]
+[#step-size-min-max]
 == Step size Min/Max controls
 
 When you deal with relative adjustments of target values in terms of increments/decrements, then you have great flexibility because you can influence the _amount_ of those increments/decrements.
@@ -328,9 +334,10 @@ Step size Max:: Is used to limit the effect of acceleration (for rotary encoders
 If you set this to the same value as _Step size Min_, encoder acceleration or changes in velocity will have absolutely no effect on the incrementation/decrementation amount.
 If you set it to 100%, the effect is maximized.
 
+[#speed-min-max]
 == Speed Min/Max controls
 
-When you choose a target with a xref:further-concepts/target-concepts.adoc#discrete-value-range[], the <<step-size>> label will change into
+When you choose a target with a xref:further-concepts/target-concepts.adoc#discrete-value-range[], the <<step-size-min-max>> label will change into
 _Speed_.
 If a target is discrete, it cannot have arbitrarily small step sizes.
 It rather has one predefined atomic step size.
@@ -359,6 +366,7 @@ It means you need to make your encoder send 2 increments in order to move to the
 Or -5: You need to make your encoder send 5 increments to move to the next preset.
 This is like slowing down the encoder movement.
 
+[#encoder-filter]
 == Encoder filter menu
 
 Allows you to react to clockwise or counter-clockwise xref:further-concepts/mapping-concepts.adoc#rotary-endless-encoder[] movements only, e.g. if you want to invoke one action on clockwise movement and another one on counter-clockwise movement.
@@ -368,6 +376,7 @@ Increment & decrement:: ReaLearn will process both increments and decrements.
 Increment only:: ReaLearn will ignore decrements.
 Decrement only:: ReaLearn will ignore increments.
 
+[#wrap]
 == Wrap checkbox
 
 If unchecked, the target value will not change anymore if there's an incoming decrement but the target already reached its minimum value.
@@ -450,6 +459,7 @@ That way you can use one button for 3 different actions!
 * Mapping 3 "After timeout" with Timeout = 500ms
 ====
 
+[#button-filter]
 == Button filter menu
 
 This allows you to easily ignore button presses or releases.
