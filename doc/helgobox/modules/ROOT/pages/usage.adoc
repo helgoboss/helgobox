@@ -1,6 +1,7 @@
 = Usage
 
-This section illustrates absolute basics of using Helgobox. For more information, please refer to the link:https://docs.helgoboss.org/realearn[ReaLearn Reference] or link:https://docs.helgoboss.org/playtime[Playtime Reference].
+This section illustrates the basics of using Helgobox.
+For more information, please refer to the link:https://docs.helgoboss.org/realearn[ReaLearn Reference] or link:https://docs.helgoboss.org/playtime[Playtime Reference].
 
 == Add plug-in instance
 
@@ -26,7 +27,8 @@ Each Helgobox instance can display its own App window, embedded into REAPER:
 .App window
 image::helgobox/screenshots/app-window.png[]
 
-As an alternative, you can use the convenient btn:[Playtime] button in REAPER's main toolbar. If you don't see it, do this:
+As an alternative, you can use the convenient btn:[Playtime] button in REAPER's main toolbar.
+If you don't see it, do this:
 
 . Select menu:Extensions[Helgobox > Show welcome screen]
 . Check "Add Playtime button to main toolbar"
