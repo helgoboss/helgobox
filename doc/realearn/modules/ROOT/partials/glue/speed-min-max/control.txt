@@ -1,1 +1,1 @@
-specifies by which discrete minimum/maximum amount to increase or decrease the target value when an increment or decrement is received
+specifies how often to increase or decrease the target value when an increment or decrement is received

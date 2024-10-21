@@ -173,6 +173,11 @@ impl MappingPanel {
         }
     }
 
+    fn handle_hovered_ui_element(&self, resource_id: Option<u32>) {
+        let help_topic = resource_id.and_then(find_help_topic_for_resource);
+        self.active_help_topic.borrow_mut().set(help_topic);
+    }
+
     fn set_invoked_programmatically(&self, value: bool) {
         self.is_invoked_programmatically.set(value);
         // I already ran into a borrow error because the mapping header panel was updated
@@ -4030,14 +4035,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                 control_desc,
                 feedback_desc,
             } => {
-                left_label.set_text(format!("{topic}: In control direction, ..."));
-                left_content.set_multi_line_text(format!(
-                    "... this {}.",
-                    control_desc.unwrap_or(HAS_NO_EFFECT)
-                ));
+                left_label.set_text(format!("In control direction, \"{topic}\" ..."));
+                left_content
+                    .set_multi_line_text(format!("... {}.", control_desc.unwrap_or(HAS_NO_EFFECT)));
                 right_label.set_text("In feedback direction, ... (Press F1 to learn more)");
                 right_content.set_multi_line_text(format!(
-                    "... this {}.",
+                    "... it {}.",
                     feedback_desc.unwrap_or(HAS_NO_EFFECT)
                 ));
             }
@@ -7020,15 +7023,16 @@ impl View for MappingPanel {
             self.glue_color_panel.clone().open(window);
             self.help_color_panel.clone().open(window);
         }
-        let mut container = self.ui_element_container.borrow_mut();
-        for child in window.children() {
-            let element = UiElement {
-                id: child.resource_id(),
-                rect: window.screen_to_client(&child.window_rect()),
-                visible: true,
-            };
-            container.add_element(element);
-        }
+        self.ui_element_container
+            .borrow_mut()
+            .fill_with_window_children(window);
+        let weak_view = Rc::downgrade(&self);
+        self.mapping_header_panel
+            .set_mouse_hovered_element_callback(Box::new(move |resource_id| {
+                if let Some(view) = weak_view.upgrade() {
+                    view.handle_hovered_ui_element(resource_id);
+                }
+            }));
         true
     }
 
@@ -7382,10 +7386,8 @@ impl View for MappingPanel {
         let container = self.ui_element_container.borrow();
         let mut resource_ids =
             container.hit_test(Point::new(position.x.get() as _, position.y.get() as _));
-        let help_topic = resource_ids
-            .find(|id| !NO_HELP_ELEMENTS.contains(id))
-            .and_then(find_help_topic_for_resource);
-        self.active_help_topic.borrow_mut().set(help_topic);
+        let resource_id = resource_ids.find(|id| !NO_HELP_ELEMENTS.contains(id));
+        self.handle_hovered_ui_element(resource_id);
         false
     }
 
@@ -8470,6 +8472,35 @@ fn find_help_topic_for_resource(id: u32) -> Option<HelpTopic> {
         // Mapping
         (
             &[
+                root::ID_MAPPING_NAME_LABEL,
+                root::ID_MAPPING_NAME_EDIT_CONTROL,
+            ],
+            HelpTopic::Mapping(MappingTopic::Name),
+        ),
+        (
+            &[
+                root::ID_MAPPING_TAGS_LABEL,
+                root::ID_MAPPING_TAGS_EDIT_CONTROL,
+            ],
+            HelpTopic::Mapping(MappingTopic::Tags),
+        ),
+        (
+            &[root::ID_MAPPING_CONTROL_ENABLED_CHECK_BOX],
+            HelpTopic::Mapping(MappingTopic::ControlEnabled),
+        ),
+        (
+            &[root::ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX],
+            HelpTopic::Mapping(MappingTopic::FeedbackEnabled),
+        ),
+        (
+            &[
+                root::ID_MAPPING_ACTIVATION_TYPE_LABEL,
+                root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX,
+            ],
+            HelpTopic::Mapping(MappingTopic::Active),
+        ),
+        (
+            &[
                 root::ID_MAPPING_PANEL_FEEDBACK_LABEL,
                 root::ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX,
             ],
@@ -8505,21 +8536,57 @@ fn find_help_topic_for_resource(id: u32) -> Option<HelpTopic> {
         ),
         // Source
         (
-            &[root::ID_SOURCE_CATEGORY_COMBO_BOX],
+            &[root::ID_SOURCE_LEARN_BUTTON],
+            HelpTopic::Source(SourceTopic::Learn),
+        ),
+        (
+            &[
+                root::ID_MAPPING_PANEL_SOURCE_CATEGORY_LABEL,
+                root::ID_SOURCE_CATEGORY_COMBO_BOX,
+            ],
             HelpTopic::Source(SourceTopic::Category),
         ),
         (
-            &[root::ID_SOURCE_TYPE_COMBO_BOX],
+            &[
+                root::ID_SOURCE_TYPE_LABEL_TEXT,
+                root::ID_SOURCE_TYPE_COMBO_BOX,
+            ],
             HelpTopic::Source(SourceTopic::Type),
         ),
         // Target
+        (
+            &[root::ID_TARGET_LEARN_BUTTON],
+            HelpTopic::Target(TargetTopic::Learn),
+        ),
+        (
+            &[root::ID_TARGET_MENU_BUTTON],
+            HelpTopic::Target(TargetTopic::Menu),
+        ),
         (
             &[root::ID_TARGET_CATEGORY_COMBO_BOX],
             HelpTopic::Target(TargetTopic::Category),
         ),
         (
-            &[root::ID_TARGET_TYPE_BUTTON],
+            &[
+                root::ID_MAPPING_PANEL_TARGET_TYPE_LABEL,
+                root::ID_TARGET_TYPE_BUTTON,
+            ],
             HelpTopic::Target(TargetTopic::Type),
+        ),
+        (
+            &[
+                root::ID_TARGET_VALUE_LABEL_TEXT,
+                root::ID_TARGET_VALUE_OFF_BUTTON,
+                root::ID_TARGET_VALUE_ON_BUTTON,
+                root::ID_TARGET_VALUE_SLIDER_CONTROL,
+                root::ID_TARGET_VALUE_EDIT_CONTROL,
+                root::ID_TARGET_VALUE_TEXT,
+            ],
+            HelpTopic::Target(TargetTopic::CurrentValue),
+        ),
+        (
+            &[root::ID_TARGET_UNIT_BUTTON],
+            HelpTopic::Target(TargetTopic::DisplayUnit),
         ),
         // Glue
         (

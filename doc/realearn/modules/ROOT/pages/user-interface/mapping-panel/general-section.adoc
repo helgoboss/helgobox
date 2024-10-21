@@ -17,11 +17,17 @@ If you clear the name, ReaLearn will name the mapping automatically based on its
 
 Use this to assign arbitrary xref:further-concepts/mapping-concepts.adoc#mapping-tag[] to this mapping (comma-separated).
 
-[#control-feedback-enabled]
-== Control/feedback-enabled checkboxes (→/←)
+[#control-enabled]
+== Control-enabled checkbox (→)
 
-Use these checkboxes to enable/disable control and/or feedback for this mapping.
-Disabling both has the same effect as disabling the mapping as a whole.
+Use his checkboxes to enable/disable control for this mapping.
+
+[#feedback-enabled]
+== Feedback-enabled checkbox (←)
+
+Use this to enable/disable feedback for this mapping.
+
+Disabling both control and feedback has the same effect as disabling the mapping as a whole.
 
 [#active]
 == Active menu

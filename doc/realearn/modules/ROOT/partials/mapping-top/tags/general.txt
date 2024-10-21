@@ -1,0 +1,1 @@
+allows assigning arbitrary comma-separated tags to the mapping

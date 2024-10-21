@@ -8,7 +8,11 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     let line_2_y = line_1_y + 20;
     let controls = vec![
         // Name
-        ltext("Name", ids.id(), context.rect(col_1_x, line_1_y + 3, 20, 9)) + NOT_WS_GROUP,
+        ltext(
+            "Name",
+            ids.named_id("ID_MAPPING_NAME_LABEL"),
+            context.rect(col_1_x, line_1_y + 3, 20, 9),
+        ) + NOT_WS_GROUP,
         edittext(
             ids.named_id("ID_MAPPING_NAME_EDIT_CONTROL"),
             context.rect(col_1_x + 28, line_1_y, 131, 14),
@@ -16,7 +20,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         // Tags
         ltext(
             "Tags",
-            ids.id(),
+            ids.named_id("ID_MAPPING_TAGS_LABEL"),
             context.rect(col_1_x + 167, line_1_y + 3, 18, 9),
         ) + NOT_WS_GROUP,
         edittext(
@@ -37,7 +41,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         // Conditional activation
         ltext(
             "Active",
-            ids.id(),
+            ids.named_id("ID_MAPPING_ACTIVATION_TYPE_LABEL"),
             context.rect(col_1_x, line_2_y + 2, 21, 9),
         ) + NOT_WS_GROUP,
         dropdown(

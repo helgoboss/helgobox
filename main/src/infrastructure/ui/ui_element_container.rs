@@ -1,4 +1,4 @@
-use swell_ui::{Point, Rect};
+use swell_ui::{Point, Rect, Window};
 
 #[derive(Debug, Default)]
 pub struct UiElementContainer {
@@ -13,6 +13,17 @@ pub struct UiElement {
 }
 
 impl UiElementContainer {
+    pub fn fill_with_window_children(&mut self, window: Window) {
+        for child in window.children() {
+            let element = UiElement {
+                id: child.resource_id(),
+                rect: window.screen_to_client(&child.window_rect()),
+                visible: true,
+            };
+            self.add_element(element);
+        }
+    }
+
     pub fn add_element(&mut self, element: UiElement) {
         self.elements.push(element);
     }

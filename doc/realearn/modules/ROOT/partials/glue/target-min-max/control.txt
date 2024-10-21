@@ -1,1 +1,1 @@
-sets the controlled value range of the target, making sure that the target value ends up within the specific range
+sets the controlled value range of the target, making sure that the target value ends up within that range

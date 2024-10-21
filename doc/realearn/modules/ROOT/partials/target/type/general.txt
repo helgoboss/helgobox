@@ -1,1 +1,1 @@
-lets you pick the target type within the category
+lets you pick the type of target that you want to control (or get feedback from)

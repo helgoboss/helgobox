@@ -1,1 +1,1 @@
-specifies by which proportional minimum/maximum amount to increase or decrease the target value when an increment or decrement is received
+specifies by which amount to increase the target value when an increment or decrement is received

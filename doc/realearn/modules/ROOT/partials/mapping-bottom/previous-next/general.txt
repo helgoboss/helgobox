@@ -1,1 +1,0 @@
-jumps to the previous or next mapping in the list, respecting search and filter settings

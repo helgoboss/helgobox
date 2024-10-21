@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::help::SourceTopic::{Category, Type};
+use crate::infrastructure::ui::help::SourceTopic::{Category, Learn, Type};
 use derive_more::Display;
 use helgoboss_learn::ModeParameter;
 use include_dir::{include_dir, Dir};
@@ -22,6 +22,13 @@ pub enum ConceptTopic {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Display)]
 pub enum MappingTopic {
+    Name,
+    Tags,
+    #[display(fmt = "Control enabled")]
+    ControlEnabled,
+    #[display(fmt = "Feedback enabled")]
+    FeedbackEnabled,
+    Active,
     #[display(fmt = "Feedback mode")]
     FeedbackMode,
     #[display(fmt = "Show in projection")]
@@ -36,12 +43,12 @@ pub enum MappingTopic {
     PreviousMapping,
     #[display(fmt = "Go to next mapping")]
     NextMapping,
-    #[display(fmt = "Enabled")]
     Enabled,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Display)]
 pub enum SourceTopic {
+    Learn,
     #[display(fmt = "Source category")]
     Category,
     #[display(fmt = "Source type")]
@@ -50,10 +57,14 @@ pub enum SourceTopic {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Display)]
 pub enum TargetTopic {
+    Learn,
+    Menu,
     #[display(fmt = "Target category")]
     Category,
     #[display(fmt = "Target type")]
     Type,
+    #[display(fmt = "Current value")]
+    CurrentValue,
     #[display(fmt = "Display unit")]
     DisplayUnit,
 }
@@ -118,18 +129,25 @@ impl HelpTopic {
             HelpTopic::Mapping(t) => {
                 use MappingTopic::*;
                 match t {
+                    Name => (HelpSection::MappingTop, "name"),
+                    Tags => (HelpSection::MappingTop, "tags"),
+                    ControlEnabled => (HelpSection::MappingTop, "control-enabled"),
+                    FeedbackEnabled => (HelpSection::MappingTop, "feedback-enabled"),
+                    Active => (HelpSection::MappingTop, "active"),
                     FeedbackMode => (HelpSection::MappingTop, "feedback-mode"),
                     ShowInProjection => (HelpSection::MappingTop, "show-in-projection"),
                     AdvancedSettings => (HelpSection::MappingTop, "advanced-settings"),
                     FindInMappingList => (HelpSection::MappingTop, "find-in-mapping-list"),
                     BeepOnSuccess => (HelpSection::MappingBottom, "beep-on-success"),
-                    PreviousMapping | NextMapping => (HelpSection::MappingBottom, "previous-next"),
+                    PreviousMapping => (HelpSection::MappingBottom, "previous"),
+                    NextMapping => (HelpSection::MappingBottom, "next"),
                     Enabled => (HelpSection::MappingBottom, "enabled"),
                 }
             }
             HelpTopic::Source(t) => {
                 use SourceTopic::*;
                 let id = match t {
+                    Learn => "learn",
                     Category => "category",
                     Type => "type",
                 };
@@ -138,8 +156,11 @@ impl HelpTopic {
             HelpTopic::Target(t) => {
                 use TargetTopic::*;
                 let id = match t {
+                    Learn => "learn",
+                    Menu => "menu",
                     Category => "category",
                     Type => "type",
+                    CurrentValue => "current-value",
                     DisplayUnit => "display-unit",
                 };
                 (HelpSection::Target, id)

@@ -1,1 +1,1 @@
-allows to react to only button press or only button release events
+allows reacting to either button press or button release events

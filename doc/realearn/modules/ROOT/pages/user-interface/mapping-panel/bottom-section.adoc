@@ -28,10 +28,16 @@ The right text area shows information about which feedback values are sent from 
 Makes the mapping play a sound whenever the target has been invoked successfully.
 Nice for trigger-like targets such as xref:target-types/realearn-targets/realearn-take-mapping-snapshot.adoc#realearn-take-mapping-snapshot[] for which there's no other good way to know if it worked.
 
-[#previous-next-mapping]
-== Previous/next buttons
+[#previous]
+== Previous button
 
-Allows you to jump to the previous or next mapping.
+Allows you to jump to the previous mapping.
+Considers only mappings that are currently visible in the mapping rows panel.
+
+[#next]
+== Next button
+
+Allows you to jump to the next mapping.
 Considers only mappings that are currently visible in the mapping rows panel.
 
 [#enabled]

@@ -14,20 +14,26 @@ use crate::application::{
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{CompartmentKind, MappingId, Tag};
 use crate::infrastructure::ui::menus;
+use crate::infrastructure::ui::ui_element_container::UiElementContainer;
+use derivative::Derivative;
 use std::fmt::Debug;
 use strum::IntoEnumIterator;
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
 
 type SharedItem = Rc<RefCell<dyn Item>>;
 type WeakItem = Weak<RefCell<dyn Item>>;
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct MappingHeaderPanel {
     view: ViewContext,
     session: WeakUnitModel,
     item: RefCell<Option<WeakItem>>,
     is_invoked_programmatically: Cell<bool>,
     position: Point<DialogUnits>,
+    ui_element_container: RefCell<UiElementContainer>,
+    #[derivative(Debug = "ignore")]
+    mouse_hovered_element: RefCell<Option<Box<dyn Fn(Option<u32>)>>>,
 }
 
 pub trait Item: Debug {
@@ -94,7 +100,13 @@ impl MappingHeaderPanel {
             item: RefCell::new(initial_item),
             is_invoked_programmatically: false.into(),
             position,
+            ui_element_container: Default::default(),
+            mouse_hovered_element: Default::default(),
         }
+    }
+
+    pub fn set_mouse_hovered_element_callback(&self, callback: Box<dyn Fn(Option<u32>)>) {
+        self.mouse_hovered_element.replace(Some(callback));
     }
 
     pub fn set_invoked_programmatically(&self, value: bool) {
@@ -614,6 +626,9 @@ impl View for MappingHeaderPanel {
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.move_to_dialog_units(self.position);
         self.init_controls();
+        self.ui_element_container
+            .borrow_mut()
+            .fill_with_window_children(window);
         true
     }
 
@@ -621,6 +636,23 @@ impl View for MappingHeaderPanel {
         self.view.require_window().parent().unwrap().close();
         // If we return false, the child window is closed.
         true
+    }
+
+    fn on_destroy(self: SharedView<Self>, _window: Window) {
+        self.ui_element_container.replace(Default::default());
+    }
+
+    fn mouse_moved(self: SharedView<Self>, position: Point<Pixels>) -> bool {
+        let callback = self.mouse_hovered_element.borrow();
+        let Some(callback) = callback.as_ref() else {
+            return false;
+        };
+        let container = self.ui_element_container.borrow();
+        let mut resource_ids =
+            container.hit_test(Point::new(position.x.get() as _, position.y.get() as _));
+        let resource_id = resource_ids.find(|id| !NO_HELP_ELEMENTS.contains(id));
+        callback(resource_id);
+        false
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
@@ -999,3 +1031,5 @@ impl Item for GroupModel {
         );
     }
 }
+
+const NO_HELP_ELEMENTS: &[u32] = &[0];

@@ -5,10 +5,12 @@ image:realearn/screenshots/mapping-panel-target.png[Screenshot]
 
 All xref:target-types.adoc#target-types[] share the following UI elements.
 
+[#learn]
 == Learn button
 
 Starts or stops learning the target of this mapping.
 
+[#menu]
 == Menu
 
 Opens a small menu related to the target section:
@@ -31,8 +33,10 @@ Lets you choose the target category.
 [#type]
 == Type menu
 
-Lets you choose a target type within that category. See xref:target-types.adoc[].
+Lets you choose a target type within that category.
+See xref:target-types.adoc[].
 
+[#current-value]
 == Value section and field
 
 Reflects the current value of this mapping target and lets you change it (either via slider and text field or via buttons, depending on the target character).

@@ -1,1 +1,1 @@
-allows to react to only clockwise or only counter-clockwise encoder turning
+allows reacting to either clockwise or counter-clockwise encoder turns

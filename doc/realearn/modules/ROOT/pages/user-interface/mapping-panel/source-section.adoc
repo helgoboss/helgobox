@@ -4,6 +4,7 @@ image:realearn/screenshots/mapping-panel-source.png[Screenshot]
 
 All xref:source-types.adoc#source-types[] share the following UI elements.
 
+[#learn]
 == Learn button
 
 Starts or stops learning the xref:key-concepts.adoc#source[] of this mapping.
