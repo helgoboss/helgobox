@@ -1,81 +1,77 @@
-
 = Key concepts
 
-This section provides short descriptions of ReaLearn's key concepts.
-A good understanding of those concepts is key to use ReaLearn effectively, no matter which of its many features you are going to use.
+This section offers brief descriptions of ReaLearn's key concepts.
+A solid understanding of these concepts is essential for effectively using ReaLearn, regardless of which features you plan to utilize.
 
 [[control]]
 == Control
 
-In ReaLearn, the word _control_ most of the time refers to the process of triggering or adjusting something in REAPER (e.g. triggering an action or adjusting a FX parameter).
+In ReaLearn, the term _control_ typically refers to the process of triggering or adjusting something in REAPER, such as executing an action or modifying an FX parameter.
 
 [[feedback]]
 == Feedback
 
-In ReaLearn, the word _feedback_ refers to the process of controlling LEDs, motor faders or displays on your device, in response to events in REAPER (e.g. a track volume change).
+In ReaLearn, the term _feedback_ refers to controlling LEDs, motorized faders, or displays on your device in response to events in REAPER, such as a track volume change.
 
 [[controller]]
 == Controller
 
-A controller is the device that you want to use for controlling REAPER.
-Most of the time, it's a hardware device, for example a MIDI keyboard or control surface.
-But it could just as well be a software, for example an OSC app.
+A _controller_ is the device you use to control REAPER.
+It is usually a hardware device, such as a MIDI keyboard or control surface, but it can also be software, like an OSC app.
 
 [[control-element]]
 == Control element
 
-A control element is anything that you can use to control something.
-In most cases, it's a piece of plastic on your hardware controller.
+A control element is any component you can use to control something.
+In most cases, it's a physical part of your hardware <<controller>>.
 
-Examples: Knobs, encoders, faders, buttons, keys, pads, pitch wheels, acceleration sensors.
+Examples include knobs, encoders, faders, buttons, keys, pads, pitch wheels and acceleration sensors.
 
 [[control-element-interaction]]
 == Control element interaction
 
-A control element interaction is the action of using a <<control-element>>.
+A control element _interaction_ is the act of using a <<control-element>>.
 
-Most often, there's exactly one type of interaction you can do with a certain control element:
+Typically, each control element has one primary interaction type:
 
 * _Turning_ a knob
 * _Pressing/releasing_ a button
 * _Moving_ a fader
 
-But sometimes, one <<control-element>> can be used in multiple ways:
+However, some control elements allow multiple interactions:
 
 * _Moving_ a touch-sensitive fader
 * _Touching/releasing_ a touch-sensitive fader
 
-In this reference, when we write <<control-element>>, we often actually mean <<control-element-interaction>>.
-Because most of the time, they are essentially the same.
+In this reference, <<control-element>> often implies <<control-element-interaction>>, as they are usually synonymous.
 
 [[feedback-element]]
 == Feedback element
 
-A feedback element is anything on your controller that can indicate or display something.
+A _feedback element_ is any part of your <<controller>> that can indicate or display information.
 
-Examples: LEDs, motor faders, displays.
+Examples includes LEDs, motor faders and displays.
 
 Very frequently, control elements and feedback elements are combined:
 
 - Button with an integrated LED
-- Encoder with am LED ring
-- Motor fader
+- Encoder with an LED ring
+- Motorized fader
 
-That's why this reference sometimes uses the term <<control-element>> even if it's referring to the corresponding <<feedback-element>>, too.
+For this reason, this reference sometimes uses <<control-element>> to refer to both the <<control-element>> and the corresponding <<feedback-element>>.
 
 [[input-port]]
 == Input port
 
-For letting you control things, ReaLearn somehow needs to react to events coming from your <<controller>>.
-It does so by listening to events from an input port, which can be a MIDI input device port, an OSC port or your computer keyboard.
+To enable control, ReaLearn needs to respond to events from your <<controller>>.
+It achieves this by listening to events from an _input port_, which can be a MIDI device port, an OSC port or your computer keyboard.
 
 You can change the input port using the xref:user-interface/main-panel/inputoutput-section.adoc#input-menu[].
 
 [[output-port]]
 == Output port
 
-For sending <<feedback>> back to your controller, ReaLearn needs to somehow send instructions back to your <<controller>>.
-It does so by connecting to an output port, which can be a MIDI output device port or an OSC port.
+To send <<feedback>> back to your <<controller>>, ReaLearn transmits instructions through an _output port_, which can be a MIDI device port or an OSC port.
 
 You can change the output port using the xref:user-interface/main-panel/inputoutput-section.adoc#output-menu[].
 
@@ -89,48 +85,45 @@ For example, one instance could be on the monitoring FX chain and two instances 
 [[unit]]
 == Unit
 
-Each ReaLearn <<instance>> contains at least one unit, the so-called _main unit_.
-But it may contain an arbitrary number of additional units.
+Each ReaLearn <<instance>> contains at least one _unit_, known as the _main unit_, but it can also contain an arbitrary number of additional units.
 
-Units are like "mini instances" within one real ReaLearn <<instance>>.
-They make it possible that one ReaLearn <<instance>> can deal with many controllers at the same time.
-Each unit has its own <<input-port>>, <<output-port>>, <<controller-compartment>>, <<main-compartment>>, xref:further-concepts/compartment-concepts.adoc#controller-preset[], xref:further-concepts/compartment-concepts.adoc#main-preset[], and so on.
+Units function like "mini instances" within a single ReaLearn <<instance>>, allowing that instance to manage multiple controllers simultaneously.
+Each unit has its own <<input-port>>, <<output-port>>, <<controller-compartment>>, <<main-compartment>>, xref:further-concepts/compartment-concepts.adoc#controller-preset[], xref:further-concepts/compartment-concepts.adoc#main-preset[], and more.
 
 [[compartment]]
 == Compartment
 
-Each unit consists of exactly two compartments.
-A compartment is a self-contained list of mappings that can be saved as independent preset.
-The two compartments available in each unit are:
+Each unit consists of two compartments.
+A compartment is a self-contained list of mappings that can be saved as an independent preset.
+The two compartments in each unit are:
 
 [[main-compartment]] Main compartment::
-This compartment is the most important compartment.
-Its purpose is to define what the controller device should do, e.g. letting a fader control the volume of a track or projecting the name of an FX parameter to a hardware display.
+This is the primary compartment.
+Its purpose is to define what the controller device should do, e.g., allowing a fader to control track volume or displaying the name of an FX parameter on a hardware display.
 +
-We call the mappings in this compartment [[main-mapping,Main mapping]] _main mappings_ and the presets _main presets_.
+We refer to the mappings in this compartment [[main-mapping,Main mapping]] _main mappings_ and the presets _main presets_.
 
 [[controller-compartment]] Controller compartment::
-Usage of the controller compartment is optional.
-It has two main purposes: Describing all control elements which a controller has, giving them descriptive names and enabling xref:further-concepts/compartment-concepts.adoc#virtual-control[].
+The controller compartment is optional and serves two main purposes: Describing all control elements of the controller, assigning them descriptive names and enabling xref:further-concepts/compartment-concepts.adoc#virtual-control[].
 +
-We call the mappings in this compartment [[controller-mapping,Controller mapping]] _controller mappings_ and the presets _controller presets_.
+We refer to the mappings in this compartment [[controller-mapping,Controller mapping]] _controller mappings_ and the presets _controller presets_.
 
 [#mapping]
 == Mapping
 
-Each compartment consists of a list of mappings.
-A mapping is arguably the most important concept in Realearn.
+Each compartment contains a list of mappings.
+A mapping is one of the most important concepts in ReaLearn.
 It connects a <<control-element>> and/or <<feedback-element>> on your <<controller>> with an action or parameter in REAPER.
 
 === Anatomy of a mapping
 
-Each mapping in ReaLearn is composed of 3 elements:
+Each mapping in ReaLearn consists of three elements:
 
 <<source>>:: Describes the <<control-element>> and/or <<feedback-element>> on the <<controller>>.
 
-<<target>>:: Something in REAPER that wants to be controlled and/or provides feedback, e.g. track volume or cursor position or an action.
+<<target>>:: Something in REAPER that is to be controlled or provides feedback, such as track volume, cursor position or an action.
 
-<<glue>>:: A processor that sits between <<source>> and <<target>> and filters or transforms <<control>> and <<feedback>> streams.
+<<glue>>:: A processor that sits between <<source>> and <<target>>, filtering and transforming <<control>> and <<feedback>> streams.
 
 [[source]]
 == Source
