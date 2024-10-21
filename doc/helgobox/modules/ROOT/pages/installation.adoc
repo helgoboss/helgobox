@@ -1,0 +1,120 @@
+= Installation
+
+REAPER fans will be glad to know that Helgobox is provided as a https://reapack.com/[ReaPack] package.
+ReaPack is a popular 3rd-party package manager for REAPER that makes installing add-ons easy and keeps your installation up to date effortlessly.
+
+== Installing Helgobox
+
+Please choose:
+
+[loweralpha]
+. <<just-give-me-helgobox>>
+. <<i-have-reapack>>
+. <<i-want-to-install-reapack>>
+. <<install-without-reapack>>
+
+[[just-give-me-helgobox]]
+=== I don't have ReaPack. Just give me Helgobox already!
+
+For users who don't have ReaPack installed already, there's a **convenient installer** that automatically installs both ReaPack and Helgobox.
+It gets you up and running in no time!
+
+Simply press the following link and follow the instructions: link:https://reaboot.com/install/https%3A%2F%2Fraw.githubusercontent.com%2Fhelgoboss%2Fhelgobox%2Fmaster%2Freaboot.json[Install Helgobox]
+
+[WARNING]
+.The installer is currently in beta!
+====
+If you encounter any issues, please visit <<i-want-to-install-reapack>>.
+Report any installer problems to info@helgoboss.org.
+Thank you!
+====
+
+==== Known issues
+
+Installer shows error "no column found for name: flags"::
+It's an issue related to having an older ReaPack version installed.
+I need to look into it.
+Because this means that you have ReaPack installed already, a simple workaround is to follow the instructions in <<i-have-reapack>>.
+
+[[i-have-reapack]]
+=== I have ReaPack
+
+Here's how you can install Helgobox via ReaPack:
+
+. In REAPER, select menu:Extensions[ReaPack > Import repositories…]
+. Copy and paste the following repository URL into the text area:
++
+ https://github.com/helgoboss/reaper-packages/raw/master/index.xml
++
+. Select menu:Extensions[ReaPack > Browse packages…]
+. Search for `helgobox`
+. Right mouse click on the Helgobox package and choose menu:Install…[]
+. Press btn:[OK] or btn:[Apply]
+. Restart REAPER
+
+[[i-want-to-install-reapack]]
+=== I want to install via ReaPack but don't have it yet
+
+. Install ReaPack, following the link:https://reapack.com/user-guide[installation section of its user guide]
+. Restart REAPER
+. Follow the instructions in <<i-have-reapack>>
+
+[[install-without-reapack]]
+=== I want to install Helgobox manually, without ReaPack
+
+If you are more the download type of person, you can find the latest `dll`, `dylib` and `so` files here at GitHub on the https://github.com/helgoboss/helgobox/releases[releases page] for manual installation.
+
+You also must install Helgobox manually if you plan to use it in both REAPER for Windows 32-bit and REAPER for Windows 64-bit because then it's important to use two separate VST plug-in directories.
+
+== Validating the installation
+
+You know that Helgobox is installed successfully if you see the menu menu:Extensions[Helgobox].
+
+In addition, there should be a plug-in entry "VSTi: Helgobox - ReaLearn & Playtime (Helgoboss)" when right-clicking the empty area of REAPER's track panel and choosing menu:Insert virtual instrument on new track...[].
+
+NOTE: On Helgobox for Linux, the extension menu entry doesn't exist yet.
+But the plug-in should be there.
+
+== Troubleshooting
+
+=== Helgobox plug-in doesn't appear in the list of plug-ins
+
+If the Helgobox plug-in doesn't appear in the list of plug-ins, please proceed as follows:
+
+. If you are on Linux, make sure that `libxdo` is installed!
+** On Debian/Ubuntu: `sudo apt-get install -y libxdo-dev`
+
+. Make sure that Helgobox runs as native plug-in!
+** By default, each plug-in runs as native plug-in.
+If not, you probably changed the configuration at some point.
+** You can fix that by right-clicking Helgobox in the plug-in list and select menu:Run as[Native only (prevent bridging)].
+** It's technically impossible to run Helgobox as a bridged plug-in!
+
+== Updating Helgobox
+
+Helgobox development moves fast!
+In order to take advantage of latest features, improvements and fixes, you should check the link:https://www.helgoboss.org/projects/helgobox[Helgobox page] for updates from time to time.
+
+Here's how you can install the latest stable Helgobox version:
+
+. Run menu:Extensions[ReaPack > Synchronize packages]
+** ReaPack will show you a summary at the end, which tells you whether a new Helgobox version has been installed.
+. Restart REAPER
+
+== Testing new features and improvements
+
+If you want to get access to cutting-edge but untested versions of Helgobox, you can install Helgobox pre-releases.
+
+=== Install a specific pre-release of Helgobox
+
+. menu:Extensions[ReaPack > Browse packages...]
+. Right-click the Helgobox package and navigate to the submenu menu:Versions[]
+. Select the desired pre-release version (versions containing `-pre` or `-rc`)
+. Press btn:[OK] or btn:[Apply]
+. Restart REAPER
+
+=== Enable pre-releases globally
+
+. menu:Extensions[ReaPack > Manage repositories]
+. menu:Options…[Enable pre-releases globally (bleeding edge)]
+. After that, whenever you synchronize packages, you will get the latest stuff.

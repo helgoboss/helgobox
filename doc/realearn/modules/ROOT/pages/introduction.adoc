@@ -13,7 +13,7 @@ This reference provides a detailed description of ReaLearn's user interface, con
 [IMPORTANT]
 ====
 
-**If you are a beginner, please use the link:https://github.com/helgoboss/helgobox/wiki/ReaLearn-Home[Wiki] instead!**
+**If you are a beginner, please use the link:https://github.com/helgoboss/helgobox/wiki/ReaLearn-Home[ReaLearn Wiki] instead!**
 
 This reference is targeted at users who are already familiar with the ReaLearn basics and want to look up specific information. The Wiki is perfect if you are just starting off. It guides you through the very basics and contains links to easily digestable video tutorials.
 ====

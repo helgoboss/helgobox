@@ -1,0 +1,9 @@
+= Introduction
+
+link:https://www.helgoboss.org/projects/helgobox[Helgobox] is an instrument plug-in for REAPER that unites the products link:https://www.helgoboss.org/projects/realearn[ReaLearn] and link:https://www.helgoboss.org/projects/playtime[Playtime] under one roof.
+
+In addition to the plug-in, it comes with the Helgobox App, a modern user interface for the Helgobox Instrument.
+It runs embedded in REAPER and in the future also as a separate mobile app (iOS, Android).
+
+The reference of Helgobox itself is mainly about its installation process.
+If you want to learn more about the contained products, please refer to the link:https://docs.helgoboss.org/realearn[ReaLearn Reference] or link:https://docs.helgoboss.org/playtime[Playtime Reference].
