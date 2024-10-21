@@ -1,5 +1,22 @@
 = Source concepts
 
+== Real vs. virtual sources
+
+We distinguish between _virtual_ and _real_ sources.
+
+[[virtual-source]]
+=== Virtual source
+
+A _virtual_ source refers to a xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] and can only be used in the xref:key-concepts.adoc#main-compartment[].
+
+Examples: `ch1/fader`
+
+[[real-source]]
+=== Real source
+
+A _real_ source refers to a xref:further-concepts/compartment-concepts.adoc#real-control-element[].
+
+
 [[midi-source-character]]
 == MIDI source character
 

@@ -41,12 +41,13 @@ Creates a new mapping just like this one right below.
 
 Removes this mapping from the list.
 
-[[row-learn-source-button]]
+[[learn-source-button]]
 == Learn source button
 
 Starts or stops learning the source of this mapping.
 See xref:key-concepts.adoc#learn-source[].
 
+[[learn-target-button]]
 == Learn target button
 
 Starts or stops learning the target of this mapping.

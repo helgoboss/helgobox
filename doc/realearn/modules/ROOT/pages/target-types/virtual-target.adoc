@@ -1,8 +1,8 @@
 [[virtual-target-category]]
 = Virtual target
 
-This is exactly the counterpart of the possible xref:key-concepts.adoc#virtual-source[virtual sources] in the xref:key-concepts.adoc#main-compartment[].
-Choosing a xref:key-concepts.adoc#virtual-target[] here is like placing cables between a xref:further-concepts/compartment-concepts.adoc#real-control-element[] and all corresponding main mappings that use this xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] as source.
+This is exactly the counterpart of the possible xref:further-concepts/source-concepts.adoc#virtual-source[virtual sources] in the xref:key-concepts.adoc#main-compartment[].
+Choosing a xref:further-concepts/target-concepts.adoc#virtual-target[] here is like placing cables between a xref:further-concepts/compartment-concepts.adoc#real-control-element[] and all corresponding main mappings that use this xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] as source.
 
 == Learnable checkbox
 

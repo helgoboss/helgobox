@@ -185,20 +185,18 @@ include::partial$glue/usage-dependent-effect.adoc[]
 |If min > 0 and <<out-of-range-behavior>> is <<out-of-range-behavior-ignore>>, button releases are ignored.
 Because this also affects {feedback}, it's usually better to use the <<button-filter>> instead!
 
-
 |{velocity-sensitive-button}
 |{control}
 |Defines the observed velocity range, for example to react to only the lower velocity layer of a key press.
 
-
 |{range-element}
 |{control}
-|Defines the observed value range. For example to react only to the upper half of a fader.
+|Defines the observed value range.
+For example to react only to the upper half of a fader.
 
 |{led}
 |{feedback}
 |On many controllers which support colored LEDs, *Min* sets the *off* color and *Max* sets the *on* color.
-
 
 |{value-indicator}
 |{feedback}
@@ -293,7 +291,7 @@ It somewhat resembles takeover mode <<takeover-mode-parallel>> but has important
 
 - It's guaranteed that a full fader/knob swipe from 0% to 100% always results in a swipe over the full target range (assuming the target was at 0% initially).
 - It doesn't need to know the current target value.
-Which means it also works for mappings with xref:key-concepts.adoc#virtual-target[virtual targets].
+Which means it also works for mappings with xref:further-concepts/target-concepts.adoc#virtual-target[virtual targets].
 
 [[performance-control]] Performance control::
 This mode emulates the behavior of a typical soft synth modulation matrix mapping: It uses the target value that has been set in REAPER (not via this ReaLearn mapping) as an offset and starts changing it from there.
@@ -470,7 +468,6 @@ include::partial$glue/usage-dependent-effect.adoc[]
 |If the hardware encoder supports acceleration, this sets the target value change amount for the most accelerated increment/decrement
 
 |===
-
 
 [#speed-min-max]
 == Speed Min/Max controls

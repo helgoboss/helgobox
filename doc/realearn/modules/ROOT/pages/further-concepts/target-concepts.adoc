@@ -1,6 +1,26 @@
 
 = Target concepts
 
+== Real vs. virtual targets
+
+We distinguish between _virtual_ and _real_ targets.
+
+[[virtual-target]]
+=== Virtual target
+
+A _virtual_ target controls a xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] and can only be used in the xref:key-concepts.adoc#controller-compartment[].
+
+Example: `ch1/fader`
+
+It's then picked up by a xref:further-concepts/source-concepts.adoc#virtual-source[]] in the xref:key-concepts.adoc#main-compartment[].
+
+[[real-target]]
+=== Real target
+
+All others targets are real.
+
+Examples: xref:target-types/track-targets/track-set-volume.adoc#track-set-volume[]
+
 [[target-object-selectors]]
 == Target object selectors
 

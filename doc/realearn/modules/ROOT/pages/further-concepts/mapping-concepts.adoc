@@ -1,4 +1,3 @@
-
 = Mapping concepts
 
 == Absolute vs. relative control
@@ -179,7 +178,7 @@ Example: A track target can be invalid when it's using xref:further-concepts/tar
 In all other cases, mapping is *off* or *inactive*.
 In that case, it doesn't have any effect!
 
-(Controller) mappings with xref:key-concepts.adoc#virtual-target[] are always considered active as long as the feedback checkbox is ticked.
+(Controller) mappings with xref:further-concepts/target-concepts.adoc#virtual-target[] are always considered active as long as the feedback checkbox is ticked.
 
 [[mapping-signal-flow]]
 == Mapping signal flow
@@ -263,7 +262,6 @@ Initially, they don't do anything at all.
 First, you need to give meaning to them by referring to them in activation conditions or `<Dynamic>` selector expressions.
 ====
 
-
 === When modifiers on/off
 
 This mode is comparable to modifier keys on a computer keyboard.
@@ -289,7 +287,6 @@ Now you just have to map 2 controller buttons to "Parameter 1" and "Parameter 2"
 The beauty of this solution lies in how you can compose different ReaLearn features to obtain exactly the result you want.
 For example, the _absolute mode_ of the mapping that controls the modifier parameter decides if the modifier button is momentary (has to be pressed all the time) or toggled (switches between on and off everytime you press it).
 You can also be more adventurous and let the modifier on/off state change over time, using REAPER's automation envelopes.
-
 
 === When bank selected
 
@@ -326,7 +323,6 @@ With _Conditional activation_ you can do the same (and more) within just one Rea
 
 TIP: If you want to adjust the number of banks and improve bank handling in general, set a discrete value count for the corresponding bank parameter (see xref:further-concepts/compartment-concepts.adoc#compartment-parameter[]).
 
-
 === When EEL met
 
 This is for experts.
@@ -349,7 +345,6 @@ If you feel limited by the other activation modes, just use EEL.
 TIP: For most activation conditions which need this amount of freedom, the newer activation mode <<expression-based-activation-condition>> is a slightly better choice because it's easier to use and generally performs a bit better.
 
 [#expression-based-activation-condition]
-
 === When expression met
 
 This is very similar to the previous EEL activation mode.
@@ -360,7 +355,6 @@ The equivalent expression to above EEL example is:
 `p[0] > 0 && p[1] > 0`
 
 [#target-based-activation-condition]
-
 === When target value met
 
 This is different from all the other activation condition types in that it doesn't look at ReaLearn's internal parameter values.

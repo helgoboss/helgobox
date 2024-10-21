@@ -115,83 +115,44 @@ Each compartment contains a list of mappings.
 
 A _mapping_ connects a <<control-element>> and/or <<feedback-element>> on your <<controller>> with an action or parameter in REAPER.
 
-=== Anatomy of a mapping
-
-Each mapping in ReaLearn consists of three elements:
-
-<<source>>:: Describes the <<control-element>> and/or <<feedback-element>> on the <<controller>>.
-
-<<target>>:: Something in REAPER that is to be controlled or provides feedback, such as track volume, cursor position or an action.
-
-<<glue>>:: A processor that sits between <<source>> and <<target>>, filtering and transforming <<control>> and <<feedback>> streams.
+Each mapping consists of <<source>>, <<glue>> and <<target>>.
 
 [[source]]
 == Source
 
-A _source_ is part of a <<mapping>> and describes in most cases a <<control-element>> and/or <<feedback-element>> on a <<controller>>.
-In a more general sense it can be anything that emits xref:further-concepts/mapping-concepts.adoc#control-value[control values].
-
-We distinguish between <<virtual-source, virtual sources>> and <<real-source, real sources>>.
-
-[[virtual-source]]
-=== Virtual source
-
-A _virtual_ source refers to a xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] and can only be used in the <<main-compartment>>.
-
-Examples: `ch1/fader`
-
-[[real-source]]
-=== Real source
-
-A _real_ source refers to a xref:further-concepts/compartment-concepts.adoc#real-control-element[].
+A _source_ is the part of a <<mapping>> that typically describes a <<control-element>> and/or <<feedback-element>> on the <<controller>>.
+More generally, it can be anything that emits xref:further-concepts/mapping-concepts.adoc#control-value[control values].
 
 Examples: MIDI source, OSC source
 
 [[glue]]
 == Glue
 
-A _glue_ is part of a <<mapping>> and sits between the source and the target and filters or transforms control and feedback streams.
+A _glue_ is the part of a <<mapping>> that sits between <<source>> and <<target>>, filtering and transforming <<control>> and <<feedback>> streams.
 
 [[target]]
 == Target
 
-A _target_ is part of a <<mapping>> and represents something (mostly something in REAPER) that wants to be controlled and/or provides feedback.
+A _target_ is the part of the <<mapping>> that describes the thing which should be controlled and/or provides feedback data.
 
-We distinguish between <<virtual-target, virtual targets>> and <<real-target, real targets>>.
-
-[[virtual-target]]
-=== Virtual target
-
-A _virtual_ target controls a xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] and can only be used in the <<controller-compartment>>.
-
-Example: `ch1/fader`
-
-It's then picked up by a <<virtual-source>> in the <<main-compartment>>.
-
-[[real-target]]
-=== Real target
-
-All others targets are real.
-
-Examples: xref:target-types/track-targets/track-set-volume.adoc#track-set-volume[]
+Examples: Track volume, cursor position, REAPER action
 
 [[learning]]
 == Learning
 
-This section can't be complete without mentioning the concept that inspired ReaLearn's name: _Learning_.
-Learning simply means that you press a _Learn_ button instead of doing manual setup.
-This can save a lot of time!
+This section wouldn't be complete without mentioning the concept that inspired ReaLearn's name: _Learning_.
+Learning simply means that you press a btn:[Learn] button instead of performing manual setup, saving you valuable time!
 
 In ReaLearn, you can learn <<source, sources>> and <<target, targets>>.
 
 [[learn-source]]
 === Learn source
 
-Sources can be learned by pressing a source learn button and then touching a <<control-element>> on your controller.
+Sources can be learned by pressing the xref:user-interface/main-panel/mapping-row.adoc#learn-source-button[] and then touching a <<control-element>> on your controller.
 This saves you from the tedious job of setting up MIDI or OSC sources manually.
 
 [[learn-target]]
 === Learn target
 
-Targets can be learned by pressing a target learn button and then invoking a <<target>> within REAPER.
+Targets can be learned by pressing the xref:user-interface/main-panel/mapping-row.adoc#learn-target-button[] and then invoking a <<target>> within REAPER.
 This saves you from choosing xref:further-concepts/target-concepts.adoc#target-object-selectors[] and other stuff manually.

@@ -1,4 +1,3 @@
-
 = Compartment concepts
 
 [[compartment-preset]]
@@ -309,8 +308,8 @@ that can be reused with many different xref:key-concepts.adoc#controller[control
 
 The idea is simple:
 
-1. You define a <<controller-preset>> for a DAW controller, mapping each <<real-control-element>> (e.g. its first fader, which emits MIDI CC7 messages) to a corresponding <<virtual-control-element>> (e.g. named `ch1/fader`) by using a xref:key-concepts.adoc#virtual-target[].
-2. You define a <<main-preset>>, mapping each <<virtual-control-element>> to some xref:key-concepts.adoc#real-target[] by using a xref:key-concepts.adoc#virtual-source[].
+1. You define a <<controller-preset>> for a DAW controller, mapping each <<real-control-element>> (e.g. its first fader, which emits MIDI CC7 messages) to a corresponding <<virtual-control-element>> (e.g. named `ch1/fader`) by using a xref:further-concepts/target-concepts.adoc#virtual-target[].
+2. You define a <<main-preset>>, mapping each <<virtual-control-element>> to some xref:further-concepts/target-concepts.adoc#real-target[] by using a xref:further-concepts/source-concepts.adoc#virtual-source[].
 For example, you map `ch1/fader` to the xref:target-types/track-targets/track-set-volume.adoc#track-set-volume[] target.
 3. ReaLearn creates a sort of wire between the xref:key-concepts.adoc#controller-compartment[] and the xref:key-concepts.adoc#main-compartment[].
 So you can now control the track volume by moving the first fader.

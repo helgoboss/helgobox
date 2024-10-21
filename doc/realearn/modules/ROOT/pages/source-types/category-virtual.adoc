@@ -1,6 +1,6 @@
 = Virtual source
 
-See xref:key-concepts.adoc#virtual-source[].
+See xref:further-concepts/source-concepts.adoc#virtual-source[].
 
 == Type menu
 
