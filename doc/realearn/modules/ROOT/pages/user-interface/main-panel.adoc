@@ -2,14 +2,5 @@
 
 The main panel is what you see immediately when you open the Helgobox plug-in window.
 
-image:realearn/screenshots/main-panel.png[Screenshot]
-
-It's divided into 3 larger areas:
-
-Header area:: The area at the top.
-It mainly provides functionality that affects the complete xref:key-concepts.adoc#unit[] or the currently shown xref:key-concepts.adoc#compartment[] within the unit.
-
-Mapping area:: The area in the middle.
-It contains one row for each mapping.
-
-Bottom area:: The area at the bottom.
+.Main panel
+image::realearn/screenshots/main-panel.png[Screenshot]
