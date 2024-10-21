@@ -12,5 +12,5 @@ Where to send the OSC message.
 <Feedback output>:: Sends the OSC message to the device which is set as _Output_.
 Of course this only works if it's an OSC device.
 _Specific device:_:: Sends the OSC message to a specific device.
-Address, Argument and Range:: These correspond to the identically named settings of xref:source-types/category-osc.adoc#osc-source[OSC sources].
+Address, Argument and Range:: These correspond to the identically named settings of xref:source-types/category-osc.adoc[].
 Check that section for details.

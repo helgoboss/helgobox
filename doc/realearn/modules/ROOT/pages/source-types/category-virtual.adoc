@@ -1,5 +1,4 @@
-
-= Category "Virtual"
+= Virtual source
 
 See xref:key-concepts.adoc#virtual-source[].
 
@@ -18,6 +17,3 @@ The convenient picker provides IDs from standardized xref:further-concepts/compa
 === ID field
 
 Lets you enter the ID manually.
-
-
-[split=2]

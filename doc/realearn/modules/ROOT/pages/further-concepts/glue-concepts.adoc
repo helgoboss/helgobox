@@ -4,11 +4,11 @@
 == Target value sequence
 
 A target value sequence represents a list of possible target values.
-It can be entered using into the xref:user-interface/mapping-panel/glue-section.adoc#target-value-sequence-field[].
+It can be entered using into the xref:user-interface/mapping-panel/glue-section.adoc#value-sequence[].
 
 The mapping will set the target only to values contained in that sequence.
 Such a sequence doesn't just support single values but also ranges with customizable step sizes.
-All values are entered comma-separated using the target unit specified with the xref:user-interface/mapping-panel/target-section.adoc#target-unit-button[].
+All values are entered comma-separated using the target unit specified with the xref:user-interface/mapping-panel/target-section.adoc#display-unit[].
 
 .Single values
 ====
@@ -80,7 +80,7 @@ ReaLearn's feedback processing order is:
 === Text feedback: Text expression
 
 With this option, ReaLearn will send text feedback values to the source.
-This only works with sources that are capable of displaying text: That is any xref:source-types/category-osc.adoc#osc-source[OSC source] with argument type _String_, xref:source-types/category-midi/display.adoc#display-source[MIDI Display] and xref:source-types/category-midi/midi-script-source.adoc#midi-script-source[].
+This only works with sources that are capable of displaying text: That is any xref:source-types/category-osc.adoc[] with argument type _String_, xref:source-types/category-midi/display.adoc#display-source[MIDI Display] and xref:source-types/category-midi/midi-script-source.adoc#midi-script-source[].
 
 Text feedback can be combined with a _text expression_, which lets you define which text is going to be sent to the source _whenever the target value changes_ and immediately when entering the text.
 Whatever text you enter here, will be sent verbatim to the source.

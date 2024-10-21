@@ -16,17 +16,6 @@ A full-blown programming language derived from the famous Lua language that is a
 [TIP]
 ====
 
-You can also use the export for some very basic A/B testing:
-
-1. Choose _Export session as JSON_
-2. Change some settings and test them
-3. Restore the old settings by pressing _Import from clipboard_.
-
-====
-
-[TIP]
-====
-
 For the programmers and script junkies out there: It's perfectly possible to program ReaLearn from outside by passing it a snippet of JSON via https://www.reaper.fm/sdk/reascript/reascripthelp.html#TrackFX_SetNamedConfigParm[`TrackFX_SetNamedConfigParm()`].
 Parameter name is `set-state`.
 This mechanism is implemented on ReaLearn side using https://www.reaper.fm/sdk/vst/vst_ext.php[REAPER's named parameter mechanism] (search for `named_parameter_name`).
@@ -59,3 +48,8 @@ local state = [[
 reaper.TrackFX_SetNamedConfigParm(track, 0, "set-state", state)
 ----
 ====
+
+[#feedback-relay]
+== Feedback relay
+
+Feedback _relay_ happens when a feedback-enabled mapping becomes inactive and another feedback-enabled mapping with the same xref:key-concepts.adoc#source[] becomes active. In that case, ReaLearn has to swap the displayed value of the previous mapping target with the displayed value of the new mapping target.

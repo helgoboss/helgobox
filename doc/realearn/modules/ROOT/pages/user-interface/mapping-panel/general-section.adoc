@@ -57,7 +57,7 @@ As a consequence, feedback will be sent only when pressing the button, not when 
 +
 If this option is selected, ReaLearn will send feedback even after releasing the button - although the target value has not been changed by it.
 +
-Another case where this option comes in handy is if you use a target which doesn't support proper feedback because REAPER doesn't notify ReaLearn about value changes (e.g. "Track FX all enable") and you have "Poll for feedback" disabled.
+Another case where this option comes in handy is if you use a target which doesn't support proper feedback because REAPER doesn't notify ReaLearn about value changes (e.g. "Track FX all enable"), and you have "Poll for feedback" disabled.
 By choosing this option, ReaLearn will send feedback whenever the target value change was caused by ReaLearn itself, which improves the situation at least a bit.
 
 [#show-in-projection]

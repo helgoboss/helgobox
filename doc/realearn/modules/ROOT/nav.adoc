@@ -134,6 +134,6 @@
 ** xref:further-concepts/target-concepts.adoc[]
 ** xref:further-concepts/source-concepts.adoc[]
 * xref:best-practices.adoc[]
-* xref:provided-reaper-actions.adoc[]
+* xref:reaper-actions.adoc[]
 * xref:configuration-files.adoc[]
 * xref:design-decisions.adoc[]

@@ -341,7 +341,7 @@ Tolerant mode will not prevent this kind of jumps!
 
 Long time no see::
 This is similar to <<pick-up>> with the difference that the current target value will gradually "come your way".
-This results in seamless and fast reunification of control and target value but it can feel weird because the target value can temporarily move in the opposite direction of the fader movement.
+This results in seamless and fast reunification of control and target value, but it can feel weird because the target value can temporarily move in the opposite direction of the fader movement.
 In older ReaLearn versions this was called "Slowly approach if jump too big".
 
 [[takeover-mode-parallel]] Parallel::

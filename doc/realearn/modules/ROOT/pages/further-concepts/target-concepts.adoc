@@ -207,7 +207,7 @@ CAUTION: If you select many tracks, things can become quite slow!
 Master track of the project which hosts this ReaLearn instance.
 
 * If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
-* If you don't have ReaLearn on the monitoring FX chain but you want to control an FX on the monitoring FX chain, this option is the right choice as well.
+* If you don't have ReaLearn on the monitoring FX chain, but you want to control an FX on the monitoring FX chain, this option is the right choice as well.
 Make sure to enable the "Monitoring FX" checkbox.
 
 ==== All named selector
@@ -290,7 +290,7 @@ Targets can expose properties, which you can use for xref:further-concepts/glue-
 
 Which properties are available, depends very much on the type of the target type.
 
-There are some properties which are available for (almost) any target (for very target-specific properties, please look up the corresponding target in xref:target-types.adoc#target-types[]):
+There are some properties which are available for (almost) any target (for very target-specific properties, please look up the corresponding target in xref:target-types.adoc[]):
 
 .Common target properties
 [cols="m,1,3"]

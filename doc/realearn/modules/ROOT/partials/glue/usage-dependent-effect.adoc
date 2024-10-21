@@ -1,4 +1,4 @@
-{usage-dependent}
+Depending on the context, this can have different effects:
 
 |===
 | Element | Direction | Effect

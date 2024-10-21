@@ -25,7 +25,7 @@ That means, ReaLearn can act as global MIDI filter.
 ** Also, MIDI events captured from a real MIDI device input are *never* forwarded to ReaLearn's FX output.
 +
 TIP: This global MIDI filter feature is only available in REAPER v6.36+.
-* If input is set to a OSC device
+* If input is set to an OSC device
 ** You won't see the checkboxes because they don't make sense for OSC.
 * The checkboxes don't have any effect on computer keyboard input.
 Keys are always passed through when doing text entry and never passed through if a mapping matches.
@@ -174,7 +174,7 @@ Behavior:
 
 * By default, ReaLearn units are not superior, just normal.
 This is most of the time okay, even if you have multiple units that share the same input and output ... as long as you don't have any conflicting mappings active at the same time.
-* For example, if 2 units use the same input or output device and they use different control elements, they can peacefully coexist.
+* For example, if 2 units use the same input or output device, and they use different control elements, they can peacefully coexist.
 And even if they share a control element for the _control direction_, they are still fine with it.
 The same control element will control 2 mappings, why not!
 * Things start to get hairy as soon as 2 units want to send _feedback_ to the same control elements at the same time.

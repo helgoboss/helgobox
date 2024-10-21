@@ -103,7 +103,7 @@ When moving a rotary endless encoder clockwise, it will continuously emit increm
 When moving it counter-clockwise, it will continuously emit decrements.
 +
 IMPORTANT: It happens very often that controllers have rotary endless encoders, but they will act like knobs by default, sending absolute messages.
-That is a great waste and you should change that setting as soon as possible on the hardware side.
+That is a great waste, and you should change that setting as soon as possible on the hardware side.
 
 [[control-value]]
 == Control value
@@ -229,7 +229,7 @@ Please activate this mapping only if ReaLearn Parameter 1 is *on*!"
 
 The activation condition of a mapping determines under which circumstances a mapping is active or inactive, based on the value of a xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] or based on the state of arbitrary xref:key-concepts.adoc#target[targets].
 It is especially practical if your controller has a limited amount of control elements and you want to give control elements several responsibilities.
-It let's you easily implement use cases such as:
+It lets you easily implement use cases such as:
 
 * "This knob should control the track pan, but only when my sustain pedal is pressed, otherwise it should control track volume!" (modifier use cases)
 * "I want to have two buttons for switching between different banks where each bank represents a group of mappings." (bank use cases)
@@ -436,7 +436,7 @@ But even for the xref:key-concepts.adoc#control[] direction, you might want to r
 One part of your message might represent a variable value.
 You might want to extract it and control the target with it.
 
-Fortunately, ReaLearn offers a uniform way to extract a variable value from the raw MIDI message (control) or encode the current target value as part of it (feedback).
+Fortunately, ReaLearn offers a uniform way to extract a variable value from the raw MIDI message (control) or encode the current target value into the raw MIDI message (feedback).
 Bytes which contain a variable value (or a part of it) _must_ be expressed using binary notation.
 
 .Variable pattern

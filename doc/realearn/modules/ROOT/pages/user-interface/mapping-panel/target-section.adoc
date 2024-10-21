@@ -3,7 +3,7 @@
 
 image:realearn/screenshots/mapping-panel-target.png[Screenshot]
 
-All xref:target-types.adoc#target-types[] share the following UI elements.
+All xref:target-types.adoc[] share the following UI elements.
 
 [#learn]
 == Learn button
@@ -56,7 +56,7 @@ Currently, there are two options:
 
 (1) Use native target units::
 Uses the target-specific unit, e.g. dB for volume targets.
-If the target doesn't have any specific units, it will displayed as `1. - (-)`.
+If the target doesn't have any specific units, it will be displayed as `1. - (-)`.
 
 (2) Use percentages::
 Uses percentages for everything, which can be nice to get a uniform way of displaying/entering values instead of having to deal with the sometimes clunky target-specific units.

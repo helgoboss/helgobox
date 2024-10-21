@@ -29,5 +29,5 @@ target.item.parent.name
 |
 String
 |
-Name of the parent filter item if there's any. E.g. the instrument to which a bank belongs or the type to which a sub type belongs.
+Name of the parent filter item if there's any. E.g. the instrument to which a bank belongs or the type to which a subtype belongs.
 |===

@@ -1,8 +1,7 @@
-[split=2]
 = User interface
 
 This section describes each general element of the Helgobox user interface that is relevant for ReaLearn.
-Source- or target-specific UI user interface elements are described in xref:source-types.adoc#source-types[] and xref:target-types.adoc#target-types[].
+Source- or target-specific UI user interface elements are described in xref:source-types.adoc[] and xref:target-types.adoc[].
 
 Please note that Helgobox is made up of 2 components, each of which brings its own user interface:
 

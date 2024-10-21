@@ -1,4 +1,3 @@
-[split=1]
 = Further concepts
 
 This section describes further concepts.

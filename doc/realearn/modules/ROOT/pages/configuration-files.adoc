@@ -1,39 +1,31 @@
-[appendix]
 = Configuration files
 
 ReaLearn creates and/or reads a few files in REAPER's resource directory.
 
-[cols="m,1"]
-|===
+`Data/helgoboss`:: Directory which contains data such as presets or resources that need to be distributed via ReaPack
 
-| File | Description
+`Data/helgoboss/auto-load-configs/fx.json`:: Contains global FX-to-preset links, see xref:further-concepts/unit-concepts.adoc#auto-load[]
 
-| Data/helgoboss | Directory which contains data such as presets or resources that need to be distributed via ReaPack
+`Data/helgoboss/archives`:: Directory which contains archives e.g. the compressed app, distributed via ReaPack
 
-| Data/helgoboss/auto-load-configs/fx.json | Contains global FX-to-preset links, see xref:further-concepts/unit-concepts.adoc#auto-load[]
+`Data/helgoboss/doc`:: Contains offline documentation, e.g. this guide as PDF
 
-| Data/helgoboss/archives | Directory which contains archives e.g. the compressed app, distributed via ReaPack
+`Data/helgoboss/presets/controller`:: Contains preset for the controller compartment
 
-| Data/helgoboss/doc | Contains offline documentation, e.g. this guide as PDF
+`Data/helgoboss/presets/main`:: Contains preset for the main compartment
 
-| Data/helgoboss/presets/controller | Contains preset for the controller compartment
+`Helgoboss`:: Directory which contains rather personal or device-specific data, not touched via ReaPack
 
-| Data/helgoboss/presets/main | Contains preset for the main compartment
+`licensing.json`:: Contains license keys
 
-| Helgoboss | Directory which contains rather personal or device-specific data, not touched via ReaPack
+`Helgoboss/App`:: Contains the uncompressed App, if installed
 
-| licensing.json | Contains license keys
+`Helgoboss/Pot/previews`:: Directory which contains previews recorded by xref:further-concepts/instance-concepts.adoc#pot-browser[Pot Browser]
 
-| Helgoboss/App | Contains the uncompressed App, if installed
+`Helgoboss/ReaLearn/osc.json`:: Global OSC device configurations, see xref:user-interface/main-panel/inputoutput-section.adoc#manage-osc-devices[]
 
-| Helgoboss/Pot/previews | Directory which contains previews recorded by xref:further-concepts/instance-concepts.adoc#pot-browser[Pot Browser]
-
-| Helgoboss/ReaLearn/osc.json | Global OSC device configurations, see xref:user-interface/main-panel/inputoutput-section.adoc#manage-osc-devices[]
-
-| Helgoboss/ReaLearn/realearn.ini | Very basic global configuration, currently mainly regarding ReaLearn's built-in server.
-
+`Helgoboss/ReaLearn/realearn.ini`:: Very basic global configuration, currently mainly regarding ReaLearn's built-in server.
++
 Currently supported properties (subject to change): `server_enabled`, `server_http_port`, `server_https_port`, `server_grpc_port`, `companion_web_app_url`
 
-| Helgoboss/Server/certificates | Contains a list of certificates and corresponding private keys in order to allow encrypted communication with ReaLearn Companion and App.
-
-|===
+`Helgoboss/Server/certificates`:: Contains a list of certificates and corresponding private keys in order to allow encrypted communication with ReaLearn Companion and App.

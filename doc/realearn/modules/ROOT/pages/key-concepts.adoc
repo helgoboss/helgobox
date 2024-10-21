@@ -80,7 +80,7 @@ You can change the output port using the xref:user-interface/main-panel/inputout
 
 Helgobox/ReaLearn is an instrument plug-in.
 That means you can add multiple instances of it, just as you would add multiple instances of a synth or effect.
-For example, one instance could be on the monitoring FX chain and two instances somewhere in your project.
+For example, you could place one instance on the monitoring FX chain and two instances somewhere in your project.
 
 [[unit]]
 == Unit
@@ -101,19 +101,19 @@ The two compartments in each unit are:
 This is the primary compartment.
 Its purpose is to define what the controller device should do, e.g., allowing a fader to control track volume or displaying the name of an FX parameter on a hardware display.
 +
-We refer to the mappings in this compartment [[main-mapping,Main mapping]] _main mappings_ and the presets _main presets_.
+We refer to the mappings in this compartment as [[main-mapping,Main mapping]] _main mappings_ and to the presets as _main presets_.
 
 [[controller-compartment]] Controller compartment::
 The controller compartment is optional and serves two main purposes: Describing all control elements of the controller, assigning them descriptive names and enabling xref:further-concepts/compartment-concepts.adoc#virtual-control[].
 +
-We refer to the mappings in this compartment [[controller-mapping,Controller mapping]] _controller mappings_ and the presets _controller presets_.
+We refer to the mappings in this compartment as [[controller-mapping,Controller mapping]] _controller mappings_ and to the presets as _controller presets_.
 
 [#mapping]
 == Mapping
 
 Each compartment contains a list of mappings.
-A mapping is one of the most important concepts in ReaLearn.
-It connects a <<control-element>> and/or <<feedback-element>> on your <<controller>> with an action or parameter in REAPER.
+
+A _mapping_ connects a <<control-element>> and/or <<feedback-element>> on your <<controller>> with an action or parameter in REAPER.
 
 === Anatomy of a mapping
 

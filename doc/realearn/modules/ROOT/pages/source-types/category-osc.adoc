@@ -1,5 +1,4 @@
-[#osc-source,OSC source]
-= Category "OSC"
+= OSC source
 
 OSC sources allow configuration of the following aspects:
 
