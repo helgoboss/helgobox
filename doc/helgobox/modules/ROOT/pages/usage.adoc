@@ -13,7 +13,7 @@ Helgobox is fired up just like any other VST instrument in REAPER: By adding an 
 Initially, you see the Helgobox instrument plug-in, which primarily provides the user interface for link:https://www.helgoboss.org/projects/realearn[ReaLearn]:
 
 .Plug-in window
-image::images/helgobox/screenshots/plugin-window.png[]
+image::helgobox/screenshots/plugin-window.png[]
 
 == Show the Helgobox App
 
@@ -24,7 +24,7 @@ Each Helgobox instance can display its own App window, embedded into REAPER:
 . Press menu:Menu[Show App]
 
 .App window
-image::images/helgobox/screenshots/app-window.png[]
+image::helgobox/screenshots/app-window.png[]
 
 As an alternative, you can use the convenient btn:[Playtime] button in REAPER's main toolbar. If you don't see it, do this:
 

@@ -1,0 +1,6 @@
+= Playtime Reference
+:experimental:
+
+This reference is written in AsciiDoc and follows the directory conventions of the documentation site generator link:https://antora.org/[Antora].
+
+A good place to start is link:modules/ROOT/pages/introduction.adoc[].

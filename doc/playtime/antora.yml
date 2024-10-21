@@ -1,0 +1,12 @@
+name: playtime
+title: Playtime Reference
+version: ~
+nav:
+  - modules/ROOT/nav.adoc
+start_page: introduction.adoc
+asciidoc:
+  attributes:
+    # For making menu and button macros work
+    experimental: true
+    # For showing prev/next links
+    page-pagination: ''

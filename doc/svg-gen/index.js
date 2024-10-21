@@ -1,6 +1,7 @@
-import { createSVGWindow } from "svgdom";
+import {createSVGWindow} from "svgdom";
 import svgjs from "@svgdotjs/svg.js";
-const { SVG, registerWindow } = svgjs;
+
+const {SVG, registerWindow} = svgjs;
 import * as fs from 'fs';
 import * as path from 'path';
 import pako from "pako";
@@ -16,24 +17,24 @@ const stylesheet = fs.readFileSync(path.resolve(script_dir, 'styles.css'));
 generate()
 
 async function generate() {
-    fs.writeFileSync('doc/images/modules.svg', await generateModulesDiagram())
-    fs.writeFileSync('doc/images/onion-layers.svg', generateOnionLayersDiagram())
-    fs.writeFileSync('doc/images/components.svg', await generateComponentDiagram())
-    fs.writeFileSync('doc/images/components-midi-fx.svg', await generateComponentDiagram([
+    fs.writeFileSync('doc/architecture/images/modules.svg', await generateModulesDiagram())
+    fs.writeFileSync('doc/architecture/images/onion-layers.svg', generateOnionLayersDiagram())
+    fs.writeFileSync('doc/architecture/images/components.svg', await generateComponentDiagram())
+    fs.writeFileSync('doc/architecture/images/components-midi-fx.svg', await generateComponentDiagram([
         'role-realtime-general',
         'role-realtime-midi-general',
         'role-realtime-midi-fx'
     ]))
-    fs.writeFileSync('doc/images/components-midi-device.svg', await generateComponentDiagram([
+    fs.writeFileSync('doc/architecture/images/components-midi-device.svg', await generateComponentDiagram([
         'role-realtime-general',
         'role-realtime-midi-general',
         'role-realtime-midi-device'
     ]))
-    fs.writeFileSync('doc/images/components-osc.svg', await generateComponentDiagram([
+    fs.writeFileSync('doc/architecture/images/components-osc.svg', await generateComponentDiagram([
         'role-realtime-general',
         'role-realtime-osc',
     ]))
-    fs.writeFileSync('doc/images/components-management.svg', await generateComponentDiagram([
+    fs.writeFileSync('doc/architecture/images/components-management.svg', await generateComponentDiagram([
         'role-sync-data',
         'role-notify',
     ]))

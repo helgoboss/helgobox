@@ -1,4 +1,5 @@
 * xref:introduction.adoc[]
+* xref:installation.adoc[]
 * xref:key-concepts.adoc[]
 * xref:user-interface.adoc[]
 ** xref:user-interface/main-panel.adoc[]

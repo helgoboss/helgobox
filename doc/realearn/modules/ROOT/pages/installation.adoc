@@ -1,0 +1,3 @@
+= Installation
+
+See xref:helgobox::installation.adoc[installation instructions for Helgobox], the plug-in that contains ReaLearn.
