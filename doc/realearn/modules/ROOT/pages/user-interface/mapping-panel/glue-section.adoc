@@ -1,5 +1,16 @@
 [#glue-section]
 = Glue section
+:control: Control →
+:feedback: Feedback ←
+:momentary-button: Momentary button
+:velocity-sensitive-button: Velocity-sensitive button (key, pad, ...)
+:incremental-velocity-sensitive-button: Incremental velocity-sensitive button (key, pad, ...)
+:incremental-button: Incremental button
+:range-element: Range element (fader, knob, ...)
+:encoder: Rotary endless encoder
+:led: LED
+:value-indicator: Value indicator (LED ring, motor fader, ...)
+:usage-dependent: Depending on the context, this can have different effects:
 
 image:realearn/screenshots/mapping-panel-glue.png[Screenshot]
 
@@ -20,14 +31,48 @@ Resets the settings to some sensible defaults.
 [#reverse]
 == Reverse checkbox
 
-If checked, this inverses the direction of the change.
-E.g. the target value will decrease when moving the fader upward and increase when moving it downward.
+{control}::
+include::partial$glue/reverse/control.txt[]
+
+{feedback}::
+include::partial$glue/reverse/feedback.txt[]
+
+include::partial$glue/usage-dependent-effect.adoc[]
+
+|{momentary-button}
+|{control}
+|Switches the target off when pressed and on when released
+
+|{range-element}
+|{control}
+|The higher the fader position, the lower the target value
+
+|{incremental-button}
+|{control}
+|Decreases the target value on press instead of increasing it
+
+|{encoder}
+|{control}
+|Decreases the target value when turning clockwise and decreases it when turning counter-clockwise
+
+|{led}
+|{feedback}
+|Uses *off* LED color if target is on and *on* LED color if target is off
+
+|{value-indicator}
+|{feedback}
+|The higher the target value, the lower the indicated value
+
+|===
 
 [#target-min-max]
 == Target Min/Max controls
 
-This restricts the controlled value range of the target.
-It enables you to "squeeze" target values into a specific range.
+{control}::
+include::partial$glue/target-min-max/control.txt[]
+
+{feedback}::
+include::partial$glue/target-min-max/feedback.txt[]
 
 .Squeezing the track volume value range
 ====
@@ -40,15 +85,21 @@ This setting can be used with all targets that work with xref:further-concepts/m
 [#value-sequence]
 == Value sequence field
 
+{control}::
+include::partial$glue/value-sequence/control.txt[]
+
 Allows you to define a xref:further-concepts/glue-concepts.adoc#target-value-sequence[].
-All values are entered comma-separated using the target unit specified with the xref:user-interface/mapping-panel/target-section.adoc#target-unit-button[].
+All values are entered comma-separated using the target unit specified with the xref:user-interface/mapping-panel/target-section.adoc#display-unit[].
 
 You can provide only one of <<target-min-max>> or <<value-sequence>>.
 
 [#group-interaction]
 == Group interaction
 
-Lets you control not just _this_ mapping but also _all other mappings in the same xref:further-concepts/mapping-concepts.adoc#group[]_.
+{control}::
+include::partial$glue/group-interaction/control.txt[]
+
+See xref:further-concepts/mapping-concepts.adoc#group[].
 
 TIP: If you want to control _other_ mappings only and not _this_ mapping, just pick a target that doesn't have any effect, for example the xref:target-types/realearn-targets/realearn-dummy-target.adoc#realearn-dummy-target[].
 
@@ -90,9 +141,12 @@ Variation of <<inverse-target-value>> that applies the inverse only when the tar
 [[feedback-type-controls]]
 == Feedback type controls
 
-Lets you set the xref:further-concepts/glue-concepts.adoc#feedback-type[].
+{feedback}::
+include::partial$glue/feedback-type/feedback.txt[]
 
-[#feedback-style-menu]
+See xref:further-concepts/glue-concepts.adoc#feedback-type[].
+
+[#feedback-style]
 == Feedback style menu (...)
 
 The ... button provides options to change the _feedback style_.
@@ -117,37 +171,77 @@ Do a full-text search in the reference to learn about the meaning of the propert
 [[source-min-max]]
 == Source Min/Max controls
 
-The observed range of xref:further-concepts/mapping-concepts.adoc#absolute-control-value[absolute control values] coming from the source.
+{control}::
+include::partial$glue/source-min-max/control.txt[]
+
+{feedback}::
+include::partial$glue/source-min-max/feedback.txt[]
+
 Doesn't have an effect on xref:further-concepts/mapping-concepts.adoc#relative-control-value[relative control values].
 
-By restricting that range, you basically tell ReaLearn to react only to a sub range of a control element, e.g. only the upper half of a fader or only the lower velocity layer of a key press.
+include::partial$glue/usage-dependent-effect.adoc[]
+
+|{momentary-button}
+|{control}
+|If min > 0 and <<out-of-range-behavior>> is <<out-of-range-behavior-ignore>>, button releases are ignored.
+Because this also affects {feedback}, it's usually better to use the <<button-filter>> instead!
+
+|{velocity-sensitive-button}
+|{control}
+|Defines the observed velocity range, for example to react to only the lower velocity layer of a key press.
+
+|{range-element}
+|{control}
+|Defines the observed value range.
+For example to react only to the upper half of a fader.
+
+|{led}
+|{feedback}
+|On many controllers which support colored LEDs, *Min* sets the *off* color and *Max* sets the *on* color.
+
+|{value-indicator}
+|{feedback}
+|Sets the lowest/highest indicated value.
+
+|===
+
+By restricting that range, you basically tell ReaLearn to  or only the lower velocity layer of a key press.
 
 This range also determines the minimum and maximum xref:key-concepts.adoc#feedback[] value.
 
 [#out-of-range-behavior]
 == Out-of-range behavior menu
 
-This determines ReaLearn's behavior if the source value is not within <<source-min-max>> or the target value not within <<target-min-max>>.
+{control}::
+include::partial$glue/out-of-range-behavior/control.txt[]
+
+{feedback}::
+include::partial$glue/out-of-range-behavior/feedback.txt[]
+
+See <<source-min-max>> and <<target-min-max>>.
 
 There are the following options:
 
+[cols="h,d,d"]
 |===
-| | *Control direction (absolute mode only)* | *Feedback direction*
-| *Min or max* | If the source value is < _Source Min_, ReaLearn will behave as if _Source Min_ was received (or 0% if _Source Min_ = _Source Max_).
+| | {control} | {feedback}
+
+| Min or max | If the source value is < _Source Min_, ReaLearn will behave as if _Source Min_ was received (or 0% if _Source Min_ = _Source Max_).
 
 If the source value is > _Source Max_, ReaLearn will behave as if _Source Max_ was received (or 100% if _Source Min_ = _Source Max_). | If the target value is < _Target Min_, ReaLearn will behave as if _Target Min_ was detected (or 0% if _Target Min_ = _Target Max_).
 
 If the target value is > _Target Max_, ReaLearn will behave as if _Target Max_ was detected (or 100% if _Target Min_ = _Target Max_).
 
- | *Min* | ReaLearn will behave as if _Source Min_ was received (or 0% if _Source Min_ = _Source Max_). | ReaLearn will behave as if _Target Min_ was detected (or 0% if _Target Min_ = _Target Max_). Useful for getting radio-button-like feedback.
+| Min | ReaLearn will behave as if _Source Min_ was received (or 0% if _Source Min_ = _Source Max_). | ReaLearn will behave as if _Target Min_ was detected (or 0% if _Target Min_ = _Target Max_). Useful for getting radio-button-like feedback.
 
- | *Ignore* | Target value won't be touched. | No feedback will be sent.
+|[[out-of-range-behavior-ignore,Ignore]] Ignore | Target value won't be touched. | No feedback will be sent.
 |===
 
 [[absolute-mode]]
 == Mode ("Absolute mode") menu
 
-Lets you choose an _absolute mode_, that is, the way incoming absolute source values are handled.
+{control}::
+include::partial$glue/absolute-mode/control.txt[]
 
 TIP: Not all modes make sense at all times!
 It mostly depends on the character of the source.
@@ -160,11 +254,11 @@ Takes and optionally transforms absolute source control values _the normal way_.
 
 [[incremental-button,Incremental button mode]] Incremental button::
 With this you can "go relative" with buttons instead of encoders in a "previous/next fashion".
-
++
 Let's assume you use the _MIDI Note velocity_ and select _Incremental button_ mode.
 Then it works like this: Each time you press the key, the target value will increase, according to the mode's settings.
 You can even make the amount of change velocity-sensitive!
-If you want the target value to decrease, just check the _Reverse_ checkbox.
+If you want the target value to decrease, just check the <<reverse>>.
 
 [[toggle-button-mode,Toggle button mode]]
 Toggle button::
@@ -206,10 +300,16 @@ This mode emulates the behavior of a typical soft synth modulation matrix mappin
 [#round-target-value]
 == Round target value checkbox
 
-Rounds target value to the next integer. Only a few targets support that, such as xref::target-types/project-targets/project-set-tempo.adoc[].
+{control}::
+include::partial$glue/round-target-value/control.txt[]
+
+Only a few targets support that, such as xref::target-types/project-targets/project-set-tempo.adoc[].
 
 [#takeover-mode]
 == Takeover mode menu
+
+{control}::
+include::partial$glue/takeover-mode/control.txt[]
 
 If you are not using motorized faders, absolute mode is inherently prone to parameter jumps.
 A parameter jump occurs if you touch a control element (e.g. fader) whose position in no way reflects the current target value.
@@ -254,8 +354,10 @@ It's like "Parallel" mode but the target value is allowed to move slower than th
 [#control-transformation]
 == Control transformation (EEL) field
 
-This feature allows you to write a formula that transforms incoming control values.
+{control}::
+include::partial$glue/control-transformation/control.txt[]
 
+This feature allows you to write a formula that transforms incoming control values.
 While very powerful because it allows for arbitrary transformations (velocity curves, random values - you name it), it's not everybody's cup of tea to write something like that.
 The formula must be written in the language https://www.cockos.com/EEL2/[EEL2].
 Some REAPER power users might be familiar with it because REAPER's JSFX uses the same language.
@@ -324,18 +426,55 @@ ReaLearn's control processing order is like this:
 [#step-size-min-max]
 == Step size Min/Max controls
 
+{control}::
+include::partial$glue/step-size-min-max/control.txt[]
+
 When you deal with relative adjustments of target values in terms of increments/decrements, then you have great flexibility because you can influence the _amount_ of those increments/decrements.
 This is done via the _Step size_ setting, which is available for all
 _continuous_ targets.
 
 Step size Min:: Specifies how much to increase/decrease the target value when an increment/decrement is received.
++
+include::partial$glue/usage-dependent-effect.adoc[]
 
-Step size Max:: Is used to limit the effect of acceleration (for rotary encoders which support acceleration and virtual control elements that are mapped as &quot;Incremental button" and have a &quot;Speed&quot; > 1x) and changes in velocity (for velocity-sensitive buttons/keys that are used as "Incremental button").
-If you set this to the same value as _Step size Min_, encoder acceleration or changes in velocity will have absolutely no effect on the incrementation/decrementation amount.
+|{incremental-button}
+|{control}
+|Sets the target value change amount when button pressed
+
+|{incremental-velocity-sensitive-button}
+|{control}
+|Sets the target value change amount when button pressed with the lowest velocity
+
+|{encoder}
+|{control}
+|Sets the target value change amount for an incoming non-accelerated increment/decrement
+
+|{encoder} with <<make-absolute>>
+|{control}
+|Sets the amount added/subtracted to calculate the simulated absolute value from an incoming non-accelerated increment/decrement
+
+|===
+
+Step size Max:: Sets the maximum amount by which to increase/decrease the target value with one interaction. If you set this to the same value as _Min_, encoder acceleration or changes in velocity will have no effect on the incrementation/decrementation amount.
 If you set it to 100%, the effect is maximized.
++
+include::partial$glue/usage-dependent-effect.adoc[]
+
+|{incremental-velocity-sensitive-button}
+|{control}
+|Sets the target value change amount when button pressed with the highest velocity
+
+|{encoder}
+|{control}
+|If the hardware encoder supports acceleration, this sets the target value change amount for the most accelerated increment/decrement
+
+|===
 
 [#speed-min-max]
 == Speed Min/Max controls
+
+{control}::
+include::partial$glue/speed-min-max/control.txt[]
 
 When you choose a target with a xref:further-concepts/target-concepts.adoc#discrete-value-range[], the <<step-size-min-max>> label will change into
 _Speed_.
@@ -369,7 +508,10 @@ This is like slowing down the encoder movement.
 [#encoder-filter]
 == Encoder filter menu
 
-Allows you to react to clockwise or counter-clockwise xref:further-concepts/mapping-concepts.adoc#rotary-endless-encoder[] movements only, e.g. if you want to invoke one action on clockwise movement and another one on counter-clockwise movement.
+{control}::
+include::partial$glue/encoder-filter/control.txt[]
+
+For example, if you want to invoke one action on clockwise movement and another one on counter-clockwise movement.
 Or if you want to use different step sizes for different movements.
 
 Increment & decrement:: ReaLearn will process both increments and decrements.
@@ -379,16 +521,20 @@ Decrement only:: ReaLearn will ignore increments.
 [#wrap]
 == Wrap checkbox
 
+{control}::
+include::partial$glue/wrap/control.txt[]
+
 If unchecked, the target value will not change anymore if there's an incoming decrement but the target already reached its minimum value.
 If checked, the target value will jump to its maximum value instead.
 It works analogously if there's an incoming increment and the target already reached its maximum value.
 
-If this flag is enabled for controller mappings which have a virtual target, every main mapping controlled by that virtual control element will _rotate_ - even if the main mapping itself doesn't have _rotate_ enabled.
+If this flag is enabled for controller mappings which have a virtual target, every main mapping controlled by that virtual control element will wrap - even if the main mapping itself doesn't have <<wrap>> enabled.
 
 [[make-absolute]]
 == Make absolute
 
-Check this box if you want to emulate an absolute control element with a relative encoder or with -/+ (incremental) buttons.
+{control}::
+include::partial$glue/make-absolute/control.txt[]
 
 This is useful if you have configured your controller to be relative all the way (which is good!) but you want to use a control transformation EEL formula - which is not possible if you change the target with relative increments.
 It works by keeping an internal absolute value, incrementing or decrementing it accordingly and then processing it just like normal absolute control values.
@@ -401,6 +547,9 @@ By checking this box:
 
 [#fire-mode]
 == Fire mode menu
+
+{control}::
+include::partial$glue/fire-mode/control.txt[]
 
 Normally, when a button gets pressed, it controls the target immediately.
 However, by using this dropdown and by changing the values below it, you can change this behavior.
@@ -462,7 +611,8 @@ That way you can use one button for 3 different actions!
 [#button-filter]
 == Button filter menu
 
-This allows you to easily ignore button presses or releases.
+{control}::
+include::partial$glue/button-filter/control.txt[]
 
 Press & release::
 ReaLearn will process both button presses (control value = 0%) and button releases (control value > 0%).

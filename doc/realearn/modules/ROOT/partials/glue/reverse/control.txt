@@ -1,1 +1,1 @@
-inverses the direction of the change
+inverses incoming absolute control values and changes the direction of incoming relative control values

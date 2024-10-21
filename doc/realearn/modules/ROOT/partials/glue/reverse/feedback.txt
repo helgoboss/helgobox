@@ -1,1 +1,1 @@
-inverses the direction of the change
+inverses the feedback value

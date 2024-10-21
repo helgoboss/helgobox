@@ -20,7 +20,7 @@ Use this to assign arbitrary xref:further-concepts/mapping-concepts.adoc#mapping
 [#control-enabled]
 == Control-enabled checkbox (→)
 
-Use his checkboxes to enable/disable control for this mapping.
+Use this to enable/disable control for this mapping.
 
 [#feedback-enabled]
 == Feedback-enabled checkbox (←)

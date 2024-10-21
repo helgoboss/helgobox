@@ -146,8 +146,8 @@ return {
 ----
 
 <1> In this example it's a text value, but it can be anything!
-<2> Has the same effect as color in xref:user-interface/mapping-panel/glue-section.adoc#feedback-style-menu[]
-<3> Has the same effect as background color in xref:user-interface/mapping-panel/glue-section.adoc#feedback-style-menu[]
+<2> Has the same effect as color in xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[]
+<3> Has the same effect as background color in xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[]
 ====
 +
 * The most important thing here is `value`.

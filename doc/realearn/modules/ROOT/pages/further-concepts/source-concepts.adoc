@@ -1,4 +1,3 @@
-
 = Source concepts
 
 [[midi-source-character]]
@@ -212,7 +211,7 @@ Each entered property key corresponds to one argument position.
 
 .Custom feedback with 2 arguments
 ====
-If you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see xref:user-interface/mapping-panel/glue-section.adoc#feedback-style-menu[]) as RRGGBB string at argument 2, you would enter:
+If you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[]) as RRGGBB string at argument 2, you would enter:
 
 ----
 value.string style.color.rrggbb
