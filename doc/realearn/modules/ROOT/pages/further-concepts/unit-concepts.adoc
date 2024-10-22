@@ -93,7 +93,7 @@ The second line of the bottom panel shows the current track chosen as **Unit tra
 This can be something like "Track 3" or "The currently selected track".
 Mappings in this ReaLearn unit can refer to this track by choosing the track selector xref:further-concepts/target-concepts.adoc#unit-selector[].
 
-The unit track can be changed via target xref:targets/track/track.adoc[].
+The unit track can be changed via xref:targets/track/track.adoc[].
 
 [#unit-fx]
 == Unit FX
@@ -102,7 +102,7 @@ The second line of the bottom panel also shows the current FX chosen as **Unit F
 This can be something like "FX 5 on track 3" or "The currently focused track".
 Mappings in this ReaLearn unit can refer to this FX by choosing the FX selector xref:further-concepts/target-concepts.adoc#unit-selector[].
 
-The unit FX can be changed via target xref:targets/fx/fx.adoc[].
+The unit FX can be changed via xref:targets/fx/fx.adoc[].
 
 [[unit-tag]]
 == Unit tag

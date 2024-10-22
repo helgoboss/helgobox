@@ -485,7 +485,7 @@ Virtual targets are always discrete.
 
 .Speed example
 ====
-Let's assume you selected the discrete target xref:targets/fx/browse-presets.adoc[], which is considered discrete because an FX with for example 5 presets has 6 well-defined possible values (including the <no preset> option), there's nothing inbetween.
+Let's assume you selected the discrete xref:targets/fx/browse-presets.adoc[], which is considered discrete because an FX with for example 5 presets has 6 well-defined possible values (including the <no preset> option), there's nothing inbetween.
 And let's also assume that you have a controller like Midi Fighter Twister whose rotary encoders don't support built-in acceleration.
 
 Now you slightly move an encoder clock-wise and your controller sends an increment +1. If the _Speed Min_ slider was at 1 (default), this will just navigate to the next preset (+1).
