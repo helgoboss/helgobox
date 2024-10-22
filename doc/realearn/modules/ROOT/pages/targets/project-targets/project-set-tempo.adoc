@@ -1,6 +1,0 @@
-[#project-set-tempo]
-= Target "Project: Set tempo"
-
-Sets REAPER's master tempo.
-
-This target is not learnable anymore via the "Learn target" button and also not eligible for the xref:targets/global-targets/global-last-touched.adoc#global-last-touched[Last touched] target because it causes too many "false positives".

@@ -26,7 +26,7 @@ The right text area shows information about which feedback values are sent from 
 == Beep on success checkbox
 
 Makes the mapping play a sound whenever the target has been invoked successfully.
-Nice for trigger-like targets such as xref:targets/realearn-targets/realearn-take-mapping-snapshot.adoc#realearn-take-mapping-snapshot[] for which there's no other good way to know if it worked.
+Nice for trigger-like targets such as xref:targets/realearn/take-mapping-snapshot.adoc#realearn-take-mapping-snapshot[] for which there's no other good way to know if it worked.
 
 [#previous]
 == Previous button

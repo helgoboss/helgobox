@@ -10,4 +10,4 @@ It's _not_ suited for activating a particular preset (e.g. by setting xref:user-
 As soon as you modify the preset list, this value will might suddenly point to a completely different preset.
 Even worse, the actual preset might have been deleted.
 
-If you want to activate a particular preset, please use the xref:targets/fx-targets/fx-load-snapshot.adoc#fx-load-snapshot[FX: Load snapshot] target instead.
+If you want to activate a particular preset, please use the xref:targets/fx/load-snapshot.adoc#fx-load-snapshot[FX: Load snapshot] target instead.
