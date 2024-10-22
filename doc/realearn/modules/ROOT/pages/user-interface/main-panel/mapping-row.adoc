@@ -28,7 +28,7 @@ Use these buttons to move this mapping up or down the list.
 Use these checkboxes to enable/disable control and/or feedback for this mapping.
 Disabling both has the same effect as disabling the mapping as a whole.
 
-[[row-edit-button]]
+[[row-edit]]
 == Edit button
 
 Opens the mapping panel for this mapping.
@@ -41,13 +41,13 @@ Creates a new mapping just like this one right below.
 
 Removes this mapping from the list.
 
-[[learn-source-button]]
+[[learn-source]]
 == Learn source button
 
 Starts or stops learning the source of this mapping.
 See xref:key-concepts.adoc#learn-source[].
 
-[[learn-target-button]]
+[[learn-target]]
 == Learn target button
 
 Starts or stops learning the target of this mapping.

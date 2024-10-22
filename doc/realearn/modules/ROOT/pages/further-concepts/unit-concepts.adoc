@@ -73,7 +73,7 @@ But a side effect is that with every new ReaLearn unit that you create, you firs
 Let's assume you have in many of your projects exactly one ReaLearn unit that lets your favorite MIDI controller control track volumes.
 By customizing the unit key, you can tell your mobile device that it should always show the <<projection>> of this very ReaLearn unit - no matter in which REAPER project you are and even if they control the volumes of totally different tracks.
 
-You can achieve this by setting the unit key of each volume-controlling ReaLearn unit to exactly the same value, in each project, using xref:user-interface/main-panel/bottom-section.adoc#set-unit-data-button[].
+You can achieve this by setting the unit key of each volume-controlling ReaLearn unit to exactly the same value, in each project, using xref:user-interface/main-panel/bottom-section.adoc#set-unit-data[].
 Ideally it's a descriptive name without spaces, such as "track-volumes".
 You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control ReaLearn units in each project.
 

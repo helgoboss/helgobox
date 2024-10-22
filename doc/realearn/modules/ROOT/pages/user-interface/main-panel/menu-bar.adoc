@@ -280,7 +280,7 @@ Pressing the import button does the opposite: It restores whatever ReaLearn dump
 It supports JSON or Luau.
 See xref:further-concepts/general-concepts.adoc#import-export[].
 
-[#projection-button]
+[#projection]
 == Projection button
 
 Click this button to enter ReaLearn's xref:further-concepts/unit-concepts.adoc#projection[] feature.

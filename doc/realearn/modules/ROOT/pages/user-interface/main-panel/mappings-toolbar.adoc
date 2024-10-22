@@ -3,12 +3,12 @@
 
 image:realearn/screenshots/main-panel-mapping-toolbar.png[Screenshot]
 
-[[add-one-button]]
+[[add-one]]
 == Add one button
 
 Adds a new mapping at the end of the current mapping list.
 
-[[learn-many-button]]
+[[learn-many]]
 == Learn many button
 
 Allows you to add and learn many new mappings in a convenient batch mode.
@@ -25,7 +25,7 @@ For example, you can search for all mappings tagged with the tag `mixing` by ent
 
 The search expression also supports wildcards `\*` and `?` for doing blurry searches. `*` stands for zero or more arbitrary characters and `?` stands for one arbitrary character.
 
-[[filter-source-button]]
+[[filter-source]]
 == Filter source button
 
 When you press this button, ReaLearn will start listening to incoming MIDI/OSC events and temporarily disable all target control.
@@ -46,14 +46,14 @@ ReaLearn might still be in "filter source" mode.
 Then just calm down and press btn:[Stop].
 It's easy to forget.
 
-[[filter-target-button]]
+[[filter-target]]
 == Filter target button
 
 If you want to find out what mappings exist for a particular target, press this button and touch something in REAPER.
 
 As soon as you have touched a valid target, the list will show all mappings with that target.
 
-Unlike <<filter-source-button>>, ReaLearn will automatically stop learning as soon as a target was touched.
+Unlike <<filter-source>>, ReaLearn will automatically stop learning as soon as a target was touched.
 
 Press the btn:[X] button to clear the filter and show all mappings again.
 

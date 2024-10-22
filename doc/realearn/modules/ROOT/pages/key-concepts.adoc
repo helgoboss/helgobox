@@ -148,11 +148,11 @@ In ReaLearn, you can learn <<source, sources>> and <<target, targets>>.
 [[learn-source]]
 === Learn source
 
-Sources can be learned by pressing the xref:user-interface/main-panel/mapping-row.adoc#learn-source-button[] and then touching a <<control-element>> on your controller.
+Sources can be learned by pressing the xref:user-interface/main-panel/mapping-row.adoc#learn-source[] and then touching a <<control-element>> on your controller.
 This saves you from the tedious job of setting up MIDI or OSC sources manually.
 
 [[learn-target]]
 === Learn target
 
-Targets can be learned by pressing the xref:user-interface/main-panel/mapping-row.adoc#learn-target-button[] and then invoking a <<target>> within REAPER.
+Targets can be learned by pressing the xref:user-interface/main-panel/mapping-row.adoc#learn-target[] and then invoking a <<target>> within REAPER.
 This saves you from choosing xref:further-concepts/target-concepts.adoc#target-object-selectors[] and other stuff manually.

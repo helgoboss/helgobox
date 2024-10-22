@@ -12,7 +12,7 @@ This can't be undone!
 _List of units_:: Switch to an arbitrary unit by clicking on it.
 Add unit:: Adds a new unit within this instance.
 The new unit will automatically be named after the randomly-generated unit key.
-You can change the name by pressing the <<set-unit-data-button>>.
+You can change the name by pressing the <<set-unit-data>>.
 
 == Info area
 
@@ -31,7 +31,7 @@ Row 2::
 Row 3::
 * Information about what version of Helgobox is running.
 
-[[set-unit-data-button]]
+[[set-unit-data]]
 == Unit data… button
 
 Press this button to change various key-value data of this ReaLearn unit as a whole.

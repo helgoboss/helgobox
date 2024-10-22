@@ -1,6 +1,6 @@
 = Mapping panel
 
-When you press the _Edit_ button of a mapping row, the _mapping panel_ appears, which lets you look at the corresponding mapping in detail and modify it:
+When you press the btn:[Edit] button of a mapping row, the _mapping panel_ appears, which lets you look at the corresponding mapping in detail and modify it.
 
 .Mapping panel
 image::realearn/screenshots/mapping-panel.png[Screenshot]

@@ -38,9 +38,9 @@ If you want to make ReaLearn "learn" about your nice controller device, all you 
 
 Let's first look at the "slow" way to do this - adding and editing each controller mapping one by one:
 
-. Press the xref:user-interface/main-panel/mappings-toolbar.adoc#add-one-button[].
-. Learn the xref:key-concepts.adoc#source[] by pressing the xref:user-interface/main-panel/mapping-row.adoc#learn-source-button[] and touching the control element.
-. Press the xref:user-interface/main-panel/mapping-row.adoc#row-edit-button[].
+. Press the xref:user-interface/main-panel/mappings-toolbar.adoc#add-one[].
+. Learn the xref:key-concepts.adoc#source[] by pressing the xref:user-interface/main-panel/mapping-row.adoc#learn-source[] and touching the control element.
+. Press the xref:user-interface/main-panel/mapping-row.adoc#row-edit[].
 . Enter a descriptive name for the xref:key-concepts.adoc#control-element[].
 +
 TIP: This name will appear in many places so you want it to be short, clear and unique!
@@ -48,7 +48,7 @@ TIP: This name will appear in many places so you want it to be short, clear and 
 ** At this point we don't want to assign a xref:further-concepts/target-concepts.adoc#real-target[] yet.
 The point of xref:further-concepts/compartment-concepts.adoc#controller-preset[controller presets] is to make them as reusable as possible, that's why we choose a xref:further-concepts/target-concepts.adoc#virtual-target[].
 ** In the _Category_ dropdown, choose _Virtual_.
-** As _Type_, choose xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type-button[] if your control element is a sort of button (something which you can press) or xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type-multi[] in all other cases.
+** As _Type_, choose xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type[] if your control element is a sort of button (something which you can press) or xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type-multi[] in all other cases.
 ** Use for each xref:key-concepts.adoc#control-element[] a unique combination of xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type[] and xref:further-concepts/compartment-concepts.adoc#virtual-control-element-id[], starting with number *1* and counting.
 +
 TIP: It's okay and desired to have one control element mapped to "Multi 1" and one to "Button 1".
@@ -71,8 +71,8 @@ Plus, you can now take full advantage of the xref:further-concepts/unit-concepts
 All of this might be a bit of an effort, but it's well worth it!
 Plus, there's a way to do this _a lot_ faster by using _batch learning_:
 
-. Press the xref:user-interface/main-panel/mappings-toolbar.adoc#learn-many-button[].
-. Choose whether you want to learn all the xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type-multi[] elements on your xref:key-concepts.adoc#controller[] or all the xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type-button[] elements.
+. Press the xref:user-interface/main-panel/mappings-toolbar.adoc#learn-many[].
+. Choose whether you want to learn all the xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type-multi[] elements on your xref:key-concepts.adoc#controller[] or all the xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type[] elements.
 . Simply touch all relevant xref:key-concepts.adoc#control-element[control elements] in the desired order.
 ReaLearn will take care of automatically incrementing the xref:further-concepts/compartment-concepts.adoc#virtual-control-element-id[].
 . Press btn:[Stop].

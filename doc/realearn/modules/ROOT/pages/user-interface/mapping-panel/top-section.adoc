@@ -15,7 +15,7 @@ If you clear the name, ReaLearn will name the mapping automatically based on its
 [#tags]
 == Tags field
 
-Use this to assign arbitrary xref:further-concepts/mapping-concepts.adoc#mapping-tag[] to this mapping (comma-separated).
+Use this to assign arbitrary xref:further-concepts/mapping-concepts.adoc#mapping-tag[mapping tags] to this mapping (comma-separated).
 
 [#control-enabled]
 == Control-enabled checkbox (→)
