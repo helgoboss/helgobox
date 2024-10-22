@@ -18,7 +18,7 @@ It's then picked up by a xref:further-concepts/source-concepts.adoc#virtual-sour
 
 All others targets are real.
 
-Examples: xref:targets/track/set-volume.adoc#track-set-volume[]
+Examples: xref:targets/track/set-volume.adoc[]
 
 [[target-object-selectors]]
 == Target object selectors
@@ -337,7 +337,7 @@ String
 |
 Short text representing the current target value, including a possible unit.
 
-If the target value can be represented using some kind of name, this name is preferred over a possibly alternative numeric representation. Example: Let's assume the 4th track in our project is called "Guitar" and the mapping target is xref:targets/project/browse-tracks.adoc#browse-tracks-target[]. Then `target.text_value` contains the text _Guitar_, not the text _4_.
+If the target value can be represented using some kind of name, this name is preferred over a possibly alternative numeric representation. Example: Let's assume the 4th track in our project is called "Guitar" and the mapping target is xref:targets/project/browse-tracks.adoc[]. Then `target.text_value` contains the text _Guitar_, not the text _4_.
 
 This is the default value shown if textual feedback is enabled and the textual feedback
 expression is empty.
@@ -349,7 +349,7 @@ Boolean
 |
 A boolean value indicating whether the target is currently available or not.
 
-Most targets that are _active_ are also _available_. But some targets can be _active_ and _unavailable_. Example: xref:targets/pot/preview-preset.adoc#pot-preview-preset[] is not _available_ if no preview is available for the preset currently selected in Pot browser. But the target is still considered _active_ in this case!
+Most targets that are _active_ are also _available_. But some targets can be _active_ and _unavailable_. Example: xref:targets/pot/preview-preset.adoc[] is not _available_ if no preview is available for the preset currently selected in Pot browser. But the target is still considered _active_ in this case!
 
 Usually used together with xref:further-concepts/glue-concepts.adoc#dynamic-feedback[], for example in order to display different things on displays depending on the target's availability.
 
@@ -473,7 +473,7 @@ Remarks:
 
 * For most targets that support polling, if you disable polling, automatic feedback for that target will simply stop working.
 This means you will not receive up-to-date feedback anymore whenever you change the target value within REAPER itself (not using ReaLearn).
-* The xref:targets/fx-parameter/set-value.adoc#fx-set-parameter-value[] target is an exception.
+* The xref:targets/fx-parameter/set-value.adoc[] target is an exception.
 Automatic feedback will still work, even without _Poll for feedback_ enabled.
 But in the following corner cases it might not:
 ** If the FX is on the monitoring FX chain.
@@ -504,8 +504,8 @@ Continuous value ranges don't have steps.
 
 .Some targets with a continuous value range.
 ====
-* xref:targets/track/set-volume.adoc#track-set-volume[]
-* xref:targets/project/set-tempo.adoc#project-set-tempo[]
+* xref:targets/track/set-volume.adoc[]
+* xref:targets/project/set-tempo.adoc[]
 ====
 
 [[discrete-value-range]]
@@ -517,8 +517,8 @@ Discrete value ranges have steps.
 
 .Some targets with a discrete value range.
 ====
-* xref:targets/fx/browse-presets.adoc#fx-browse-presets[]
-* xref:targets/project/browse-tracks.adoc#browse-tracks-target[]
+* xref:targets/fx/browse-presets.adoc[]
+* xref:targets/project/browse-tracks.adoc[]
 ====
 
 [[group-properties]]

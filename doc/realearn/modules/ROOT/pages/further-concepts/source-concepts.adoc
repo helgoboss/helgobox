@@ -16,7 +16,6 @@ Examples: `ch1/fader`
 
 A _real_ source refers to a xref:further-concepts/compartment-concepts.adoc#real-control-element[].
 
-
 [[midi-source-character]]
 == MIDI source character
 
@@ -91,7 +90,7 @@ Otherwise, for this special case, a fixed out-of-range-behavior will set in that
 [[midi-source-script]]
 == MIDI source script
 
-MIDI source scripts are EEL or Luau scripts to configure the xref:sources/midi/midi-script.adoc#midi-script-source[].
+MIDI source scripts are EEL or Luau scripts to configure the xref:sources/midi/midi-script.adoc[].
 
 === General mechanics
 

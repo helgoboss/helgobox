@@ -9,7 +9,7 @@ Choose the snapshot that you want to load.
 
 <Initial>:: Restores the initial target values for the mappings.
 
-By ID:: Restores target values contained in a snapshot that was taken via xref:targets/realearn/take-mapping-snapshot.adoc#realearn-take-mapping-snapshot[].
+By ID:: Restores target values contained in a snapshot that was taken via xref:targets/realearn/take-mapping-snapshot.adoc[].
 Enter the corresponding ID here.
 
 == Default field

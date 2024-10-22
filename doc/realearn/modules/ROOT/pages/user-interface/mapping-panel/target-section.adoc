@@ -85,7 +85,7 @@ NOTE: In older REAPER versions (< 6.69+dev1102), this can only be enabled togeth
 
 == Common elements for on/off targets
 
-Targets which control an on/off-style property of tracks (e.g. xref:targets/track/solo-unsolo.adoc#track-solounsolo[Track: Solo/unsolo]) additionally provide the following elements.
+Targets which control an on/off-style property of tracks (e.g. xref:targets/track/solo-unsolo.adoc[]) additionally provide the following elements.
 
 [[exclusive-menu]]
 === Exclusive menu

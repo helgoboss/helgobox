@@ -140,7 +140,7 @@ Each mapping can have arbitrarily many tags.
 Such tags can be used to organize mappings in a way that is much more flexible than groups.
 
 Tags are not just something for people that love to keep things tidy!
-They also get meaning in combination with certain ReaLearn targets such as xref:targets/realearn/enable-disable-mappings.adoc#realearn-enable-disable-mappings[].
+They also get meaning in combination with certain ReaLearn targets such as xref:targets/realearn/enable-disable-mappings.adoc[].
 
 [[group]]
 == Mapping group
@@ -206,7 +206,7 @@ Here's how you would implement a typical use case.
 You want your rotary encoder to control target A when the button is not pressed and control target B when it's pressed.
 
 . Create a mapping for the button
-** As "Target", you need to choose ReaLearn itself (Type: xref:targets/fx-parameter/set-value.adoc#fx-set-parameter-value[], Track: `<This>`, FX: "… VSTi: ReaLearn (Helgoboss)").
+** As "Target", you need to choose ReaLearn itself (Type: xref:targets/fx-parameter/set-value.adoc[], Track: `<This>`, FX: "… VSTi: ReaLearn (Helgoboss)").
 As "Parameter", choose an arbitrary ReaLearn parameter, e.g. "Parameter 1".
 ** As "Mode", choose either "Absolute" (if you want to switch the encoder function just momentarily) or "Toggle" (if you want the button to toggle between the two encoder functions).
 . Create a mapping with target A
@@ -234,7 +234,7 @@ It lets you easily implement use cases such as:
 * "I want to have two buttons for switching between different banks where each bank represents a group of mappings." (bank use cases)
 * "I want to control the volume of this track only if it's not muted." (target-state based use cases)
 
-TIP: Since ReaLearn 2.11.0, xref:targets/realearn/enable-disable-mappings.adoc#realearn-enable-disable-mappings[] provides a slightly less powerful but more straightforward way to implement use cases that were before only achievable with parameter-based conditional activation.
+TIP: Since ReaLearn 2.11.0, xref:targets/realearn/enable-disable-mappings.adoc[] provides a slightly less powerful but more straightforward way to implement use cases that were before only achievable with parameter-based conditional activation.
 
 There are 6 different activation modes:
 
@@ -292,7 +292,7 @@ You can also be more adventurous and let the modifier on/off state change over t
 
 This is the correct activation mode if you want control surface "bank-style" mapping.
 
-TIP: For this kind of use cases you should consider the new xref:targets/realearn/enable-disable-mappings.adoc#realearn-enable-disable-mappings[] target, which is available since ReaLearn 2.11.0 as an alternative.
+TIP: For this kind of use cases you should consider the new xref:targets/realearn/enable-disable-mappings.adoc[] target, which is available since ReaLearn 2.11.0 as an alternative.
 It's slightly less powerful than conditional activation but probably easier to use, partly because you can dictate which mappings should be active "from outside", not from the perspective of the mapping itself.
 
 You can tell ReaLearn to only activate your mapping if a certain parameter has a particular value.
@@ -313,9 +313,9 @@ Then pressing button 1 will activate bank 0 and pressing button 2 will activate 
 
 In previous versions of ReaLearn you could use other methods to achieve a similar behavior, but it always involved using multiple ReaLearn instances:
 
-* *By enabling/disabling other ReaLearn instances:* You can use one main ReaLearn instance containing a bunch of mappings with xref:targets/fx/enable-disable.adoc#fx-enabledisable[FX: Enable/disable] target in order to enable/disable other ReaLearn FX instances.
+* *By enabling/disabling other ReaLearn instances:* You can use one main ReaLearn instance containing a bunch of mappings with xref:targets/fx/enable-disable.adoc[] target in order to enable/disable other ReaLearn FX instances.
 Then each of the other ReaLearn instances acts as one mapping bank/group.
-* *By switching between presets of another ReaLearn instance:* You can use one main ReaLearn instance containing a mapping with xref:targets/fx/browse-presets.adoc#fx-browse-presets[] target in order to browse presets of another ReaLearn FX instance.
+* *By switching between presets of another ReaLearn instance:* You can use one main ReaLearn instance containing a mapping with xref:targets/fx/browse-presets.adoc[] target in order to browse presets of another ReaLearn FX instance.
 Then each preset in the other ReaLearn instance acts as one mapping bank/group.
 However, that method is pretty limited and hard to maintain because presets are something global (not saved together with your REAPER project).
 
@@ -362,7 +362,7 @@ Instead, it looks at the target of another mapping (the so-called "lead mapping"
 
 It works like this:
 
-. Create the lead mapping and give it a target, e.g. xref:targets/track/select-unselect.adoc#track-selectunselect[].
+. Create the lead mapping and give it a target, e.g. xref:targets/track/select-unselect.adoc[].
 * This lead mapping doesn't need to have a source.
 It can even be completely disabled!
 . In the **Mapping** dropdown, pick this newly created mapping.
@@ -374,7 +374,7 @@ You can detect an inactive target by using `y == none`.
 [[raw-midi-pattern]]
 == Raw MIDI pattern
 
-xref:sources/midi/raw-midi-sysex.adoc#raw-midi-source[] and xref:targets/midi/send-message.adoc#midi-send-message-target[] allow to enter so-called MIDI patterns, an advanced ReaLearn concept.
+xref:sources/midi/raw-midi-sysex.adoc[] and xref:targets/midi/send-message.adoc[] allow to enter so-called MIDI patterns, an advanced ReaLearn concept.
 
 === Pattern basics
 

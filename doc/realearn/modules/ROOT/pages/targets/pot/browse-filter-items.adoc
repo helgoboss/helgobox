@@ -1,7 +1,7 @@
 [#pot-browse-filter-items]
 = Target "Pot: Browse filter items"
 
-This target can be used to filter the potentially very large collection of presets in  xref:targets/pot/browse-presets.adoc#pot-browse-presets[].
+This target can be used to filter the potentially very large collection of presets in  xref:targets/pot/browse-presets.adoc[].
 The idea is to map this target to an endless rotary encoder or previous/next buttons (using xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[] mode) and then navigate within the available filter items, e.g. instruments or banks.
 
 == Kind menu
