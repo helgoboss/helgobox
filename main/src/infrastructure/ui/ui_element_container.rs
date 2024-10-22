@@ -14,13 +14,18 @@ pub struct UiElement {
 
 impl UiElementContainer {
     pub fn fill_with_window_children(&mut self, window: Window) {
-        for child in window.children() {
+        self.fill_with_window_children_internal(window, window)
+    }
+
+    fn fill_with_window_children_internal(&mut self, ref_window: Window, current_window: Window) {
+        for child in current_window.children() {
             let element = UiElement {
                 id: child.resource_id(),
-                rect: window.screen_to_client_rect(&child.window_rect()),
+                rect: ref_window.screen_to_client_rect(&child.window_rect()),
                 visible: true,
             };
             self.add_element(element);
+            self.fill_with_window_children_internal(ref_window, child)
         }
     }
 

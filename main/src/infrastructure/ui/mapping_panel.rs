@@ -7016,7 +7016,7 @@ impl View for MappingPanel {
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.init_controls();
         self.mapping_header_panel.clone().open(window);
-        if cfg!(unix) {
+        if cfg!(unix) && BackboneShell::get().config().background_colors_enabled() {
             self.mapping_color_panel.clone().open(window);
             self.source_color_panel.clone().open(window);
             self.target_color_panel.clone().open(window);
@@ -7026,13 +7026,6 @@ impl View for MappingPanel {
         self.ui_element_container
             .borrow_mut()
             .fill_with_window_children(window);
-        let weak_view = Rc::downgrade(&self);
-        self.mapping_header_panel
-            .set_mouse_hovered_element_callback(Box::new(move |resource_id| {
-                if let Some(view) = weak_view.upgrade() {
-                    view.handle_hovered_ui_element(resource_id);
-                }
-            }));
         true
     }
 
@@ -7381,14 +7374,6 @@ impl View for MappingPanel {
             false
         }
     }
-
-    // fn mouse_moved(self: SharedView<Self>, position: Point<i32>) -> bool {
-    //     let container = self.ui_element_container.borrow();
-    //     let mut resource_ids = container.hit_test(Point::new(position.x, position.y));
-    //     let resource_id = resource_ids.find(|id| !NO_HELP_ELEMENTS.contains(id));
-    //     self.handle_hovered_ui_element(resource_id);
-    //     false
-    // }
 
     fn mouse_test(self: SharedView<Self>, position: Point<i32>) -> bool {
         let position = self.view.require_window().screen_to_client_point(position);
