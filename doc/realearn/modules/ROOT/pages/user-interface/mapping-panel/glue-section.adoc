@@ -127,7 +127,7 @@ This is like <<same-control>> but broadcasts the _inverse_ of the incoming contr
 This is like <<same-target-value>> but sets the target values of the other mappings to the
 _inverse_ value.
 This is very useful in practice with buttons because it essentially gives you exclusivity within one group.
-It's a great alternative to the xref:user-interface/mapping-panel/target-section.adoc#exclusive-menu[] which is available for some targets.
+It's a great alternative to the xref:user-interface/mapping-panel/target-section.adoc#exclusive[] which is available for some targets.
 Unlike the latter, <<inverse-target-value>> allows for exclusivity between completely different target types and completely custom groupings - independent of e.g. organization of tracks into folders.
 
 Inverse target value (on only)::

@@ -6,7 +6,7 @@ Use this section to connect ReaLearn to a specific controller.
 
 Also see xref:best-practices.adoc#best-practices-input-output[].
 
-[#input-menu]
+[#input]
 == Input menu
 
 Allows you to select the xref:key-concepts.adoc#input-port[] to which this ReaLearn unit listens.
@@ -65,7 +65,7 @@ Untick the checkbox in this case and ReaLearn will send single OSC messages.
 This is a checkbox.
 If enabled, this ReaLearn instance will additionally listen to key press and release events.
 
-[#output-menu]
+[#output]
 == Output menu
 
 Here you can choose to which xref:key-concepts.adoc#output-port[] ReaLearn should send MIDI/OSC xref:key-concepts.adoc#feedback[].

@@ -18,7 +18,7 @@ Enables a unique feature called "Global MIDI transformation", as shown in link:h
 
 When choosing output <<midi-send-output-input-device>>, you can choose into which MIDI input device buffer the message will be injected.
 
-<Same as input device>:: Injects the message into the same buffer of the MIDI input device chosen as xref:user-interface/main-panel/input-output-section.adoc#input-menu[].
+<Same as input device>:: Injects the message into the same buffer of the MIDI input device chosen as xref:user-interface/main-panel/input-output-section.adoc#input[].
 
 _Specific input device_:: Injects the message into another specific MIDI input device.
 This can be useful for doing global MIDI transformation with controllers that expose multiple MIDI input ports.

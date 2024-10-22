@@ -66,7 +66,7 @@ See <<import-from-clipboard>> to learn in which situations this can be useful.
 Freeze Playtime matrix:::
 Don't use this, this feature is not ready yet!
 
-[[compartment-parameters-menu,Compartment parameters menu]] Compartment parameters::
+[[compartment-parameters,Compartment parameters menu]] Compartment parameters::
 This shows all parameters of the current compartment and makes it possible to customize them.
 See xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] to learn what such parameters are good for.
 +
@@ -149,7 +149,7 @@ Always (more or less)::::
 Attempts to stay active no matter what.
 Please note that this is technically not always possible when input is set to xref:user-interface/main-panel/input-output-section.adoc#fx-input[] or output to xref:user-interface/main-panel/input-output-section.adoc#fx-output[], when the background project is not running.
 
-[[unit-fx-to-preset-links-menu]] Unit-wide FX-to-preset links::
+[[unit-fx-to-preset-links]] Unit-wide FX-to-preset links::
 Manage a unit-wide list of links from FX (plug-ins or JS effects) to ReaLearn main compartment presets.
 Covered in link:https://www.youtube.com/watch?v=HtmWO7QNpgE&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=10[video tutorial 10].
 
@@ -172,7 +172,7 @@ _Arbitrary main preset_::::
 The rest of the submenu tells you to which main preset the FX ID is linked.
 You can change the linked preset by clicking another one.
 
-[[logging-menu,Logging Menu]] Logging::
+[[logging,Logging Menu]] Logging::
 
 Log debug info (now)::: Logs some information about ReaLearn's internal state.
 Can be interesting for investigating bugs or understanding how this plug-in works.
@@ -218,9 +218,9 @@ Enable and start!::: This starts the server and makes sure it will automatically
 Disable and stop!::: This stops the server and makes sure it will not be started next time you use ReaLearn.
 Add firewall rule::: Attempts to add a firewall rule for making the server accessible from other devices or displays instructions how to do it.
 
-[[global-fx-to-preset-links-menu]] Global FX-to-preset links::
+[[global-fx-to-preset-links]] Global FX-to-preset links::
 Allows you to manage xref:further-concepts/unit-concepts.adoc#global-fx-to-preset-link[global FX-to-preset links].
-Works exactly as the <<unit-fx-to-preset-links-menu>> menu.
+Works exactly as the <<unit-fx-to-preset-links>> menu.
 
 [[fx-id-dialog]]
 == FX ID dialog

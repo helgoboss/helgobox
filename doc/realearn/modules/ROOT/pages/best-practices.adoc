@@ -88,7 +88,7 @@ list].
 == Naming compartment parameters
 
 Because ReaLearn's xref:further-concepts/compartment-concepts.adoc#compartment-parameter[compartment parameters] are freely assignable, they have very generic names by default.
-However, as soon as you give them meaning by using them in a specific way, it can be very helpful to give them a name by using the xref:user-interface/main-panel/menu-bar.adoc#compartment-parameters-menu[].
+However, as soon as you give them meaning by using them in a specific way, it can be very helpful to give them a name by using the xref:user-interface/main-panel/menu-bar.adoc#compartment-parameters[].
 
 == Troubleshooting Luau import
 

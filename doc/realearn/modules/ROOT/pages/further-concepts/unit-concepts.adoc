@@ -8,7 +8,7 @@ In other words, it doesn't forward MIDI events which are used to control a targe
 However, unmatched MIDI events are forwarded!
 You can change this using xref:user-interface/main-panel/let-through-section.adoc[].
 
-The exact behavior differs depending on what you choose as xref:user-interface/main-panel/input-output-section.adoc#input-menu[]:
+The exact behavior differs depending on what you choose as xref:user-interface/main-panel/input-output-section.adoc#input[]:
 
 * If input is set to xref:user-interface/main-panel/input-output-section.adoc#fx-input[]
 ** MIDI events arrive from ReaLearn's FX input.
@@ -120,7 +120,7 @@ This is an attempt to solve an inherent problem with generic controllers: That i
 
 == Logging
 
-Logging can be enabled or disabled via xref:user-interface/main-panel/menu-bar.adoc#logging-menu[].
+Logging can be enabled or disabled via xref:user-interface/main-panel/menu-bar.adoc#logging[].
 
 [[logging-of-real-control-messages]]
 === Logging of real control messages

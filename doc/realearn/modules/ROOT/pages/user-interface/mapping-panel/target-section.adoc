@@ -86,7 +86,7 @@ NOTE: In older REAPER versions (< 6.69+dev1102), this can only be enabled togeth
 
 Targets which control an on/off-style property of tracks (e.g. xref:targets/track/solo-unsolo.adoc[]) additionally provide the following elements.
 
-[[exclusive-menu]]
+[[exclusive]]
 === Exclusive menu
 
 By default, this is set to <<exclusive-no>>.

@@ -153,7 +153,7 @@ Groups can be useful …
 * To enable/disable control/feedback for multiple mappings at once.
 * To keep track of mappings if there are many of them.
 
-You can decide which group is displays using xref:user-interface/main-panel/mapping-group-section.adoc#mapping-group-menu[].
+You can decide which group is displays using xref:user-interface/main-panel/mapping-group-section.adoc#mapping-group[].
 
 You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows and Linux, control-click on macOS) of the corresponding mapping row and choosing "Move to group".
 

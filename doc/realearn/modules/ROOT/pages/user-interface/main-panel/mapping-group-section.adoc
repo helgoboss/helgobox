@@ -2,7 +2,7 @@
 
 image:realearn/screenshots/main-panel-group.png[Screenshot]
 
-[[mapping-group-menu]]
+[[mapping-group]]
 == Group menu
 
 See xref:further-concepts/mapping-concepts.adoc#group[].

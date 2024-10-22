@@ -11,7 +11,7 @@ You can ignore portability warnings if you use just this operating system and do
 
 [TIP]
 ====
-* This only works if xref:user-interface/main-panel/input-output-section.adoc#computer-keyboard[] is enabled in the xref:user-interface/main-panel/input-output-section.adoc#input-menu[].
+* This only works if xref:user-interface/main-panel/input-output-section.adoc#computer-keyboard[] is enabled in the xref:user-interface/main-panel/input-output-section.adoc#input[].
 * If you hold a key, it will not keep firing.
 This is by design!
 Use xref:user-interface/mapping-panel/glue-section.adoc#fire-after-timeout-keep-firing[] instead.

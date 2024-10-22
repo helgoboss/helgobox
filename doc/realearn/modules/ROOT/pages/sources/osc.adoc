@@ -29,7 +29,7 @@ This is usually the same type as the one used for control direction.
 For control direction, choosing an explicit type is irrelevant because ReaLearn handles whatever type arrives automatically in the best possible way.
 
 If you use _Learn_, the type is filled automatically.
-* The value to be sent will be derived from the type (see <<feedback-arguments-field>>):
+* The value to be sent will be derived from the type (see <<feedback-arguments>>):
 
 [cols="m,m"]
 |===
@@ -46,7 +46,7 @@ If you use _Learn_, the type is filled automatically.
 | Color | style.color
 |===
 
-If you want more control over what feedback values are sent, use the <<feedback-arguments-field>> field.
+If you want more control over what feedback values are sent, use the <<feedback-arguments>> field.
 
 == Range field
 
@@ -60,7 +60,7 @@ Customizing the value range is especially important for argument types _Int_ and
 Some messages transmitted by OSC devices are meant to be interpreted as relative increments/decrements instead of absolute values, e.g. jog wheels.
 When you enable this checkbox, ReaLearn will treat each received _1_ value as an increment and _0_ value a decrement.
 
-[#feedback-arguments-field]
+[#feedback-arguments]
 == Feedback arguments field
 
 Allows you to modify the xref:further-concepts/source-concepts.adoc#osc-feedback-arguments-expression[].

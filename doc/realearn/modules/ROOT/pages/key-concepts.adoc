@@ -66,14 +66,14 @@ For this reason, this reference sometimes uses <<control-element>> to refer to b
 To enable control, ReaLearn needs to respond to events from your <<controller>>.
 It achieves this by listening to events from an _input port_, which can be a MIDI device port, an OSC port or your computer keyboard.
 
-You can change the input port using the xref:user-interface/main-panel/input-output-section.adoc#input-menu[].
+You can change the input port using the xref:user-interface/main-panel/input-output-section.adoc#input[].
 
 [[output-port]]
 == Output port
 
 To send <<feedback>> back to your <<controller>>, ReaLearn transmits instructions through an _output port_, which can be a MIDI device port or an OSC port.
 
-You can change the output port using the xref:user-interface/main-panel/input-output-section.adoc#output-menu[].
+You can change the output port using the xref:user-interface/main-panel/input-output-section.adoc#output[].
 
 [[instance]]
 == Instance
