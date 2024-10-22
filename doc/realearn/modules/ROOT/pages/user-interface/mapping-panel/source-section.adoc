@@ -2,7 +2,7 @@
 
 image:realearn/screenshots/mapping-panel-source.png[Screenshot]
 
-All xref:source-types.adoc[] share the following UI elements.
+All xref:sources.adoc[] share the following UI elements.
 
 [#learn]
 == Learn button
@@ -18,4 +18,4 @@ Lets you choose the source category.
 == Type menu
 
 Lets you choose the source type within that category.
-See xref:source-types.adoc[].
+See xref:sources.adoc[].

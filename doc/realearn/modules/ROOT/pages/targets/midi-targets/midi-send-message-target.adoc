@@ -46,5 +46,5 @@ However, this also means that the following things won't work when controlling t
 * It won't work with timed xref:user-interface/mapping-panel/glue-section.adoc#fire-mode[fire modes].
 * If _output_ is set to xref:user-interface/main-panel/input-output-section.adoc#fx-output[], additional limitations apply:
 ** It can't act as a follower in xref:user-interface/mapping-panel/glue-section.adoc#group-interaction[], either.
-** It can't participate in xref:target-types/realearn-targets/realearn-load-mapping-snapshot.adoc#realearn-load-mapping-snapshot[].
+** It can't participate in xref:targets/realearn-targets/realearn-load-mapping-snapshot.adoc#realearn-load-mapping-snapshot[].
 ====

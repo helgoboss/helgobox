@@ -79,7 +79,7 @@ If you set this to "-6 dB to 0 dB" for a _Track volume_ target, the volume will 
 However, it wouldn't prevent the volume from exceeding that range if changed e.g. in REAPER itself.
 ====
 
-This setting can be used with all targets that work with xref:further-concepts/mapping-concepts.adoc#absolute-control-value[absolute control values] (all targets except xref:target-types/project-targets/project-invoke-reaper-action.adoc#project-invoke-reaper-action[Project: Invoke REAPER action] with relative xref:target-types/project-targets/project-invoke-reaper-action.adoc#invocation-type[]).
+This setting can be used with all targets that work with xref:further-concepts/mapping-concepts.adoc#absolute-control-value[absolute control values] (all targets except xref:targets/project-targets/project-invoke-reaper-action.adoc#project-invoke-reaper-action[Project: Invoke REAPER action] with relative xref:targets/project-targets/project-invoke-reaper-action.adoc#invocation-type[]).
 
 [#value-sequence]
 == Value sequence field
@@ -100,7 +100,7 @@ include::partial$glue/group-interaction/control.txt[]
 
 See xref:further-concepts/mapping-concepts.adoc#group[].
 
-TIP: If you want to control _other_ mappings only and not _this_ mapping, just pick a target that doesn't have any effect, for example the xref:target-types/realearn-targets/realearn-dummy-target.adoc#realearn-dummy-target[].
+TIP: If you want to control _other_ mappings only and not _this_ mapping, just pick a target that doesn't have any effect, for example the xref:targets/realearn-targets/realearn-dummy-target.adoc#realearn-dummy-target[].
 
 None::
 Switches group interaction off.
@@ -302,7 +302,7 @@ This mode emulates the behavior of a typical soft synth modulation matrix mappin
 {control}::
 include::partial$glue/round-target-value/control.txt[]
 
-Only a few targets support that, such as xref::target-types/project-targets/project-set-tempo.adoc[].
+Only a few targets support that, such as xref::targets/project-targets/project-set-tempo.adoc[].
 
 [#takeover-mode]
 == Takeover mode menu
@@ -486,7 +486,7 @@ Virtual targets are always discrete.
 
 .Speed example
 ====
-Let's assume you selected the discrete target xref:target-types/fx-targets/fx-browse-presets.adoc#fx-browse-presets[], which is considered discrete because an FX with for example 5 presets has 6 well-defined possible values (including the <no preset> option), there's nothing inbetween.
+Let's assume you selected the discrete target xref:targets/fx-targets/fx-browse-presets.adoc#fx-browse-presets[], which is considered discrete because an FX with for example 5 presets has 6 well-defined possible values (including the <no preset> option), there's nothing inbetween.
 And let's also assume that you have a controller like Midi Fighter Twister whose rotary encoders don't support built-in acceleration.
 
 Now you slightly move an encoder clock-wise and your controller sends an increment +1. If the _Speed Min_ slider was at 1 (default), this will just navigate to the next preset (+1).

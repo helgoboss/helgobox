@@ -3,7 +3,7 @@
 
 image:realearn/screenshots/mapping-panel-target.png[Screenshot]
 
-All xref:target-types.adoc[] share the following UI elements.
+All xref:targets.adoc[] share the following UI elements.
 
 [#learn]
 == Learn button
@@ -34,7 +34,7 @@ Lets you choose the target category.
 == Type menu
 
 Lets you choose a target type within that category.
-See xref:target-types.adoc[].
+See xref:targets.adoc[].
 
 [#current-value]
 == Value section and field
@@ -85,7 +85,7 @@ NOTE: In older REAPER versions (< 6.69+dev1102), this can only be enabled togeth
 
 == Common elements for on/off targets
 
-Targets which control an on/off-style property of tracks (e.g. xref:target-types/track-targets/track-solounsolo.adoc#track-solounsolo[Track: Solo/unsolo]) additionally provide the following elements.
+Targets which control an on/off-style property of tracks (e.g. xref:targets/track-targets/track-solounsolo.adoc#track-solounsolo[Track: Solo/unsolo]) additionally provide the following elements.
 
 [[exclusive-menu]]
 === Exclusive menu

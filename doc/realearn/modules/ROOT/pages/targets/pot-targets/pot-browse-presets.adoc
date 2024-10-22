@@ -3,10 +3,10 @@
 
 Use this target to browse a collection of presets.
 By default, this is the complete collection of presets available in all supported databases, so potentially thousands of presets.
-If you want to browse just a subset, see xref:target-types/pot-targets/pot-browse-filter-items.adoc#pot-browse-filter-items[].
+If you want to browse just a subset, see xref:targets/pot-targets/pot-browse-filter-items.adoc#pot-browse-filter-items[].
 
 The idea is to map this target to an endless rotary encoder or previous/next buttons (using xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[] mode) and then navigate within the available presets.
-Once you have selected a preset, you can audition it via xref:target-types/pot-targets/pot-preview-preset.adoc#pot-preview-preset[] (if it's a sound preset) and load it via xref:target-types/pot-targets/pot-load-preset.adoc#pot-load-preset[].
+Once you have selected a preset, you can audition it via xref:targets/pot-targets/pot-preview-preset.adoc#pot-preview-preset[] (if it's a sound preset) and load it via xref:targets/pot-targets/pot-load-preset.adoc#pot-load-preset[].
 
 == Target-specific properties
 

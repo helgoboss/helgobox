@@ -94,7 +94,7 @@ The second line of the bottom panel shows the current track chosen as **Unit tra
 This can be something like "Track 3" or "The currently selected track".
 Mappings in this ReaLearn unit can refer to this track by choosing the track selector xref:further-concepts/target-concepts.adoc#unit-selector[].
 
-The unit track can be changed via target xref:target-types/track-targets/track.adoc#track-target[].
+The unit track can be changed via target xref:targets/track-targets/track.adoc#track-target[].
 
 [#unit-fx]
 == Unit FX
@@ -103,14 +103,14 @@ The second line of the bottom panel also shows the current FX chosen as **Unit F
 This can be something like "FX 5 on track 3" or "The currently focused track".
 Mappings in this ReaLearn unit can refer to this FX by choosing the FX selector xref:further-concepts/target-concepts.adoc#unit-selector[].
 
-The unit FX can be changed via target xref:target-types/fx-targets/fx.adoc#fx-target[].
+The unit FX can be changed via target xref:targets/fx-targets/fx.adoc#fx-target[].
 
 [[unit-tag]]
 == Unit tag
 
 Each unit can have arbitrarily many tags.
 
-Tags are important if you want to dynamically enable or disable instances using the xref:target-types/realearn-targets/realearn-enabledisable-instances.adoc#realearn-enable-disable-instances[] target.
+Tags are important if you want to dynamically enable or disable instances using the xref:targets/realearn-targets/realearn-enabledisable-instances.adoc#realearn-enable-disable-instances[] target.
 
 [[projection]]
 == Projection
@@ -150,7 +150,7 @@ The log entries look similar to the ones described above, with the following not
 * Message purpose
 ** *Feedback output:* A message sent to your controller as response to target value changes.
 ** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation (see xref:user-interface/mapping-panel/advanced-settings-dialog.adoc#mapping-lifecycle-actions[Mapping lifecycle actions]).
-** *Target output:* A message sent because of either the xref:target-types/midi-targets/midi-send-message-target.adoc#midi-send-message-target[MIDI: Send message] or xref:target-types/osc-targets/osc-send-message.adoc#osc-send-message[OSC: Send message] target.
+** *Target output:* A message sent because of either the xref:targets/midi-targets/midi-send-message-target.adoc#midi-send-message-target[MIDI: Send message] or xref:targets/osc-targets/osc-send-message.adoc#osc-send-message[OSC: Send message] target.
 
 [[superior-units]]
 == Superior units

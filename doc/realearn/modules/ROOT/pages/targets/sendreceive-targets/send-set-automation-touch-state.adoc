@@ -1,0 +1,4 @@
+
+= Send: Set automation touch state
+
+This does the same as xref:targets/track-targets/track-set-automation-touch-state.adoc#track-set-automation-touch-state[] but for send volume or pan adjustments.

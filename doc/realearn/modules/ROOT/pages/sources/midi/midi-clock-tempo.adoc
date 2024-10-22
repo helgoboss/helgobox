@@ -7,7 +7,7 @@ The frequency with which this message is sent dictates the tempo.
 The higher the calculated tempo, the higher the absolute control value.
 A tempo of 1 bpm will be translated to a control value of 0%, a tempo of 960 bpm to 100% (this corresponds to REAPER's supported tempo range).
 
-This source can be used in combination with the xref:target-types/project-targets/project-set-tempo.adoc#project-set-tempo[Project: Set tempo] target to obtain a "poor man's" tempo synchronization.
+This source can be used in combination with the xref:targets/project-targets/project-set-tempo.adoc#project-set-tempo[Project: Set tempo] target to obtain a "poor man's" tempo synchronization.
 
 Be aware: MIDI clock naturally suffers from certain inaccuracies and latencies - that's an issue inherent to the nature of the MIDI clock protocol itself.
 E.g. it's not really suitable if you need super accurate and instant tempo synchronization.

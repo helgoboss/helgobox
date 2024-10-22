@@ -51,4 +51,4 @@ Remarks:
 - Each ReaLearn instance can have one _Pot Unit_ (by default not loaded).
 Each Pot Unit has its own filter and preset state.
 When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
-- ReaLearn's "Pot" targets such as xref:target-types/pot-targets/pot-browse-presets.adoc#pot-browse-presets[] can be used to control the Pot Unit from any controller.
+- ReaLearn's "Pot" targets such as xref:targets/pot-targets/pot-browse-presets.adoc#pot-browse-presets[] can be used to control the Pot Unit from any controller.

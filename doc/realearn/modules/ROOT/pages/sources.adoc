@@ -1,3 +1,3 @@
-= Source types
+= Sources
 
 ReaLearn supports the following xref:key-concepts.adoc#source[] types.
