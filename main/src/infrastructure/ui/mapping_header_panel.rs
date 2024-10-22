@@ -15,19 +15,23 @@ use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{CompartmentKind, MappingId, Tag};
 use crate::infrastructure::ui::menus;
 use std::fmt::Debug;
+use derivative::Derivative;
 use strum::IntoEnumIterator;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
 type SharedItem = Rc<RefCell<dyn Item>>;
 type WeakItem = Weak<RefCell<dyn Item>>;
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct MappingHeaderPanel {
     view: ViewContext,
     session: WeakUnitModel,
     item: RefCell<Option<WeakItem>>,
     is_invoked_programmatically: Cell<bool>,
     position: Point<DialogUnits>,
+    #[derivative(Debug = "ignore")]
+    on_help_requested: RefCell<Option<Box<dyn Fn() -> bool>>>,
 }
 
 pub trait Item: Debug {
@@ -94,7 +98,12 @@ impl MappingHeaderPanel {
             item: RefCell::new(initial_item),
             is_invoked_programmatically: false.into(),
             position,
+            on_help_requested: Default::default(),
         }
+    }
+
+    pub fn set_help_requested_callback(&self, callback: Box<dyn Fn() -> bool>) {
+        self.on_help_requested.replace(Some(callback));
     }
 
     pub fn set_invoked_programmatically(&self, value: bool) {
@@ -697,6 +706,14 @@ impl View for MappingHeaderPanel {
             _ => {}
         });
         false
+    }
+
+    fn help_requested(&self) -> bool {
+        if let Some(callback) = self.on_help_requested.borrow().as_ref() {
+            callback()
+        } else {
+            false
+        }
     }
 }
 

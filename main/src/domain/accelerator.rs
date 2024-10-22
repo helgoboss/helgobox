@@ -5,10 +5,7 @@ use crate::domain::{
 use helgoboss_learn::AbstractTimestamp;
 use reaper_high::Reaper;
 use reaper_low::raw;
-use reaper_medium::{
-    AccelMsg, AccelMsgKind, AcceleratorBehavior, TranslateAccel, TranslateAccelArgs,
-    TranslateAccelResult,
-};
+use reaper_medium::{AccelMsg, AccelMsgKind, AcceleratorBehavior, TranslateAccel, TranslateAccelArgs, TranslateAccelResult, AcceleratorKeyCode, virt_keys};
 use swell_ui::{SharedView, View, Window};
 
 pub trait HelgoboxWindowSnitch {
@@ -85,6 +82,14 @@ where
             // Not our window which is focused. Act normally.
             return TranslateAccelResult::NotOurWindow;
         };
+        // Support F1 in our windows (key_down and key_up don't work very well on Linux and Windows if there's
+        // a text field)
+        if msg.key().get() == virt_keys::F1.get() {
+            if msg.message() == AccelMsgKind::KeyUp {
+                view.help_requested();
+            }
+            return TranslateAccelResult::Eat;
+        }
         if !view.wants_raw_keyboard_input() {
             return TranslateAccelResult::NotOurWindow;
         }

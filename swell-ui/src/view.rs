@@ -155,6 +155,13 @@ pub trait View: Debug {
         false
     }
 
+    /// When F1 was pressed.
+    ///
+    /// Should return `true` if processed.
+    fn help_requested(&self) -> bool {
+        false
+    }
+
     /// WM_KEYDOWN.
     ///
     /// Should return `true` if processed.
@@ -355,7 +362,7 @@ impl ViewContext {
     }
 
     /// Fires when the window is closed.
-    pub fn closed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
+    pub fn closed(&self) -> impl LocalObservable<'static, Item=(), Err=()> + 'static {
         self.closed_subject.borrow().clone()
     }
 }
