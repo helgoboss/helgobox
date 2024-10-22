@@ -77,7 +77,7 @@ If the button label ends with a number, that number denotes the number of top-le
 That way you can immediately see if a mapping has advanced settings or not.
 
 You can learn more about the available properties in the section
-xref:user-interface/mapping-panel/advanced-settings-dialog.adoc#advanced-settings-dialog[].
+xref:user-interface/mapping-panel/advanced-settings-dialog.adoc[].
 
 [#find-in-mapping-list]
 == Find in mapping list button

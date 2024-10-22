@@ -1,4 +1,3 @@
-[#midi-send-message-target]
 = Target "MIDI: Send message"
 
 Sends arbitrary MIDI messages (also sys-ex!) in response to incoming messages.

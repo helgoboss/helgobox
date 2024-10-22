@@ -1,4 +1,3 @@
-[#fx-target]
 = Target "FX"
 
 A target that allows you to define an FX, in its basic variant perfect for acquiring feedback for a specific FX.

@@ -17,7 +17,7 @@ This checkbox at the top left of the mapping row enables or disables the mapping
 This indicator at the very left of the mapping row lights up on incoming control messages whenever they match the mapping source.
 
 Attention: This doesn't necessarily mean that the message will reach the target, although it often does.
-There are certain settings in the xref:user-interface/mapping-panel/glue-section.adoc#glue-section[] section which allow you to filter messages even they matched the source (e.g. xref:user-interface/mapping-panel/glue-section.adoc#source-min-max[]).
+There are certain settings in the xref:user-interface/mapping-panel/glue-section.adoc[] section which allow you to filter messages even they matched the source (e.g. xref:user-interface/mapping-panel/glue-section.adoc#source-min-max[]).
 
 == Up/down buttons
 

@@ -9,7 +9,7 @@ Just in case you are interested.
 [[decision-advanced-settings-via-yaml]]
 == Advanced settings via YAML
 
-The xref:user-interface/mapping-panel/advanced-settings-dialog.adoc#advanced-settings-dialog[] makes it possible to configure a few advanced mapping settings by entering text in the YAML configuration language.
+The xref:user-interface/mapping-panel/advanced-settings-dialog.adoc[] makes it possible to configure a few advanced mapping settings by entering text in the YAML configuration language.
 
 Deciding for textual configuration and YAML in particular was a conscious decision with the goal to provide a developer-friendly framework for rapidly extending ReaLearn with advanced features that don't urgently need a graphical user interface.
 

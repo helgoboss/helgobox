@@ -537,4 +537,4 @@ Activation condition::
 The activation condition that you provide here is combined with the one that you provide in the mapping.
 Only if both, the group activation conditions and the mapping activation condition are satisfied, the corresponding mapping will be active.
 Read more about
-xref:further-concepts/mapping-concepts.adoc#conditional-activation[conditional activation] in the section about the xref:user-interface/mapping-panel.adoc#mapping-panel[Mapping panel].
+xref:further-concepts/mapping-concepts.adoc#conditional-activation[conditional activation] in the section about the xref:user-interface/mapping-panel.adoc[].

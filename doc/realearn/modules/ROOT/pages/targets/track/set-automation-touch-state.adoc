@@ -1,4 +1,3 @@
-[#track-set-automation-touch-state]
 = Target "Track: Set automation touch state"
 
 When you use REAPER's "Touch" automation mode, REAPER needs a way to know if you are currently touching the control element which is bound to the automation envelope or not.

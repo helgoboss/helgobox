@@ -1,4 +1,3 @@
-[#project-invoke-reaper-action]
 = Target "Project: Invoke REAPER action"
 
 Triggers or sets the value of a particular REAPER action in the main section.

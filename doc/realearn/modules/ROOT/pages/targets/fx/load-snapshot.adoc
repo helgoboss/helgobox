@@ -1,4 +1,3 @@
-[#fx-load-snapshot]
 = Target "FX: Load snapshot"
 
 Restores a certain state of a particular FX.

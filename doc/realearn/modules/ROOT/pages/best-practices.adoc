@@ -54,7 +54,7 @@ The point of xref:further-concepts/compartment-concepts.adoc#controller-preset[c
 TIP: It's okay and desired to have one control element mapped to "Multi 1" and one to "Button 1".
 ** Just imagine the "8 generic knobs + 8 generic buttons" layout which is typical for lots of popular controllers.
 You can easily model that by assigning 8 multis and 8 buttons.
-** Maybe you have realized that the xref:user-interface/mapping-panel/glue-section.adoc#glue-section[] is available for controller mappings as well!
+** Maybe you have realized that the xref:user-interface/mapping-panel/glue-section.adoc[] is available for controller mappings as well!
 That opens up all kinds of possibilities.
 You could for example restrict the target range for a certain control element.
 Or make an encoder generally slower or faster.
@@ -79,7 +79,7 @@ ReaLearn will take care of automatically incrementing the xref:further-concepts/
 . Done!
 ** At this point it's recommended to recheck the learned mappings.
 ** ReaLearn's xref:further-concepts/source-concepts.adoc#midi-source-character[] detection for MIDI CCs is naturally just a guess, so it can be wrong.
-If so, just adjust the character in the corresponding xref:user-interface/mapping-panel.adoc#mapping-panel[].
+If so, just adjust the character in the corresponding xref:user-interface/mapping-panel.adoc[].
 
 You can share your preset with other users by sending them to link:mailto:&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;[&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;].
 I will add it to https://github.com/helgoboss/helgobox/tree/master/resources/controller-presets[this

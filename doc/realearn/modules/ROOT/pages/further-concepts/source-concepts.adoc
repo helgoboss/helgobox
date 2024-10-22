@@ -141,7 +141,7 @@ Script input::
 * Luau scripts can access numeric, text and dynamic feedback values.
 * Here's the list of input variables:
 `y`::: The feedback value, either numeric (`type(y) == "number"`) or text (`type(y) == "string")`.
-`context.feedback_event.color`::: The color as set in the xref:user-interface/mapping-panel/glue-section.adoc#glue-section[] section.
+`context.feedback_event.color`::: The color as set in the xref:user-interface/mapping-panel/glue-section.adoc[] section.
 Either the default color (`== nil`) or an RGB color (table with properties `r`, `g` and `b`).
 `context.feedback_event.background_color`::: The background color.
 
@@ -204,7 +204,7 @@ return {
 ====
 
 Please note that this kind of simple mapping from text values to integer numbers doesn't need a script.
-You can use the `feedback_value_table` xref:user-interface/mapping-panel/glue-section.adoc#glue-section[] property instead, which can only be set via API though.
+You can use the `feedback_value_table` xref:user-interface/mapping-panel/glue-section.adoc[] property instead, which can only be set via API though.
 Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
 ====
 

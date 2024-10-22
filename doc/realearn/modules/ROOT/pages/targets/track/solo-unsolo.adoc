@@ -1,4 +1,3 @@
-[#track-solounsolo]
 = Target "Track: Solo/unsolo"
 
 Soloes the track if the incoming absolute control value is greater than 0%, otherwise unsoloes the track.

@@ -1,4 +1,3 @@
-[#seek-target]
 = Target "Project: Seek"
 
 Allows you to use faders, knobs, encoders or incremental buttons to seek within portions of your project … with feedback that indicates the current position!

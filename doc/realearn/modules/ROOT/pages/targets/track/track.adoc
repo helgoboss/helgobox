@@ -1,4 +1,3 @@
-[#track-target]
 = Target "Track"
 
 A target that allows you to define a track.

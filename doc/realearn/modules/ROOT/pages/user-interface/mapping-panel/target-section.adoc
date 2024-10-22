@@ -1,4 +1,3 @@
-[[target-section]]
 = Target section
 
 image:realearn/screenshots/mapping-panel-target.png[Screenshot]

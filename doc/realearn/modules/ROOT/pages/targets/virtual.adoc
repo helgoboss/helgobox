@@ -1,4 +1,3 @@
-[[virtual-target-category]]
 = Target "Virtual"
 
 This is exactly the counterpart of the possible xref:further-concepts/source-concepts.adoc#virtual-source[virtual sources] in the xref:key-concepts.adoc#main-compartment[].

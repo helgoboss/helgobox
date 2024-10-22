@@ -1,4 +1,3 @@
-[#fx-set-parameter-value]
 = Target "FX parameter: Set value"
 
 Sets the value of a particular track FX parameter.

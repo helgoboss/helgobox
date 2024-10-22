@@ -1,4 +1,3 @@
-[#fx-enabledisable]
 = Target "FX: Enable/disable"
 
 Enables the FX instance if the incoming absolute control value is greater than 0%, otherwise disables it.

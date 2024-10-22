@@ -1,4 +1,3 @@
-[#pot-browse-filter-items]
 = Target "Pot: Browse filter items"
 
 This target can be used to filter the potentially very large collection of presets in  xref:targets/pot/browse-presets.adoc[].

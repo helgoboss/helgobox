@@ -1,4 +1,3 @@
-[#glue-section]
 = Glue section
 :control: Control →
 :feedback: Feedback ←
@@ -79,7 +78,7 @@ If you set this to "-6 dB to 0 dB" for a _Track volume_ target, the volume will 
 However, it wouldn't prevent the volume from exceeding that range if changed e.g. in REAPER itself.
 ====
 
-This setting can be used with all targets that work with xref:further-concepts/mapping-concepts.adoc#absolute-control-value[absolute control values] (all targets except xref:targets/project/invoke-reaper-action.adoc#project-invoke-reaper-action[Project: Invoke REAPER action] with relative xref:targets/project/invoke-reaper-action.adoc#invocation-type[]).
+This setting can be used with all targets that work with xref:further-concepts/mapping-concepts.adoc#absolute-control-value[absolute control values] (all targets except xref:targets/project/invoke-reaper-action.adoc[] with relative xref:targets/project/invoke-reaper-action.adoc#invocation-type[]).
 
 [#value-sequence]
 == Value sequence field

@@ -1,4 +1,3 @@
-[[track-set-volume]]
 = Target "Track: Set volume"
 
 Sets the track's volume.

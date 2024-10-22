@@ -1,4 +1,3 @@
-[#pot-browse-presets]
 = Target "Pot: Browse presets"
 
 Use this target to browse a collection of presets.

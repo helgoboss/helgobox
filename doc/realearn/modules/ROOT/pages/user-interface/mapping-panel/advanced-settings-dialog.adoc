@@ -1,4 +1,3 @@
-[#advanced-settings-dialog]
 = Advanced settings dialog
 
 This dialog allows access to advanced configuration by entering text in the https://en.wikipedia.org/wiki/YAML[YAML] configuration language.
@@ -30,7 +29,8 @@ Therefore: Be consistent with your indentation (e.g. use always an indentation o
 .Verbatim text is not saved
 ====
 When you close the text editor and ReaLearn saves your advanced settings as part of the mapping, it will not save the text that you have entered _verbatim_.
-It will save a structural representation of what you entered. Plus, it will strip comments!.
+It will save a structural representation of what you entered.
+Plus, it will strip comments!.
 That means if you open the advanced settings again, your text could look a bit different, in particular it can have a different formatting.
 But don't worry, it _means_ exactly the same to ReaLearn.
 ====

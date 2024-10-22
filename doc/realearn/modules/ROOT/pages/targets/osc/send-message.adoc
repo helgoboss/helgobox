@@ -1,4 +1,3 @@
-[#osc-send-message]
 = Target "OSC: Send message"
 
 Sends OSC messages with up to one argument in response to incoming messages.

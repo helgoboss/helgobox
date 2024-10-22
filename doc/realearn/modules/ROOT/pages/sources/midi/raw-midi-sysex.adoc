@@ -1,4 +1,3 @@
-[#raw-midi-source]
 = Source "Raw MIDI / SysEx"
 
 This source primarily deals with system-exclusive MIDI messages.

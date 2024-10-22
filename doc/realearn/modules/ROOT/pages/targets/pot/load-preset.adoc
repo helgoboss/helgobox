@@ -1,4 +1,3 @@
-[#pot-load-preset]
 = Target "Pot: Load preset"
 
 Loads a preset selected via xref:targets/pot/browse-presets.adoc[].
@@ -16,4 +15,4 @@ Then the target would turn inactive and stop working.
 == Target-specific properties
 
 This target supports the same additional xref:further-concepts/target-concepts.adoc#target-property[target properties] as xref:targets/pot/browse-presets.adoc[].
-The only difference is that the ones in <<pot-load-preset>> relate to the currently loaded preset, not the one that's selected in the preset browser.
+The only difference is that the ones in this one relate to the currently loaded preset, not the one that's selected in the preset browser.

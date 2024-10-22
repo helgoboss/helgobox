@@ -1,4 +1,3 @@
-[#pot-preview-preset]
 = Target "Pot: Preview preset"
 
 Auditions a preset selected via xref:targets/pot/browse-presets.adoc[].

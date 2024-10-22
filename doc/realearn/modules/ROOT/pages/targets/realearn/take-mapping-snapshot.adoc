@@ -1,4 +1,3 @@
-[#realearn-take-mapping-snapshot]
 = Target "ReaLearn: Take mapping snapshot"
 
 Memorizes target values for all or certain mappings in this ReaLearn units and saves them in a snapshot of your choice.

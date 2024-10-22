@@ -30,4 +30,4 @@ CAUTION: For controllers with multiple displays and lines, ReaLearn allows you t
 This is great if you need to display a lot of text but one display doesn't provide enough space.
 But be aware: xref:further-concepts/general-concepts.adoc#feedback-relay[] doesn't work nicely anymore if you make use of this feature.
 
-If you want to know how to define which text shall be sent to the displays, please see xref:further-concepts/glue-concepts.adoc#text-feedback[textual feedback] in the xref:user-interface/mapping-panel/glue-section.adoc#glue-section[].
+If you want to know how to define which text shall be sent to the displays, please see xref:further-concepts/glue-concepts.adoc#text-feedback[textual feedback] in the xref:user-interface/mapping-panel/glue-section.adoc[].

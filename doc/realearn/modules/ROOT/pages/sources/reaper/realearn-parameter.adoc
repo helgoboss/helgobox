@@ -1,4 +1,3 @@
-[#parameter-source]
 = Source "ReaLearn parameter"
 
 This source fires whenever a selected xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] changes its value.

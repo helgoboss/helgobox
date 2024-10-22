@@ -1,4 +1,3 @@
-[#browse-tracks-target]
 = Target "Project: Browse tracks"
 
 Steps through tracks.

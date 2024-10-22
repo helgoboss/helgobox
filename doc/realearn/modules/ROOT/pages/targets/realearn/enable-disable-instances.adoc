@@ -1,4 +1,3 @@
-[#realearn-enable-disable-instances]
 = Target "ReaLearn: Enable/disable instances"
 
 This target allows you to flexibly enable or disable other ReaLearn instances based on the unit tags of their units.
