@@ -19,7 +19,7 @@ Enables a unique feature called "Global MIDI transformation", as shown in link:h
 
 When choosing output <<midi-send-output-input-device>>, you can choose into which MIDI input device buffer the message will be injected.
 
-<Same as input device>:: Injects the message into the same buffer of the MIDI input device chosen as xref:user-interface/main-panel/inputoutput-section.adoc#input-menu[].
+<Same as input device>:: Injects the message into the same buffer of the MIDI input device chosen as xref:user-interface/main-panel/input-output-section.adoc#input-menu[].
 
 _Specific input device_:: Injects the message into another specific MIDI input device.
 This can be useful for doing global MIDI transformation with controllers that expose multiple MIDI input ports.
@@ -44,7 +44,7 @@ However, this also means that the following things won't work when controlling t
 
 * It can't take the lead in xref:user-interface/mapping-panel/glue-section.adoc#group-interaction[].
 * It won't work with timed xref:user-interface/mapping-panel/glue-section.adoc#fire-mode[fire modes].
-* If _output_ is set to xref:user-interface/main-panel/inputoutput-section.adoc#fx-output[], additional limitations apply:
+* If _output_ is set to xref:user-interface/main-panel/input-output-section.adoc#fx-output[], additional limitations apply:
 ** It can't act as a follower in xref:user-interface/mapping-panel/glue-section.adoc#group-interaction[], either.
 ** It can't participate in xref:target-types/realearn-targets/realearn-load-mapping-snapshot.adoc#realearn-load-mapping-snapshot[].
 ====

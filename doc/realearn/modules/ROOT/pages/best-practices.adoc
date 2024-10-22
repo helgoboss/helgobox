@@ -4,7 +4,7 @@
 == Setting input and output
 
 [qanda]
-Prefer output to a specific device over xref:user-interface/main-panel/inputoutput-section.adoc#fx-output[]!::
+Prefer output to a specific device over xref:user-interface/main-panel/input-output-section.adoc#fx-output[]!::
 It's usually better to select a specific output device because sending MIDI feedback to the FX output has drawbacks.
 +
 First, it doesn't participate in ReaLearn's multi-unit feedback orchestration.

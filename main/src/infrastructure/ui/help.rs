@@ -215,7 +215,7 @@ impl HelpSection {
                 format!("{GENERAL_DOC_BASE_URL}/key-concepts.html")
             }
             HelpSection::MappingTop => {
-                format!("{GENERAL_DOC_BASE_URL}/user-interface/mapping-panel/general-section")
+                format!("{GENERAL_DOC_BASE_URL}/user-interface/mapping-panel/top-section")
             }
             HelpSection::Source => {
                 format!("{GENERAL_DOC_BASE_URL}/user-interface/mapping-panel/source-section")

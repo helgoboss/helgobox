@@ -1,5 +1,5 @@
 
-= Bottom area
+= Bottom section
 
 image:realearn/screenshots/main-panel-bottom.png[Screenshot]
 

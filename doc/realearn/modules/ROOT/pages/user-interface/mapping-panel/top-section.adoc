@@ -1,4 +1,4 @@
-= General section
+= Top section
 
 image:realearn/screenshots/mapping-panel-general.png[Screenshot]
 

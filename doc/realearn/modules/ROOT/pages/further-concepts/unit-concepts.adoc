@@ -7,11 +7,11 @@
 ReaLearn by default "eats" incoming MIDI events for which there's at least one active mapping with that source.
 In other words, it doesn't forward MIDI events which are used to control a target parameter.
 However, unmatched MIDI events are forwarded!
-You can change this using xref:user-interface/main-panel/let-through-checkboxes.adoc#let-through-checkboxes[].
+You can change this using xref:user-interface/main-panel/let-through-section.adoc[].
 
-The exact behavior differs depending on what you choose as xref:user-interface/main-panel/inputoutput-section.adoc#input-menu[]:
+The exact behavior differs depending on what you choose as xref:user-interface/main-panel/input-output-section.adoc#input-menu[]:
 
-* If input is set to xref:user-interface/main-panel/inputoutput-section.adoc#fx-input[]
+* If input is set to xref:user-interface/main-panel/input-output-section.adoc#fx-input[]
 ** MIDI events arrive from ReaLearn's FX input.
 If they get forwarded, they get forwarded to the FX output, usually to the plug-in which is located right below ReaLearn FX.
 The default setting often makes much sense here, especially if you put ReaLearn right above another instrument plug-in.
@@ -74,7 +74,7 @@ But a side effect is that with every new ReaLearn unit that you create, you firs
 Let's assume you have in many of your projects exactly one ReaLearn unit that lets your favorite MIDI controller control track volumes.
 By customizing the unit key, you can tell your mobile device that it should always show the <<projection>> of this very ReaLearn unit - no matter in which REAPER project you are and even if they control the volumes of totally different tracks.
 
-You can achieve this by setting the unit key of each volume-controlling ReaLearn unit to exactly the same value, in each project, using xref:user-interface/main-panel/bottom-area.adoc#set-unit-data-button[].
+You can achieve this by setting the unit key of each volume-controlling ReaLearn unit to exactly the same value, in each project, using xref:user-interface/main-panel/bottom-section.adoc#set-unit-data-button[].
 Ideally it's a descriptive name without spaces, such as "track-volumes".
 You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control ReaLearn units in each project.
 

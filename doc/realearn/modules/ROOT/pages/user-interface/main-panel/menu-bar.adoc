@@ -119,7 +119,7 @@ If it's on the input FX chain, unarming forcefully disables feedback because REA
 +
 Normally, you don't have to touch this because <<auto-correct-settings>> automatically chooses a reasonable default, depending on which input is selected:
 +
-* If input is set to xref:user-interface/main-panel/inputoutput-section.adoc#fx-input[], it enables this option so that ReaLearn only sends feedback if the track is armed.
+* If input is set to xref:user-interface/main-panel/input-output-section.adoc#fx-input[], it enables this option so that ReaLearn only sends feedback if the track is armed.
 Rationale: Unarming will naturally disable control, so disabling feedback is just consequent.
 * If input is set to a specific MIDI or OSC device, it disables this option in order to allow feedback even when unarmed.
 
@@ -147,7 +147,7 @@ Only if background project is running::::
 Follows REAPER's project tab settings ("Run background projects" and "Run stopped background projects").
 Always (more or less)::::
 Attempts to stay active no matter what.
-Please note that this is technically not always possible when input is set to xref:user-interface/main-panel/inputoutput-section.adoc#fx-input[] or output to xref:user-interface/main-panel/inputoutput-section.adoc#fx-output[], when the background project is not running.
+Please note that this is technically not always possible when input is set to xref:user-interface/main-panel/input-output-section.adoc#fx-input[] or output to xref:user-interface/main-panel/input-output-section.adoc#fx-output[], when the background project is not running.
 
 [[unit-fx-to-preset-links-menu]] Unit-wide FX-to-preset links::
 Manage a unit-wide list of links from FX (plug-ins or JS effects) to ReaLearn main compartment presets.

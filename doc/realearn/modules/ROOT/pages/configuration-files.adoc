@@ -22,7 +22,7 @@ ReaLearn creates and/or reads a few files in REAPER's resource directory.
 
 `Helgoboss/Pot/previews`:: Directory which contains previews recorded by xref:further-concepts/instance-concepts.adoc#pot-browser[Pot Browser]
 
-`Helgoboss/ReaLearn/osc.json`:: Global OSC device configurations, see xref:user-interface/main-panel/inputoutput-section.adoc#manage-osc-devices[]
+`Helgoboss/ReaLearn/osc.json`:: Global OSC device configurations, see xref:user-interface/main-panel/input-output-section.adoc#manage-osc-devices[]
 
 `Helgoboss/ReaLearn/realearn.ini`:: Very basic global configuration, currently mainly regarding ReaLearn's built-in server.
 +

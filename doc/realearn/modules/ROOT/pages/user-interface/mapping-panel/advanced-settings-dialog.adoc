@@ -2,7 +2,7 @@
 = Advanced settings dialog
 
 This dialog allows access to advanced configuration by entering text in the https://en.wikipedia.org/wiki/YAML[YAML] configuration language.
-It can be opened using the xref:user-interface/mapping-panel/general-section.adoc#advanced-settings[] of the mapping panel.
+It can be opened using the xref:user-interface/mapping-panel/top-section.adoc#advanced-settings[] of the mapping panel.
 
 See xref:design-decisions.adoc#decision-advanced-settings-via-yaml[] to learn why this feature exists and why YAML.
 
@@ -101,11 +101,11 @@ on_activate:
 
 ReaLearn will ignore any unknown properties.
 
-TIP: If you use input xref:user-interface/main-panel/inputoutput-section.adoc#fx-input[] and find that MIDI lifecycle messages aren't sent, no matter what, make sure "Send feedback only if track armed" is disabled (see xref:user-interface/main-panel/menu-bar.adoc#unit-options[])!
+TIP: If you use input xref:user-interface/main-panel/input-output-section.adoc#fx-input[] and find that MIDI lifecycle messages aren't sent, no matter what, make sure "Send feedback only if track armed" is disabled (see xref:user-interface/main-panel/menu-bar.adoc#unit-options[])!
 
 WARNING: Disabling the complete ReaLearn instance will cause all mappings in all units of that instance to deactivate.
 However, sending MIDI messages on deactivation in this case will only work if the output is a device!
-If it is xref:user-interface/main-panel/inputoutput-section.adoc#fx-output[], it will not send anything because REAPER will not give that ReaLearn instance any chance to output MIDI messages once it's disabled.
+If it is xref:user-interface/main-panel/input-output-section.adoc#fx-output[], it will not send anything because REAPER will not give that ReaLearn instance any chance to output MIDI messages once it's disabled.
 Instead, the MIDI message will queue up and be sent once you enable that instance again ... which is probably not what you want.
 
 == Open in text editor button (Windows and Linux only)

@@ -1,5 +1,4 @@
-[[let-through-checkboxes]]
-= Let through checkboxes
+= Let through section
 
 image:realearn/screenshots/main-panel-let-through-checkboxes.png[Screenshot]
 
