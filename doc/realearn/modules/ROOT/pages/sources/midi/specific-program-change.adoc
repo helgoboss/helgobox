@@ -1,5 +1,5 @@
 
-= Specific program change
+= Source "Specific program change"
 
 This source reacts to MIDI program-change messages with a specific program.
 This is a trigger-only source, that means it always fires 100% (whenever the program number corresponds to the configured one).

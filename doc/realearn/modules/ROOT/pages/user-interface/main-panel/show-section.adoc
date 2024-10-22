@@ -1,4 +1,4 @@
-= Show buttons
+= Show section
 
 image:realearn/screenshots/main-panel-show-buttons.png[Screenshot]
 
