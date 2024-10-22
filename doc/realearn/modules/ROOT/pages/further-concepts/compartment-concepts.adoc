@@ -230,7 +230,7 @@ Compartment parameters can be used in the following ways:
 
 * For xref:further-concepts/mapping-concepts.adoc#conditional-activation[] (lets the parameter value influence which mappings are active)
 * For xref:further-concepts/target-concepts.adoc#dynamic-selector[] (lets the parameter value influence which object (track, FX etc.) is targeted for a specific mapping)
-* As source xref:sources/reaper/realearn-parameter.adoc[] (lets the parameter value control any ReaLearn target)
+* As xref:sources/reaper/realearn-parameter.adoc[] (lets the parameter value control any ReaLearn target)
 
 They can be customized as described in xref:user-interface/main-panel/menu-bar.adoc#compartment-parameters-menu[].
 Parameter customizations are saved together with the compartment preset.

@@ -155,7 +155,7 @@ It can either be ...
 ** ... a string (ideal for display sources)
 ** ... a number (ideal for LEDs and motor faders)
 ** ... `nil` (which means "turn the source off", e.g. turn off the LED, turn down the motorfader, clear the display text)
-** ... or anything else (`true`, `false` or an arbitrary table ... at the moment, this is only useful for the xref:sources/midi/midi-script.adoc[] source because other sources don't know how to deal with it)
+** ... or anything else (`true`, `false` or an arbitrary table ... at the moment, this is only useful for the xref:sources/midi/midi-script.adoc[] because other sources don't know how to deal with it)
 
 
 .`global.realearn.time`
@@ -233,7 +233,7 @@ return {
 }
 ----
 
-+...+ which can then be processed by a xref:sources/midi/midi-script.adoc[] source:
++...+ which can then be processed by a xref:sources/midi/midi-script.adoc[]:
 
 [source,lua]
 ----
