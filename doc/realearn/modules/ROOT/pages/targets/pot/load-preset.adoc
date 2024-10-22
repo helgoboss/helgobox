@@ -3,7 +3,8 @@
 Loads a preset selected via xref:targets/pot/browse-presets.adoc[].
 
 NOTE: This needs at least REAPER version 6.69+dev1030! Also, it only works if you have the VST2/VST2i version of the corresponding plug-in installed.
-- *NKS audio file presets:* Loading supported via ReaSamplOmatic5000
+
+NKS audio file presets will be loaded into ReaSamplOmatic5000.
 
 == Track/FX controls
 
