@@ -190,13 +190,13 @@ impl RealearnTarget for FxParameterTarget {
         }
         match evt {
             CompoundChangeEvent::Reaper(ChangeEvent::FxParameterValueChanged(e))
-                if e.parameter == self.param =>
-            {
-                (
-                    true,
-                    Some(fx_parameter_absolute_value(&e.parameter, e.new_value)),
-                )
-            }
+            if e.parameter == self.param =>
+                {
+                    (
+                        true,
+                        Some(fx_parameter_absolute_value(&e.parameter, e.new_value)),
+                    )
+                }
             CompoundChangeEvent::Additional(
                 AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(e),
             ) if e.parameter == self.param => (
@@ -366,7 +366,7 @@ impl<'a> Target<'a> for RealTimeFxParameterTarget {
             },
             self.retrigger,
         )
-        .0
+            .0
     }
 }
 
@@ -396,10 +396,10 @@ fn determine_param_control_type_and_character(
             (control_type, TargetCharacter::Continuous)
         }
         Some(GetParameterStepSizesResult::Normal {
-            normal_step,
-            small_step,
-            ..
-        }) => {
+                 normal_step,
+                 small_step,
+                 ..
+             }) => {
             // The reported step sizes relate to the reported value range, which is not
             // always the unit interval! Easy to test with JS
             // FX.
@@ -412,9 +412,14 @@ fn determine_param_control_type_and_character(
             }
             let pref_step_size = small_step.unwrap_or(normal_step);
             let step_size = pref_step_size / span;
+            let step_size = UnitValue::try_new(step_size).unwrap_or_else(|| {
+                // Happens sometimes with Altiverb: https://github.com/helgoboss/helgobox/issues/1274
+                warn!("Step size reported for FX parameter not in unit interval: effective = {step_size}, small = {small_step:?}, normal = {normal_step}");
+                UnitValue::new_clamped(step_size)
+            });
             (
                 ControlType::AbsoluteDiscrete {
-                    atomic_step_size: UnitValue::new(step_size),
+                    atomic_step_size: step_size,
                     is_retriggerable: retrigger,
                 },
                 TargetCharacter::Discrete,
@@ -440,7 +445,7 @@ fn fx_parameter_absolute_value(
 
 fn fx_parameter_unit_value(param: &FxParameter, value: ReaperNormalizedFxParamValue) -> UnitValue {
     let v = value.get();
-    if !UnitValue::is_valid(v) {
+    UnitValue::try_new(v).unwrap_or_else(|| {
         // Either the FX reports a wrong value range (e.g. TAL Flanger Sync Speed)
         // or the value range exceeded a "normal" range (e.g. ReaPitch Wet). We can't
         // know. In future, we might offer further customization possibilities here.
@@ -450,9 +455,8 @@ fn fx_parameter_unit_value(param: &FxParameter, value: ReaperNormalizedFxParamVa
             "FX parameter reported normalized value {:?} which is not in unit interval: {:?}",
             v, param
         );
-        return UnitValue::new_clamped(v);
-    }
-    UnitValue::new(v)
+        UnitValue::new_clamped(v)
+    })
 }
 
 fn reaper_is_ready_for_real_time_fx_param_control() -> bool {
