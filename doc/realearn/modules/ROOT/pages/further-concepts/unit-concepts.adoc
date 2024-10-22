@@ -1,4 +1,3 @@
-
 = Unit concepts
 
 [[letting-through-events]]
@@ -110,7 +109,7 @@ The unit FX can be changed via target xref:targets/fx-targets/fx.adoc#fx-target[
 
 Each unit can have arbitrarily many tags.
 
-Tags are important if you want to dynamically enable or disable instances using the xref:targets/realearn-targets/realearn-enabledisable-instances.adoc#realearn-enable-disable-instances[] target.
+Tags are important if you want to dynamically enable or disable instances using the xref:targets/realearn-targets/realearn-enable-disable-instances.adoc#realearn-enable-disable-instances[] target.
 
 [[projection]]
 == Projection

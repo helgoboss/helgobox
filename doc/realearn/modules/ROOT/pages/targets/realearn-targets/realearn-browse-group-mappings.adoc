@@ -25,8 +25,8 @@ Inactive mappings are skipped!
 A mapping group lends itself perfectly for defining things that should happen _in sequence_.
 This target allows you to take advantage of that!
 
-- Combine it with xref:targets/realearn-targets/realearn-enabledisable-mappings.adoc#realearn-enable-disable-mappings[] to browse different banks.
-- Combine it with xref:targets/realearn-targets/realearn-enabledisable-instances.adoc#realearn-enable-disable-instances[] to browse completely different controller setups (or banks).
+- Combine it with xref:targets/realearn-targets/realearn-enable-disable-mappings.adoc#realearn-enable-disable-mappings[] to browse different banks.
+- Combine it with xref:targets/realearn-targets/realearn-enable-disable-instances.adoc#realearn-enable-disable-instances[] to browse completely different controller setups (or banks).
 - Combine it with targets that don't provide a "Browse ..." variant themselves.
 - Use it as an alternative to xref:further-concepts/glue-concepts.adoc#target-value-sequence[target value sequences] that allows you to have completely different targets within one sequence.
 ====

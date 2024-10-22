@@ -2,4 +2,4 @@
 
 Arms the track for recording if the incoming absolute control value is greater than 0%, otherwise disarms the track.
 This disables "Automatic record-arm when track selected".
-If you don't want that, use xref:targets/track-targets/track-selectunselect.adoc#track-selectunselect[] instead.
+If you don't want that, use xref:targets/track-targets/track-select-unselect.adoc#track-selectunselect[] instead.
