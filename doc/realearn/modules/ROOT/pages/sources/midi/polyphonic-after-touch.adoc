@@ -1,5 +1,4 @@
-
-= Polyphonic after touch source
+= Source "Polyphonic after touch"
 
 This source reacts to incoming MIDI polyphonic-key-pressure messages.
 The higher the pressure, the higher the absolute control value.

@@ -1,5 +1,4 @@
-[#display-source]
-= Display
+= Source "Display"
 
 This is a feedback-only source used to display text on MIDI-controllable hardware displays (LCDs, OLED displays, 7-segment displays, ...).
 

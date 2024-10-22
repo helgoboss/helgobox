@@ -1,5 +1,4 @@
-
-= MIDI clock tempo source
+= Source "MIDI clock tempo"
 
 This source reacts to incoming MIDI clock (MTC) tempo messages.
 These are metronome-beat-like messages which can be regularly transmitted by some DAWs and MIDI devices.

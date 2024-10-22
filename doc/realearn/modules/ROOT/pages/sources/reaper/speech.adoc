@@ -1,5 +1,4 @@
-
-= Speech source
+= Source "Speech"
 
 This source works for feedback only.
 It uses the native Windows or macOS text-to-speech engine to speak out any feedback value.

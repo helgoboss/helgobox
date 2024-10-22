@@ -1,5 +1,4 @@
-
-= Note velocity source
+= Source "Note velocity"
 
 This source reacts to incoming MIDI note-on and note-off messages.
 The higher the velocity of the incoming note-on message, the higher the absolute control value.

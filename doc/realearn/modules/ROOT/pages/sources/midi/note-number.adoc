@@ -1,5 +1,4 @@
-
-= Note number source
+= Source "Note number"
 
 This source reacts to incoming MIDI note-on messages.
 The higher the note number (= key on a MIDI keyboard), the higher the absolute control value.

@@ -1,5 +1,5 @@
 [#raw-midi-source]
-= Raw MIDI / SysEx source
+= Source "Raw MIDI / SysEx"
 
 This source primarily deals with system-exclusive MIDI messages.
 It supports both control and feedback direction!

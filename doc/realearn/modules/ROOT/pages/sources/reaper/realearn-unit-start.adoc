@@ -1,5 +1,4 @@
-
-= ReaLearn unit start source
+= Source "ReaLearn unit start"
 
 This source fires (emits a value of 100%) when ReaLearn starts.
 It can be used to execute an actions or restore certain states on REAPER startup or project load.

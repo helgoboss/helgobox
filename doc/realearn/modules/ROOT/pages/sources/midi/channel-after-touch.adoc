@@ -1,5 +1,4 @@
-
-= Channel after touch source
+= Source "Channel after touch"
 
 This source reacts to incoming MIDI channel-pressure messages.
 The higher the pressure, the higher the absolute control value.

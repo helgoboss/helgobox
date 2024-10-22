@@ -1,5 +1,4 @@
-
-= Keyboard source
+= Source "Keyboard"
 
 This source reacts to pressing or releasing a key on your computer keyboard.
 It emits a value of 100% when the key is pressed and 0% when released.

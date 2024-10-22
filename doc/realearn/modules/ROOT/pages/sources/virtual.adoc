@@ -1,4 +1,4 @@
-= Virtual source
+= Source "Virtual"
 
 See xref:further-concepts/source-concepts.adoc#virtual-source[].
 

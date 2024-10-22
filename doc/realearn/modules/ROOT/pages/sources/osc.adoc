@@ -1,4 +1,4 @@
-= OSC source
+= Source "OSC"
 
 OSC sources allow configuration of the following aspects:
 

@@ -1,5 +1,4 @@
-
-= MIDI clock transport source
+= Source "MIDI clock transport"
 
 This source reacts to incoming MIDI clock (MTC) transport messages.
 These are simple start, continue and stop messages which can be sent by some DAWs and MIDI devices.

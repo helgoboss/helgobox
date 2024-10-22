@@ -1,5 +1,4 @@
-
-= (N)RPN value source
+= Source "(N)RPN value"
 
 This source reacts to incoming non-registered (NRPN) or registered (RPN) MIDI parameter-number messages.
 The higher the emitted value, the higher the absolute control value.

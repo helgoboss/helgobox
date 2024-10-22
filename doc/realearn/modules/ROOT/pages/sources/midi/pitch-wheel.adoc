@@ -1,5 +1,4 @@
-
-= Pitch wheel source
+= Source "Pitch wheel"
 
 This source reacts to incoming MIDI pitch-bend change messages.
 The higher the pitch-wheel position, the higher the absolute control value.

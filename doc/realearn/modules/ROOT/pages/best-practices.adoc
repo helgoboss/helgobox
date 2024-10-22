@@ -61,7 +61,7 @@ Or make an encoder generally slower or faster.
 Or you could simulate a rotary encoder by making two buttons on your controller act as -/+ buttons emitting relative values.
 This is possible by mapping them to the same xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] in xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[].
 
-Before you go ahead and do that for each control element, you might want to check out what this is good for: Navigate back to the xref:key-concepts.adoc#main-compartment[], learn the xref:key-concepts.adoc#source[] of some xref:key-concepts.adoc#main-mapping[] and touch the xref:key-concepts.adoc#control-element[] that you have just mapped: Take note how ReaLearn will assign a xref:further-concepts/source-concepts.adoc#virtual-source[] this time, not a xref:source-types/category-midi.adoc[MIDI source]!
+Before you go ahead and do that for each control element, you might want to check out what this is good for: Navigate back to the xref:key-concepts.adoc#main-compartment[], learn the xref:key-concepts.adoc#source[] of some xref:key-concepts.adoc#main-mapping[] and touch the xref:key-concepts.adoc#control-element[] that you have just mapped: Take note how ReaLearn will assign a xref:further-concepts/source-concepts.adoc#virtual-source[] this time, not a xref:sources/midi.adoc[MIDI source]!
 It will also display the name of the xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] as source label.
 
 Now, let's say at some point you swap your xref:key-concepts.adoc#controller[] with another one that has a similar layout, all you need to do is to switch the xref:further-concepts/compartment-concepts.adoc#controller-preset[] and you are golden!

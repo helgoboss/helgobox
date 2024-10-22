@@ -374,7 +374,7 @@ You can detect an inactive target by using `y == none`.
 [[raw-midi-pattern]]
 == Raw MIDI pattern
 
-xref:source-types/category-midi/raw-midi-sysex-source.adoc#raw-midi-source[] and xref:target-types/midi-targets/midi-send-message-target.adoc#midi-send-message-target[] allow to enter so-called MIDI patterns, an advanced ReaLearn concept.
+xref:sources/midi/raw-midi-sysex.adoc#raw-midi-source[] and xref:target-types/midi-targets/midi-send-message-target.adoc#midi-send-message-target[] allow to enter so-called MIDI patterns, an advanced ReaLearn concept.
 
 === Pattern basics
 

@@ -91,7 +91,7 @@ Otherwise, for this special case, a fixed out-of-range-behavior will set in that
 [[midi-source-script]]
 == MIDI source script
 
-MIDI source scripts are EEL or Luau scripts to configure the xref:source-types/category-midi/midi-script-source.adoc#midi-script-source[].
+MIDI source scripts are EEL or Luau scripts to configure the xref:sources/midi/midi-script.adoc#midi-script-source[].
 
 === General mechanics
 
@@ -218,7 +218,7 @@ You might see a corresponding error message when the editor tries to compile you
 [[osc-feedback-arguments-expression]]
 == OSC feedback arguments expression
 
-This expression is used to enable for more flexible feedback for the xref:source-types/category-osc.adoc[].
+This expression is used to enable for more flexible feedback for the xref:sources/osc.adoc[].
 
 It allows you to define exactly which feedback value is sent at which argument position.
 If this field is non-empty, the argument type will be ignored for the xref:key-concepts.adoc#feedback[] direction.

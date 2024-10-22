@@ -1,4 +1,4 @@
-= MIDI sources
+= Source "MIDI"s
 
 Most types in the MIDI category have the following UI elements in common.
 

@@ -1,5 +1,4 @@
-[#cc-value-source]
-= CC value source
+= Source "CC value"
 
 This source reacts to incoming MIDI control-change messages.
 
