@@ -9,7 +9,7 @@ Once you have selected a preset, you can audition it via xref:targets/pot/previe
 
 == Target-specific properties
 
-This target supports the following additional xref:further-concepts/target-concepts.adoc#target-property[target properties].
+This target supports the following additional xref:further-concepts/target.adoc#target-property[target properties].
 
 [cols="m,1,3"]
 |===

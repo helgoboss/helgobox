@@ -88,7 +88,7 @@ For example, you could place one instance on the monitoring FX chain and two ins
 Each ReaLearn <<instance>> contains at least one _unit_, known as the _main unit_, but it can also contain an arbitrary number of additional units.
 
 Units function like "mini instances" within a single ReaLearn <<instance>>, allowing that instance to manage multiple controllers simultaneously.
-Each unit has its own <<input-port>>, <<output-port>>, <<controller-compartment>>, <<main-compartment>>, xref:further-concepts/compartment-concepts.adoc#controller-preset[], xref:further-concepts/compartment-concepts.adoc#main-preset[], and more.
+Each unit has its own <<input-port>>, <<output-port>>, <<controller-compartment>>, <<main-compartment>>, xref:further-concepts/compartment.adoc#controller-preset[], xref:further-concepts/compartment.adoc#main-preset[], and more.
 
 [[compartment]]
 == Compartment
@@ -104,7 +104,7 @@ Its purpose is to define what the controller device should do, e.g., allowing a 
 We refer to the mappings in this compartment as [[main-mapping,Main mapping]] _main mappings_ and to the presets as _main presets_.
 
 [[controller-compartment]] Controller compartment::
-The controller compartment is optional and serves two main purposes: Describing all control elements of the controller, assigning them descriptive names and enabling xref:further-concepts/compartment-concepts.adoc#virtual-control[].
+The controller compartment is optional and serves two main purposes: Describing all control elements of the controller, assigning them descriptive names and enabling xref:further-concepts/compartment.adoc#virtual-control[].
 +
 We refer to the mappings in this compartment as [[controller-mapping,Controller mapping]] _controller mappings_ and to the presets as _controller presets_.
 
@@ -121,7 +121,7 @@ Each mapping consists of <<source>>, <<glue>> and <<target>>.
 == Source
 
 A _source_ is the part of a <<mapping>> that typically describes a <<control-element>> and/or <<feedback-element>> on the <<controller>>.
-More generally, it can be anything that emits xref:further-concepts/mapping-concepts.adoc#control-value[control values].
+More generally, it can be anything that emits xref:further-concepts/mapping.adoc#control-value[control values].
 
 Examples: MIDI source, OSC source
 
@@ -155,4 +155,4 @@ This saves you from the tedious job of setting up MIDI or OSC sources manually.
 === Learn target
 
 Targets can be learned by pressing the xref:user-interface/main-panel/mapping-row.adoc#learn-target[] and then invoking a <<target>> within REAPER.
-This saves you from choosing xref:further-concepts/target-concepts.adoc#target-object-selectors[] and other stuff manually.
+This saves you from choosing xref:further-concepts/target.adoc#target-object-selectors[] and other stuff manually.

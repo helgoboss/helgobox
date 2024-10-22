@@ -1,4 +1,3 @@
-
 = Preset section
 
 image:realearn/screenshots/main-panel-preset.png[Screenshot]
@@ -16,15 +15,15 @@ It means that no particular preset is active.
 +
 Selecting this will always clear the complete compartment, including all mappings!
 
-Factory:: Contains available xref:further-concepts/compartment-concepts.adoc#factory-compartment-preset[factory presets].
+Factory:: Contains available xref:further-concepts/compartment.adoc#factory-compartment-preset[factory presets].
 
-User (...):: Contains available xref:further-concepts/compartment-concepts.adoc#user-compartment-preset[user presets].
+User (...):: Contains available xref:further-concepts/compartment.adoc#user-compartment-preset[user presets].
 Multiple of such submenus may exist.
 Each one represents a different preset namespace/workspace.
 The namespace named after you (macOS/Linux/Windows username) is your personal user namespace.
 +
 For more information about preset workspaces/namespaces, see
-xref:further-concepts/compartment-concepts.adoc#writing-presets-with-luau[].
+xref:further-concepts/compartment.adoc#writing-presets-with-luau[].
 
 User (Unsorted)::
 This submenu contains top-level presets which are not part of a particular preset namespace/workspace.
@@ -45,10 +44,10 @@ This permanently deletes the currently chosen user preset.
 
 == Auto-load button
 
-Activates or deactivates xref:further-concepts/unit-concepts.adoc#auto-load[] mode for this ReaLearn unit.
-This button is only available for the xref:key-concepts.adoc#main-compartment[] because auto-load is only about loading xref:further-concepts/compartment-concepts.adoc#main-preset[main presets].
+Activates or deactivates xref:further-concepts/unit.adoc#auto-load[] mode for this ReaLearn unit.
+This button is only available for the xref:key-concepts.adoc#main-compartment[] because auto-load is only about loading xref:further-concepts/compartment.adoc#main-preset[main presets].
 
 Off:: Disables auto-load mode (the default).
 
 [[auto-load-based-on-unit-fx,Auto-load based on unit FX]] Based on unit FX::
-Switches auto-load mode on, letting ReaLearn decide about which main preset to load depending on the currently active xref:further-concepts/unit-concepts.adoc#unit-fx[].
+Switches auto-load mode on, letting ReaLearn decide about which main preset to load depending on the currently active xref:further-concepts/unit.adoc#unit-fx[].

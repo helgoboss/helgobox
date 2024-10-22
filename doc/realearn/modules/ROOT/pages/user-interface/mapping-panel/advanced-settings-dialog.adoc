@@ -45,7 +45,7 @@ Comments (lines starting with `#`) will be removed automatically.
 === Mapping lifecycle actions
 
 ReaLearn allows you to define MIDI messages to be sent to the output whenever a mapping turns active or inactive.
-See xref:further-concepts/mapping-concepts.adoc#mapping-activation-state[].
+See xref:further-concepts/mapping.adoc#mapping-activation-state[].
 
 Example use cases:
 

@@ -14,4 +14,4 @@ Most of the information in this section focuses on the instrument plug-in.
 Helgobox App::
 This interface is accessible via menu:Menu[Show app] in the plug-in.
 In the future, the app will also be available for mobile devices and offer remote connections to REAPER.
-Currently, the app only provides the interface for Playtime with one exception: ReaLearn's xref:further-concepts/unit-concepts.adoc#projection[] feature.
+Currently, the app only provides the interface for Playtime with one exception: ReaLearn's xref:further-concepts/unit.adoc#projection[] feature.

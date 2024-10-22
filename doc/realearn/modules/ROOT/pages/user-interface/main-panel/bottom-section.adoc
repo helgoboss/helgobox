@@ -1,4 +1,3 @@
-
 = Bottom section
 
 image:realearn/screenshots/main-panel-bottom.png[Screenshot]
@@ -20,12 +19,12 @@ In the center you can see the info area, made up of 3 rows:
 
 Row 1::
 * The current scroll position.
-* The xref:further-concepts/instance-concepts.adoc#instance-id[] of this Helgobox xref:key-concepts.adoc#instance[].
-* The xref:further-concepts/unit-concepts.adoc#unit-key[] of the currently visible ReaLearn xref:key-concepts.adoc#unit[].
-* xref:further-concepts/unit-concepts.adoc#unit-tag[] assigned to this ReaLearn xref:key-concepts.adoc#unit[].
+* The xref:further-concepts/instance.adoc#instance-id[] of this Helgobox xref:key-concepts.adoc#instance[].
+* The xref:further-concepts/unit.adoc#unit-key[] of the currently visible ReaLearn xref:key-concepts.adoc#unit[].
+* xref:further-concepts/unit.adoc#unit-tag[] assigned to this ReaLearn xref:key-concepts.adoc#unit[].
 
 Row 2::
-* Information about the current xref:further-concepts/unit-concepts.adoc#unit-track[] and xref:further-concepts/unit-concepts.adoc#unit-fx[].
+* Information about the current xref:further-concepts/unit.adoc#unit-track[] and xref:further-concepts/unit.adoc#unit-fx[].
 * Information whether control and/or feedback is currently inactive unit-wide.
 
 Row 3::
@@ -36,6 +35,6 @@ Row 3::
 
 Press this button to change various key-value data of this ReaLearn unit as a whole.
 
-Unit key…:: Allows you to change the xref:further-concepts/unit-concepts.adoc#unit-key[] of this xref:key-concepts.adoc#unit[].
+Unit key…:: Allows you to change the xref:further-concepts/unit.adoc#unit-key[] of this xref:key-concepts.adoc#unit[].
 Unit name:: The display name of this xref:key-concepts.adoc#unit[].
-Tags:: Lets you assign xref:further-concepts/unit-concepts.adoc#unit-tag[] to this xref:key-concepts.adoc#unit[] as a comma-separated list.
+Tags:: Lets you assign xref:further-concepts/unit.adoc#unit-tag[] to this xref:key-concepts.adoc#unit[] as a comma-separated list.

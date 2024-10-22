@@ -78,7 +78,7 @@ If you set this to "-6 dB to 0 dB" for a _Track volume_ target, the volume will 
 However, it wouldn't prevent the volume from exceeding that range if changed e.g. in REAPER itself.
 ====
 
-This setting can be used with all targets that work with xref:further-concepts/mapping-concepts.adoc#absolute-control-value[absolute control values] (all targets except xref:targets/project/invoke-reaper-action.adoc[] with relative xref:targets/project/invoke-reaper-action.adoc#invocation-type[]).
+This setting can be used with all targets that work with xref:further-concepts/mapping.adoc#absolute-control-value[absolute control values] (all targets except xref:targets/project/invoke-reaper-action.adoc[] with relative xref:targets/project/invoke-reaper-action.adoc#invocation-type[]).
 
 [#value-sequence]
 == Value sequence field
@@ -86,7 +86,7 @@ This setting can be used with all targets that work with xref:further-concepts/m
 {control}::
 include::partial$glue/value-sequence/control.txt[]
 
-Allows you to define a xref:further-concepts/glue-concepts.adoc#target-value-sequence[].
+Allows you to define a xref:further-concepts/glue.adoc#target-value-sequence[].
 All values are entered comma-separated using the target unit specified with the xref:user-interface/mapping-panel/target-section.adoc#display-unit[].
 
 You can provide only one of <<target-min-max>> or <<value-sequence>>.
@@ -97,7 +97,7 @@ You can provide only one of <<target-min-max>> or <<value-sequence>>.
 {control}::
 include::partial$glue/group-interaction/control.txt[]
 
-See xref:further-concepts/mapping-concepts.adoc#group[].
+See xref:further-concepts/mapping.adoc#group[].
 
 TIP: If you want to control _other_ mappings only and not _this_ mapping, just pick a target that doesn't have any effect, for example the xref:targets/realearn/dummy.adoc[].
 
@@ -142,7 +142,7 @@ Variation of <<inverse-target-value>> that applies the inverse only when the tar
 {feedback}::
 include::partial$glue/feedback-type/feedback.txt[]
 
-See xref:further-concepts/glue-concepts.adoc#feedback-type[].
+See xref:further-concepts/glue.adoc#feedback-type[].
 
 [#feedback-style]
 == Feedback style menu (...)
@@ -150,7 +150,7 @@ See xref:further-concepts/glue-concepts.adoc#feedback-type[].
 The ... button provides options to change the _feedback style_.
 At the moment, it's all about setting colors.
 
-TIP: If you use xref:further-concepts/glue-concepts.adoc#dynamic-feedback[], changes made here don't have any effect because you are supposed to provide style properties as part of the Luau script result (which is much more flexible).
+TIP: If you use xref:further-concepts/glue.adoc#dynamic-feedback[], changes made here don't have any effect because you are supposed to provide style properties as part of the Luau script result (which is much more flexible).
 
 Color / Background color::
 With this you can define the color and background color of the displayed text.
@@ -175,7 +175,7 @@ include::partial$glue/source-min-max/control.txt[]
 {feedback}::
 include::partial$glue/source-min-max/feedback.txt[]
 
-Doesn't have an effect on xref:further-concepts/mapping-concepts.adoc#relative-control-value[relative control values].
+Doesn't have an effect on xref:further-concepts/mapping.adoc#relative-control-value[relative control values].
 
 include::partial$glue/usage-dependent-effect.adoc[]
 
@@ -290,7 +290,7 @@ It somewhat resembles takeover mode <<takeover-mode-parallel>> but has important
 
 - It's guaranteed that a full fader/knob swipe from 0% to 100% always results in a swipe over the full target range (assuming the target was at 0% initially).
 - It doesn't need to know the current target value.
-Which means it also works for mappings with xref:further-concepts/target-concepts.adoc#virtual-target[virtual targets].
+Which means it also works for mappings with xref:further-concepts/target.adoc#virtual-target[virtual targets].
 
 [[performance-control]] Performance control::
 This mode emulates the behavior of a typical soft synth modulation matrix mapping: It uses the target value that has been set in REAPER (not via this ReaLearn mapping) as an offset and starts changing it from there.
@@ -474,7 +474,7 @@ include::partial$glue/usage-dependent-effect.adoc[]
 {control}::
 include::partial$glue/speed-min-max/control.txt[]
 
-When you choose a target with a xref:further-concepts/target-concepts.adoc#discrete-value-range[], the <<step-size-min-max>> label will change into
+When you choose a target with a xref:further-concepts/target.adoc#discrete-value-range[], the <<step-size-min-max>> label will change into
 _Speed_.
 If a target is discrete, it cannot have arbitrarily small step sizes.
 It rather has one predefined atomic step size.

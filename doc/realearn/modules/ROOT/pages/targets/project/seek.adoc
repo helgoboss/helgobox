@@ -53,7 +53,7 @@ Can use the complete project as reference, from start to end.
 
 == Target-specific properties
 
-This target supports the following additional xref:further-concepts/target-concepts.adoc#target-property[target properties].
+This target supports the following additional xref:further-concepts/target.adoc#target-property[target properties].
 
 [cols="m,1,3"]
 |===

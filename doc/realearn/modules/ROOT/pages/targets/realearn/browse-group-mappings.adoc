@@ -27,7 +27,7 @@ This target allows you to take advantage of that!
 - Combine it with xref:targets/realearn/enable-disable-mappings.adoc[] to browse different banks.
 - Combine it with xref:targets/realearn/enable-disable-instances.adoc[] to browse completely different controller setups (or banks).
 - Combine it with targets that don't provide a "Browse ..." variant themselves.
-- Use it as an alternative to xref:further-concepts/glue-concepts.adoc#target-value-sequence[target value sequences] that allows you to have completely different targets within one sequence.
+- Use it as an alternative to xref:further-concepts/glue.adoc#target-value-sequence[target value sequences] that allows you to have completely different targets within one sequence.
 ====
 
 [split=0]

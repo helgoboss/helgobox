@@ -12,7 +12,7 @@ Whether to use the EEL or Luau language.
 The script.
 Is disabled if the script contains more than one line.
 
-See xref:further-concepts/source-concepts.adoc#midi-source-script[] for details.
+See xref:further-concepts/source.adoc#midi-source-script[] for details.
 
 == More button (…)
 

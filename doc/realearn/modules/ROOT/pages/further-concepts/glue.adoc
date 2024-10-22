@@ -39,10 +39,10 @@ Let's look at this sequence:
 It's non-monotonic: It decreases, and then increases again.
 Even if it would just decrease, it would be non-strict monotonic because it contains duplicates (value 10).
 
-When using xref:further-concepts/mapping-concepts.adoc#absolute-control[], it's no problem stepping through such sequences.
+When using xref:further-concepts/mapping.adoc#absolute-control[], it's no problem stepping through such sequences.
 
-However, xref:further-concepts/mapping-concepts.adoc#relative-control[] only supports strictly increasing or strictly decreasing sequences.
-So if you control this sequence e.g. via xref:further-concepts/mapping-concepts.adoc#rotary-endless-encoder[] or via xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[], the sequence will be stepped through like this: -5, 8, 10, 20.
+However, xref:further-concepts/mapping.adoc#relative-control[] only supports strictly increasing or strictly decreasing sequences.
+So if you control this sequence e.g. via xref:further-concepts/mapping.adoc#rotary-endless-encoder[] or via xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[], the sequence will be stepped through like this: -5, 8, 10, 20.
 
 Alternative: Use xref:user-interface/mapping-panel/glue-section.adoc#make-absolute[]!
 ====
@@ -94,7 +94,7 @@ You can do that by using placeholders, delimited by double braces.
 `{{target.text_value}}`
 ====
 
-See xref:further-concepts/target-concepts.adoc#target-property[] for a list of properties that you can use in placeholders.
+See xref:further-concepts/target.adoc#target-property[] for a list of properties that you can use in placeholders.
 
 [#dynamic-feedback]
 === Dynamic feedback: Lua script
@@ -248,7 +248,7 @@ return {
 This example is not realistic, it just shows how you can access the value table returned by the glue section feedback script.
 ====
 
-You can share code between multiple feedback scripts by using xref:further-concepts/compartment-concepts.adoc#compartment-wide-lua-code[], with the following limitations (which hopefully will be lifted over time):
+You can share code between multiple feedback scripts by using xref:further-concepts/compartment.adoc#compartment-wide-lua-code[], with the following limitations (which hopefully will be lifted over time):
 
 * The shared code is not yet available to the Lua code editor window.
 That means writing `require("compartment")` will evaluate to `nil` in the editor.

@@ -17,5 +17,5 @@ This is by design!
 Use xref:user-interface/mapping-panel/glue-section.adoc#fire-after-timeout-keep-firing[] instead.
 * Key combinations are not supported.
 This is by design!
-Use xref:further-concepts/mapping-concepts.adoc#conditional-activation[] instead.
+Use xref:further-concepts/mapping.adoc#conditional-activation[] instead.
 ====

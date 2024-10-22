@@ -7,14 +7,14 @@ We distinguish between _virtual_ and _real_ sources.
 [[virtual-source]]
 === Virtual source
 
-A _virtual_ source refers to a xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] and can only be used in the xref:key-concepts.adoc#main-compartment[].
+A _virtual_ source refers to a xref:further-concepts/compartment.adoc#virtual-control-element[] and can only be used in the xref:key-concepts.adoc#main-compartment[].
 
 Examples: `ch1/fader`
 
 [[real-source]]
 === Real source
 
-A _real_ source refers to a xref:further-concepts/compartment-concepts.adoc#real-control-element[].
+A _real_ source refers to a xref:further-concepts/compartment.adoc#real-control-element[].
 
 [[midi-source-character]]
 == MIDI source character
@@ -208,7 +208,7 @@ You can use the `feedback_value_table` xref:user-interface/mapping-panel/glue-se
 Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
 ====
 
-You can share code between multiple MIDI scripts by using xref:further-concepts/compartment-concepts.adoc#compartment-wide-lua-code[], with the following limitations (which hopefully will be lifted over time):
+You can share code between multiple MIDI scripts by using xref:further-concepts/compartment.adoc#compartment-wide-lua-code[], with the following limitations (which hopefully will be lifted over time):
 
 * The shared code is not yet available to the Lua code editor window.
 That means writing `require("compartment")` will evaluate to `nil` in the editor.

@@ -28,6 +28,6 @@ Choose the line number.
 
 CAUTION: For controllers with multiple displays and lines, ReaLearn allows you to spread your text over all available displays and lines.
 This is great if you need to display a lot of text but one display doesn't provide enough space.
-But be aware: xref:further-concepts/general-concepts.adoc#feedback-relay[] doesn't work nicely anymore if you make use of this feature.
+But be aware: xref:further-concepts/general.adoc#feedback-relay[] doesn't work nicely anymore if you make use of this feature.
 
-If you want to know how to define which text shall be sent to the displays, please see xref:further-concepts/glue-concepts.adoc#text-feedback[textual feedback] in the xref:user-interface/mapping-panel/glue-section.adoc[].
+If you want to know how to define which text shall be sent to the displays, please see xref:further-concepts/glue.adoc#text-feedback[textual feedback] in the xref:user-interface/mapping-panel/glue-section.adoc[].

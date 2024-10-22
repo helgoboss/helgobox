@@ -15,7 +15,7 @@ If you clear the name, ReaLearn will name the mapping automatically based on its
 [#tags]
 == Tags field
 
-Use this to assign arbitrary xref:further-concepts/mapping-concepts.adoc#mapping-tag[mapping tags] to this mapping (comma-separated).
+Use this to assign arbitrary xref:further-concepts/mapping.adoc#mapping-tag[mapping tags] to this mapping (comma-separated).
 
 [#control-enabled]
 == Control-enabled checkbox (→)
@@ -32,7 +32,7 @@ Disabling both control and feedback has the same effect as disabling the mapping
 [#active]
 == Active menu
 
-This dropdown can be used to enable xref:further-concepts/mapping-concepts.adoc#conditional-activation[] for this mapping.
+This dropdown can be used to enable xref:further-concepts/mapping.adoc#conditional-activation[] for this mapping.
 
 [#feedback-mode]
 == Feedback menu
@@ -63,7 +63,7 @@ By choosing this option, ReaLearn will send feedback whenever the target value c
 [#show-in-projection]
 == Show in projection checkbox
 
-When unticked, this mapping will not show up in xref:further-concepts/unit-concepts.adoc#projection[].
+When unticked, this mapping will not show up in xref:further-concepts/unit.adoc#projection[].
 Useful e.g. for feedback-only mappings or buttons with multiple assignments.
 
 [[advanced-settings]]

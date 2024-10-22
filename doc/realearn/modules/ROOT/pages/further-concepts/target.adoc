@@ -7,11 +7,11 @@ We distinguish between _virtual_ and _real_ targets.
 [[virtual-target]]
 === Virtual target
 
-A _virtual_ target controls a xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] and can only be used in the xref:key-concepts.adoc#controller-compartment[].
+A _virtual_ target controls a xref:further-concepts/compartment.adoc#virtual-control-element[] and can only be used in the xref:key-concepts.adoc#controller-compartment[].
 
 Example: `ch1/fader`
 
-It's then picked up by a xref:further-concepts/source-concepts.adoc#virtual-source[]] in the xref:key-concepts.adoc#main-compartment[].
+It's then picked up by a xref:further-concepts/source.adoc#virtual-source[]] in the xref:key-concepts.adoc#main-compartment[].
 
 [[real-target]]
 === Real target
@@ -43,7 +43,7 @@ However, the same concepts can easily be applied to other objects that support t
 [#unit-selector]
 ==== Unit selector
 
-This selector makes the target work on the current xref:further-concepts/unit-concepts.adoc#unit-track[] or current xref:further-concepts/unit-concepts.adoc#unit-fx[] of this particular ReaLearn xref:key-concepts.adoc#unit[].
+This selector makes the target work on the current xref:further-concepts/unit.adoc#unit-track[] or current xref:further-concepts/unit.adoc#unit-fx[] of this particular ReaLearn xref:key-concepts.adoc#unit[].
 
 [#particular-selector]
 ==== Particular selector
@@ -115,7 +115,7 @@ Special value that represents a "not set" value. See below for examples.
 | p | Array of floating-point numbers | All selectors |
 Allows you to access the values of ReaLearn's internal parameters. E.g. you can get the number of the first parameter by writing `p[0]`.
 
-By default, parameter values are normalized floating point values, that means they are decimal numbers between 0.0 and 1.0. This can be changed by customizing the parameter with a specific integer value count (see xref:further-concepts/compartment-concepts.adoc#compartment-parameter[]).
+By default, parameter values are normalized floating point values, that means they are decimal numbers between 0.0 and 1.0. This can be changed by customizing the parameter with a specific integer value count (see xref:further-concepts/compartment.adoc#compartment-parameter[]).
 
 | p1 ... p100 | Floating-point numbers | All selectors |
 Values of ReaLearn's internal parameters as single variables.
@@ -182,8 +182,8 @@ This only makes sense if used in conjunction with `tcp_fx_indexes`.
 ====
 `p1 * 99`
 
-* Will point to track with index 0 (first track) if xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] 1 is set to the minimum and to track with index 99 (= track number 100) if it's set to the maximum.
-* If you use a formula like that, you should make sure that xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] 1 is controlled with a step size that allows for exactly 100 different values.
+* Will point to track with index 0 (first track) if xref:further-concepts/compartment.adoc#compartment-parameter[] 1 is set to the minimum and to track with index 99 (= track number 100) if it's set to the maximum.
+* If you use a formula like that, you should make sure that xref:further-concepts/compartment.adoc#compartment-parameter[] 1 is controlled with a step size that allows for exactly 100 different values.
 This conforms to ReaLearn's default step size 0.01 = 1%.
 * Since ReaLearn 2.13, this is easier because it adds support for integer parameters:
 ** Set the xref:user-interface/main-panel/menu-bar.adoc#set-compartment-parameter-value-count[] of the parameter to 100
@@ -195,8 +195,8 @@ This conforms to ReaLearn's default step size 0.01 = 1%.
 ====
 `p1 * 3 * 100 + p2 * 99`
 
-This will treat xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] 1 as a kind of bank selector that allows you to choose between exactly 4 banks (0, 1, 2, 3) of 100 tracks each.
-xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] 2 will select the track number within the bank.
+This will treat xref:further-concepts/compartment.adoc#compartment-parameter[] 1 as a kind of bank selector that allows you to choose between exactly 4 banks (0, 1, 2, 3) of 100 tracks each.
+xref:further-concepts/compartment.adoc#compartment-parameter[] 2 will select the track number within the bank.
 You see, this is very flexible.
 ====
 
@@ -305,7 +305,7 @@ Non-sticky selectors:: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All s
 [[target-property]]
 == Target property
 
-Targets can expose properties, which you can use for xref:further-concepts/glue-concepts.adoc#text-feedback[] or xref:further-concepts/glue-concepts.adoc#dynamic-feedback[].
+Targets can expose properties, which you can use for xref:further-concepts/glue.adoc#text-feedback[] or xref:further-concepts/glue.adoc#dynamic-feedback[].
 
 Which properties are available, depends very much on the type of the target type.
 
@@ -351,7 +351,7 @@ A boolean value indicating whether the target is currently available or not.
 
 Most targets that are _active_ are also _available_. But some targets can be _active_ and _unavailable_. Example: xref:targets/pot/preview-preset.adoc[] is not _available_ if no preview is available for the preset currently selected in Pot browser. But the target is still considered _active_ in this case!
 
-Usually used together with xref:further-concepts/glue-concepts.adoc#dynamic-feedback[], for example in order to display different things on displays depending on the target's availability.
+Usually used together with xref:further-concepts/glue.adoc#dynamic-feedback[], for example in order to display different things on displays depending on the target's availability.
 
 |
 target.discrete_value
@@ -375,7 +375,7 @@ Decimal
 The current target value as a "human-friendly" number without its unit.
 
 The purpose of this placeholder is to allow for more freedom in formatting numerical target values than
-when using `target.text_value`. This can be done using xref:further-concepts/glue-concepts.adoc#dynamic-feedback[].
+when using `target.text_value`. This can be done using xref:further-concepts/glue.adoc#dynamic-feedback[].
 
 |
 target.numeric_value.unit
@@ -537,4 +537,4 @@ Activation condition::
 The activation condition that you provide here is combined with the one that you provide in the mapping.
 Only if both, the group activation conditions and the mapping activation condition are satisfied, the corresponding mapping will be active.
 Read more about
-xref:further-concepts/mapping-concepts.adoc#conditional-activation[conditional activation] in the section about the xref:user-interface/mapping-panel.adoc[].
+xref:further-concepts/mapping.adoc#conditional-activation[conditional activation] in the section about the xref:user-interface/mapping-panel.adoc[].

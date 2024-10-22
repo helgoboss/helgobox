@@ -31,7 +31,7 @@ This is useful if you already learned a bunch of MIDI/OSC/keyboard sources in th
 
 Make targets of listed mappings sticky:::
 Changes the targets of all currently listed mappings so that they use _sticky_ object selectors by attempting to resolve the objects from non-sticky selectors.
-See xref:further-concepts/target-concepts.adoc#sticky-selectors[].
+See xref:further-concepts/target.adoc#sticky-selectors[].
 
 Make targets of listed mappings non-sticky:::
 Changes the targets of all currently listed mappings so that they use the desired non-sticky object selectors.
@@ -68,7 +68,7 @@ Don't use this, this feature is not ready yet!
 
 [[compartment-parameters,Compartment parameters menu]] Compartment parameters::
 This shows all parameters of the current compartment and makes it possible to customize them.
-See xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] to learn what such parameters are good for.
+See xref:further-concepts/compartment.adoc#compartment-parameter[] to learn what such parameters are good for.
 +
 Each parameter provides the following customization options:
 
@@ -78,17 +78,17 @@ Changes the name of this parameter.
 [[set-compartment-parameter-value-count]]Value count:::
 Lets you enter the maximum number of values.
 This automatically turn this parameter into a discrete parameter.
-See xref:further-concepts/compartment-concepts.adoc#continuous-vs-discrete-compartment-parameters[].
+See xref:further-concepts/compartment.adoc#continuous-vs-discrete-compartment-parameters[].
 
 Compartment presets::
 
 Create compartment preset workspace:::
 Exports the Luau SDK files of this ReaLearn version into a new compartment preset workspace directory with a random name.
-See section xref:further-concepts/compartment-concepts.adoc#writing-presets-with-luau[] for details.
+See section xref:further-concepts/compartment.adoc#writing-presets-with-luau[] for details.
 
 Create compartment preset workspace (including factory presets):::
 Exports the Luau SDK files of this ReaLearn version and all factory presets for this compartment into a new compartment preset workspace directory with a random name.
-See section xref:further-concepts/compartment-concepts.adoc#writing-presets-with-luau[] for details.
+See section xref:further-concepts/compartment.adoc#writing-presets-with-luau[] for details.
 
 Open compartment preset folder:::
 Opens the ReaLearn preset folder for this compartment in a file manager.
@@ -101,7 +101,7 @@ If you want to apply a preset that has been changed on disk, you need to reload 
 
 Edit compartment-wide Lua code:::
 Allows you to edit the compartment-wide Lua code.
-See section xref:further-concepts/compartment-concepts.adoc#compartment-wide-lua-code[].
+See section xref:further-concepts/compartment.adoc#compartment-wide-lua-code[].
 
 [[unit-options]] Unit options::
 
@@ -131,7 +131,7 @@ This can be useful e.g. when using REAPER/ReaLearn just in feedback direction, i
 
 [[make-unit-superior]] Make unit superior:::
 Makes this unit superior.
-See xref:further-concepts/unit-concepts.adoc#superior-units[] to learn more about this feature.
+See xref:further-concepts/unit.adoc#superior-units[] to learn more about this feature.
 
 Use unit-wide FX-to-preset links only:::
 By default, unit-wide links are applied _in addition_ to the global links and take precedence over the global ones.
@@ -177,12 +177,12 @@ You can change the linked preset by clicking another one.
 Log debug info (now)::: Logs some information about ReaLearn's internal state.
 Can be interesting for investigating bugs or understanding how this plug-in works.
 Log real control messages::: When enabled, all incoming MIDI messages, OSC messages or key pressed will be logged to the console.
-See xref:further-concepts/unit-concepts.adoc#logging-of-real-control-messages[].
+See xref:further-concepts/unit.adoc#logging-of-real-control-messages[].
 Log virtual control messages::: When enabled, all triggered virtual control elements and their values will be logged (see xref:key-concepts.adoc#controller-compartment[]).
 Log target control::: When enabled, all target invocations (parameter changes etc.) will be logged.
 Log virtual feedback messages::: When enabled, all feedback events to virtual control elements will be logged (see xref:key-concepts.adoc#controller-compartment[]).
 Log real feedback messages::: When enabled, all outgoing MIDI or OSC messages will be logged to the console.
-See xref:further-concepts/unit-concepts.adoc#logging-of-real-feedback-messages[].
+See xref:further-concepts/unit.adoc#logging-of-real-feedback-messages[].
 
 Send feedback now::
 Usually ReaLearn sends feedback whenever something changed to keep the LEDs or motorized faders of your controller in sync with REAPER at all times.
@@ -193,11 +193,11 @@ Instance options::
 
 [[enable-global-control]] Enable global control:::
 If you enable this option, this Helgobox instance will start to automatically add/remove units based on connected controllers.
-See xref:further-concepts/instance-concepts.adoc#auto-units[].
+See xref:further-concepts/instance.adoc#auto-units[].
 
 [[open-pot-browser]] Open Pot Browser::
 This will open Pot Browser.
-See xref:further-concepts/instance-concepts.adoc#pot-browser[] for details.
+See xref:further-concepts/instance.adoc#pot-browser[] for details.
 
 Show App::
 Shows the Helgobox App associated with this Helgobox instance.
@@ -219,7 +219,7 @@ Disable and stop!::: This stops the server and makes sure it will not be started
 Add firewall rule::: Attempts to add a firewall rule for making the server accessible from other devices or displays instructions how to do it.
 
 [[global-fx-to-preset-links]] Global FX-to-preset links::
-Allows you to manage xref:further-concepts/unit-concepts.adoc#global-fx-to-preset-link[global FX-to-preset links].
+Allows you to manage xref:further-concepts/unit.adoc#global-fx-to-preset-link[global FX-to-preset links].
 Works exactly as the <<unit-fx-to-preset-links>> menu.
 
 [[fx-id-dialog]]
@@ -255,7 +255,7 @@ Instead of relying on the original plug-in name you could match plug-ins with si
 == Export to clipboard button
 
 Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance/unit or edit them in a text editor.
-See xref:further-concepts/general-concepts.adoc#import-export[].
+See xref:further-concepts/general.adoc#import-export[].
 
 Export instance as JSON::
 Copies a _complete_ dump of this xref:key-concepts.adoc#instance[] to the clipboard in JSON format.
@@ -278,12 +278,12 @@ This gives you the perfect starting point if you want to extensively modify the 
 
 Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
 It supports JSON or Luau.
-See xref:further-concepts/general-concepts.adoc#import-export[].
+See xref:further-concepts/general.adoc#import-export[].
 
 [#projection]
 == Projection button
 
-Click this button to enter ReaLearn's xref:further-concepts/unit-concepts.adoc#projection[] feature.
+Click this button to enter ReaLearn's xref:further-concepts/unit.adoc#projection[] feature.
 You can choose between the old browser-based projection (which is going to disappear soon) and the new projection that is part of the Helgobox App (but not yet fully functional).
 Hopefully, the transition to the Helgobox App, including mobile versions of that App, will soon be finished.
 

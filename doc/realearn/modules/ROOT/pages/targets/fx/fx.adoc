@@ -4,5 +4,5 @@ A target that allows you to define an FX, in its basic variant perfect for acqui
 
 == Act/Tags controls
 
-The setting **Act/Tags** allows you to optionally set/pin the declared FX as xref:further-concepts/unit-concepts.adoc#unit-fx[].
+The setting **Act/Tags** allows you to optionally set/pin the declared FX as xref:further-concepts/unit.adoc#unit-fx[].
 This works pretty much the same as described in xref:targets/track/track.adoc[].

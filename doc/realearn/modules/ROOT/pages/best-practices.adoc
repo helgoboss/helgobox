@@ -20,18 +20,18 @@ Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases
 == Using the controller compartment
 
 The xref:key-concepts.adoc#controller-compartment[] lets you describe a xref:key-concepts.adoc#controller[] simply by adding xref:key-concepts.adoc#mapping[mappings].
-When you do that, each xref:key-concepts.adoc#controller-mapping[] represents a xref:key-concepts.adoc#control-element[] on your xref:key-concepts.adoc#controller[], e.g. a xref:further-concepts/mapping-concepts.adoc#momentary-button[] or xref:further-concepts/mapping-concepts.adoc#fader[].
+When you do that, each xref:key-concepts.adoc#controller-mapping[] represents a xref:key-concepts.adoc#control-element[] on your xref:key-concepts.adoc#controller[], e.g. a xref:further-concepts/mapping.adoc#momentary-button[] or xref:further-concepts/mapping.adoc#fader[].
 
 Describing your controller is optional but it brings benefits:
 
-* You can use the xref:further-concepts/unit-concepts.adoc#projection[] feature to project your controller mapping to a smartphone or tablet (link:https://www.youtube.com/watch?v=omuYBznEShk&feature=youtu.be[watch video]).
-* You can use xref:further-concepts/compartment-concepts.adoc#controller-preset[controller presets] either built-in ones or those made by other users ... and thereby save precious setup time.
+* You can use the xref:further-concepts/unit.adoc#projection[] feature to project your controller mapping to a smartphone or tablet (link:https://www.youtube.com/watch?v=omuYBznEShk&feature=youtu.be[watch video]).
+* You can use xref:further-concepts/compartment.adoc#controller-preset[controller presets] either built-in ones or those made by other users ... and thereby save precious setup time.
 Or you can contribute them yourself!
 * You can make your xref:key-concepts.adoc#main-mapping[main mappings] independent of the actually used xref:key-concepts.adoc#controller[].
-This is done using xref:further-concepts/source-concepts.adoc#virtual-source[virtual sources] and xref:further-concepts/target-concepts.adoc#virtual-target[virtual targets].
+This is done using xref:further-concepts/source.adoc#virtual-source[virtual sources] and xref:further-concepts/target.adoc#virtual-target[virtual targets].
 * It allows you to give your knobs, buttons etc. descriptive and friendly names instead of just e.g. "CC 15".
 * You don't need to learn your <<control-element, control elements> again and again.
-Although the process of learning an element is easy in ReaLearn, it can take some time in case the xref:further-concepts/source-concepts.adoc#midi-source-character[] is not guessed correctly.
+Although the process of learning an element is easy in ReaLearn, it can take some time in case the xref:further-concepts/source.adoc#midi-source-character[] is not guessed correctly.
 Just do it once and be done with it!
 
 If you want to make ReaLearn "learn" about your nice controller device, all you need to do is to create a suitable controller mapping for each of its control elements.
@@ -44,12 +44,12 @@ Let's first look at the "slow" way to do this - adding and editing each controll
 . Enter a descriptive name for the xref:key-concepts.adoc#control-element[].
 +
 TIP: This name will appear in many places so you want it to be short, clear and unique!
-. Assign a unique xref:further-concepts/target-concepts.adoc#virtual-target[].
-** At this point we don't want to assign a xref:further-concepts/target-concepts.adoc#real-target[] yet.
-The point of xref:further-concepts/compartment-concepts.adoc#controller-preset[controller presets] is to make them as reusable as possible, that's why we choose a xref:further-concepts/target-concepts.adoc#virtual-target[].
+. Assign a unique xref:further-concepts/target.adoc#virtual-target[].
+** At this point we don't want to assign a xref:further-concepts/target.adoc#real-target[] yet.
+The point of xref:further-concepts/compartment.adoc#controller-preset[controller presets] is to make them as reusable as possible, that's why we choose a xref:further-concepts/target.adoc#virtual-target[].
 ** In the _Category_ dropdown, choose _Virtual_.
-** As _Type_, choose xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type[] if your control element is a sort of button (something which you can press) or xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type-multi[] in all other cases.
-** Use for each xref:key-concepts.adoc#control-element[] a unique combination of xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type[] and xref:further-concepts/compartment-concepts.adoc#virtual-control-element-id[], starting with number *1* and counting.
+** As _Type_, choose xref:further-concepts/compartment.adoc#virtual-control-element-type[] if your control element is a sort of button (something which you can press) or xref:further-concepts/compartment.adoc#virtual-control-element-type-multi[] in all other cases.
+** Use for each xref:key-concepts.adoc#control-element[] a unique combination of xref:further-concepts/compartment.adoc#virtual-control-element-type[] and xref:further-concepts/compartment.adoc#virtual-control-element-id[], starting with number *1* and counting.
 +
 TIP: It's okay and desired to have one control element mapped to "Multi 1" and one to "Button 1".
 ** Just imagine the "8 generic knobs + 8 generic buttons" layout which is typical for lots of popular controllers.
@@ -59,26 +59,26 @@ That opens up all kinds of possibilities.
 You could for example restrict the target range for a certain control element.
 Or make an encoder generally slower or faster.
 Or you could simulate a rotary encoder by making two buttons on your controller act as -/+ buttons emitting relative values.
-This is possible by mapping them to the same xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] in xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[].
+This is possible by mapping them to the same xref:further-concepts/compartment.adoc#virtual-control-element[] in xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[].
 
-Before you go ahead and do that for each control element, you might want to check out what this is good for: Navigate back to the xref:key-concepts.adoc#main-compartment[], learn the xref:key-concepts.adoc#source[] of some xref:key-concepts.adoc#main-mapping[] and touch the xref:key-concepts.adoc#control-element[] that you have just mapped: Take note how ReaLearn will assign a xref:further-concepts/source-concepts.adoc#virtual-source[] this time, not a xref:sources/midi.adoc[MIDI source]!
-It will also display the name of the xref:further-concepts/compartment-concepts.adoc#virtual-control-element[] as source label.
+Before you go ahead and do that for each control element, you might want to check out what this is good for: Navigate back to the xref:key-concepts.adoc#main-compartment[], learn the xref:key-concepts.adoc#source[] of some xref:key-concepts.adoc#main-mapping[] and touch the xref:key-concepts.adoc#control-element[] that you have just mapped: Take note how ReaLearn will assign a xref:further-concepts/source.adoc#virtual-source[] this time, not a xref:sources/midi.adoc[MIDI source]!
+It will also display the name of the xref:further-concepts/compartment.adoc#virtual-control-element[] as source label.
 
-Now, let's say at some point you swap your xref:key-concepts.adoc#controller[] with another one that has a similar layout, all you need to do is to switch the xref:further-concepts/compartment-concepts.adoc#controller-preset[] and you are golden!
+Now, let's say at some point you swap your xref:key-concepts.adoc#controller[] with another one that has a similar layout, all you need to do is to switch the xref:further-concepts/compartment.adoc#controller-preset[] and you are golden!
 You have decoupled your xref:key-concepts.adoc#main-mapping[] from the actual xref:key-concepts.adoc#controller[].
-Plus, you can now take full advantage of the xref:further-concepts/unit-concepts.adoc#projection[] feature.
+Plus, you can now take full advantage of the xref:further-concepts/unit.adoc#projection[] feature.
 
 All of this might be a bit of an effort, but it's well worth it!
 Plus, there's a way to do this _a lot_ faster by using _batch learning_:
 
 . Press the xref:user-interface/main-panel/mappings-toolbar.adoc#learn-many[].
-. Choose whether you want to learn all the xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type-multi[] elements on your xref:key-concepts.adoc#controller[] or all the xref:further-concepts/compartment-concepts.adoc#virtual-control-element-type[] elements.
+. Choose whether you want to learn all the xref:further-concepts/compartment.adoc#virtual-control-element-type-multi[] elements on your xref:key-concepts.adoc#controller[] or all the xref:further-concepts/compartment.adoc#virtual-control-element-type[] elements.
 . Simply touch all relevant xref:key-concepts.adoc#control-element[control elements] in the desired order.
-ReaLearn will take care of automatically incrementing the xref:further-concepts/compartment-concepts.adoc#virtual-control-element-id[].
+ReaLearn will take care of automatically incrementing the xref:further-concepts/compartment.adoc#virtual-control-element-id[].
 . Press btn:[Stop].
 . Done!
 ** At this point it's recommended to recheck the learned mappings.
-** ReaLearn's xref:further-concepts/source-concepts.adoc#midi-source-character[] detection for MIDI CCs is naturally just a guess, so it can be wrong.
+** ReaLearn's xref:further-concepts/source.adoc#midi-source-character[] detection for MIDI CCs is naturally just a guess, so it can be wrong.
 If so, just adjust the character in the corresponding xref:user-interface/mapping-panel.adoc[].
 
 You can share your preset with other users by sending them to link:mailto:&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;[&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;].
@@ -87,7 +87,7 @@ list].
 
 == Naming compartment parameters
 
-Because ReaLearn's xref:further-concepts/compartment-concepts.adoc#compartment-parameter[compartment parameters] are freely assignable, they have very generic names by default.
+Because ReaLearn's xref:further-concepts/compartment.adoc#compartment-parameter[compartment parameters] are freely assignable, they have very generic names by default.
 However, as soon as you give them meaning by using them in a specific way, it can be very helpful to give them a name by using the xref:user-interface/main-panel/menu-bar.adoc#compartment-parameters[].
 
 == Troubleshooting Luau import

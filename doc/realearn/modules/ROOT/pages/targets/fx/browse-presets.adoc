@@ -2,7 +2,7 @@
 
 Steps through FX presets.
 
-This target is suited for use with xref:further-concepts/mapping-concepts.adoc#knob[knobs], xref:further-concepts/mapping-concepts.adoc#rotary-endless-encoder[encoders] and xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[] because it allows you to step through the complete preset list.
+This target is suited for use with xref:further-concepts/mapping.adoc#knob[knobs], xref:further-concepts/mapping.adoc#rotary-endless-encoder[encoders] and xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[] because it allows you to step through the complete preset list.
 The minimum value always represents _No preset_ whereas the maximum value always represents the last available preset.
 
 It's _not_ suited for activating a particular preset (e.g. by setting xref:user-interface/mapping-panel/glue-section.adoc#target-min-max[] to the same value), because the preset list of an FX is usually not constant.

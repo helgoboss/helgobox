@@ -14,7 +14,7 @@ Exclusive (on only):: Variation of _Exclusive_ that applies exclusivity only if 
 
 == Tags field
 
-A ReaLearn instance matches when at least one of its units is tagged with any of the xref:further-concepts/unit-concepts.adoc#unit-tag[unit tags] entered into this field (comma-separated).
+A ReaLearn instance matches when at least one of its units is tagged with any of the xref:further-concepts/unit.adoc#unit-tag[unit tags] entered into this field (comma-separated).
 
 == Remarks
 
@@ -26,7 +26,7 @@ If _this_ ReaLearn instance is on the monitoring FX chain, it only affects other
 
 TIP: This target is great for switching between completely different controller setups!
 
-CAUTION: You enter xref:further-concepts/unit-concepts.adoc#unit-tag[unit tags] here, but it will enable/disable whole xref:key-concepts.adoc#instance[instances]!
+CAUTION: You enter xref:further-concepts/unit.adoc#unit-tag[unit tags] here, but it will enable/disable whole xref:key-concepts.adoc#instance[instances]!
 I know, this is counter-intuitive.
 In some cases, it would be good to have a way to enable/disable units.
 However, that doesn't exist yet.

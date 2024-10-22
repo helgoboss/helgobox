@@ -1,6 +1,6 @@
 = Source "ReaLearn parameter"
 
-This source fires whenever a selected xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] changes its value.
+This source fires whenever a selected xref:further-concepts/compartment.adoc#compartment-parameter[] changes its value.
 
 One of many ways to use this is to create macro parameters which control multiple parameters of multiple other plug-ins.
 

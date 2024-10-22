@@ -8,11 +8,11 @@ NOTE: This needs at least REAPER version 6.69+dev1030! Also, it only works if yo
 == Track/FX controls
 
 You must tell the target at which FX slot to load the corresponding plug-in.
-The best idea is to use FX selector xref:further-concepts/target-concepts.adoc#at-position-selector[].
-Selectors such as xref:further-concepts/target-concepts.adoc#particular-fx-selector[] or xref:further-concepts/target-concepts.adoc#named-fx-selector[] are not suited because the target might replace the plug-in with another one, in which the unique FX ID and the FX name can change.
+The best idea is to use FX selector xref:further-concepts/target.adoc#at-position-selector[].
+Selectors such as xref:further-concepts/target.adoc#particular-fx-selector[] or xref:further-concepts/target.adoc#named-fx-selector[] are not suited because the target might replace the plug-in with another one, in which the unique FX ID and the FX name can change.
 Then the target would turn inactive and stop working.
 
 == Target-specific properties
 
-This target supports the same additional xref:further-concepts/target-concepts.adoc#target-property[target properties] as xref:targets/pot/browse-presets.adoc[].
+This target supports the same additional xref:further-concepts/target.adoc#target-property[target properties] as xref:targets/pot/browse-presets.adoc[].
 The only difference is that the ones in this one relate to the currently loaded preset, not the one that's selected in the preset browser.

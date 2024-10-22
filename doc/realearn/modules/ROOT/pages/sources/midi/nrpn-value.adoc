@@ -25,4 +25,4 @@ In practice, this if often checked.
 
 == Character menu
 
-See xref:further-concepts/source-concepts.adoc#midi-source-character[].
+See xref:further-concepts/source.adoc#midi-source-character[].

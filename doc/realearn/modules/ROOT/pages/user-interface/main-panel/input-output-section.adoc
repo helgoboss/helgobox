@@ -111,7 +111,7 @@ When targeting an OSC software that runs on the same computer as REAPER and ReaL
 +
 When you configure your OSC connection on the device side, you must provide a _host_ as well.
 There you should enter the IP address of the computer which runs REAPER and ReaLearn.
-You can easily find it by pressing the xref:further-concepts/unit-concepts.adoc#projection[] button in ReaLearn, choosing the old browser-based projection and scrolling down a bit.
+You can easily find it by pressing the xref:further-concepts/unit.adoc#projection[] button in ReaLearn, choosing the old browser-based projection and scrolling down a bit.
 It's the value next to *Host* and should start with `192.168.`.
 
 Device port:: Required for feedback only.

@@ -6,11 +6,11 @@ The idea is to map this target to an endless rotary encoder or previous/next but
 == Kind menu
 
 Choose the kind of filter items that you want to browse.
-They correspond to the filters available in xref:further-concepts/instance-concepts.adoc#pot-browser[].
+They correspond to the filters available in xref:further-concepts/instance.adoc#pot-browser[].
 
 == Target-specific properties
 
-This target supports the following additional xref:further-concepts/target-concepts.adoc#target-property[target properties].
+This target supports the following additional xref:further-concepts/target.adoc#target-property[target properties].
 
 [cols="m,1,3"]
 |===

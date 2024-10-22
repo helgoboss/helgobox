@@ -6,13 +6,13 @@ Sets the value of a particular track FX parameter.
 
 The parameter to be controlled.
 
-Please note that both xref:further-concepts/target-concepts.adoc#particular-fx-selector[] and xref:further-concepts/target-concepts.adoc#at-position-selector[] address the FX by its position in the FX chain.
-The difference between the two is that xref:further-concepts/target-concepts.adoc#particular-selector[] shows a dropdown containing the available parameters and xref:further-concepts/target-concepts.adoc#at-position-selector[] lets you enter the position as a number in a text field.
+Please note that both xref:further-concepts/target.adoc#particular-fx-selector[] and xref:further-concepts/target.adoc#at-position-selector[] address the FX by its position in the FX chain.
+The difference between the two is that xref:further-concepts/target.adoc#particular-selector[] shows a dropdown containing the available parameters and xref:further-concepts/target.adoc#at-position-selector[] lets you enter the position as a number in a text field.
 Latter is useful if at the time of choosing the position, the FX is not available.
 
 == Target-specific properties
 
-This target supports the following additional xref:further-concepts/target-concepts.adoc#target-property[target properties].
+This target supports the following additional xref:further-concepts/target.adoc#target-property[target properties].
 
 [cols="m,1,3"]
 |===

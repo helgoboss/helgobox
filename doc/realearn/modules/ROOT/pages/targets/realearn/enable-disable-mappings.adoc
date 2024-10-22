@@ -14,11 +14,11 @@ Exclusive (on only):: Variation of _Exclusive_ that applies exclusivity only if 
 
 == Tags field
 
-A mapping matches when it is tagged with any of the xref:further-concepts/mapping-concepts.adoc#mapping-tag[mapping tags] entered into this field (comma-separated).
+A mapping matches when it is tagged with any of the xref:further-concepts/mapping.adoc#mapping-tag[mapping tags] entered into this field (comma-separated).
 
 == Remarks
 
 * This affects other mappings only, not _this_ mapping.
 * Mappings without tags won't be affected at all.
 
-TIP: This target is a straightforward alternative to xref:further-concepts/mapping-concepts.adoc#conditional-activation[] when it comes to bank switching!
+TIP: This target is a straightforward alternative to xref:further-concepts/mapping.adoc#conditional-activation[] when it comes to bank switching!

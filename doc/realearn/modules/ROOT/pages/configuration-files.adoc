@@ -4,7 +4,7 @@ ReaLearn creates and/or reads a few files in REAPER's resource directory.
 
 `Data/helgoboss`:: Directory which contains data such as presets or resources that need to be distributed via ReaPack
 
-`Data/helgoboss/auto-load-configs/fx.json`:: Contains global FX-to-preset links, see xref:further-concepts/unit-concepts.adoc#auto-load[]
+`Data/helgoboss/auto-load-configs/fx.json`:: Contains global FX-to-preset links, see xref:further-concepts/unit.adoc#auto-load[]
 
 `Data/helgoboss/archives`:: Directory which contains archives e.g. the compressed app, distributed via ReaPack
 
@@ -20,7 +20,7 @@ ReaLearn creates and/or reads a few files in REAPER's resource directory.
 
 `Helgoboss/App`:: Contains the uncompressed App, if installed
 
-`Helgoboss/Pot/previews`:: Directory which contains previews recorded by xref:further-concepts/instance-concepts.adoc#pot-browser[Pot Browser]
+`Helgoboss/Pot/previews`:: Directory which contains previews recorded by xref:further-concepts/instance.adoc#pot-browser[Pot Browser]
 
 `Helgoboss/ReaLearn/osc.json`:: Global OSC device configurations, see xref:user-interface/main-panel/input-output-section.adoc#manage-osc-devices[]
 

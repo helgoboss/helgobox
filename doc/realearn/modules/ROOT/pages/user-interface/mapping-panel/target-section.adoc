@@ -68,7 +68,7 @@ When choosing a track, the following additional elements are available.
 === Track must be selected checkbox
 
 If checked, this mapping will be active only if the track set in _Track_ is currently selected.
-See xref:further-concepts/target-concepts.adoc#target-activation-condition[].
+See xref:further-concepts/target.adoc#target-activation-condition[].
 
 === Selection ganging checkbox
 
@@ -108,14 +108,14 @@ Only available for targets that work on a send/receive.
 The kind of send/receive that you want to control.
 
 Send:: Send from the track above to another track of your choice.
-If you choose xref:further-concepts/target-concepts.adoc#particular-selector[], ReaLearn will memorize the ID of the destination track.
+If you choose xref:further-concepts/target.adoc#particular-selector[], ReaLearn will memorize the ID of the destination track.
 That way you will still control the correct send even if you delete another send in that track.
 
 Receive:: Receive from another track of your choice to the track above (opposite direction of send).
-If you choose the xref:further-concepts/target-concepts.adoc#particular-selector[] selector, ReaLearn will memorize the ID of the source track.
+If you choose the xref:further-concepts/target.adoc#particular-selector[] selector, ReaLearn will memorize the ID of the source track.
 
 Output:: Send from the track above to a hardware output.
-Please note that with hardware outputs, xref:further-concepts/target-concepts.adoc#particular-selector[] is the same as xref:further-concepts/target-concepts.adoc#at-position-selector[] because hardware outputs don't have unique IDs.
+Please note that with hardware outputs, xref:further-concepts/target.adoc#particular-selector[] is the same as xref:further-concepts/target.adoc#at-position-selector[] because hardware outputs don't have unique IDs.
 
 === Send/Receive/Output section
 
@@ -150,7 +150,7 @@ If checked, this mapping will be active only if the selected FX instance is curr
 If the FX instance is displayed in a floating window, _focused_ means that the floating window is active.
 If it's displayed within the FX chain window, _focused_ means that the FX chain window is currently open and the FX instance is the currently selected FX in that FX chain.
 
-Of course, this flag doesn't have any effect if you chose the xref:further-concepts/target-concepts.adoc#fx-focused-selector[].
+Of course, this flag doesn't have any effect if you chose the xref:further-concepts/target.adoc#fx-focused-selector[].
 
 == Common elements for pollable targets
 
@@ -158,5 +158,5 @@ The following elements are available only for the few targets that might need po
 
 === Poll for feedback checkbox
 
-Enables or disables xref:further-concepts/target-concepts.adoc#target-value-polling[].
+Enables or disables xref:further-concepts/target.adoc#target-value-polling[].
 In the probably rare case that the polling causes performance issues, you can untick this checkbox.

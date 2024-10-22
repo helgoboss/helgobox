@@ -69,7 +69,7 @@ A toggle button is a button that emits 100% when pressed and 0% when pressed aga
 IMPORTANT: You don't want toggle buttons on the hardware side!
 They are much less flexible than momentary buttons!
 Momentary buttons can be turned into toggle buttons by ReaLearn, but not vice versa!
-If you have to put up with a hardware toggle button, use xref:further-concepts/source-concepts.adoc#midi-source-character[] xref:further-concepts/source-concepts.adoc#toggle-only-button[].
+If you have to put up with a hardware toggle button, use xref:further-concepts/source.adoc#midi-source-character[] xref:further-concepts/source.adoc#toggle-only-button[].
 
 [[velocity-sensitive-key]] Velocity-sensitive key:: A key emits a value between 0% and 100% when pressed, depending on the velocity with which the key was hit.
 When released, it will emit 0%.
@@ -168,17 +168,17 @@ A mapping is considered as *on* or *active* (terms are used interchangeably) onl
 . The mapping is enabled as a whole
 . The mapping has control and/or feedback enabled
 . The <<mapping-activation-condition>> is fulfilled
-. The xref:further-concepts/target-concepts.adoc#target-activation-condition[] is fulfilled
+. The xref:further-concepts/target.adoc#target-activation-condition[] is fulfilled
 . The target is valid
 +
 ====
-Example: A track target can be invalid when it's using xref:further-concepts/target-concepts.adoc#selected-selector[] but no track is currently selected).
+Example: A track target can be invalid when it's using xref:further-concepts/target.adoc#selected-selector[] but no track is currently selected).
 ====
 
 In all other cases, mapping is *off* or *inactive*.
 In that case, it doesn't have any effect!
 
-(Controller) mappings with xref:further-concepts/target-concepts.adoc#virtual-target[] are always considered active as long as the feedback checkbox is ticked.
+(Controller) mappings with xref:further-concepts/target.adoc#virtual-target[] are always considered active as long as the feedback checkbox is ticked.
 
 [[mapping-signal-flow]]
 == Mapping signal flow
@@ -226,7 +226,7 @@ Please activate this mapping only if ReaLearn Parameter 1 is *on*!"
 [[mapping-activation-condition]]
 == Mapping activation condition
 
-The activation condition of a mapping determines under which circumstances a mapping is active or inactive, based on the value of a xref:further-concepts/compartment-concepts.adoc#compartment-parameter[] or based on the state of arbitrary xref:key-concepts.adoc#target[targets].
+The activation condition of a mapping determines under which circumstances a mapping is active or inactive, based on the value of a xref:further-concepts/compartment.adoc#compartment-parameter[] or based on the state of arbitrary xref:key-concepts.adoc#target[targets].
 It is especially practical if your controller has a limited amount of control elements and you want to give control elements several responsibilities.
 It lets you easily implement use cases such as:
 
@@ -321,7 +321,7 @@ However, that method is pretty limited and hard to maintain because presets are 
 
 With _Conditional activation_ you can do the same (and more) within just one ReaLearn unit.
 
-TIP: If you want to adjust the number of banks and improve bank handling in general, set a discrete value count for the corresponding bank parameter (see xref:further-concepts/compartment-concepts.adoc#compartment-parameter[]).
+TIP: If you want to adjust the number of banks and improve bank handling in general, set a discrete value count for the corresponding bank parameter (see xref:further-concepts/compartment.adoc#compartment-parameter[]).
 
 === When EEL met
 
@@ -348,7 +348,7 @@ TIP: For most activation conditions which need this amount of freedom, the newer
 === When expression met
 
 This is very similar to the previous EEL activation mode.
-But instead of EEL, it lets you use the same expression language as used in xref:further-concepts/target-concepts.adoc#dynamic-selector[dynamic selectors] to express the activation condition.
+But instead of EEL, it lets you use the same expression language as used in xref:further-concepts/target.adoc#dynamic-selector[dynamic selectors] to express the activation condition.
 
 The equivalent expression to above EEL example is:
 
@@ -393,7 +393,7 @@ If feedback is set up correctly, this message will be sent to the device wheneve
 
 Remarks:
 
-* You can check if the correct feedback messages are sent to the device by enabling xref:further-concepts/unit-concepts.adoc#logging-of-real-feedback-messages[].
+* You can check if the correct feedback messages are sent to the device by enabling xref:further-concepts/unit.adoc#logging-of-real-feedback-messages[].
 * Each byte is written using 2 hexadecimal digits.
 * Spaces between the bytes can be omitted.
 * You can express all types of MIDI messages using this raw notation (e.g. pitch wheel), not just system-exclusive ones.

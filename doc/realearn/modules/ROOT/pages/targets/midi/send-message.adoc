@@ -26,7 +26,7 @@ A practical example is shown in link:https://www.youtube.com/watch?v=WJiwmlJSsi8
 
 == Pattern field
 
-Defines the MIDI message to be sent as xref:further-concepts/mapping-concepts.adoc#raw-midi-pattern[].
+Defines the MIDI message to be sent as xref:further-concepts/mapping.adoc#raw-midi-pattern[].
 It allows you to encode the incoming _absolute_ control value as part of the message (after it has been processed by xref:key-concepts.adoc#glue[]).
 
 == Pre-defined patterns menu (...)
