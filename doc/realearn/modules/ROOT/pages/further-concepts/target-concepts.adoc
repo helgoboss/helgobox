@@ -473,7 +473,7 @@ Remarks:
 
 * For most targets that support polling, if you disable polling, automatic feedback for that target will simply stop working.
 This means you will not receive up-to-date feedback anymore whenever you change the target value within REAPER itself (not using ReaLearn).
-* The xref:targets/fx-parameter/set-value.adoc[] target is an exception.
+* The xref:targets/fx-parameter/set-value.adoc[] is an exception.
 Automatic feedback will still work, even without _Poll for feedback_ enabled.
 But in the following corner cases it might not:
 ** If the FX is on the monitoring FX chain.

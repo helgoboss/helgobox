@@ -5,11 +5,11 @@ To be used with endless rotary encoders or xref:user-interface/mapping-panel/glu
 
 == Scroll TCP checkbox
 
-See xref:targets/track/select-unselect.adoc[] target.
+See xref:targets/track/select-unselect.adoc[].
 
 == Scroll mixer checkbox
 
-See xref:targets/track/select-unselect.adoc[] target.
+See xref:targets/track/select-unselect.adoc[].
 
 == Scope menu
 

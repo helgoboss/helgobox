@@ -109,7 +109,7 @@ The unit FX can be changed via target xref:targets/fx/fx.adoc[].
 
 Each unit can have arbitrarily many tags.
 
-Tags are important if you want to dynamically enable or disable instances using the xref:targets/realearn/enable-disable-instances.adoc[] target.
+Tags are important if you want to dynamically enable or disable instances using the xref:targets/realearn/enable-disable-instances.adoc[].
 
 [[projection]]
 == Projection
@@ -149,7 +149,7 @@ The log entries look similar to the ones described above, with the following not
 * Message purpose
 ** *Feedback output:* A message sent to your controller as response to target value changes.
 ** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation (see xref:user-interface/mapping-panel/advanced-settings-dialog.adoc#mapping-lifecycle-actions[Mapping lifecycle actions]).
-** *Target output:* A message sent because of either the xref:targets/midi/send-message.adoc[] or xref:targets/osc/send-message.adoc[] target.
+** *Target output:* A message sent because of either the xref:targets/midi/send-message.adoc[] or xref:targets/osc/send-message.adoc[].
 
 [[superior-units]]
 == Superior units
