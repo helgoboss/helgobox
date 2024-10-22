@@ -7026,14 +7026,8 @@ impl View for MappingPanel {
         self.ui_element_container
             .borrow_mut()
             .fill_with_window_children(window);
-        let weak_self = Rc::downgrade(&self);
-        self.mapping_header_panel.set_help_requested_callback(Box::new(move || {
-            if let Some(view) = weak_self.upgrade() {
-                view.help_requested()
-            } else {
-                false
-            }
-        }));
+        let dyn_self: Rc<dyn View> = self.clone();
+        self.mapping_header_panel.set_parent_view(Rc::downgrade(&dyn_self));
         true
     }
 

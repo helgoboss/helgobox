@@ -17,7 +17,7 @@ use crate::infrastructure::ui::menus;
 use std::fmt::Debug;
 use derivative::Derivative;
 use strum::IntoEnumIterator;
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 
 type SharedItem = Rc<RefCell<dyn Item>>;
 type WeakItem = Weak<RefCell<dyn Item>>;
@@ -31,7 +31,7 @@ pub struct MappingHeaderPanel {
     is_invoked_programmatically: Cell<bool>,
     position: Point<DialogUnits>,
     #[derivative(Debug = "ignore")]
-    on_help_requested: RefCell<Option<Box<dyn Fn() -> bool>>>,
+    parent_view: RefCell<Option<WeakView<dyn View>>>,
 }
 
 pub trait Item: Debug {
@@ -98,12 +98,16 @@ impl MappingHeaderPanel {
             item: RefCell::new(initial_item),
             is_invoked_programmatically: false.into(),
             position,
-            on_help_requested: Default::default(),
+            parent_view: Default::default(),
         }
     }
 
-    pub fn set_help_requested_callback(&self, callback: Box<dyn Fn() -> bool>) {
-        self.on_help_requested.replace(Some(callback));
+    pub fn set_parent_view(&self, parent_view: WeakView<dyn View>) {
+        self.parent_view.replace(Some(parent_view));
+    }
+
+    fn get_parent_view(&self) -> Option<SharedView<dyn View>> {
+        self.parent_view.borrow().as_ref().and_then(|v| v.upgrade())
     }
 
     pub fn set_invoked_programmatically(&self, value: bool) {
@@ -709,8 +713,16 @@ impl View for MappingHeaderPanel {
     }
 
     fn help_requested(&self) -> bool {
-        if let Some(callback) = self.on_help_requested.borrow().as_ref() {
-            callback()
+        if let Some(parent_view) = self.get_parent_view() {
+            parent_view.help_requested()
+        } else {
+            false
+        }
+    }
+
+    fn mouse_test(self: SharedView<Self>, position: Point<i32>) -> bool {
+        if let Some(parent_view) = self.get_parent_view() {
+            parent_view.mouse_test(position)
         } else {
             false
         }
