@@ -642,14 +642,26 @@ impl View for MappingHeaderPanel {
         self.ui_element_container.replace(Default::default());
     }
 
-    fn mouse_moved(self: SharedView<Self>, position: Point<Pixels>) -> bool {
+    // fn mouse_moved(self: SharedView<Self>, position: Point<i32>) -> bool {
+    //     let callback = self.mouse_hovered_element.borrow();
+    //     let Some(callback) = callback.as_ref() else {
+    //         return false;
+    //     };
+    //     let container = self.ui_element_container.borrow();
+    //     let mut resource_ids = container.hit_test(Point::new(position.x, position.y));
+    //     let resource_id = resource_ids.find(|id| !NO_HELP_ELEMENTS.contains(id));
+    //     callback(resource_id);
+    //     false
+    // }
+
+    fn mouse_test(self: SharedView<Self>, position: Point<i32>) -> bool {
+        let position = self.view.require_window().screen_to_client_point(position);
         let callback = self.mouse_hovered_element.borrow();
         let Some(callback) = callback.as_ref() else {
             return false;
         };
         let container = self.ui_element_container.borrow();
-        let mut resource_ids =
-            container.hit_test(Point::new(position.x.get() as _, position.y.get() as _));
+        let mut resource_ids = container.hit_test(Point::new(position.x, position.y));
         let resource_id = resource_ids.find(|id| !NO_HELP_ELEMENTS.contains(id));
         callback(resource_id);
         false

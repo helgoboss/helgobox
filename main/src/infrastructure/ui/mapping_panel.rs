@@ -7382,10 +7382,18 @@ impl View for MappingPanel {
         }
     }
 
-    fn mouse_moved(self: SharedView<Self>, position: Point<Pixels>) -> bool {
+    // fn mouse_moved(self: SharedView<Self>, position: Point<i32>) -> bool {
+    //     let container = self.ui_element_container.borrow();
+    //     let mut resource_ids = container.hit_test(Point::new(position.x, position.y));
+    //     let resource_id = resource_ids.find(|id| !NO_HELP_ELEMENTS.contains(id));
+    //     self.handle_hovered_ui_element(resource_id);
+    //     false
+    // }
+
+    fn mouse_test(self: SharedView<Self>, position: Point<i32>) -> bool {
+        let position = self.view.require_window().screen_to_client_point(position);
         let container = self.ui_element_container.borrow();
-        let mut resource_ids =
-            container.hit_test(Point::new(position.x.get() as _, position.y.get() as _));
+        let mut resource_ids = container.hit_test(Point::new(position.x, position.y));
         let resource_id = resource_ids.find(|id| !NO_HELP_ELEMENTS.contains(id));
         self.handle_hovered_ui_element(resource_id);
         false

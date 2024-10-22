@@ -118,26 +118,26 @@ impl Window {
         ));
     }
 
-    pub fn screen_to_client(&self, rect: &RECT) -> Rect {
-        let mut top_left = raw::POINT {
-            x: rect.left,
-            y: rect.top,
-        };
-        let mut bottom_right = raw::POINT {
-            x: rect.right,
-            y: rect.bottom,
-        };
-        unsafe {
-            let swell = Swell::get();
-            swell.ScreenToClient(self.raw, &mut top_left as *mut _);
-            swell.ScreenToClient(self.raw, &mut bottom_right as *mut _);
-        }
+    pub fn screen_to_client_rect(&self, rect: &RECT) -> Rect {
+        let top_left = self.screen_to_client_point(Point::new(rect.left, rect.top));
+        let bottom_right = self.screen_to_client_point(Point::new(rect.right, rect.bottom));
         Rect {
             left: top_left.x,
             top: top_left.y,
             width: (bottom_right.x - top_left.x) as _,
             height: (bottom_right.y - top_left.y) as _,
         }
+    }
+
+    pub fn screen_to_client_point(&self, point: Point<i32>) -> Point<i32> {
+        let mut point = raw::POINT {
+            x: point.x,
+            y: point.y,
+        };
+        unsafe {
+            Swell::get().ScreenToClient(self.raw, &mut point as *mut _);
+        }
+        Point::new(point.x, point.y)
     }
 
     pub fn client_size(self) -> Dimensions<Pixels> {
@@ -375,7 +375,7 @@ impl Window {
     //  difference because moving is not a problem in all known cases.
     pub fn fill_combo_box_with_data<I: Display>(
         self,
-        items: impl ExactSizeIterator<Item=(isize, I)>,
+        items: impl ExactSizeIterator<Item = (isize, I)>,
     ) {
         self.clear_combo_box();
         self.maybe_init_combo_box_storage(items.len());
@@ -387,13 +387,13 @@ impl Window {
     /// Okay to use if approximately less than 100 items, otherwise might become slow.
     pub fn fill_combo_box_with_data_small<I: Display>(
         self,
-        items: impl Iterator<Item=(isize, I)>,
+        items: impl Iterator<Item = (isize, I)>,
     ) {
         self.clear_combo_box();
         self.fill_combo_box_with_data_internal(items);
     }
 
-    pub fn fill_combo_box_indexed<I: Display>(self, items: impl ExactSizeIterator<Item=I>) {
+    pub fn fill_combo_box_indexed<I: Display>(self, items: impl ExactSizeIterator<Item = I>) {
         self.clear_combo_box();
         self.maybe_init_combo_box_storage(items.len());
         for item in items {
@@ -405,7 +405,7 @@ impl Window {
         self.fill_combo_box_indexed(items.into_iter());
     }
 
-    pub fn fill_combo_box_small<I: Display>(self, items: impl Iterator<Item=I>) {
+    pub fn fill_combo_box_small<I: Display>(self, items: impl Iterator<Item = I>) {
         self.clear_combo_box();
         for item in items {
             self.add_combo_box_item(item.to_string());
@@ -424,7 +424,7 @@ impl Window {
 
     fn fill_combo_box_with_data_internal<I: Display>(
         self,
-        items: impl Iterator<Item=(isize, I)>,
+        items: impl Iterator<Item = (isize, I)>,
     ) {
         for (i, (data, item)) in items.enumerate() {
             self.insert_combo_box_item_with_data(i, data, item.to_string());
@@ -658,7 +658,7 @@ impl Window {
         }
     }
 
-    pub fn children(self) -> impl Iterator<Item=Window> {
+    pub fn children(self) -> impl Iterator<Item = Window> {
         let mut child = self.first_child();
         child.into_iter().chain(
             (0..)
@@ -912,7 +912,7 @@ impl Window {
                 x: Pixels(rect.right as u32),
                 y: Pixels(rect.bottom as u32),
             }
-                .into()
+            .into()
         }
         #[cfg(target_family = "unix")]
         point.in_pixels().into()
@@ -931,7 +931,7 @@ impl Window {
             DialogUnits((point.x.get() as f64 / x_factor).round() as u32),
             DialogUnits((point.y.get() as f64 / y_factor).round() as u32),
         )
-            .into()
+        .into()
     }
 
     /// Calculates the dialog-unit to pixel scaling factors for each axis.

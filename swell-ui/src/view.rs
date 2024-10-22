@@ -134,14 +134,23 @@ pub trait View: Debug {
     /// WM_MOUSEWHEEL, HIWORD(wparam).
     ///
     /// Should return `true` if processed.
-    fn mouse_wheel_turned(self: SharedView<Self>, _distance: i32) -> bool {
+    fn mouse_wheel_turned(self: SharedView<Self>, distance: i32) -> bool {
+        let _ = distance;
         false
     }
 
     /// WM_MOUSEMOVE.
     ///
     /// Should return `true` if processed.
-    fn mouse_moved(self: SharedView<Self>, position: Point<Pixels>) -> bool {
+    fn mouse_moved(self: SharedView<Self>, position: Point<i32>) -> bool {
+        let _ = position;
+        false
+    }
+
+    /// WM_NCHITTEST.
+    ///
+    /// Should return `true` if processed.
+    fn mouse_test(self: SharedView<Self>, position: Point<i32>) -> bool {
         let _ = position;
         false
     }

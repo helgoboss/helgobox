@@ -212,15 +212,21 @@ unsafe extern "C" fn view_dialog_proc(
                 KEYBOARD_MSG_FOR_X_BRIDGE => 0,
                 raw::WM_MOUSEMOVE => view
                     .mouse_moved(Point::new(
-                        Pixels(loword(lparam as _) as _),
-                        Pixels(hiword(lparam as _) as _),
+                        loword_signed(lparam as _),
+                        hiword_signed(lparam as _),
+                    ))
+                    .into(),
+                raw::WM_NCHITTEST => view
+                    .mouse_test(Point::new(
+                        loword_signed(lparam as _),
+                        hiword_signed(lparam as _),
                     ))
                     .into(),
                 raw::WM_SIZE => view.resized().into(),
                 raw::WM_SETFOCUS => view.focused().into(),
                 raw::WM_COMMAND => {
-                    let resource_id = loword(wparam);
-                    match hiword(wparam) as u32 {
+                    let resource_id = loword(wparam as _);
+                    match hiword(wparam as _) as u32 {
                         0 => {
                             view.button_clicked(resource_id as _);
                             // We just say the click is handled. Don't know where this  would not
@@ -249,7 +255,7 @@ unsafe extern "C" fn view_dialog_proc(
                     }
                 }
                 raw::WM_VSCROLL => {
-                    let code = loword(wparam);
+                    let code = loword(wparam as _);
                     view.scrolled_vertically(code as _).into()
                 }
                 raw::WM_HSCROLL => {
@@ -263,7 +269,7 @@ unsafe extern "C" fn view_dialog_proc(
                 }
                 raw::WM_MOUSEWHEEL => {
                     let distance = hiword_signed(wparam);
-                    view.mouse_wheel_turned(distance as _).into()
+                    view.mouse_wheel_turned(distance).into()
                 }
                 raw::WM_KEYDOWN => view.key_down(wparam as _).into(),
                 raw::WM_KEYUP => view.key_up(wparam as _).into(),
@@ -318,19 +324,23 @@ unsafe extern "C" fn view_dialog_proc(
             }
         })
     })
-        .unwrap_or(0)
+    .unwrap_or(0)
 }
 
 fn loword(wparam: usize) -> u16 {
     (wparam & 0xffff) as _
 }
 
+fn loword_signed(wparam: usize) -> i32 {
+    loword(wparam) as i16 as i32
+}
+
 fn hiword(wparam: usize) -> u16 {
     ((wparam >> 16) & 0xffff) as _
 }
 
-fn hiword_signed(wparam: usize) -> i16 {
-    hiword(wparam) as _
+fn hiword_signed(wparam: usize) -> i32 {
+    hiword(wparam) as i16 as i32
 }
 
 // Used for global dialog proc reentrancy check.

@@ -17,7 +17,7 @@ impl UiElementContainer {
         for child in window.children() {
             let element = UiElement {
                 id: child.resource_id(),
-                rect: window.screen_to_client(&child.window_rect()),
+                rect: window.screen_to_client_rect(&child.window_rect()),
                 visible: true,
             };
             self.add_element(element);
