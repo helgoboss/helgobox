@@ -1,5 +1,5 @@
 [#realearn-load-mapping-snapshot]
-= ReaLearn: Load mapping snapshot
+= Target "ReaLearn: Load mapping snapshot"
 
 Restores target values for all or certain mappings in this ReaLearn unit.
 

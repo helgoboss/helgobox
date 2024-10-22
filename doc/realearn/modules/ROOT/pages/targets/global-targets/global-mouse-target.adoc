@@ -1,5 +1,4 @@
-
-= Global: Mouse target
+= Target "Global: Mouse"
 
 This will control the mouse.
 

@@ -1,5 +1,5 @@
 [#realearn-enable-disable-mappings]
-= ReaLearn: Enable/disable mappings
+= Target "ReaLearn: Enable/disable mappings"
 
 This target allows you to flexibly enable or disable other mappings in this unit based on their tags:
 

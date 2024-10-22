@@ -1,5 +1,4 @@
-
-= ReaLearn: Modify mapping
+= Target "ReaLearn: Modify mapping"
 
 Triggers a modification of another ReaLearn mapping.
 

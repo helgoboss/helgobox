@@ -1,5 +1,4 @@
-
-= Track: Set pan
+= Target "Track: Set pan"
 
 Sets the track's pan value.
 

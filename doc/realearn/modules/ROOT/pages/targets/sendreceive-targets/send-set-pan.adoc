@@ -1,4 +1,3 @@
-
-= Send: Set pan
+= Target "Send: Set pan"
 
 Sets the track send's pan value.

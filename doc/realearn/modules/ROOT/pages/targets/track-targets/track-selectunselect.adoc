@@ -1,5 +1,5 @@
 [#track-selectunselect]
-= Track: Select/unselect
+= Target "Track: Select/unselect"
 
 Selects the track if the incoming absolute control value is greater than 0%, otherwise unselects the track.
 

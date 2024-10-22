@@ -1,5 +1,5 @@
 [#fx-browse-presets]
-= FX: Browse presets
+= Target "FX: Browse presets"
 
 Steps through FX presets.
 

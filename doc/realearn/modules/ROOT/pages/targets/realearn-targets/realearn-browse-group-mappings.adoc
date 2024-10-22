@@ -1,5 +1,5 @@
 [#realearn-browse-group-mappings]
-= ReaLearn: Browse group mappings
+= Target "ReaLearn: Browse group mappings"
 
 This target lets you choose an arbitrary mapping group in this compartment and cycle through it with an encoder/fader/knob or incremental (previous/next) buttons.
 

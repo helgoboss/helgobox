@@ -1,5 +1,5 @@
 [#pot-load-preset]
-= Pot: Load preset
+= Target "Pot: Load preset"
 
 Loads a preset selected via xref:targets/pot-targets/pot-browse-presets.adoc#pot-browse-presets[].
 

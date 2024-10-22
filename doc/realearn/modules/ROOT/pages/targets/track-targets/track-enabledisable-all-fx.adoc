@@ -1,4 +1,3 @@
-
-= Track: Enable/disable all FX
+= Target "Track: Enable/disable all FX"
 
 Enables all the track's FX instances if the incoming absolute control value is greater than 0%, otherwise disables them.

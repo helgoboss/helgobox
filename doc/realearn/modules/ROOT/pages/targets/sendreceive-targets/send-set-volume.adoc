@@ -1,4 +1,3 @@
-
-= Send: Set volume
+= Target "Send: Set volume"
 
 Sets the track send's volume.

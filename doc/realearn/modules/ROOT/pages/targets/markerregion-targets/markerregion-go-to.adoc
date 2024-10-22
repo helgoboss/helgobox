@@ -1,5 +1,5 @@
 [#marker-region-go-to]
-= Marker/region: Go to
+= Target "Marker/region: Go to"
 
 Navigates to a specific marker or region.
 Here's the behavior in detail:

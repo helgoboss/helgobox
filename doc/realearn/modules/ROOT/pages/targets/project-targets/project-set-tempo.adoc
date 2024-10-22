@@ -1,5 +1,5 @@
 [#project-set-tempo]
-= Project: Set tempo
+= Target "Project: Set tempo"
 
 Sets REAPER's master tempo.
 

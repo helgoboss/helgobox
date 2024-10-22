@@ -1,4 +1,3 @@
-
-= Track: Enable/disable parent send
+= Target "Track: Enable/disable parent send"
 
 Enables the parent send routing of the track if the incoming absolute control value is greater than 0%, otherwise disables it.

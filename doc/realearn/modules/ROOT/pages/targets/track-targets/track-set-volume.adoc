@@ -1,4 +1,4 @@
 [[track-set-volume]]
-= Track: Set volume
+= Target "Track: Set volume"
 
 Sets the track's volume.

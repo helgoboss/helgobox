@@ -1,5 +1,4 @@
-
-= FX chain: Browse FXs
+= Target "FX chain: Browse FXs"
 
 Steps through the FX instances in the FX chain by always having exactly one FX instance visible.
 To be used with endless rotary encoders or previous/next-style "Incremental buttons".

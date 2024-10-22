@@ -1,4 +1,3 @@
-
-= FX: Set online/offline
+= Target "FX: Set online/offline"
 
 Sets the FX instance online if the incoming absolute control value is greater than 0%, otherwise sets it offline.

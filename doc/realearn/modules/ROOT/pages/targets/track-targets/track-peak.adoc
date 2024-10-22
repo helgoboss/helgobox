@@ -1,5 +1,4 @@
-
-= Track: Peak
+= Target "Track: Peak"
 
 This is a feedback-only target!
 It turns your feedback-capable controller into a VU meter by constantly reporting the current volume of the configured track to it.

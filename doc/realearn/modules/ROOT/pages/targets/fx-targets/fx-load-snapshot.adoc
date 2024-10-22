@@ -1,5 +1,5 @@
 [#fx-load-snapshot]
-= FX: Load snapshot
+= Target "FX: Load snapshot"
 
 Restores a certain state of a particular FX.
 Before using this target, you need to take a snapshot of the desired FX state using the btn:[Take!] button.

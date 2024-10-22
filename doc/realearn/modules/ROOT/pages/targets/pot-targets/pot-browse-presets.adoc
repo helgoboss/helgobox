@@ -1,5 +1,5 @@
 [#pot-browse-presets]
-= Pot: Browse presets
+= Target "Pot: Browse presets"
 
 Use this target to browse a collection of presets.
 By default, this is the complete collection of presets available in all supported databases, so potentially thousands of presets.

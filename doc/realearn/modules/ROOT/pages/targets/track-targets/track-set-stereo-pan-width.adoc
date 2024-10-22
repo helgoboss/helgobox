@@ -1,5 +1,4 @@
-
-= Track: Set stereo pan width
+= Target "Track: Set stereo pan width"
 
 Sets the track's width value (applicable if the track is in stereo pan mode).
 

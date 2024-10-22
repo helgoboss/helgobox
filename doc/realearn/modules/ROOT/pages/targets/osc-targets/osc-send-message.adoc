@@ -1,5 +1,5 @@
 [#osc-send-message]
-= OSC: Send message
+= Target "OSC: Send message"
 
 Sends OSC messages with up to one argument in response to incoming messages.
 This target turns ReaLearn into a capable and convenient MIDI → OSC and OSC → OSC converter.

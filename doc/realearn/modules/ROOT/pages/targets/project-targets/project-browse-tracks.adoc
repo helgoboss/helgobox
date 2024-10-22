@@ -1,5 +1,5 @@
 [#browse-tracks-target]
-= Project: Browse tracks
+= Target "Project: Browse tracks"
 
 Steps through tracks.
 To be used with endless rotary encoders or xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[].

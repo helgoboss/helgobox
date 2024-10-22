@@ -1,5 +1,5 @@
 [#realearn-dummy-target]
-= ReaLearn: Dummy target
+= Target "ReaLearn: Dummy"
 
 This target simply does nothing when invoked and also doesn't provide any meaningful feedback on its own.
 

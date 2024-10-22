@@ -1,5 +1,4 @@
-
-= Track: Arm/disarm
+= Target "Track: Arm/disarm"
 
 Arms the track for recording if the incoming absolute control value is greater than 0%, otherwise disarms the track.
 This disables "Automatic record-arm when track selected".

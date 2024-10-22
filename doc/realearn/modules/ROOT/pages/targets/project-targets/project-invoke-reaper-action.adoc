@@ -1,5 +1,5 @@
 [#project-invoke-reaper-action]
-= Project: Invoke REAPER action
+= Target "Project: Invoke REAPER action"
 
 Triggers or sets the value of a particular REAPER action in the main section.
 

@@ -1,5 +1,4 @@
-
-= Track: Show/hide
+= Target "Track: Show/hide"
 
 Shows the track if the incoming absolute control value is greater than 0%, otherwise hides it.
 

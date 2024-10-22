@@ -1,5 +1,4 @@
-
-= FX: Open/close
+= Target "FX: Open/close"
 
 Makes the FX instance visible if the incoming control value is greater than 0%, otherwise hides it.
 

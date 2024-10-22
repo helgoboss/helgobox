@@ -1,5 +1,5 @@
 [#global-last-touched]
-= Global: Last touched
+= Target "Global: Last touched"
 
 This will control whatever target has been last touched in REAPER.
 It's similar to the built-in REAPER action "Adjust last touched FX parameter" but provides the following benefits:

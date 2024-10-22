@@ -1,5 +1,5 @@
 [#midi-send-message-target]
-= MIDI: Send message target
+= Target "MIDI: Send message"
 
 Sends arbitrary MIDI messages (also sys-ex!) in response to incoming messages.
 This target turns ReaLearn into a capable and convenient MIDI/OSC/Keyboard-to-MIDI converter.

@@ -1,5 +1,4 @@
-
-= Project: Any on (solo/mute/...)
+= Target "Project: Any on (solo/mute/...)"
 
 This target is most useful in feedback direction.
 Map it to some LED on your controller and the LED will light up if at least one of the tracks in your project is e.g. mute (depending on the track parameter in question).
