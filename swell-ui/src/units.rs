@@ -284,3 +284,14 @@ impl From<raw::RECT> for Rect {
         }
     }
 }
+
+impl From<Rect> for raw::RECT {
+    fn from(value: Rect) -> Self {
+        Self {
+            left: value.left,
+            top: value.top,
+            right: value.right(),
+            bottom: value.bottom(),
+        }
+    }
+}
