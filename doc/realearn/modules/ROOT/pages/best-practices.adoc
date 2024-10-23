@@ -104,5 +104,3 @@ If step 2 fails, ReaLearn shows a validation error message.
 If importing Luau code fails and the displayed error message is not helpful, you can try xref:user-interface/main-panel/menu-bar.adoc#dry-run-lua-script[].
 This action enables you to just execute step 1 and see the "expanded" result.
 This can help to make sense of a possible validation error message in step 2.
-
-[appendix]

@@ -138,4 +138,3 @@
 * xref:best-practices.adoc[]
 * xref:reaper-actions.adoc[]
 * xref:configuration-files.adoc[]
-* xref:design-decisions.adoc[]
