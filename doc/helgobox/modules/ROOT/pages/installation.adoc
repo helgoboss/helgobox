@@ -2,24 +2,62 @@
 :plugin-name: "VSTi: Helgobox - ReaLearn & Playtime (Helgoboss)"
 :package-name: "Helgobox: ReaLearn & Playtime"
 
-REAPER fans will be glad to know that Helgobox is provided as a https://reapack.com/[ReaPack] package.
+Helgobox is provided as https://reapack.com/[ReaPack] package.
 ReaPack is a popular 3rd-party package manager for REAPER that makes installing add-ons easy and keeps your installation up to date effortlessly.
+
+== System requirements
+
+Please check below system requirements before attempting to install Helgobox!
+
+TIP: A more detailed compatibility table can be found link:https://www.helgoboss.org/projects/helgobox#requirements[here].
+
+[[windows]]
+=== Windows
+
+* You need at least Windows 10
+
+[[macos]]
+=== macOS
+
+* You need at least macOS 10.12 to run ReaLearn
+* You need at least macOS 10.15 to run Playtime
+* For macOS 11 and newer, all below-mentioned installation options should work
+* **For macOS 10.15 and older, installation via installer is not supported.
+You need to install via ReaPack!**
+
+[[linux]]
+=== Linux
+
+* **Installation via installer is not supported.
+You need to install via ReaPack!**
+* Playtime doesn't run on Linux yet!
+* Requires glibc version 2.31 or later (e.g. Ubuntu 20)
+* Requires libxdo.
+You can install it like this:
++
+[source,shell]
+.Debian, Ubuntu
+----
+sudo apt-get install -y libxdo-dev
+----
 
 == Installing Helgobox
 
 Please choose:
 
 [loweralpha]
-. <<just-give-me-helgobox>>
+. <<installer>>
 . <<i-have-reapack>>
 . <<i-want-to-install-reapack>>
 . <<install-without-reapack>>
 
-[[just-give-me-helgobox]]
-=== I don't have ReaPack. Just give me Helgobox 👍
+[[installer]]
+=== I want an installer 👍
 
 For users who don't have ReaPack installed already, there's a **convenient installer** that automatically installs both ReaPack and Helgobox.
 It gets you up and running in no time!
+
+You can use it if you have Windows 10+ or macOS 11+.
 
 Simply press the following link and follow the instructions: link:https://reaboot.com/install/https%3A%2F%2Fraw.githubusercontent.com%2Fhelgoboss%2Fhelgobox%2Fmaster%2Freaboot.json[Install Helgobox]
 
@@ -83,8 +121,7 @@ But the plug-in should be there.
 
 If the plug-in {plugin-name} doesn't appear in the list of plug-ins, please proceed as follows:
 
-. If you are on Linux, make sure that `libxdo` is installed!
-** On Debian/Ubuntu: `sudo apt-get install -y libxdo-dev`
+. If you are on Linux, make sure to follow the <<linux, installation instructions for Linux>>!
 
 . Make sure that Helgobox runs as native plug-in!
 ** By default, each plug-in runs as native plug-in.
