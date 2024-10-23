@@ -190,13 +190,13 @@ impl RealearnTarget for FxParameterTarget {
         }
         match evt {
             CompoundChangeEvent::Reaper(ChangeEvent::FxParameterValueChanged(e))
-            if e.parameter == self.param =>
-                {
-                    (
-                        true,
-                        Some(fx_parameter_absolute_value(&e.parameter, e.new_value)),
-                    )
-                }
+                if e.parameter == self.param =>
+            {
+                (
+                    true,
+                    Some(fx_parameter_absolute_value(&e.parameter, e.new_value)),
+                )
+            }
             CompoundChangeEvent::Additional(
                 AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(e),
             ) if e.parameter == self.param => (
@@ -366,7 +366,7 @@ impl<'a> Target<'a> for RealTimeFxParameterTarget {
             },
             self.retrigger,
         )
-            .0
+        .0
     }
 }
 
@@ -396,10 +396,10 @@ fn determine_param_control_type_and_character(
             (control_type, TargetCharacter::Continuous)
         }
         Some(GetParameterStepSizesResult::Normal {
-                 normal_step,
-                 small_step,
-                 ..
-             }) => {
+            normal_step,
+            small_step,
+            ..
+        }) => {
             // The reported step sizes relate to the reported value range, which is not
             // always the unit interval! Easy to test with JS
             // FX.

@@ -14,8 +14,8 @@ use crate::application::{
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{CompartmentKind, MappingId, Tag};
 use crate::infrastructure::ui::menus;
-use std::fmt::Debug;
 use derivative::Derivative;
+use std::fmt::Debug;
 use strum::IntoEnumIterator;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 

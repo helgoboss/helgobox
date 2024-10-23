@@ -10,7 +10,6 @@ use reaper_high::{FxParameter, Reaper, Track};
 use reaper_medium::{Db, ReaperPanValue, StuffMidiMessageTarget};
 use std::ffi::CString;
 use std::future::Future;
-use swell_ui::Window;
 use FinalSourceFeedbackValue::Midi;
 use MidiSourceValue::{ParameterNumber, Plain};
 
@@ -1456,6 +1455,7 @@ mod macos_impl {
     use std::fs;
     use std::path::PathBuf;
     use swell_ui::View;
+    use swell_ui::Window;
     use xcap::image::{imageops, DynamicImage};
 
     pub async fn take_screenshots() {
