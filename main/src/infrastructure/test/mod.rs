@@ -1,5 +1,4 @@
 use crate::domain::{FinalSourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
-use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
 use crate::infrastructure::plugin::{BackboneShell, NewInstanceOutcome, SET_STATE_PARAM_NAME};
 use approx::assert_abs_diff_eq;
 use base::future_util::millis;
@@ -7,7 +6,7 @@ use base::{Global, SenderToNormalThread};
 use helgoboss_learn::{MidiSourceValue, BASE_EPSILON, FEEDBACK_EPSILON};
 use helgoboss_midi::test_util::*;
 use helgoboss_midi::{DataEntryByteOrder, ParameterNumberMessage, RawShortMessage, ShortMessage};
-use reaper_high::{Fx, FxParameter, Reaper, Track};
+use reaper_high::{FxParameter, Reaper, Track};
 use reaper_medium::{Db, ReaperPanValue, StuffMidiMessageTarget};
 use std::ffi::CString;
 use std::future::Future;
@@ -1457,7 +1456,7 @@ mod macos_impl {
     use std::fs;
     use std::path::PathBuf;
     use swell_ui::View;
-    use xcap::image::{imageops, DynamicImage, RgbaImage};
+    use xcap::image::{imageops, DynamicImage};
 
     pub async fn take_screenshots() {
         // Given

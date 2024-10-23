@@ -5,7 +5,10 @@ use crate::domain::{
 use helgoboss_learn::AbstractTimestamp;
 use reaper_high::Reaper;
 use reaper_low::raw;
-use reaper_medium::{AccelMsg, AccelMsgKind, AcceleratorBehavior, TranslateAccel, TranslateAccelArgs, TranslateAccelResult, AcceleratorKeyCode, virt_keys};
+use reaper_medium::{
+    virt_keys, AccelMsg, AccelMsgKind, AcceleratorBehavior, TranslateAccel, TranslateAccelArgs,
+    TranslateAccelResult,
+};
 use swell_ui::{SharedView, View, Window};
 
 pub trait HelgoboxWindowSnitch {

@@ -279,8 +279,8 @@ impl From<raw::RECT> for Rect {
         Self {
             left: value.left,
             top: value.top,
-            width: (value.right - value.left).abs() as _,
-            height: (value.bottom - value.top).abs() as _,
+            width: (value.right - value.left).unsigned_abs(),
+            height: (value.bottom - value.top).unsigned_abs(),
         }
     }
 }

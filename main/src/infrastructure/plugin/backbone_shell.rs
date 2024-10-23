@@ -72,16 +72,15 @@ use helgobox_api::runtime::{AutoAddedControllerEvent, GlobalInfoEvent};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use reaper_high::{
-    ChangeEvent, CrashInfo, Fx, GroupingBehavior, Guid, MiddlewareControlSurface, Project, Reaper,
-    Track,
+    ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
 };
 use reaper_low::{raw, PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    reaper_str, AccelMsg, AcceleratorPosition, ActionValueChange, CommandId, GangBehavior, Hmenu,
-    HookCustomMenu, HookPostCommand, HookPostCommand2, Hwnd, HwndInfo, HwndInfoType,
-    InputMonitoringMode, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId, ReaProject,
-    ReaperStr, RecordingInput, RegistrationHandle, SectionContext, ToolbarIconMap, WindowContext,
+    reaper_str, AccelMsg, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
+    HookPostCommand, HookPostCommand2, Hwnd, HwndInfo, HwndInfoType, MenuHookFlag,
+    MidiInputDeviceId, MidiOutputDeviceId, ReaProject, ReaperStr, RegistrationHandle,
+    SectionContext, ToolbarIconMap, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -551,30 +550,6 @@ impl BackboneShell {
         static TEMP_DIR: Lazy<Option<TempDir>> =
             Lazy::new(|| tempfile::Builder::new().prefix("realearn-").tempdir().ok());
         TEMP_DIR.as_ref()
-    }
-
-    /// Creates a new track in the given project and adds a new Helgobox instance to it.
-    pub async fn create_new_instance_in_project(
-        project: Project,
-        track_name: &str,
-    ) -> anyhow::Result<NewInstanceOutcome> {
-        let track = project.insert_track_at(0)?;
-        track.set_name(track_name);
-        track.set_recording_input(Some(RecordingInput::Midi {
-            device_id: None,
-            channel: None,
-        }));
-        track.arm(
-            false,
-            GangBehavior::DenyGang,
-            GroupingBehavior::PreventGrouping,
-        );
-        track.set_input_monitoring_mode(
-            InputMonitoringMode::Normal,
-            GangBehavior::DenyGang,
-            GroupingBehavior::PreventGrouping,
-        );
-        Self::create_new_instance_on_track(&track).await
     }
 
     /// Creates a new Helgobox instance on the given track.
@@ -1414,13 +1389,6 @@ impl BackboneShell {
 
     pub fn with_unit_infos<R>(&self, f: impl FnOnce(&[UnitInfo]) -> R) -> R {
         f(&self.unit_infos.borrow())
-    }
-
-    pub fn find_session_by_containing_fx(&self, fx: &Fx) -> Option<SharedUnitModel> {
-        self.find_session(|session| {
-            let session = session.borrow();
-            session.processor_context().containing_fx() == fx
-        })
     }
 
     pub fn register_instance(&self, instance_shell: &SharedInstanceShell) {
@@ -3002,16 +2970,13 @@ pub struct NewInstanceOutcome {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::infrastructure::data::LicenseManager;
-    use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
-    use crate::infrastructure::plugin::BackboneShell;
+    use crate::infrastructure::plugin::{BackboneShell, NewInstanceOutcome};
     use anyhow::Context;
-    use base::future_util::millis;
     use base::metrics_util::{record_duration, record_occurrence};
-    use base::Global;
     use camino::Utf8PathBuf;
     use playtime_api::persistence::PlaytimeSettings;
     use playtime_clip_engine::PlaytimeEngine;
-    use reaper_high::{GroupingBehavior, Reaper};
+    use reaper_high::{GroupingBehavior, Project, Reaper};
     use reaper_medium::{GangBehavior, InputMonitoringMode, RecordingInput};
     use std::fs;
 
@@ -3032,9 +2997,32 @@ mod playtime_impl {
 
     async fn add_and_show_playtime() -> anyhow::Result<()> {
         let project = Reaper::get().current_project();
-        BackboneShell::create_new_instance_in_project(project, "Playtime").await?;
+        create_new_instance_in_project(project, "Playtime").await?;
         enable_playtime_for_first_helgobox_instance_and_show_it()?;
         Ok(())
+    }
+    /// Creates a new track in the given project and adds a new Helgobox instance to it.
+    pub async fn create_new_instance_in_project(
+        project: Project,
+        track_name: &str,
+    ) -> anyhow::Result<NewInstanceOutcome> {
+        let track = project.insert_track_at(0)?;
+        track.set_name(track_name);
+        track.set_recording_input(Some(RecordingInput::Midi {
+            device_id: None,
+            channel: None,
+        }));
+        track.arm(
+            false,
+            GangBehavior::DenyGang,
+            GroupingBehavior::PreventGrouping,
+        );
+        track.set_input_monitoring_mode(
+            InputMonitoringMode::Normal,
+            GangBehavior::DenyGang,
+            GroupingBehavior::PreventGrouping,
+        );
+        BackboneShell::create_new_instance_on_track(&track).await
     }
 
     pub fn init_clip_engine(license_manager: &LicenseManager) {

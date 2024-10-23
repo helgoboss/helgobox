@@ -1,4 +1,3 @@
-use crate::infrastructure::ui::help::SourceTopic::{Category, Learn, Type};
 use derive_more::Display;
 use helgoboss_learn::ModeParameter;
 use include_dir::{include_dir, Dir};
