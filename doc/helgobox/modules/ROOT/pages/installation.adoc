@@ -21,8 +21,8 @@ TIP: A more detailed compatibility table can be found link:https://www.helgoboss
 
 * You need at least macOS 10.12 to run ReaLearn
 * You need at least macOS 10.15 to run Playtime
-* For macOS 11 and newer, all below-mentioned installation options should work
-* **For macOS 10.15 and older, installation via installer is not supported.
+* For macOS 11 and later, all below-mentioned installation options should work
+* **For macOS 10.15 or earlier, installation via installer is not supported.
 You need to install via ReaPack!**
 
 [[linux]]
