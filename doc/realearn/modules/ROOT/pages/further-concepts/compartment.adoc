@@ -305,7 +305,7 @@ Compartment-wide Lua code is part of the compartment, that means it's also saved
 [[virtual-control]]
 == Virtual control
 
-_Virtual control_ make it possible to create <<main-preset,main presets>>
+_Virtual control_ makes it possible to create <<main-preset,main presets>>
 that can be reused with many different xref:key-concepts.adoc#controller[controllers].
 
 The idea is simple:
