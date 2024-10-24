@@ -1,11 +1,9 @@
 = Advanced settings dialog
 
+CAUTION: Expert level!
+
 This dialog allows access to advanced configuration by entering text in the https://en.wikipedia.org/wiki/YAML[YAML] configuration language.
 It can be opened using the xref:user-interface/mapping-panel/top-section.adoc#advanced-settings[] of the mapping panel.
-
-See xref:design-decisions.adoc#decision-advanced-settings-via-yaml[] to learn why this feature exists and why YAML.
-
-WARNING: Expert level!
 
 == The YAML language
 

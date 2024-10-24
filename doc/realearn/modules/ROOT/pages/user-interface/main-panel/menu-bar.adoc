@@ -99,7 +99,7 @@ If you made direct changes to preset files, you should press this to reflect the
 This *will not* apply an adjusted preset to the current compartment, it will just reload the list.
 If you want to apply a preset that has been changed on disk, you need to reload it by selecting it in the preset dropdown once again!
 
-Edit compartment-wide Lua code:::
+[[edit-compartment-wide-lua-code]] Edit compartment-wide Lua code:::
 Allows you to edit the compartment-wide Lua code.
 See section xref:further-concepts/compartment.adoc#compartment-wide-lua-code[].
 

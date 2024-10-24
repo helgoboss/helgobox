@@ -262,7 +262,9 @@ Each compartment may contain arbitrary Luau code to be reused by multiple mappin
 This avoids code duplication and decreases memory usage.
 It even allows the usage of shared state.
 
-The code that you provide here is treated as a module that MIDI source and feedback scripts can import using `require("compartment")`.
+You can set the compartment-wide Lua code using xref:user-interface/main-panel/menu-bar.adoc#edit-compartment-wide-lua-code[].
+
+The code that you provide here is treated as a module that xref:further-concepts/source.adoc#midi-source-script[MIDI source scripts] and xref:further-concepts/glue.adoc#dynamic-feedback[Feedback scripts] can import using `require("compartment")`.
 That means you need to export everything that you want the MIDI source and feedback scripts to see, simply by returning it.
 
 .Compartment-wide Lua code
