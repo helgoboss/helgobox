@@ -1,0 +1,7 @@
+= User interface
+
+.Main screen
+image::playtime/screenshots/main-screen.png[]
+
+.Areas of the main screen
+image::playtime/screenshots/main-screen-areas.png[]

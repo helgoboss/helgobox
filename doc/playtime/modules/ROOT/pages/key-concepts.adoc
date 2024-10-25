@@ -1,0 +1,254 @@
+= Key concepts
+
+This section offers brief descriptions of Playtime's key concepts.
+A solid understanding of these concepts is essential for effectively using Playtime, regardless of which features you plan to utilize.
+
+== Linear vs. non-linear music production
+
+[[linear-production]]
+=== Linear music production
+
+In _linear_ music production, tracks are arranged sequentially along a timeline, supporting structured composition and precise arrangement from start to finish.
+
+[[non-linear-production]]
+=== Non-linear music production
+
+In _non-linear_ music production, such as in jamming and sketching, musical elements are arranged in flexible, often loop-based sections that can be triggered or layered in any order, allowing for spontaneous creativity and experimentation.
+
+Playtime's purpose is to add _non-linear_ music production to REAPER.
+
+[[session-view]]
+== Session view / Clip launcher
+
+A _session view_ or _clip launcher_ is a user interface tailored to <<non-linear-production>> where musical elements are arranged in a grid of rows and columns.
+Each cell typically holds a single musical element, and users can trigger, loop, and record these elements in real time, often for live performance or experimental composition.
+
+Playtime is described as a _session view_.
+
+[[matrix]]
+== Matrix
+
+In Playtime, a _matrix_ is the top-level structure.
+It is fundamentally a two-dimensional grid of <<slot,slots>> that hold <<clip,clips>>, arranged in <<column,columns>> and <<row,rows>>.
+On a broader level, the matrix functions as a container, comparable to a project in REAPER, and includes various settings.
+
+Each xref:realearn::key-concepts.adoc#instance[instance of Helgobox] can load a single Playtime matrix.
+By default, it contains no matrix, so it must be created explicitly.
+This approach ensures that Helgobox instances dedicated solely to xref:realearn::introduction.adoc[ReaLearn] don't consume any Playtime-related CPU or memory resources - you only "pay for what you use".
+
+[[column]]
+== Column
+
+In Playtime, a _column_ refers to a group of <<slot,slots>>, typically arranged vertically.
+
+A column is linked to a <<column-track>>, which is used for playing back the <<clip,clips>> it contains.
+
+TIP: There's one exception: If you load an external matrix preset into Helgobox and an associated column track doesn't exist in the REAPER project, the column will be track-less and unusable for playback.
+In this case, you'll need to manually reassign a track in the xref:user-interface/inspector.adoc[].
+
+By default, only one slot in a column plays at a time, but Playtime also allows for simultaneous playback of multiple slots in the same column.
+
+In practice, each column typically represents a single musical instrument or vocal track.
+
+[[column-track]]
+== Column track
+
+A _column_ track is a normal REAPER track linked to a Playtime <<column>>.
+
+[[row]]
+== Row
+
+Like a <<column>>, a _row_ refers to a group of <<slot,slots>>, but arranged horizontally.
+
+A row is always associated with a <<scene>>, so the terms are often used interchangeably.
+
+In practice, each row often represents a part within a larger song structure.
+
+[[slot]]
+== Slot
+
+In Playtime, a _slot_ is a fixed position in the matrix that can hold <<clip,clips>> and can be played back or stopped.
+Each slot functions as a mini audio player.
+
+Typically, a slot contains a single clip, but Playtime allows multiple clips in a slot to play back simultaneously.
+In such cases, the <<start-stop-timing>> of each individual clip is what determines playback timing.
+The slot itself does not contain any settings.
+
+[[clip]]
+== Clip
+
+In Playtime, a _clip_ is a container that holds a snippet of audio or MIDI, referred to as the <<source>>, and can be configured in various ways.
+It is somewhat comparable to an _item_ in REAPER.
+
+In practice, a clip is often a short, beat-aligned loop.
+
+[[source]]
+== Source
+
+In Playtime, a _source_ represents the raw media data.
+
+Audio source::
+An _audio_ source contains link:https://en.wikipedia.org/wiki/Digital_audio[audio] data.
+Technically, it is not more than a reference to an audio file, e.g. a WAV or MP3 file.
+All audio formats supported by REAPER are also supported by Playtime.
+
+MIDI source::
+A _MIDI_ source contains link:https://en.wikipedia.org/wiki/MIDI[MIDI] data.
+It is typically used to control instruments.
+Technically, it is an in-memory representation of a sequence of MIDI events, similar to REAPER's _in-project MIDI sources_.
+
+[[scene]]
+== Scene
+
+In Playtime, a _scene_ represents a part within a larger song structure, and is in most practical situations the same thing as a <<row>>.
+
+The nice thing about a scene is that it has a play button, which triggers playback of alls <<slot, slots>> in that row.
+
+By default, a _scene_ covers all <<slot,slots>> of the row.
+However, Playtime allows a <<column>> to opt-out from scene playback.
+
+[[matrix-sequence]]
+== Matrix sequence
+
+A _matrix sequence_ is a recording of interactions with the <<matrix>>.
+
+Playtime lets you record matrix interactions into a sequence.
+Each sequence is saved as part of the matrix.
+Later, you can play it back, directly in Playtime.
+
+CAUTION: Matrix sequence playback always uses the current matrix settings, slots and clips for playback.
+Therefore,subsequent playbacks don't necessarily sound the same!
+
+Most importantly, a sequence can be "written down" to a REAPER <<arrangement>> at any time: All clips occurrences are placed on <<column-track, column tracks>> as REAPER items.
+This is often done at the point in the song creation process, when you are satisfied with the sequence and want to transition to linear arranging on the <<reaper-project-timeline>>.
+
+[[arrangement]]
+== Arrangement
+
+In Playtime, an _arrangement_ typically refers to a set of REAPER items on the <<column-track, column tracks>> of the matrix, making it suitable for <<linear-production>>.
+
+An arrangement can be created ...
+
+[loweralpha]
+. ... by writing a <<matrix-sequence>> to the arrangement
+. ... by exporting clips, scenes or the complete matrix to the arrangement
+. ... by placing items there on your own
+
+Playtime is not necessary to play the arrangement back.
+You can share a REAPER project containing an arrangement written via Playtime with someone who doesn't own Playtime, and they will still able to play it back!
+In practice, however, it's recommended to keep Playtime as part of the project, to freely switch between <<session-view>> and <<arrangement>>.
+
+[[clip-start-timing]]
+== Clip start timing
+
+The clip _start timing_ is a configuration property for a <<clip>>.
+Because of its importance, it's mentioned here already as a key concept.
+
+The _start timing_ decides when a clip actually starts to be played back, after you have triggered its playback.
+
+By default, the start timing is *1 bar*, which means that the clip will start playing at the beginning of the next bar.
+This is what makes everything in-sync You can change that to arbitrary <<quantization, quantizations>>, such as *2 quarter notes* or *3 bars*.
+Alternatively,
+
+== Loop vs. one-shot
+
+[[loop]]
+=== Loop
+
+In Playtime, a _loop_ is a <<clip>> that is _looped_, which simply means that it seamlessly repeats after it reached its end.
+
+[[one-shot]]
+=== One-shot
+
+In Playtime a _one-shot_ is a <<clip>> that plays only once, that is, it's not looped.
+
+[[bar]]
+== Bar
+
+A _bar_, also known as a _measure_, is a section of music that contains a specific number of <<beat,beats>>, as defined by the <<time-signature>>.
+It helps organize the music into manageable parts, making it easier for musicians to read and perform.
+For example, in a 4/4 time signature, each bar has four beats.
+
+[[beat]]
+== Beat
+
+A _beat_ is the basic unit of time in music, serving as the rhythmic foundation for a piece.
+It’s what you tap your foot to when listening to a song.
+Beats are grouped together in <<bar,bars>> and can vary in length and speed, creating different feels and tempos in music.
+
+[[time-signature]]
+== Time signature
+
+A _time signature_ in music is a way to show how <<beat, beats>> are grouped in a piece.
+It tells you how many <<beat,beats>> are in each <<bar>> and which type of note gets one beat.
+For example, in a 3/4 time signature, there are three beats per bar, and each beat is a quarter note.
+It helps musicians understand the rhythm and feel of the music.
+
+[[time-signature-nominator]]
+=== Nominator
+
+The top number of a time signature (the *3* in 3/4) is called _nominator_ and shows the number of beats per measure.
+
+[[time-signature-denominator]]
+The bottom number is called (the *4* in 3/4), _denominator_ and shows the type of note that counts as one <<beat>>.
+
+[[in-sync]]
+== In sync
+
+In the context of rhythmical music, _in sync_ means that everything is synchronized and the timing aligns correctly.
+
+When you play <<loop, loops>> in Playtime, you typically want them to be _in sync_ with each other and with all other rhythmical material on the <<timeline, reference timeline>>.
+
+To achieve this synchronization, the following conditions must be met:
+
+. The start and end positions of the <<clip>> must align *precisely* with a musical <<beat>> in the <<source>>.
+. <<Clip>> playback must start exactly on a beat of the <<timeline>>.
+
+When using Playtime's default settings, both conditions are automatically met.
+
+[TIP]
+====
+Concerning the first condition:
+
+* In most cases, you want the start point to align exactly with the downbeat, and the length to be precisely 1 bar (or a multiple of it).
+* If the start point is located between beats or the length falls between bars, the loop will be _out of sync_.
+* By selecting a <<quantization,quantized>> start/stop timing, such as "1 bar", Playtime ensures that your loop's start point and length are perfectly beat-aligned with sample precision!
+* If you choose immediate start/stop timing, it's your responsibility to ensure that the start point and length are musically appropriate.
+However, achieving perfect timing with a button or foot pedal press is close to impossible.
+====
+
+[[quantization]]
+== Quantization
+
+A _quantization_ in Playtime defines when an event should occur, such as the start of clip playback or the stop of a recording.
+It divides the <<timeline>> into equal time intervals, ensuring that the event occurs only at the beginning of each interval.
+
+A quantization is typically expressed as a <<time-signature>>.
+
+.Quantization examples
+====
+
+3/4:: The length of each interval will be 3 quarter notes.
+1/8:: The length of each interval will be 1 eight's note.
+1/1:: The length of each interval will be 1 bar.
+4/1:: The length of each interval will be 4 bars.
+====
+
+[[timeline]]
+== Timeline
+
+In Playtime, a _timeline_ refers to the concept of time divided into bars and beats, featuring a continuously advancing playhead and a current tempo.
+
+One <<matrix>> has exactly one _reference timeline_ at a given point in time.
+<<quantization, Quantized>> events such as start of <<clip>> playback are aligned to this reference timeline.
+
+[[reaper-project-timeline]]
+=== REAPER project timeline
+
+When the REAPER project is playing, Playtime uses the _REAPER project timeline_ as reference.
+That is, it starts and stop playback according to the bar/beat division and tempo of the REAPER project.
+
+[[playtime-timeline]]
+=== Playtime timeline
+
+When the REAPER project is stopped, Playtime uses its own timeline as reference, which however, shares a common tempo with the <<reaper-project-timeline>>.
