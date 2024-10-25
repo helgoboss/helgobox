@@ -15,7 +15,7 @@ In _linear_ music production, tracks are arranged sequentially along a timeline,
 
 In _non-linear_ music production, such as in jamming and sketching, musical elements are arranged in flexible, often loop-based sections that can be triggered or layered in any order, allowing for spontaneous creativity and experimentation.
 
-Playtime's purpose is to add _non-linear_ music production to REAPER.
+Playtime's purpose is to add one popular flavor of _non-linear_ music production to REAPER: Music production via <<session-view>>.
 
 [[session-view]]
 == Session view / Clip launcher
@@ -71,7 +71,7 @@ In Playtime, a _slot_ is a fixed position in the matrix that can hold <<clip,cli
 Each slot functions as a mini audio player.
 
 Typically, a slot contains a single clip, but Playtime allows multiple clips in a slot to play back simultaneously.
-In such cases, the <<start-stop-timing>> of each individual clip is what determines playback timing.
+In such cases, the <<clip-start-timing>> of each individual clip is relevant.
 The slot itself does not contain any settings.
 
 [[clip]]
@@ -100,12 +100,13 @@ Technically, it is an in-memory representation of a sequence of MIDI events, sim
 [[scene]]
 == Scene
 
-In Playtime, a _scene_ represents a part within a larger song structure, and is in most practical situations the same thing as a <<row>>.
+In Playtime, a _scene_ denotes a segment within a larger song structure.
+It corresponds to a <<row>>.
 
-The nice thing about a scene is that it has a play button, which triggers playback of alls <<slot, slots>> in that row.
+Each scene features a play button that triggers playback for all <<slot, slots>> in that row.
 
-By default, a _scene_ covers all <<slot,slots>> of the row.
-However, Playtime allows a <<column>> to opt-out from scene playback.
+By default, a scene encompasses all <<slot, slots>> of the row.
+However, Playtime allows a <<column>> to opt out of scene playback if desired.
 
 [[matrix-sequence]]
 == Matrix sequence
