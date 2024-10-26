@@ -24,6 +24,7 @@ struct EelUnit {
     x: eel::Variable,
     y: eel::Variable,
     y_last: eel::Variable,
+    y_type: eel::Variable,
     rel_time: Option<eel::Variable>,
 }
 
@@ -104,6 +105,7 @@ impl EelTransformation {
         let x = vm.register_variable("x");
         let y = vm.register_variable("y");
         let y_last = vm.register_variable("y_last");
+        let y_type = vm.register_variable("y_type");
         let rel_time_var_name = "rel_time";
         let uses_rel_time = eel_script.contains(rel_time_var_name);
         let rel_time = if uses_rel_time {
@@ -119,6 +121,7 @@ impl EelTransformation {
             x,
             y,
             y_last,
+            y_type,
             rel_time,
         };
         let transformation = EelTransformation {
@@ -143,7 +146,7 @@ impl Transformation for EelTransformation {
         output_value: f64,
         additional_input: AdditionalTransformationInput,
     ) -> Result<TransformationOutput<f64>, &'static str> {
-        let v = unsafe {
+        let (raw_output, raw_output_type) = unsafe {
             use OutputVariable::*;
             let eel_unit = &*self.eel_unit;
             let (input_var, output_var) = match self.output_var {
@@ -157,26 +160,28 @@ impl Transformation for EelTransformation {
                 rel_time_var.set(input.meta_data.rel_time.as_millis() as _);
             }
             eel_unit.program.execute();
-            output_var.get()
+            (output_var.get(), self.eel_unit.y_type.get())
         };
-        let (out_val, instruction) = if v == STOP {
+        let (out_val, instruction) = if raw_output == STOP {
             // Stop only
             (None, Some(TransformationInstruction::Stop))
-        } else if v == NONE {
+        } else if raw_output == NONE {
             // Neither control nor stop
             (None, None)
-        } else if (CONTROL_AND_STOP_MAGIC..=CONTROL_AND_STOP_MAGIC + 1.0).contains(&v) {
+        } else if (CONTROL_AND_STOP_MAGIC..=CONTROL_AND_STOP_MAGIC + 1.0).contains(&raw_output) {
             // Both control and stop
             (
-                Some(v - CONTROL_AND_STOP_MAGIC),
+                Some(raw_output - CONTROL_AND_STOP_MAGIC),
                 Some(TransformationInstruction::Stop),
             )
         } else {
             // Control only
-            (Some(v), None)
+            (Some(raw_output), None)
         };
+        let raw_output_type = raw_output_type.round() as u8;
+        let produced_kind = ControlValueKind::try_from(raw_output_type).unwrap_or_default();
         let output = TransformationOutput {
-            produced_kind: ControlValueKind::AbsoluteContinuous,
+            produced_kind,
             value: out_val,
             instruction,
         };
