@@ -2373,9 +2373,18 @@ impl HwndInfo for BackboneShell {
         // Continue if no special SPACE handling invoked
         match info_type {
             HwndInfoType::IsTextField => {
-                if !cfg!(windows) {
-                    return IGNORE;
+                let window = Window::from_hwnd(hwnd);
+                // Check if egui App window is in text entry mode.
+                if let Some(realearn_view) =
+                    BackboneHelgoboxWindowSnitch.find_closest_realearn_view(window)
+                {
+                    if realearn_view.wants_raw_keyboard_input() {
+                        // We are in an egui app. Let's just always assume it's in text entry mode. In practice,
+                        // this is mostly the case. https://github.com/helgoboss/helgobox/issues/1288
+                        return PASS_TO_WINDOW;
+                    }
                 }
+                // Check if Helgobox App window is in text entry mode.
                 // This one is only necessary on Windows, see https://github.com/helgoboss/helgobox/issues/1083.
                 // REAPER detected a global hotkey press while having a child window focused. It wants to know whether
                 // this child window is currently in text-entry mode, in which case it would NOT execute the action
@@ -2384,10 +2393,13 @@ impl HwndInfo for BackboneShell {
                 // Flutter essentially just uses one big HWND on windows ... text fields are not different HWNDs and
                 // therefore not identifiable as text field (via Window classes "Edit", "RichEdit" etc.).
                 // When we end up here, we are on Windows (for macOS, the hook is not registered).
-                let Some(parent_window) = Window::from_hwnd(hwnd).parent() else {
+                // The queried window has a parent
+                if !cfg!(windows) {
+                    return IGNORE;
+                }
+                let Some(parent_window) = window.parent() else {
                     return IGNORE;
                 };
-                // The queried window has a parent
                 match app_window_is_in_text_entry_mode(parent_window.raw_hwnd()) {
                     None => {
                         // Probably not a Helgobox App window
