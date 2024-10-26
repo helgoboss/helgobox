@@ -6,7 +6,8 @@ use egui::plot::{Legend, MarkerShape, Plot, Points, VLine};
 use egui::{CentralPanel, Color32, RichText, ScrollArea, Ui};
 use egui::{Context, SidePanel, TextEdit};
 use helgoboss_learn::{
-    TransformationInput, TransformationInputMetaData, TransformationOutput, UnitValue,
+    ControlValue, TransformationInput, TransformationInputMetaData, TransformationInstruction,
+    TransformationOutput, UnitValue,
 };
 use std::ptr;
 use std::sync::{Arc, Mutex};
@@ -150,20 +151,21 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
         // plot_ui.set_plot_bounds(PlotBounds::from_min_max([0.0, 0.0], [1.0, 1.0]));
         for e in &build_outcome.plot_entries {
             x = e.input;
-            prev_y = match e.output {
-                TransformationOutput::None => {
+            let unit_output_value = e.output.value.and_then(|v| v.to_unit_value().ok());
+            prev_y = match (unit_output_value, e.output.instruction) {
+                (None, None) => {
                     none_points.push([x, prev_y]);
                     prev_y
                 }
-                TransformationOutput::Control(v) => {
+                (Some(v), None) => {
                     normal_points.push([x, v.get()]);
                     v.get()
                 }
-                TransformationOutput::ControlAndStop(v) => {
+                (Some(v), Some(TransformationInstruction::Stop)) => {
                     stop_points.push([x, v.get()]);
                     v.get()
                 }
-                TransformationOutput::Stop => {
+                (None, Some(TransformationInstruction::Stop)) => {
                     stop_points.push([x, prev_y]);
                     prev_y
                 }
@@ -225,7 +227,7 @@ struct BuildOutcome {
 #[derive(Debug)]
 struct PlotEntry {
     input: f64,
-    output: TransformationOutput<UnitValue>,
+    output: TransformationOutput<ControlValue>,
 }
 
 #[derive(Derivative)]
@@ -270,9 +272,9 @@ impl Toolbox {
                         },
                     );
                     let additional_input = AdditionalTransformationInput { y_last: 0.0 };
-                    let output = match script.evaluate(input, prev_y, additional_input).ok() {
-                        None => continue,
-                        Some(e) => e,
+                    let Some(output) = script.evaluate(input, prev_y, additional_input).ok() else {
+                        // No sample for that point
+                        continue;
                     };
                     let entry = PlotEntry {
                         input: if uses_time {
@@ -282,11 +284,11 @@ impl Toolbox {
                         },
                         output,
                     };
-                    if let Some(v) = output.value() {
+                    if let Some(v) = output.value.and_then(|v| v.to_unit_value().ok()) {
                         prev_y = v;
                     }
                     plot_entries.push(entry);
-                    if output.is_stop() {
+                    if output.instruction == Some(TransformationInstruction::Stop) {
                         break;
                     }
                 }

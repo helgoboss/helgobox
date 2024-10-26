@@ -1,5 +1,8 @@
 use crate::base::eel;
-use helgoboss_learn::{Transformation, TransformationInput, TransformationOutput, UnitValue};
+use helgoboss_learn::{
+    ControlValue, ControlValueKind, Transformation, TransformationInput, TransformationInstruction,
+    TransformationOutput, UnitValue,
+};
 use std::os::raw::c_void;
 
 use reaper_medium::reaper_str;
@@ -38,7 +41,7 @@ pub trait Script {
         input: TransformationInput<UnitValue>,
         output_value: UnitValue,
         additional_input: AdditionalTransformationInput,
-    ) -> Result<TransformationOutput<UnitValue>, &'static str>;
+    ) -> Result<TransformationOutput<ControlValue>, &'static str>;
 }
 
 impl Script for () {
@@ -51,7 +54,7 @@ impl Script for () {
         input: TransformationInput<UnitValue>,
         output_value: UnitValue,
         additional_input: AdditionalTransformationInput,
-    ) -> Result<TransformationOutput<UnitValue>, &'static str> {
+    ) -> Result<TransformationOutput<ControlValue>, &'static str> {
         let _ = (input, output_value, additional_input);
         Err("not supported")
     }
@@ -76,7 +79,7 @@ impl Script for EelTransformation {
         input: TransformationInput<UnitValue>,
         output_value: UnitValue,
         additional_input: AdditionalTransformationInput,
-    ) -> Result<TransformationOutput<UnitValue>, &'static str> {
+    ) -> Result<TransformationOutput<ControlValue>, &'static str> {
         self.transform_continuous(input, output_value, additional_input)
     }
 }
@@ -156,14 +159,26 @@ impl Transformation for EelTransformation {
             eel_unit.program.execute();
             output_var.get()
         };
-        let output = if v == STOP {
-            TransformationOutput::Stop
+        let (out_val, instruction) = if v == STOP {
+            // Stop only
+            (None, Some(TransformationInstruction::Stop))
         } else if v == NONE {
-            TransformationOutput::None
+            // Neither control nor stop
+            (None, None)
         } else if (CONTROL_AND_STOP_MAGIC..=CONTROL_AND_STOP_MAGIC + 1.0).contains(&v) {
-            TransformationOutput::ControlAndStop(v - CONTROL_AND_STOP_MAGIC)
+            // Both control and stop
+            (
+                Some(v - CONTROL_AND_STOP_MAGIC),
+                Some(TransformationInstruction::Stop),
+            )
         } else {
-            TransformationOutput::Control(v)
+            // Control only
+            (Some(v), None)
+        };
+        let output = TransformationOutput {
+            produced_kind: ControlValueKind::AbsoluteContinuous,
+            value: out_val,
+            instruction,
         };
         Ok(output)
     }
