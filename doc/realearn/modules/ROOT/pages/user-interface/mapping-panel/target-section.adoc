@@ -99,28 +99,6 @@ In other words, it never switches the property on for other tracks.
 Within folder (on only):: Variation of _Within folder_ that applies exclusivity only when switching the property on for this track.
 In other words, it never switches the property on for other tracks.
 
-== Common elements for send targets
-
-Only available for targets that work on a send/receive.
-
-=== Kind menu
-
-The kind of send/receive that you want to control.
-
-Send:: Send from the track above to another track of your choice.
-If you choose xref:further-concepts/target.adoc#particular-selector[], ReaLearn will memorize the ID of the destination track.
-That way you will still control the correct send even if you delete another send in that track.
-
-Receive:: Receive from another track of your choice to the track above (opposite direction of send).
-If you choose the xref:further-concepts/target.adoc#particular-selector[] selector, ReaLearn will memorize the ID of the source track.
-
-Output:: Send from the track above to a hardware output.
-Please note that with hardware outputs, xref:further-concepts/target.adoc#particular-selector[] is the same as xref:further-concepts/target.adoc#at-position-selector[] because hardware outputs don't have unique IDs.
-
-=== Send/Receive/Output section
-
-This lets you choose the actual send/receive/output.
-
 == Common elements for FX targets
 
 The following elements and selectors are available for targets associated with a particular FX instance.

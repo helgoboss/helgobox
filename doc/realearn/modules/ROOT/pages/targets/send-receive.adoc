@@ -1,2 +1,42 @@
-
 = Send/receive targets
+
+The following UI elements are available for all targets that require a send/receive.
+
+[[kind]]
+== Kind menu
+
+The kind of send/receive that you want to control.
+
+[[send]] Send:: Send from the track above to another track of your choice.
+
+[[receive]] Receive:: Receive from another track of your choice to the track above (opposite direction of send).
+
+[[output]] Output:: Send from the track to a hardware output.
+
+== Send/Receive/Output section
+
+This lets you choose the actual send/receive/output.
+
+The meaning of xref:further-concepts/target.adoc#particular-selector[] and xref:further-concepts/target.adoc#named-selector[] depends on which kind you have selected:
+
+For kinds <<send>> (or <<receive>>)::
+
+xref:further-concepts/target.adoc#particular-selector[]:::
+ReaLearn will memorize the _ID_ of the destination track (or source track).
+That way you will still control the correct send (or receive) even if you delete another send (receive) in that track.
++
+WARNING: If you have multiple sends to (or receives from) the same destination (or source) track, you will only be able to address the first one.
+In that case, use selector xref:further-concepts/target.adoc#at-position-selector[] instead.
+
+xref:further-concepts/target.adoc#named-selector[]:::
+ReaLearn will memorize the _name_ of the destination (or source) track.
+That way you will still control the correct send (receive) even if you delete another send (receive) in that track.
++
+WARNING: If you have multiple sends to (or receives from) the same destination (or source) track, you will only be able to address the first one.
+In that case, use selector xref:further-concepts/target.adoc#at-position-selector[] instead.
+
+For kind <<output>>::
+
+xref:further-concepts/target.adoc#particular-selector[]:::
+ReaLearn will memorize the _position_ of the hardware output because hardware outputs don't have unique IDs.
+In other words, this works just like xref:further-concepts/target.adoc#at-position-selector[] internally!
