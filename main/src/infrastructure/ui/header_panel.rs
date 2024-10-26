@@ -928,13 +928,14 @@ impl HeaderPanel {
                 menu(
                     "ReaLearn",
                     vec![
+                        item("Helgobox Wiki (online)", HelpMenuAction::OpenHelgoboxWiki),
                         item(
-                            "User guide for this version (PDF, offline)",
-                            HelpMenuAction::OpenRealearnOfflineUserGuide,
+                            "ReaLearn Reference for this version (PDF, offline)",
+                            HelpMenuAction::OpenRealearnOfflineReference,
                         ),
                         item(
-                            "User guide for latest version (HTML, online)",
-                            HelpMenuAction::OpenRealearnOnlineUserGuide,
+                            "ReaLearn Reference for latest version (online)",
+                            HelpMenuAction::OpenRealearnOnlineReference,
                         ),
                         item(
                             "List of controllers",
@@ -955,8 +956,9 @@ impl HeaderPanel {
             .open_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
         match result {
-            HelpMenuAction::OpenRealearnOfflineUserGuide => self.open_realearn_user_guide_offline(),
-            HelpMenuAction::OpenRealearnOnlineUserGuide => self.open_realearn_user_guide_online(),
+            HelpMenuAction::OpenRealearnOfflineReference => self.open_realearn_reference_offline(),
+            HelpMenuAction::OpenRealearnOnlineReference => self.open_realearn_reference_online(),
+            HelpMenuAction::OpenHelgoboxWiki => self.open_helgobox_wiki(),
             HelpMenuAction::OpenRealearnControllerList => self.open_realearn_controller_list(),
             HelpMenuAction::OpenRealearnForum => self.open_realearn_forum(),
             HelpMenuAction::ContactDeveloper => self.contact_developer(),
@@ -2556,7 +2558,7 @@ impl HeaderPanel {
         BackboneShell::get().log_debug_info(session.unit_key());
     }
 
-    fn open_realearn_user_guide_offline(&self) {
+    fn open_realearn_reference_offline(&self) {
         let user_guide_pdf =
             BackboneShell::realearn_data_dir_path().join("doc/realearn-user-guide.pdf");
         if open::that(user_guide_pdf).is_err() {
@@ -2567,14 +2569,16 @@ impl HeaderPanel {
         }
     }
 
-    fn open_realearn_user_guide_online(&self) {
-        open_in_browser(
-            "https://github.com/helgoboss/helgobox/blob/master/doc/realearn-user-guide.adoc",
-        );
+    fn open_realearn_reference_online(&self) {
+        open_in_browser("https://docs.helgoboss.org/realearn");
+    }
+
+    fn open_helgobox_wiki(&self) {
+        open_in_browser("https://github.com/helgoboss/helgobox/wiki");
     }
 
     fn open_realearn_controller_list(&self) {
-        open_in_browser("https://github.com/helgoboss/helgobox/blob/master/doc/controllers.adoc");
+        open_in_browser("https://github.com/helgoboss/helgobox/wiki/ReaLearn-Controllers");
     }
 
     fn donate(&self) {
@@ -3159,8 +3163,9 @@ enum MainMenuAction {
 }
 
 enum HelpMenuAction {
-    OpenRealearnOfflineUserGuide,
-    OpenRealearnOnlineUserGuide,
+    OpenRealearnOfflineReference,
+    OpenRealearnOnlineReference,
+    OpenHelgoboxWiki,
     OpenRealearnControllerList,
     OpenRealearnForum,
     OpenRealearnWebsite,
