@@ -7324,6 +7324,10 @@ impl View for MappingPanel {
         if self.is_invoked_programmatically() {
             return false;
         }
+        if self.session().try_borrow_mut().is_err() {
+            // This happens e.g. when the edit control had focus while removing the mapping.
+            return false;
+        }
         let view = self.clone();
         self.handle_potential_min_max_edit_control_change(resource_id);
         // This is also called when the window is hidden.
