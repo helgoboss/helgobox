@@ -1843,6 +1843,7 @@ impl HeaderPanel {
     fn update_compartment(&self, compartment: CompartmentKind) {
         let mut main_state = self.main_state.borrow_mut();
         main_state.stop_filter_learning();
+        main_state.clear_all_filters();
         main_state.active_compartment.set(compartment);
     }
 
