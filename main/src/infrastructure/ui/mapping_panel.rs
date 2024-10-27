@@ -687,10 +687,12 @@ impl MappingPanel {
                 let control_element_type =
                     mapping.borrow().target_model.control_element_character();
                 let window = self.view.require_window();
-                let text = prompt_for_predefined_control_element_name(
+                let text = pick_virtual_control_element(
                     window,
                     control_element_type,
                     &HashMap::default(),
+                    true,
+                    true,
                 )
                 .ok_or("nothing picked")?;
                 let element_id = text.parse().unwrap_or_default();
@@ -819,8 +821,15 @@ impl MappingPanel {
     }
 
     fn handle_source_line_4_button_press(&self) -> Result<(), &'static str> {
-        let mapping = self.displayed_mapping().ok_or("no mapping set")?;
-        let control_element_type = mapping.borrow().source_model.control_element_character();
+        let (control_element_type, control_enabled, feedback_enabled) = {
+            let m = self.displayed_mapping().ok_or("no mapping set")?;
+            let m = m.borrow();
+            (
+                m.source_model.control_element_character(),
+                m.control_is_enabled(),
+                m.feedback_is_enabled(),
+            )
+        };
         let window = self.view.require_window();
         let controller_mappings: Vec<_> = {
             let session = self.session();
@@ -832,10 +841,12 @@ impl MappingPanel {
         };
         let grouped_mappings =
             group_mappings_by_virtual_control_element(controller_mappings.iter());
-        let text = prompt_for_predefined_control_element_name(
+        let text = pick_virtual_control_element(
             window,
             control_element_type,
             &grouped_mappings,
+            control_enabled,
+            feedback_enabled,
         )
         .ok_or("nothing picked")?;
         let control_element_id = text.parse().unwrap_or_default();
@@ -7750,35 +7761,63 @@ fn osc_arg_indexes() -> impl Iterator<Item = (isize, String)> {
     iter::once((-1isize, "-".to_string())).chain((0..9).map(|i| (i as isize, (i + 1).to_string())))
 }
 
-fn prompt_for_predefined_control_element_name(
+fn pick_virtual_control_element(
     window: Window,
     character: VirtualControlElementCharacter,
     grouped_mappings: &NonCryptoHashMap<VirtualControlElement, Vec<&SharedMapping>>,
+    for_control: bool,
+    for_feedback: bool,
 ) -> Option<String> {
     let pure_menu = {
         use swell_ui::menu_tree::*;
-        let daw_control_names = match character {
-            VirtualControlElementCharacter::Multi => {
-                control_element_domains::daw::PREDEFINED_VIRTUAL_MULTI_NAMES
-            }
-            VirtualControlElementCharacter::Button => {
-                control_element_domains::daw::PREDEFINED_VIRTUAL_BUTTON_NAMES
-            }
+        let daw_control_names: Vec<_> =
+            control_element_domains::daw::PREDEFINED_VIRTUAL_BUTTON_NAMES
+                .iter()
+                .chain(control_element_domains::daw::PREDEFINED_VIRTUAL_MULTI_NAMES.iter())
+                .map(|e| *e)
+                .collect();
+        let grid_control_names: Vec<_> =
+            control_element_domains::grid::PREDEFINED_VIRTUAL_BUTTON_NAMES
+                .iter()
+                .chain(control_element_domains::grid::PREDEFINED_VIRTUAL_MULTI_NAMES.iter())
+                .map(|e| *e)
+                .collect();
+
+        let include_actual_element = |mappings: &[&SharedMapping]| -> bool {
+            mappings.iter().any(|m| {
+                let m = m.borrow();
+                if !m.is_enabled() {
+                    return false;
+                }
+                if for_control && !m.control_is_enabled() {
+                    return false;
+                }
+                if for_feedback && !m.feedback_is_enabled() {
+                    return false;
+                }
+                true
+            })
         };
-        let grid_control_names = match character {
-            VirtualControlElementCharacter::Multi => {
-                control_element_domains::grid::PREDEFINED_VIRTUAL_MULTI_NAMES
-            }
-            VirtualControlElementCharacter::Button => {
-                control_element_domains::grid::PREDEFINED_VIRTUAL_BUTTON_NAMES
-            }
-        };
+        let currently_available_elements: Vec<_> = grouped_mappings
+            .iter()
+            .filter(|(e, mappings)| match e {
+                VirtualControlElement::Indexed { id, character: ch } => {
+                    *ch == character && include_actual_element(mappings)
+                }
+                VirtualControlElement::Named { id, character } => include_actual_element(mappings),
+            })
+            .map(|(e, _)| e.id().to_string())
+            .collect();
         let entries = vec![
             menu(
-                "DAW control",
-                build_slash_menu_entries(daw_control_names, ""),
+                "<Currently available>",
+                build_slash_menu_entries(&currently_available_elements, ""),
             ),
-            menu("Grid", build_slash_menu_entries(grid_control_names, "")),
+            menu(
+                "DAW control",
+                build_slash_menu_entries(&daw_control_names, ""),
+            ),
+            menu("Grid", build_slash_menu_entries(&grid_control_names, "")),
             menu(
                 "Numbered",
                 chunked_number_menu(100, 10, true, |i| {
@@ -8062,13 +8101,14 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
 }
 
 fn build_slash_menu_entries(
-    names: &[&str],
+    names: &[impl AsRef<str>],
     prefix: &str,
 ) -> Vec<swell_ui::menu_tree::Entry<String>> {
     use swell_ui::menu_tree::*;
     let mut entries = Vec::new();
     for (key, group) in &names
         .iter()
+        .map(|e| e.as_ref())
         .sorted()
         .group_by(|name| extract_first_segment(name))
     {
@@ -8080,7 +8120,7 @@ fn build_slash_menu_entries(
                 } else {
                     format!("{prefix}/{name}")
                 };
-                entries.push(item(*name, full_name));
+                entries.push(item(name, full_name));
             }
         } else {
             // A nested entry (menu).
