@@ -7801,10 +7801,10 @@ fn pick_virtual_control_element(
         let currently_available_elements: Vec<_> = grouped_mappings
             .iter()
             .filter(|(e, mappings)| match e {
-                VirtualControlElement::Indexed { id, character: ch } => {
+                VirtualControlElement::Indexed { character: ch, .. } => {
                     *ch == character && include_actual_element(mappings)
                 }
-                VirtualControlElement::Named { id, character } => include_actual_element(mappings),
+                VirtualControlElement::Named { .. } => include_actual_element(mappings),
             })
             .map(|(e, _)| e.id().to_string())
             .collect();
