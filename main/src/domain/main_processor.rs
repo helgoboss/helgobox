@@ -5,9 +5,9 @@ use crate::domain::{
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
     ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry, ControlLogEntryKind,
     ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent, DomainEventHandler,
-    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations,
-    FeedbackLogEntry, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
-    FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
+    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCause, FeedbackCollector,
+    FeedbackDestinations, FeedbackLogEntry, FeedbackOutput, FeedbackRealTimeTask,
+    FeedbackResolution, FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
     GlobalControlAndFeedbackState, GroupId, HitInstructionContext, HitInstructionResponse,
     InstanceId, InternalInfoEvent, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
     MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
@@ -394,8 +394,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics.send_direct_source_feedback(
             feedback_output,
             FeedbackReason::FinallySwitchOffSource,
+            FeedbackCause::Normal,
             feedback_value,
-            false,
         );
     }
 
@@ -3563,15 +3563,15 @@ impl<EH: DomainEventHandler> Basics<EH> {
         let with_source_feedback =
             self.instance_feedback_is_effectively_enabled() && mapping_feedback_is_effectively_on;
         let logger = self.source_feedback_logger(m.qualified_id());
-        let feedback_value = m
-            .feedback_entry_point(
+        let feedback_value = m.feedback_entry_point(
+            FeedbackDestinations {
                 with_projection_feedback,
                 with_source_feedback,
-                new_target_value,
-                self.control_context(m.compartment()),
-                logger,
-            )
-            .map(CompoundFeedbackValue::normal);
+            },
+            new_target_value,
+            self.control_context(m.compartment()),
+            logger,
+        );
         self.send_feedback(
             mappings_with_virtual_targets,
             FeedbackReason::Normal,
@@ -3741,6 +3741,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                     },
                                     self.source_context(m.compartment()),
                                     self.source_feedback_logger(m.qualified_id()),
+                                    feedback_value.cause,
                                 );
                                 if let Some(SpecificCompoundFeedbackValue::Real(
                                     preliminary_feedback_value,
@@ -3752,8 +3753,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                     {
                                         self.send_direct_feedback(
                                             feedback_reason,
+                                            feedback_value.cause,
                                             final_feedback_value,
-                                            feedback_value.is_feedback_after_control,
                                         );
                                     }
                                 }
@@ -3767,8 +3768,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     {
                         self.send_direct_feedback(
                             feedback_reason,
+                            feedback_value.cause,
                             final_feedback_value,
-                            feedback_value.is_feedback_after_control,
                         );
                     }
                 }
@@ -3776,18 +3777,18 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
         // Send special collected feedback
         for final_feedback_value in feedback_collector.generate_final_feedback_values() {
-            self.send_direct_feedback(feedback_reason, final_feedback_value, false);
+            self.send_direct_feedback(feedback_reason, FeedbackCause::Normal, final_feedback_value);
         }
     }
 
     pub fn send_direct_source_feedback(
         &self,
-        feedback_output: FeedbackOutput,
-        feedback_reason: FeedbackReason,
+        output: FeedbackOutput,
+        reason: FeedbackReason,
+        cause: FeedbackCause,
         source_feedback_value: FinalSourceFeedbackValue,
-        is_feedback_after_control: bool,
     ) {
-        if feedback_reason.is_reset_because_of_source_release()
+        if reason.is_reset_because_of_source_release()
             && !self.settings.reset_feedback_when_releasing_source
         {
             return;
@@ -3805,13 +3806,13 @@ impl<EH: DomainEventHandler> Basics<EH> {
             // send because that's sort of the point of this feature. If it's a source-takeover, we
             // also need to send because we don't know what the other instance sent before that
             // (https://github.com/helgoboss/helgobox/issues/727).
-            if !is_feedback_after_control
-                && feedback_reason != FeedbackReason::TakeOverSource
+            if cause != FeedbackCause::FeedbackAfterControl
+                && reason != FeedbackReason::TakeOverSource
                 && Some(checksum) == previous_checksum
             {
                 trace!(
                     "Block feedback because duplicate (reason: {:?}): {:?}",
-                    feedback_reason,
+                    reason,
                     source_feedback_value
                 );
                 return;
@@ -3819,7 +3820,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
         trace!(
             "Schedule sending feedback because {:?}: {:?}",
-            feedback_reason,
+            reason,
             source_feedback_value
         );
         if let Some(test_sender) = self.channels.integration_test_feedback_sender.as_ref() {
@@ -3828,14 +3829,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
             test_sender.send_if_space(source_feedback_value);
         } else {
             // Production
-            match (source_feedback_value, feedback_output) {
+            match (source_feedback_value, output) {
                 (FinalSourceFeedbackValue::Midi(v), FeedbackOutput::Midi(midi_output)) => {
                     match midi_output {
                         MidiDestination::FxOutput => {
                             if self.settings.real_output_logging_enabled {
                                 log_real_feedback_output(
                                     self.unit_id,
-                                    feedback_reason,
+                                    reason,
                                     format_midi_source_value(&v),
                                 );
                             }
@@ -3857,7 +3858,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             if self.settings.real_output_logging_enabled {
                                 log_real_feedback_output(
                                     self.unit_id,
-                                    feedback_reason,
+                                    reason,
                                     format_midi_source_value(&v),
                                 );
                             }
@@ -3871,11 +3872,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 }
                 (FinalSourceFeedbackValue::Osc(msg), FeedbackOutput::Osc(dev_id)) => {
                     if self.settings.real_output_logging_enabled {
-                        log_real_feedback_output(
-                            self.unit_id,
-                            feedback_reason,
-                            format_osc_message(&msg),
-                        );
+                        log_real_feedback_output(self.unit_id, reason, format_osc_message(&msg));
                     }
                     self.channels
                         .osc_feedback_task_sender
@@ -3891,16 +3888,12 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
     fn send_direct_feedback(
         &self,
-        feedback_reason: FeedbackReason,
-        feedback_value: FinalRealFeedbackValue,
-        is_feedback_after_control: bool,
+        reason: FeedbackReason,
+        cause: FeedbackCause,
+        value: FinalRealFeedbackValue,
     ) {
-        self.send_direct_device_feedback(
-            feedback_reason,
-            feedback_value.source,
-            is_feedback_after_control,
-        );
-        self.send_direct_projection_feedback(feedback_value.projection);
+        self.send_direct_device_feedback(reason, cause, value.source);
+        self.send_direct_projection_feedback(value.projection);
     }
 
     fn send_direct_projection_feedback(&self, feedback_value: Option<ProjectionFeedbackValue>) {
@@ -3914,19 +3907,18 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
     fn send_direct_device_feedback(
         &self,
-        feedback_reason: FeedbackReason,
-        feedback_value: Option<FinalSourceFeedbackValue>,
-        is_feedback_after_control: bool,
+        reason: FeedbackReason,
+        cause: FeedbackCause,
+        value: Option<FinalSourceFeedbackValue>,
     ) {
-        if !feedback_reason.is_always_allowed() && !self.instance_feedback_is_effectively_enabled()
-        {
+        if !reason.is_always_allowed() && !self.instance_feedback_is_effectively_enabled() {
             return;
         }
         if let Some(feedback_output) = self.settings.feedback_output {
-            if let Some(source_feedback_value) = feedback_value {
+            if let Some(source_feedback_value) = value {
                 // At this point we can be sure that this mapping can't have a
                 // virtual source.
-                if feedback_reason.is_source_release() {
+                if reason.is_source_release() {
                     // Possible interference with other instances. Don't switch off yet!
                     // Give other instances the chance to take over.
                     let event = UnitOrchestrationEvent::SourceReleased(SourceReleasedEvent {
@@ -3941,9 +3933,9 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     // Send feedback right now.
                     self.send_direct_source_feedback(
                         feedback_output,
-                        feedback_reason,
+                        reason,
+                        cause,
                         source_feedback_value,
-                        is_feedback_after_control,
                     );
                 }
             }

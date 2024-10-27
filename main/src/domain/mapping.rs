@@ -28,6 +28,7 @@ use std::cell::Cell;
 
 use crate::domain::unresolved_reaper_target::UnresolvedReaperTargetDef;
 use base::hash_util::{NonCryptoHashSet, NonCryptoIndexMap, NonCryptoIndexSet};
+use helgobox_api::persistence::FeedbackBehavior;
 use playtime_api::persistence::{ColumnAddress, RowAddress, SlotAddress};
 use reaper_high::{Fx, Project, Track, TrackRoute};
 use reaper_medium::MidiInputDeviceId;
@@ -1078,8 +1079,20 @@ impl MainMapping {
         new_target_value: Option<AbsoluteValue>,
         control_context: ControlContext,
     ) -> Option<CompoundFeedbackValue> {
-        self.feedback_entry_point(true, true, new_target_value, control_context, NoopLogger)
-            .map(CompoundFeedbackValue::normal)
+        let value = self.feedback_entry_point(
+            FeedbackDestinations {
+                with_projection_feedback: true,
+                with_source_feedback: true,
+            },
+            new_target_value,
+            control_context,
+            NoopLogger,
+        )?;
+        let compound_value = CompoundFeedbackValue {
+            value: value.value,
+            cause: FeedbackCause::ManualFeedbackBecauseOfTarget,
+        };
+        Some(compound_value)
     }
 
     /// Returns `None` when used on mappings with virtual targets.
@@ -1089,13 +1102,14 @@ impl MainMapping {
         context: ControlContext,
     ) -> Option<CompoundFeedbackValue> {
         self.feedback_entry_point(
-            with_projection_feedback,
-            true,
+            FeedbackDestinations {
+                with_projection_feedback,
+                with_source_feedback: true,
+            },
             self.current_aggregated_target_value(context),
             context,
             NoopLogger,
         )
-        .map(CompoundFeedbackValue::normal)
     }
 
     /// This is the primary entry point to feedback!
@@ -1103,12 +1117,11 @@ impl MainMapping {
     /// Returns `None` when used on mappings with virtual targets.
     pub fn feedback_entry_point(
         &self,
-        with_projection_feedback: bool,
-        with_source_feedback: bool,
+        destinations: FeedbackDestinations,
         combined_target_value: Option<AbsoluteValue>,
         control_context: ControlContext,
         logger: impl SourceFeedbackLogger,
-    ) -> Option<SpecificCompoundFeedbackValue> {
+    ) -> Option<CompoundFeedbackValue> {
         // - We shouldn't ask the source if it wants the given numerical feedback value or a textual
         //   value because a virtual source wouldn't know! Even asking a real source wouldn't make
         //   much sense because real sources could be capable of processing both numerical and
@@ -1126,22 +1139,23 @@ impl MainMapping {
             let style = self.core.mode.feedback_style(&prop_provider);
             FeedbackValue::Numeric(NumericFeedbackValue::new(style, combined_target_value?))
         };
-        let source_feedback_is_okay = if self.core.options.feedback_send_behavior
-            == FeedbackSendBehavior::PreventEchoFeedback
-        {
-            !self.core.is_echo()
+        let cause = if self.core.is_echo() {
+            FeedbackCause::Echo
         } else {
-            true
+            FeedbackCause::Normal
         };
-        self.feedback_given_target_value(
+        let specific_compound_value = self.feedback_given_target_value(
             Cow::Owned(feedback_value),
-            FeedbackDestinations {
-                with_projection_feedback,
-                with_source_feedback: with_source_feedback && source_feedback_is_okay,
-            },
+            destinations,
             control_context.source_context,
             logger,
-        )
+            cause,
+        )?;
+        let compound_value = CompoundFeedbackValue {
+            value: specific_compound_value,
+            cause,
+        };
+        Some(compound_value)
     }
 
     pub fn current_aggregated_target_value(
@@ -1171,7 +1185,9 @@ impl MainMapping {
         destinations: FeedbackDestinations,
         source_context: RealearnSourceContext,
         logger: impl SourceFeedbackLogger,
+        cause: FeedbackCause,
     ) -> Option<SpecificCompoundFeedbackValue> {
+        let destinations = destinations.resolve(cause, self.core.options.feedback_send_behavior);
         let options = ModeFeedbackOptions {
             source_is_virtual: self.core.source.is_virtual(),
             max_discrete_source_value: self.core.source.max_discrete_value(),
@@ -1217,15 +1233,19 @@ impl MainMapping {
         logger.log(FeedbackLogEntry {
             feedback_value: &feedback_value,
         });
-        self.feedback_given_mode_value(
+        let value = self.feedback_given_mode_value(
             Cow::Owned(feedback_value),
             FeedbackDestinations {
                 with_projection_feedback: true,
                 with_source_feedback: true,
             },
             source_context,
-        )
-        .map(CompoundFeedbackValue::normal)
+        )?;
+        let compound_value = CompoundFeedbackValue {
+            value,
+            cause: FeedbackCause::Normal,
+        };
+        Some(compound_value)
     }
 
     fn manual_feedback_after_control_if_enabled(
@@ -1239,14 +1259,20 @@ impl MainMapping {
         {
             if self.feedback_is_effectively_on() {
                 // No projection feedback in this case! Just the source controller needs this hack.
-                self.feedback_entry_point(
-                    false,
-                    true,
+                let value = self.feedback_entry_point(
+                    FeedbackDestinations {
+                        with_projection_feedback: false,
+                        with_source_feedback: true,
+                    },
                     self.current_aggregated_target_value(context),
                     context,
                     NoopLogger,
-                )
-                .map(CompoundFeedbackValue::feedback_after_control)
+                )?;
+                let compound_value = CompoundFeedbackValue {
+                    value: value.value,
+                    cause: FeedbackCause::FeedbackAfterControl,
+                };
+                Some(compound_value)
             } else {
                 None
             }
@@ -1814,22 +1840,24 @@ impl CompoundMappingSource {
 #[derive(Clone, PartialEq, Debug)]
 pub struct CompoundFeedbackValue {
     pub value: SpecificCompoundFeedbackValue,
-    pub is_feedback_after_control: bool,
+    pub cause: FeedbackCause,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum FeedbackCause {
+    /// Target value change was caused e.g. by a mouse move in REAPER and was observed by ReaLearn.
+    Normal,
+    /// Target value change was caused by the ReaLearn mapping itself and was observed by ReaLearn.
+    Echo,
+    /// Target value itself can't be observed. Sending manually after control.
+    ManualFeedbackBecauseOfTarget,
+    /// Feedback sent because "Send feedback after control" enabled.
+    FeedbackAfterControl,
 }
 
 impl CompoundFeedbackValue {
-    pub fn normal(value: SpecificCompoundFeedbackValue) -> Self {
-        Self {
-            value,
-            is_feedback_after_control: false,
-        }
-    }
-
-    pub fn feedback_after_control(value: SpecificCompoundFeedbackValue) -> Self {
-        Self {
-            value,
-            is_feedback_after_control: true,
-        }
+    pub fn new(value: SpecificCompoundFeedbackValue, cause: FeedbackCause) -> Self {
+        Self { value, cause }
     }
 }
 
@@ -1853,6 +1881,20 @@ pub struct FeedbackDestinations {
 impl FeedbackDestinations {
     pub fn is_all_off(&self) -> bool {
         !self.with_source_feedback && !self.with_projection_feedback
+    }
+
+    pub fn resolve(
+        &self,
+        cause: FeedbackCause,
+        feedback_send_behavior: FeedbackSendBehavior,
+    ) -> Self {
+        let source_feedback_is_okay = !(feedback_send_behavior
+            == FeedbackSendBehavior::PreventEchoFeedback
+            && cause == FeedbackCause::Echo);
+        Self {
+            with_projection_feedback: self.with_projection_feedback,
+            with_source_feedback: self.with_source_feedback && source_feedback_is_okay,
+        }
     }
 }
 
