@@ -1,7 +1,7 @@
 use crate::base::eel;
 use helgoboss_learn::{
-    ControlValue, ControlValueKind, Transformation, TransformationInput, TransformationInstruction,
-    TransformationOutput, UnitValue,
+    ControlValueKind, Transformation, TransformationInput, TransformationInstruction,
+    TransformationOutput,
 };
 use std::os::raw::c_void;
 
@@ -28,6 +28,7 @@ struct EelUnit {
     y_last: eel::Variable,
     y_type: eel::Variable,
     last_feedback_value: eel::Variable,
+    // timestamp: eel::Variable,
     rel_time: Option<eel::Variable>,
 }
 
@@ -42,10 +43,8 @@ pub trait Script {
 
     fn evaluate(
         &self,
-        input: TransformationInput<UnitValue>,
-        output_value: UnitValue,
-        additional_input: AdditionalTransformationInput,
-    ) -> Result<TransformationOutput<ControlValue>, &'static str>;
+        input: TransformationInput<AdditionalTransformationInput>,
+    ) -> Result<TransformationOutput, &'static str>;
 }
 
 impl Script for () {
@@ -55,11 +54,9 @@ impl Script for () {
 
     fn evaluate(
         &self,
-        input: TransformationInput<UnitValue>,
-        output_value: UnitValue,
-        additional_input: AdditionalTransformationInput,
-    ) -> Result<TransformationOutput<ControlValue>, &'static str> {
-        let _ = (input, output_value, additional_input);
+        input: TransformationInput<AdditionalTransformationInput>,
+    ) -> Result<TransformationOutput, &'static str> {
+        let _ = input;
         Err("not supported")
     }
 }
@@ -81,12 +78,19 @@ impl Script for EelTransformation {
 
     fn evaluate(
         &self,
-        input: TransformationInput<UnitValue>,
-        output_value: UnitValue,
-        additional_input: AdditionalTransformationInput,
-    ) -> Result<TransformationOutput<ControlValue>, &'static str> {
-        self.transform_continuous(input, output_value, additional_input)
+        input: TransformationInput<AdditionalTransformationInput>,
+    ) -> Result<TransformationOutput, &'static str> {
+        self.transform(input)
     }
+
+    // fn evaluate(
+    //     &self,
+    //     input: TransformationInput<UnitValue>,
+    //     output_value: UnitValue,
+    //     additional_input: AdditionalTransformationInput,
+    // ) -> Result<TransformationOutput<ControlValue>, &'static str> {
+    //     self.transform_continuous(input, output_value, additional_input)
+    // }
 }
 
 impl EelTransformation {
@@ -154,10 +158,8 @@ impl Transformation for EelTransformation {
 
     fn transform(
         &self,
-        input: TransformationInput<f64>,
-        output_value: f64,
-        additional_input: AdditionalTransformationInput,
-    ) -> Result<TransformationOutput<f64>, &'static str> {
+        input: TransformationInput<Self::AdditionalInput>,
+    ) -> Result<TransformationOutput, &'static str> {
         let (raw_output, raw_output_type) = unsafe {
             use OutputVariable::*;
             let eel_unit = &*self.eel_unit;
@@ -165,14 +167,17 @@ impl Transformation for EelTransformation {
                 X => (eel_unit.y, eel_unit.x),
                 Y => (eel_unit.x, eel_unit.y),
             };
-            input_var.set(input.value);
-            output_var.set(output_value);
+            input_var.set(input.event.input_value);
+            output_var.set(input.context.output_value);
             eel_unit
                 .last_feedback_value
                 .set(self.shared_last_feedback_value.load(Ordering::SeqCst));
-            eel_unit.y_last.set(additional_input.y_last);
+            eel_unit.y_last.set(input.additional_input.y_last);
+            // eel_unit
+            //     .timestamp
+            //     .set(input.meta_data.timestamp.as_secs_f64());
             if let Some(rel_time_var) = eel_unit.rel_time {
-                rel_time_var.set(input.meta_data.rel_time.as_millis() as _);
+                rel_time_var.set(input.context.rel_time.as_millis() as _);
             }
             eel_unit.program.execute();
             (output_var.get(), self.eel_unit.y_type.get())

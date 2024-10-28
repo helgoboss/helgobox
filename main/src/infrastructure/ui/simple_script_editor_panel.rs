@@ -1,6 +1,5 @@
 use crate::domain::{
-    AdditionalTransformationInput, EelMidiSourceScript, EelTransformation, LuaFeedbackScript,
-    LuaMidiSourceScript, SafeLua, Script,
+    EelMidiSourceScript, EelTransformation, LuaFeedbackScript, LuaMidiSourceScript, SafeLua, Script,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::ID_YAML_HELP_BUTTON;
@@ -162,11 +161,7 @@ pub struct EelControlTransformationEngine;
 impl ScriptEngine for EelControlTransformationEngine {
     fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
         let transformation = EelTransformation::compile_for_control(code)?;
-        transformation.evaluate(
-            Default::default(),
-            Default::default(),
-            AdditionalTransformationInput::default(),
-        )?;
+        transformation.evaluate(Default::default())?;
         Ok(Box::new(transformation))
     }
 
@@ -180,11 +175,7 @@ pub struct EelFeedbackTransformationEngine;
 impl ScriptEngine for EelFeedbackTransformationEngine {
     fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
         let transformation = EelTransformation::compile_for_feedback(code)?;
-        transformation.evaluate(
-            Default::default(),
-            Default::default(),
-            AdditionalTransformationInput::default(),
-        )?;
+        transformation.evaluate(Default::default())?;
         Ok(Box::new(()))
     }
 

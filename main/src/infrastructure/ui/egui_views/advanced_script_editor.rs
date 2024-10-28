@@ -6,8 +6,8 @@ use egui::plot::{Legend, MarkerShape, Plot, Points, VLine};
 use egui::{CentralPanel, Color32, RichText, ScrollArea, Ui};
 use egui::{Context, SidePanel, TextEdit};
 use helgoboss_learn::{
-    ControlValue, TransformationInput, TransformationInputMetaData, TransformationInstruction,
-    TransformationOutput, UnitValue,
+    ControlValue, TransformationInput, TransformationInputContext, TransformationInputEvent,
+    TransformationInstruction, TransformationOutput, UnitValue,
 };
 use std::ptr;
 use std::sync::{Arc, Mutex};
@@ -151,7 +151,10 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
         // plot_ui.set_plot_bounds(PlotBounds::from_min_max([0.0, 0.0], [1.0, 1.0]));
         for e in &build_outcome.plot_entries {
             x = e.input;
-            let unit_output_value = e.output.value.and_then(|v| v.to_unit_value().ok());
+            let unit_output_value = e
+                .output
+                .extract_control_value(None)
+                .and_then(|v| v.to_unit_value().ok());
             prev_y = match (unit_output_value, e.output.instruction) {
                 (None, None) => {
                     none_points.push([x, prev_y]);
@@ -227,7 +230,7 @@ struct BuildOutcome {
 #[derive(Debug)]
 struct PlotEntry {
     input: f64,
-    output: TransformationOutput<ControlValue>,
+    output: TransformationOutput,
 }
 
 #[derive(Derivative)]
@@ -265,14 +268,18 @@ impl Toolbox {
                     } else {
                         (0.01 * i as f64, 0)
                     };
-                    let input = TransformationInput::new(
-                        UnitValue::new_clamped(x),
-                        TransformationInputMetaData {
+                    let input = TransformationInput {
+                        event: TransformationInputEvent {
+                            input_value: x,
+                            timestamp: Default::default(),
+                        },
+                        context: TransformationInputContext {
+                            output_value: prev_y.get(),
                             rel_time: Duration::from_millis(rel_time_millis as u64),
                         },
-                    );
-                    let additional_input = AdditionalTransformationInput { y_last: 0.0 };
-                    let Some(output) = script.evaluate(input, prev_y, additional_input).ok() else {
+                        additional_input: AdditionalTransformationInput { y_last: 0.0 },
+                    };
+                    let Some(output) = script.evaluate(input).ok() else {
                         // No sample for that point
                         continue;
                     };
@@ -284,7 +291,10 @@ impl Toolbox {
                         },
                         output,
                     };
-                    if let Some(v) = output.value.and_then(|v| v.to_unit_value().ok()) {
+                    if let Some(v) = output
+                        .extract_control_value(None)
+                        .and_then(|v| v.to_unit_value().ok())
+                    {
                         prev_y = v;
                     }
                     plot_entries.push(entry);
