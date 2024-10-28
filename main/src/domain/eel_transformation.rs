@@ -114,6 +114,7 @@ impl EelTransformation {
         }
         let mut vm = eel::Vm::new();
         vm.register_single_arg_function(reaper_str!("stop"), stop);
+        vm.register_void_or_bool_function(reaper_str!("realearn_dbg"), realearn_dbg);
         let program = vm.compile(eel_script)?;
         let x = vm.register_variable("x");
         let y = vm.register_variable("y");
@@ -153,6 +154,11 @@ impl EelTransformation {
 
 unsafe extern "C" fn stop(_: *mut c_void, amt: *mut f64) -> f64 {
     CONTROL_AND_STOP_MAGIC + (*amt).clamp(0.0, 1.0)
+}
+
+unsafe extern "C" fn realearn_dbg(_: *mut c_void, amt: *mut f64) -> bool {
+    println!("{}", *amt);
+    true
 }
 
 impl Transformation for EelTransformation {

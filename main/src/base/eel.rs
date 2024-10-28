@@ -56,6 +56,23 @@ impl Vm {
             root::NSEEL_addfunc_ret_type(
                 name.as_c_str().as_ptr(),
                 1,
+                -1,
+                Some(root::NSEEL_PProc_THIS),
+                f as *mut c_void,
+                &mut *self.function_table as *mut _,
+            );
+        }
+    }
+
+    pub fn register_void_or_bool_function(
+        &mut self,
+        name: &'static ReaperStr,
+        f: unsafe extern "C" fn(opaque: *mut c_void, amt: *mut f64) -> bool,
+    ) {
+        unsafe {
+            root::NSEEL_addfunc_ret_type(
+                name.as_c_str().as_ptr(),
+                1,
                 1,
                 Some(root::NSEEL_PProc_THIS),
                 f as *mut c_void,
