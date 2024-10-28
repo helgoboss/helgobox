@@ -7793,13 +7793,7 @@ fn pick_virtual_control_element(
                 if !m.is_enabled() {
                     return false;
                 }
-                if for_control && !m.control_is_enabled() {
-                    return false;
-                }
-                if for_feedback && !m.feedback_is_enabled() {
-                    return false;
-                }
-                true
+                for_control && m.control_is_enabled() || for_feedback && m.feedback_is_enabled()
             })
         };
         let currently_available_elements: Vec<_> = grouped_mappings
