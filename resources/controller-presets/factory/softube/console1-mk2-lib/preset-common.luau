@@ -157,6 +157,7 @@ count += 1;
                 name = name,
                 source = realearn.Source.MidiRaw {
                     pattern = cw_sysex,
+                    character = "Button",
                 },
                 glue = realearn.Glue {
                     absolute_mode = "IncrementalButton",
@@ -169,6 +170,7 @@ count += 1;
                 name = name,
                 source = realearn.Source.MidiRaw {
                     pattern = ccw_sysex,
+                    character = "Button",
                 },
                 glue = {
                     absolute_mode = "IncrementalButton",
