@@ -119,6 +119,7 @@ path-slash = "0.2.1"
 pathdiff = "0.2.1"
 open = "5.0.1"
 url = "2.5.2"
+atomic = "0.6.0"
 
 [profile.release]
 # This is important for having line numbers in bug reports.

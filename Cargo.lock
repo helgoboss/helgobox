@@ -2966,6 +2966,7 @@ dependencies = [
  "ascii",
  "askama",
  "async-channel 2.1.1",
+ "atomic",
  "auto_impl",
  "axum",
  "axum-server",

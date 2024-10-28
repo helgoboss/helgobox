@@ -3751,6 +3751,16 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                     if let Some(final_feedback_value) =
                                         feedback_collector.process(preliminary_feedback_value)
                                     {
+                                        if let Some(t) = &m.mode().settings().control_transformation
+                                        {
+                                            if let Some(numeric_fb_value) =
+                                                value.feedback_value().to_numeric()
+                                            {
+                                                t.set_last_feedback_value(
+                                                    numeric_fb_value.value.to_unit_value().get(),
+                                                );
+                                            }
+                                        }
                                         self.send_direct_feedback(
                                             feedback_reason,
                                             feedback_value.cause,

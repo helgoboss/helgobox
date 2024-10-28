@@ -5,7 +5,9 @@ use helgoboss_learn::{
 };
 use std::os::raw::c_void;
 
+use atomic::Atomic;
 use reaper_medium::reaper_str;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 #[derive(Default)]
@@ -25,6 +27,7 @@ struct EelUnit {
     y: eel::Variable,
     y_last: eel::Variable,
     y_type: eel::Variable,
+    last_feedback_value: eel::Variable,
     rel_time: Option<eel::Variable>,
 }
 
@@ -66,6 +69,7 @@ impl Script for () {
 pub struct EelTransformation {
     // Arc because EelUnit is not cloneable
     eel_unit: Arc<EelUnit>,
+    shared_last_feedback_value: Arc<Atomic<f64>>,
     output_var: OutputVariable,
     wants_to_be_polled: bool,
 }
@@ -94,6 +98,11 @@ impl EelTransformation {
         EelTransformation::compile(eel_script, OutputVariable::X)
     }
 
+    pub fn set_last_feedback_value(&self, value: f64) {
+        self.shared_last_feedback_value
+            .store(value, Ordering::SeqCst);
+    }
+
     // Compiles the given script and creates an appropriate transformation.
     fn compile(eel_script: &str, result_var: OutputVariable) -> Result<EelTransformation, String> {
         if eel_script.trim().is_empty() {
@@ -106,6 +115,7 @@ impl EelTransformation {
         let y = vm.register_variable("y");
         let y_last = vm.register_variable("y_last");
         let y_type = vm.register_variable("y_type");
+        let last_feedback_value = vm.register_variable("realearn_last_feedback_value");
         let rel_time_var_name = "rel_time";
         let uses_rel_time = eel_script.contains(rel_time_var_name);
         let rel_time = if uses_rel_time {
@@ -122,10 +132,12 @@ impl EelTransformation {
             y,
             y_last,
             y_type,
+            last_feedback_value,
             rel_time,
         };
         let transformation = EelTransformation {
             eel_unit: Arc::new(eel_unit),
+            shared_last_feedback_value: Arc::new(Atomic::new(-1.0)),
             output_var: result_var,
             wants_to_be_polled: uses_rel_time,
         };
@@ -155,6 +167,9 @@ impl Transformation for EelTransformation {
             };
             input_var.set(input.value);
             output_var.set(output_value);
+            eel_unit
+                .last_feedback_value
+                .set(self.shared_last_feedback_value.load(Ordering::SeqCst));
             eel_unit.y_last.set(additional_input.y_last);
             if let Some(rel_time_var) = eel_unit.rel_time {
                 rel_time_var.set(input.meta_data.rel_time.as_millis() as _);
