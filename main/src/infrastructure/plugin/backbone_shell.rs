@@ -2853,7 +2853,8 @@ async fn maybe_create_controller_for_device(
         )
         .ok_or("no controller preset matching device")?;
     let device_name = controller_preset
-        .specific_meta_data
+        .common
+        .meta_data
         .device_name
         .as_ref()
         .ok_or("controller preset doesn't have device name")?;

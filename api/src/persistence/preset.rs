@@ -51,11 +51,6 @@ pub struct CommonPresetMetaData {
         skip_serializing_if = "Option::is_none"
     )]
     pub setup_instructions: Option<String>,
-}
-
-/// Meta data that is specific to controller presets.
-#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
-pub struct ControllerPresetMetaData {
     /// Device manufacturer.
     #[serde(
         default,
@@ -70,6 +65,11 @@ pub struct ControllerPresetMetaData {
         skip_serializing_if = "Option::is_none"
     )]
     pub device_name: Option<String>,
+}
+
+/// Metadata that is specific to controller presets.
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
+pub struct ControllerPresetMetaData {
     /// MIDI identity compatibility pattern.
     ///
     /// Will be used for auto-adding controllers and for finding the correct controller preset when calculating auto
