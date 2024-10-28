@@ -3205,8 +3205,7 @@ fn generate_fx_to_preset_links_menu_entries(
                     MainMenuAction::LinkToPreset(scope, fx_id, preset_id)
                 },
                 None,
-            )
-            .collect(),
+            ),
         )
     } else {
         disabled_item("<Add link from last focused FX to preset>")

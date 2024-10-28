@@ -28,7 +28,6 @@ use std::cell::Cell;
 
 use crate::domain::unresolved_reaper_target::UnresolvedReaperTargetDef;
 use base::hash_util::{NonCryptoHashSet, NonCryptoIndexMap, NonCryptoIndexSet};
-use helgobox_api::persistence::FeedbackBehavior;
 use playtime_api::persistence::{ColumnAddress, RowAddress, SlotAddress};
 use reaper_high::{Fx, Project, Track, TrackRoute};
 use reaper_medium::MidiInputDeviceId;

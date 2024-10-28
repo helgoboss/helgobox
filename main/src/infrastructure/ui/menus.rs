@@ -7,15 +7,16 @@ use crate::domain::{
 use crate::infrastructure::data::{CommonPresetInfo, OscDevice};
 use crate::infrastructure::plugin::{ActionSection, BackboneShell, ACTION_DEFS};
 use crate::infrastructure::ui::Item;
-use camino::Utf8Path;
-use indexmap::IndexMap;
-use reaper_high::{FxChainContext, MidiInputDevice, MidiOutputDevice, Reaper};
-use std::ffi::CString;
-
 use base::hash_util::NonCryptoIndexMap;
+use camino::Utf8Path;
 use derive_more::Display;
 use helgobox_api::persistence::VirtualControlElementCharacter;
+use indexmap::IndexMap;
+use reaper_high::{FxChainContext, MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::MidiInputDeviceId;
+use std::ffi::CString;
+use std::fmt::Display;
+use std::hash::Hash;
 use std::iter;
 use strum::IntoEnumIterator;
 use swell_ui::menu_tree::{
@@ -648,42 +649,49 @@ pub fn menu_containing_compartment_presets(
     )
 }
 
-#[derive(Eq, PartialEq, Ord, PartialOrd, Hash, derive_more::Display)]
-enum PresetCategory<'a> {
-    #[display(fmt = "Factory")]
-    Factory,
-    #[display(fmt = "User ({_0})")]
-    UserSorted(&'a str),
-    #[display(fmt = "User (Unsorted)")]
-    UserUnsorted,
+trait Categorizer<'a> {
+    type Category: Display + Eq + Hash + Ord;
+
+    fn extract_category(&self, info: &'a CommonPresetInfo) -> Self::Category;
+
+    fn create_sub_entries<T: 'static>(
+        &self,
+        infos: impl Iterator<Item = &'a CommonPresetInfo> + 'a,
+        build_id: &impl Fn(&'a CommonPresetInfo) -> T,
+        current_id: Option<&'a str>,
+    ) -> Vec<Entry<T>>;
 }
 
-pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
+pub fn build_compartment_preset_menu_entries<'a, T>(
     preset_infos: impl Iterator<Item = &'a CommonPresetInfo> + 'a,
-    build_id: impl Fn(&CommonPresetInfo) -> T + 'a,
+    build_id: impl Fn(&'a CommonPresetInfo) -> T,
     current_id: Option<&'a str>,
-) -> impl Iterator<Item = Entry<T>> + 'a {
-    let preset_infos: Vec<_> = preset_infos.collect();
-    let mut categorized_infos: NonCryptoIndexMap<PresetCategory, Vec<&CommonPresetInfo>> =
+) -> Vec<Entry<T>>
+where
+    T: 'static,
+{
+    build_compartment_preset_menu_entries_flexible(
+        preset_infos,
+        &build_id,
+        current_id,
+        &OriginCategorizer,
+    )
+}
+
+fn build_compartment_preset_menu_entries_flexible<'a, T, C>(
+    preset_infos: impl Iterator<Item = &'a CommonPresetInfo> + 'a,
+    build_id: &impl Fn(&'a CommonPresetInfo) -> T,
+    current_id: Option<&'a str>,
+    categorizer: &'a C,
+) -> Vec<Entry<T>>
+where
+    T: 'static,
+    C: Categorizer<'a>,
+{
+    let mut categorized_infos: NonCryptoIndexMap<C::Category, Vec<&CommonPresetInfo>> =
         IndexMap::default();
     for info in preset_infos {
-        let path = Utf8Path::new(&info.id);
-        let category = if path.components().count() == 1 {
-            // Preset directly in user preset root = "Unsorted"
-            PresetCategory::UserUnsorted
-        } else {
-            // Preset in subdirectory (good)
-            let component = path
-                .components()
-                .next()
-                .expect("preset ID should have at least one component")
-                .as_str();
-            if component == "factory" {
-                PresetCategory::Factory
-            } else {
-                PresetCategory::UserSorted(component)
-            }
-        };
+        let category = categorizer.extract_category(info);
         categorized_infos.entry(category).or_default().push(info);
     }
     categorized_infos.sort_keys();
@@ -691,13 +699,10 @@ pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
         .into_iter()
         .map(move |(category, mut infos)| {
             infos.sort_by_key(|info| &info.meta_data.name);
-            let entries = build_compartment_preset_menu_entries_internal(
-                infos.into_iter(),
-                &build_id,
-                current_id,
-            );
+            let entries = categorizer.create_sub_entries(infos.into_iter(), build_id, current_id);
             let mut contains_current_entry = false;
             let entries = entries
+                .into_iter()
                 .inspect(|e| {
                     if let Entry::Item(item) = e {
                         if item.opts.checked {
@@ -710,24 +715,27 @@ pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
             let category_label = format!("{category}{category_suffix}");
             menu(category_label, entries)
         })
+        .collect()
 }
 
 fn build_compartment_preset_menu_entries_internal<'a, T: 'static>(
     preset_infos: impl Iterator<Item = &'a CommonPresetInfo> + 'a,
-    build_id: &'a (impl Fn(&CommonPresetInfo) -> T + 'a),
+    build_id: &impl Fn(&'a CommonPresetInfo) -> T,
     current_id: Option<&'a str>,
-) -> impl Iterator<Item = Entry<T>> + 'a {
-    preset_infos.map(move |info| {
-        let id = build_id(info);
-        item_with_opts(
-            info.meta_data.name.clone(),
-            ItemOpts {
-                enabled: true,
-                checked: current_id.is_some_and(|id| id == info.id),
-            },
-            id,
-        )
-    })
+) -> Vec<Entry<T>> {
+    preset_infos
+        .map(move |info| {
+            let id = build_id(info);
+            item_with_opts(
+                info.meta_data.name.clone(),
+                ItemOpts {
+                    enabled: true,
+                    checked: current_id.is_some_and(|id| id == info.id),
+                },
+                id,
+            )
+        })
+        .collect()
 }
 
 pub enum OscDeviceManagementAction {
@@ -836,5 +844,85 @@ impl MidiDeviceStatus {
             (true, false) => Disconnected,
             (true, true) => Connected,
         }
+    }
+}
+
+struct OriginCategorizer;
+
+#[derive(Eq, PartialEq, Ord, PartialOrd, Hash, derive_more::Display)]
+enum OriginCategory<'a> {
+    #[display(fmt = "Factory")]
+    Factory,
+    #[display(fmt = "User ({_0})")]
+    UserSorted(&'a str),
+    #[display(fmt = "User (Unsorted)")]
+    UserUnsorted,
+}
+impl<'a> Categorizer<'a> for OriginCategorizer {
+    type Category = OriginCategory<'a>;
+
+    fn extract_category(&self, info: &'a CommonPresetInfo) -> Self::Category {
+        let path = Utf8Path::new(&info.id);
+        if path.components().count() == 1 {
+            // Preset directly in user preset root = "Unsorted"
+            OriginCategory::UserUnsorted
+        } else {
+            // Preset in subdirectory (good)
+            let component = path
+                .components()
+                .next()
+                .expect("preset ID should have at least one component")
+                .as_str();
+            if component == "factory" {
+                OriginCategory::Factory
+            } else {
+                OriginCategory::UserSorted(component)
+            }
+        }
+    }
+
+    fn create_sub_entries<T: 'static>(
+        &self,
+        infos: impl Iterator<Item = &'a CommonPresetInfo> + 'a,
+        build_id: &impl Fn(&'a CommonPresetInfo) -> T,
+        current_id: Option<&'a str>,
+    ) -> Vec<Entry<T>> {
+        build_compartment_preset_menu_entries_flexible(
+            infos.into_iter(),
+            build_id,
+            current_id,
+            &ManufacturerCategorizer,
+        )
+    }
+}
+
+struct ManufacturerCategorizer;
+
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, derive_more::Display)]
+enum ManufacturerCategory<'a> {
+    #[display(fmt = "{_0}")]
+    Specific(&'a str),
+    #[display(fmt = "Unsorted")]
+    Generic,
+}
+
+impl<'a> Categorizer<'a> for ManufacturerCategorizer {
+    type Category = ManufacturerCategory<'a>;
+
+    fn extract_category(&self, info: &'a CommonPresetInfo) -> Self::Category {
+        info.meta_data
+            .device_manufacturer
+            .as_ref()
+            .map(|m| ManufacturerCategory::Specific(m.as_str()))
+            .unwrap_or(ManufacturerCategory::Generic)
+    }
+
+    fn create_sub_entries<T: 'static>(
+        &self,
+        infos: impl Iterator<Item = &'a CommonPresetInfo> + 'a,
+        build_id: &impl Fn(&'a CommonPresetInfo) -> T,
+        current_id: Option<&'a str>,
+    ) -> Vec<Entry<T>> {
+        build_compartment_preset_menu_entries_internal(infos.into_iter(), build_id, current_id)
     }
 }
