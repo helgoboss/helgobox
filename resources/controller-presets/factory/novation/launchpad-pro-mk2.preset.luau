@@ -1,11 +1,11 @@
 --- name: Launchpad Pro mk2 - Live mode
 --- realearn_version: 2.16.0-pre.8
 --- author: helgoboss
+--- device_manufacturer: Novation
+--- device_name: Launchpad Pro mk2
 --- description: |
 ---     This controller preset exposes all control elements of the Launchpad Pro mk2 in a neutral way. It supports
 ---     ReaLearn color feedback as well as Playtime slot status feedback.
---- device_manufacturer: Novation
---- device_name: Launchpad Pro mk2
 --- # I leave part of the family code dynamic. It's not always 00: https://github.com/helgoboss/helgobox/issues/939
 --- midi_identity_pattern: F0 7E ?  06 02 00 20 29 51 00 ? 00 * F7
 --- midi_output_port_patterns: ["macos:*Live*", "windows:*Launchpad Pro"]

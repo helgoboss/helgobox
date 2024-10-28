@@ -1,6 +1,8 @@
 --- name: iCON Platform M+
 --- realearn_version: 2.16.0
 --- author: helgoboss
+--- device_manufacturer: iCON
+--- device_name: Platform M+
 --- description: |
 ---     This controller preset implements support for the iCON Platform M+ controller in MCU mode.
 ---     
@@ -14,8 +16,6 @@
 ---     uses only 7 bits (128 different values). It’s a complete mystery to me why they don’t use the full resolution
 ---     in "User defined" mode. But that’s no problem, just make sure you use "Mackie" mode. It provides the best
 ---     settings out of the box. Leave the customization to ReaLearn!
---- device_manufacturer: iCON
---- device_name: Platform M+
 --- provided_schemes: [daw]
 
 --!strict

@@ -1,6 +1,8 @@
 --- name: Launchpad Pro mk3 - Playtime
 --- realearn_version: 2.16.0-pre.8
 --- author: helgoboss
+--- device_manufacturer: Novation
+--- device_name: Launchpad Pro mk3
 --- description: |
 ---     This main preset turns the Launchpad Pro mk3 into a capable device for controlling Playtime.
 ---     

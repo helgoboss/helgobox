@@ -1,11 +1,11 @@
 --- name: Launchpad Mini mk3 - Live mode
 --- realearn_version: 2.16.0-pre.8
 --- author: helgoboss
+--- device_manufacturer: Novation
+--- device_name: Launchpad Mini mk3
 --- description: |
 ---     This controller preset exposes all control elements of the Launchpad Mini mk3 in a neutral way. It supports
 ---     ReaLearn color feedback as well as Playtime slot status feedback.
---- device_manufacturer: Novation
---- device_name: Launchpad Mini mk3
 --- midi_identity_pattern: F0 7E ?  06 02 00 20 29 13 01 00 00 * F7
 --- midi_output_port_patterns: ["macos:*DAW*", "windows:LPMiniMK3 MIDI"]
 --- provided_schemes: [novation/launchpad-mini-mk3/live, grid]

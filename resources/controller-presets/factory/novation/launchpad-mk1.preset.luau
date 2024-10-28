@@ -1,12 +1,12 @@
 --- name: Launchpad mk1 - Live mode
 --- realearn_version: 2.16.0-pre.8
 --- author: helgoboss
+--- device_manufacturer: Novation
+--- device_name: Launchpad mk1
 --- description: |
 ---     This controller preset exposes all control elements of the Launchpad mk1 in a neutral way. It supports Playtime slot status feedback.
 ---
 ---     This device cannot be auto-detected because it doesn't support the MIDI device inquiry protocol.
---- device_manufacturer: Novation
---- device_name: Launchpad mk1
 --- provided_schemes: [novation/launchpad-mk1, grid]
 
 --!strict

@@ -1,6 +1,8 @@
 --- name: Numbered - FX parameters
 --- realearn_version: 2.16.0-pre.9
 --- author: helgoboss
+--- device_manufacturer: Generic
+--- device_name: Generic
 --- description: |
 ---     This main preset is built for controllers that offer a set of knobs and buttons. Each knob will control one parameter of
 ---     the unit FX (which by default resolves to the currently focused FX), starting with parameter 1. Each button will switch

@@ -1,6 +1,8 @@
 --- name: Console 1 mk2 - MIDI relative mode
 --- realearn_version: 2.16.12
 --- author: helgoboss
+--- device_manufacturer: Softube
+--- device_name: Console 1 mk2
 --- description: |
 ---     This controller preset implements support for the Softube Console 1 controller in MIDI mode, enabling relative control.
 ---
@@ -19,8 +21,6 @@
 ---     1. Connect the controller
 ---     2. Ensure that the Console 1 On-Screen Display software is **not** running!
 ---
---- device_manufacturer: Softube
---- device_name: Console 1 mk2
 --- provided_schemes: [softube/console1-mk2]
 
 --!strict

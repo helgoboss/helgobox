@@ -1,6 +1,8 @@
 --- name: DAW control
 --- realearn_version: 2.16.0
 --- author: helgoboss
+--- device_manufacturer: Generic
+--- device_name: Generic
 --- description: |
 ---     This main preset is built for controllers that offer DAW control elements.
 ---

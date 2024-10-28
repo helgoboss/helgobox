@@ -1,6 +1,8 @@
 --- name: Launchpad Mini mk3 - Playtime
 --- realearn_version: 2.16.0-pre.8
 --- author: helgoboss
+--- device_manufacturer: Novation
+--- device_name: Launchpad Mini mk3
 --- description: |
 ---     This main preset turns the Launchpad Mini mk3 into a capable device for controlling Playtime.
 --- used_schemes: [novation/launchpad-mini-mk3/live]

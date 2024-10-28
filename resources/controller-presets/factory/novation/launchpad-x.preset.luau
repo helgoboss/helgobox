@@ -1,11 +1,11 @@
 --- name: Launchpad X - Live mode
 --- realearn_version: 2.16.0-pre.8
 --- author: helgoboss
+--- device_manufacturer: Novation
+--- device_name: Launchpad X
 --- description: |
 ---     This controller preset exposes all control elements of the Launchpad X in a neutral way. It supports
 ---     ReaLearn color feedback as well as Playtime slot status feedback.
---- device_manufacturer: Novation
---- device_name: Launchpad X
 --- midi_identity_pattern: F0 7E ?  06 02 00 20 29 03 01 00 00 * F7
 --- midi_output_port_patterns: [macos:"*DAW*", "windows:LPX MIDI"]
 --- provided_schemes: [novation/launchpad-x/live, grid]

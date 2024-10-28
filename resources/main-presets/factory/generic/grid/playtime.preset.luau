@@ -1,6 +1,8 @@
 --- name: Generic grid controller - Playtime
 --- realearn_version: 2.16.0-pre.8
 --- author: helgoboss
+--- device_manufacturer: Generic
+--- device_name: Generic
 --- description: |
 ---     This main preset turns any grid-like controller into a device for doing very basic clip launching via Playtime.
 ---
