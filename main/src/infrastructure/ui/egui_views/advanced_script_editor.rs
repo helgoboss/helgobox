@@ -6,12 +6,12 @@ use egui::plot::{Legend, MarkerShape, Plot, Points, VLine};
 use egui::{CentralPanel, Color32, RichText, ScrollArea, Ui};
 use egui::{Context, SidePanel, TextEdit};
 use helgoboss_learn::{
-    ControlValue, TransformationInput, TransformationInputContext, TransformationInputEvent,
+    AbstractTimestamp, TransformationInput, TransformationInputContext, TransformationInputEvent,
     TransformationInstruction, TransformationOutput, UnitValue,
 };
 use std::ptr;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub type Value = String;
 
@@ -262,6 +262,7 @@ impl Toolbox {
                 };
                 let mut prev_y = UnitValue::MIN;
                 let mut plot_entries = vec![];
+                let instant = Instant::now();
                 for i in 0..sample_count {
                     let (x, rel_time_millis) = if uses_time {
                         (1.0, i * 1000 / INVOCATION_RATE)
@@ -271,7 +272,7 @@ impl Toolbox {
                     let input = TransformationInput {
                         event: TransformationInputEvent {
                             input_value: x,
-                            timestamp: Default::default(),
+                            timestamp: instant.duration(),
                         },
                         context: TransformationInputContext {
                             output_value: prev_y.get(),

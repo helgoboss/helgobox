@@ -1,6 +1,7 @@
 use helgoboss_learn::AbstractTimestamp;
 use std::fmt::{Display, Formatter};
 use std::ops::Sub;
+use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
 pub type ControlEvent<P> = helgoboss_learn::ControlEvent<P, ControlEventTimestamp>;
@@ -15,6 +16,11 @@ pub struct ControlEventTimestamp(Instant);
 impl AbstractTimestamp for ControlEventTimestamp {
     fn now() -> Self {
         Self(Instant::now())
+    }
+
+    fn duration(&self) -> Duration {
+        static INSTANT: LazyLock<Instant> = LazyLock::new(|| Instant::now());
+        self.0.saturating_duration_since(*INSTANT)
     }
 }
 

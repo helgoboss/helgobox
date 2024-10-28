@@ -28,7 +28,7 @@ struct EelUnit {
     y_last: eel::Variable,
     y_type: eel::Variable,
     last_feedback_value: eel::Variable,
-    // timestamp: eel::Variable,
+    timestamp: eel::Variable,
     rel_time: Option<eel::Variable>,
 }
 
@@ -122,6 +122,7 @@ impl EelTransformation {
         let last_feedback_value = vm.register_variable("realearn_last_feedback_value");
         let rel_time_var_name = "rel_time";
         let uses_rel_time = eel_script.contains(rel_time_var_name);
+        let timestamp = vm.register_variable("realearn_timestamp");
         let rel_time = if uses_rel_time {
             Some(vm.register_variable(rel_time_var_name))
         } else {
@@ -137,6 +138,7 @@ impl EelTransformation {
             y_last,
             y_type,
             last_feedback_value,
+            timestamp,
             rel_time,
         };
         let transformation = EelTransformation {
@@ -173,9 +175,7 @@ impl Transformation for EelTransformation {
                 .last_feedback_value
                 .set(self.shared_last_feedback_value.load(Ordering::SeqCst));
             eel_unit.y_last.set(input.additional_input.y_last);
-            // eel_unit
-            //     .timestamp
-            //     .set(input.meta_data.timestamp.as_secs_f64());
+            eel_unit.timestamp.set(input.event.timestamp.as_secs_f64());
             if let Some(rel_time_var) = eel_unit.rel_time {
                 rel_time_var.set(input.context.rel_time.as_millis() as _);
             }
