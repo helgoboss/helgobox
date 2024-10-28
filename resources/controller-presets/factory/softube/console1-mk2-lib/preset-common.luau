@@ -221,35 +221,35 @@ count += 1;
     -- Named buttons in row 1
     named_button("display-on", "Display: On", 102, "", "")
     named_button(
-        "display-mode",
+        "display/mode",
         "Display: Mode",
         104,
         "F0 7D 00 00 00 00 02 00 01 7F 01 02 55 0A 0C F7",
         "F0 7D 00 00 00 00 02 00 01 00 41 38 39 27 01 F7"
     )
     named_button(
-        "bank-left",
+        "page/prev",
         "Page: -",
         97,
         "F0 7D 00 00 00 00 02 00 03 7F 33 34 37 08 0D F7",
         "F0 7D 00 00 00 00 02 00 03 00 73 0E 5B 25 00 F7"
     )
     named_button(
-        "bank-right",
+        "page/next",
         "Page: +",
         96,
         "F0 7D 00 00 00 00 02 00 04 7F 7C 75 21 4F 0E F7",
         "F0 7D 00 00 00 00 02 00 04 00 3C 4F 4D 62 03 F7"
     )
     named_button(
-        "track-group",
+        "track/group",
         "Track: Group",
         123,
         "F0 7D 00 00 00 00 02 00 19 7F 03 19 4D 53 06 F7",
         "F0 7D 00 00 00 00 02 00 19 00 43 23 21 7E 0B F7"
     )
     named_button(
-        "track-copy",
+        "track/copy",
         "Track: Copy",
         120,
         "F0 7D 00 00 00 00 02 00 1A 7F 28 34 1E 10 07 F7",
@@ -434,14 +434,14 @@ count += 1;
     )
     -- Buttons in row 3
     named_button(
-        "eq/low-type",
+        "eq/low/type",
         "EQ: Low type",
         93,
         "F0 7D 00 00 00 00 02 00 28 7F 45 44 4A 61 0F F7",
         "F0 7D 00 00 00 00 02 00 28 00 05 7E 26 4C 02 F7"
     )
     named_button(
-        "eq/high-type",
+        "eq/high/type",
         "EQ: High type",
         65,
         "F0 7D 00 00 00 00 02 00 31 7F 5E 44 63 79 05 F7",
@@ -516,14 +516,14 @@ count += 1;
         "F0 7D 00 00 00 00 02 00 24 00 29 4B 69 40 0E F7"
     )
     encoder(
-        "eq/low-mid-type",
+        "eq/low-mid/type",
         "EQ: Low Mid Type",
         90,
         "F0 7D 00 00 00 00 02 00 2C 7F 21 28 0F 65 0D F7",
         "F0 7D 00 00 00 00 02 00 2C 00 61 12 63 48 00 F7"
     )
     encoder(
-        "eq/high-mid-type",
+        "eq/high-mid/type",
         "EQ: High Mid Type",
         87,
         "F0 7D 00 00 00 00 02 00 2F 7F 0A 05 5C 26 0C F7",
@@ -574,28 +574,28 @@ count += 1;
         "F0 7D 00 00 00 00 02 00 25 00 30 50 58 01 0E F7"
     )
     encoder(
-        "eq/low-freq",
+        "eq/low/freq",
         "EQ: Low Frequency",
         92,
         "F0 7D 00 00 00 00 02 00 29 7F 5C 5F 7B 20 0F F7",
         "F0 7D 00 00 00 00 02 00 29 00 1C 65 17 0D 02 F7"
     )
     encoder(
-        "eq/low-mid-freq",
+        "eq/low-mid/freq",
         "EQ: Low Mid Frequency",
         89,
         "F0 7D 00 00 00 00 02 00 2B 7F 6E 69 19 22 0E F7",
         "F0 7D 00 00 00 00 02 00 2B 00 2E 53 75 0F 03 F7"
     )
     encoder(
-        "eq/high-mid-freq",
+        "eq/high-mid/freq",
         "EQ: High Mid Frequency",
         86,
         "F0 7D 00 00 00 00 02 00 2E 7F 13 1E 6D 67 0C F7",
         "F0 7D 00 00 00 00 02 00 2E 00 53 24 01 4A 01 F7"
     )
     encoder(
-        "eq/high-freq",
+        "eq/high/freq",
         "EQ: High Frequency",
         83,
         "F0 7D 00 00 00 00 02 00 32 7F 75 69 30 3A 04 F7",
