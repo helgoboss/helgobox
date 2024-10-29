@@ -24,20 +24,10 @@ It shows or hides them based on criteria like this:
 
 == Signal flow
 
-Work-in-progress
-
-[mermaid]
+[d2]
+.Control signal flow
 ....
-flowchart TD
-%% Nodes
-A("Bla")
-B("Foo")
-
-%% Edge connections between nodes
-A --> B --> C --> n1 & D & n2
-D -- 1 --> E --> F
-D -- 2 --> G --> H
-D -- 3 --> I --> J
+include::partial$glue/glue-control-flow.d2[]
 ....
 
 == Reset to defaults button
