@@ -8,6 +8,7 @@ export type PresetMode = "native" | "midi-absolute" | "midi-relative"
 
 export type PresetConfig = {
     mode: PresetMode,
+    
 }
 
 function module.create_compartment(config: PresetConfig): realearn.Compartment
@@ -36,6 +37,20 @@ function module.create_compartment(config: PresetConfig): realearn.Compartment
     -- Code
 
     local realearn = require("realearn")
+
+    local sysex_to_relative_transformation = [[
+y_type = 1;
+y = prev_timestamp == 0 ? (
+    1
+) : (
+    // Implement encoder acceleration based on timestamp diffs
+    diff_millis = (realearn_timestamp - prev_timestamp) * 1000;
+    added = 10 / diff_millis;
+    // realearn_dbg(added);
+    1 + added
+);
+prev_timestamp = realearn_timestamp;
+]]
 
     local abs_to_rel_transformation = [[
 y_type = 1;
@@ -160,7 +175,8 @@ count += 1;
                     character = "Button",
                 },
                 glue = realearn.Glue {
-                    absolute_mode = "IncrementalButton",
+                    control_transformation = sysex_to_relative_transformation,
+                    step_factor_interval = {1, 100},
                 },
                 target = target,
             }
@@ -173,7 +189,8 @@ count += 1;
                     character = "Button",
                 },
                 glue = {
-                    absolute_mode = "IncrementalButton",
+                    control_transformation = sysex_to_relative_transformation,
+                    step_factor_interval = {1, 100},
                     reverse = true,
                 },
                 target = target,
