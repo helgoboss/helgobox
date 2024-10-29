@@ -22,6 +22,24 @@ It shows or hides them based on criteria like this:
 * What are the characteristics of the source and target?
 * What's the current setting of <<absolute-mode>> and <<make-absolute>>?
 
+== Signal flow
+
+Work-in-progress
+
+[mermaid,flowchart_html-labels=false]
+....
+flowchart TD
+%% Nodes
+A("Bla")
+B("Foo")
+
+%% Edge connections between nodes
+A --> B --> C --> n1 & D & n2
+D -- 1 --> E --> F
+D -- 2 --> G --> H
+D -- 3 --> I --> J
+....
+
 == Reset to defaults button
 
 Resets the settings to some sensible defaults.
