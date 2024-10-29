@@ -26,7 +26,7 @@ It shows or hides them based on criteria like this:
 
 Work-in-progress
 
-[mermaid,flowchart_html-labels=false]
+[mermaid]
 ....
 flowchart TD
 %% Nodes
