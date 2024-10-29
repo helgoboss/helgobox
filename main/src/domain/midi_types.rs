@@ -1,3 +1,4 @@
+use reaper_common_types::DurationInSeconds;
 use reaper_medium::{Hz, MIDI_INPUT_FRAME_RATE};
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -47,5 +48,9 @@ impl SampleOffset {
 
     pub fn get(self) -> u64 {
         self.0
+    }
+
+    pub fn to_seconds(&self, sample_rate: Hz) -> DurationInSeconds {
+        DurationInSeconds::new_panic(self.0 as f64 / sample_rate.get())
     }
 }

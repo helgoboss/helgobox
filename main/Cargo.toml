@@ -207,6 +207,8 @@ palette.workspace = true
 serde_plain.workspace = true
 # For sharing variables between main thread and real-time threads
 atomic.workspace = true
+# For making sure that sharing global audio state uses atomics
+static_assertions.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

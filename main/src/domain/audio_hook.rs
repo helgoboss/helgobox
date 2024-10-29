@@ -2,7 +2,7 @@ use crate::domain::{
     classify_midi_message, AudioBlockProps, ControlEvent, ControlEventTimestamp,
     DisplayAsPrettyHex, IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent,
     MidiMessageClassification, MidiScanResult, MidiScanner, MidiTransformationContainer,
-    RealTimeProcessor, SharedRealTimeInstance, UnitId,
+    RealTimeProcessor, SharedRealTimeInstance, UnitId, GLOBAL_AUDIO_STATE,
 };
 use base::byte_pattern::{BytePattern, PatternByte};
 use base::metrics_util::{measure_time, record_duration};
@@ -10,13 +10,15 @@ use base::non_blocking_lock;
 use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvent, RawMidiEvents};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage, ShortMessage, ShortMessageType};
 use helgobox_allocator::*;
+use reaper_common_types::DurationInSeconds;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs, SendMidiTime,
+    MIDI_INPUT_FRAME_RATE,
 };
 use smallvec::SmallVec;
 use std::fmt::{Display, Formatter};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 use tinyvec::ArrayVec;
@@ -134,7 +136,6 @@ pub struct RealearnAudioHook {
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
     time_of_last_run: Option<Instant>,
     initialized: bool,
-    counter: Arc<AtomicU32>,
     midi_transformation_container: MidiTransformationContainer,
     #[cfg(feature = "playtime")]
     clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::PlaytimeAudioHook,
@@ -155,7 +156,6 @@ impl RealearnAudioHook {
     pub fn new(
         normal_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
-        counter: Arc<AtomicU32>,
     ) -> RealearnAudioHook {
         Self {
             state: AudioHookState::Normal,
@@ -166,7 +166,6 @@ impl RealearnAudioHook {
             feedback_task_receiver,
             time_of_last_run: None,
             initialized: false,
-            counter,
             midi_transformation_container: MidiTransformationContainer::new(),
             #[cfg(feature = "playtime")]
             clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::PlaytimeAudioHook::new(),
@@ -204,8 +203,9 @@ impl RealearnAudioHook {
         let current_time = Instant::now();
         let time_of_last_run = self.time_of_last_run.replace(current_time);
         // Increment counter
-        self.counter.fetch_add(1, Ordering::Relaxed);
         let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
+        let block_count = GLOBAL_AUDIO_STATE.advance(block_props);
+        let sample_count = block_count * args.len as u64;
         // Call ReaLearn real-time processors (= process MIDI messages coming in from hardware devices).
         // We do this here already, *before* pre-polling recording and advancing Playtime's tempo buffer (done in `on_pre_poll_1`)!
         // Reason: When recording a new clip with tempo detection (= recording in silence mode), it's ideal
@@ -238,7 +238,7 @@ impl RealearnAudioHook {
                 false
             }
         };
-        self.call_real_time_processors(block_props, might_be_rebirth);
+        self.call_real_time_processors(block_props, sample_count, might_be_rebirth);
         // Process ReaLearn feedback commands
         self.process_feedback_commands();
         // Process incoming commands, including Playtime commands
@@ -317,14 +317,18 @@ impl RealearnAudioHook {
         }
     }
 
-    fn call_real_time_processors(&mut self, block_props: AudioBlockProps, might_be_rebirth: bool) {
+    fn call_real_time_processors(
+        &mut self,
+        block_props: AudioBlockProps,
+        sample_count: u64,
+        might_be_rebirth: bool,
+    ) {
         match &mut self.state {
             AudioHookState::Normal => {
-                let timestamp = ControlEventTimestamp::now();
                 self.call_real_time_processors_in_normal_state(
                     block_props,
                     might_be_rebirth,
-                    timestamp,
+                    sample_count,
                 );
             }
             AudioHookState::LearningSource {
@@ -358,7 +362,7 @@ impl RealearnAudioHook {
         &mut self,
         block_props: AudioBlockProps,
         might_be_rebirth: bool,
-        timestamp: ControlEventTimestamp,
+        sample_count: u64,
     ) {
         // 1a. Drive real-time processors and determine used MIDI devices "on the go".
         //
@@ -371,6 +375,11 @@ impl RealearnAudioHook {
         //
         let mut midi_dev_id_is_used = [false; MidiInputDeviceId::MAX_DEVICE_COUNT as usize];
         let mut midi_devs_used_at_all = false;
+        let start_of_block_timestamp = ControlEventTimestamp::from_rt(
+            sample_count,
+            block_props.frame_rate,
+            DurationInSeconds::ZERO,
+        );
         for (_, p) in self.real_time_processors.iter() {
             // Since 1.12.0, we "drive" each plug-in instance's real-time processor
             // primarily by the global audio hook. See https://github.com/helgoboss/helgobox/issues/84 why this is
@@ -379,7 +388,7 @@ impl RealearnAudioHook {
             // stop doing so synchronously if the plug-in is
             // gone.
             let mut guard = p.lock_recover();
-            guard.run_from_audio_hook_all(block_props, might_be_rebirth, timestamp);
+            guard.run_from_audio_hook_all(block_props, might_be_rebirth, start_of_block_timestamp);
             if guard.control_is_globally_enabled() {
                 if let MidiControlInput::Device(dev_id) = guard.midi_control_input() {
                     midi_dev_id_is_used[dev_id.get() as usize] = true;
@@ -390,7 +399,11 @@ impl RealearnAudioHook {
         // 1b. Forward MIDI events from MIDI devices to ReaLearn instances and filter
         //     them globally if desired by the instance.
         if midi_devs_used_at_all {
-            self.distribute_midi_events_to_processors(block_props, &midi_dev_id_is_used, timestamp);
+            self.distribute_midi_events_to_processors(
+                block_props,
+                &midi_dev_id_is_used,
+                sample_count,
+            );
         }
     }
 
@@ -398,7 +411,7 @@ impl RealearnAudioHook {
         &mut self,
         block_props: AudioBlockProps,
         midi_dev_id_is_used: &[bool; MidiInputDeviceId::MAX_DEVICE_COUNT as usize],
-        timestamp: ControlEventTimestamp,
+        sample_count: u64,
     ) {
         self.midi_transformation_container
             .prepare(block_props.frame_rate);
@@ -420,6 +433,13 @@ impl RealearnAudioHook {
                                 Err(_) => continue,
                                 Ok(e) => e,
                             };
+                        let frame_offset_in_secs =
+                            res.midi_event.frame_offset() as f64 / MIDI_INPUT_FRAME_RATE.get();
+                        let timestamp = ControlEventTimestamp::from_rt(
+                            sample_count,
+                            block_props.frame_rate,
+                            DurationInSeconds::new_panic(frame_offset_in_secs),
+                        );
                         let our_event = ControlEvent::new(our_event, timestamp);
                         let mut filter_out_event = false;
                         for (_, p) in self.real_time_processors.iter() {

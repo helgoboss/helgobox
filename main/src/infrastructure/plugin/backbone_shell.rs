@@ -16,7 +16,7 @@ use crate::domain::{
     RealearnTarget, RealearnTargetState, ReaperTarget, ReaperTargetType,
     RequestMidiDeviceIdentityCommand, RequestMidiDeviceIdentityReply, SharedInstance,
     SharedMainProcessors, SharedRealTimeProcessor, Tag, UnitContainer, UnitId,
-    UnitOrchestrationEvent, WeakInstance, WeakUnit,
+    UnitOrchestrationEvent, WeakInstance, WeakUnit, GLOBAL_AUDIO_STATE,
 };
 use crate::infrastructure::data::{
     CommonCompartmentPresetManager, CompartmentPresetManagerEventHandler, ControllerManager,
@@ -91,7 +91,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::future::Future;
 use std::rc::{Rc, Weak};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -196,7 +196,6 @@ pub struct BackboneShell {
     welcome_panel: RefCell<Option<SharedView<WelcomePanel>>>,
     /// We need to keep this panel in memory in order to be informed when it's destroyed.
     _shutdown_detection_panel: SharedView<HiddenHelperPanel>,
-    audio_block_counter: Arc<AtomicU32>,
 }
 
 #[derive(Clone, Debug)]
@@ -414,11 +413,9 @@ impl BackboneShell {
             Box::new(BackboneControlSurfaceEventHandler),
         ));
         // This doesn't yet activate the audio hook (will happen on wake up)
-        let audio_block_counter = Arc::new(AtomicU32::new(0));
         let audio_hook = RealearnAudioHook::new(
             normal_audio_hook_task_receiver,
             feedback_audio_hook_task_receiver,
-            audio_block_counter.clone(),
         );
         // This doesn't yet activate the accelerator (will happen on wake up)
         let accelerator =
@@ -483,7 +480,6 @@ impl BackboneShell {
             proto_hub: crate::infrastructure::proto::ProtoHub::new(),
             welcome_panel: Default::default(),
             _shutdown_detection_panel: shutdown_detection_panel,
-            audio_block_counter,
         }
     }
 
@@ -594,21 +590,19 @@ impl BackboneShell {
             let middleware = control_surface.middleware_mut();
             middleware.shutdown();
         });
-        // It's important to wait a bit otherwise we risk the MIDI is not being sent.
+        // It's important to wait a bit, otherwise we risk the MIDI is not being sent.
         // We wait for 3 audio blocks, a maximum of 100 milliseconds. Justin's recommendation.
-        let initial_block_count = self.audio_block_count();
+        let initial_block_count = GLOBAL_AUDIO_STATE.load_block_count();
         for _ in 0..100 {
             std::thread::sleep(Duration::from_millis(1));
-            let elapsed_blocks = self.audio_block_count().saturating_sub(initial_block_count);
+            let elapsed_blocks = GLOBAL_AUDIO_STATE
+                .load_block_count()
+                .saturating_sub(initial_block_count);
             if elapsed_blocks > 2 {
                 debug!("Waited a total of {elapsed_blocks} blocks after sending shutdown MIDI messages");
                 break;
             }
         }
-    }
-
-    fn audio_block_count(&self) -> u32 {
-        self.audio_block_counter.load(Ordering::Relaxed)
     }
 
     fn reconnect_osc_devices(&self) {

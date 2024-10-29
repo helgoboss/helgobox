@@ -7,7 +7,7 @@ use vst::plugin::{
 
 use crate::domain::{
     ControlEvent, ControlEventTimestamp, InstanceId, MidiEvent, ParameterManager, PluginParamIndex,
-    ProcessorContext, RawParamValue, PLUGIN_PARAMETER_COUNT,
+    ProcessorContext, RawParamValue, GLOBAL_AUDIO_STATE, PLUGIN_PARAMETER_COUNT,
 };
 use crate::infrastructure::plugin::instance_parameter_container::InstanceParameterContainer;
 use crate::infrastructure::plugin::{init_backbone_shell, SET_STATE_PARAM_NAME};
@@ -59,7 +59,9 @@ pub struct HelgoboxPlugin {
     param_container: Arc<InstanceParameterContainer>,
     // For detecting play state changes
     was_playing_in_last_cycle: bool,
+    /// I think this sample rate can be different from the device sample rate in some cases (oversampling).
     sample_rate: Hz,
+    block_size: u32,
     /// **After `init` has been called**, this should be `true` if the plug-in was loaded by the
     /// REAPER VST scan (and is not going to be used "for real").
     is_plugin_scan: bool,
@@ -105,6 +107,7 @@ impl Plugin for HelgoboxPlugin {
                 param_container: Arc::new(InstanceParameterContainer::new()),
                 was_playing_in_last_cycle: false,
                 sample_rate: Default::default(),
+                block_size: 0,
                 is_plugin_scan: false,
                 lazy_data: OnceLock::new(),
                 instance_panel: Rc::new(InstancePanel::new(instance_id)),
@@ -224,8 +227,10 @@ impl Plugin for HelgoboxPlugin {
     fn process_events(&mut self, events: &Events) {
         firewall(|| {
             assert_no_alloc(|| {
-                let timestamp = ControlEventTimestamp::now();
                 let is_transport_start = !self.was_playing_in_last_cycle && self.is_now_playing();
+                let block_count = GLOBAL_AUDIO_STATE.load_block_count();
+                let sample_count = block_count * self.block_size as u64;
+                let device_sample_rate = GLOBAL_AUDIO_STATE.load_sample_rate();
                 for e in events.events() {
                     let our_event = match MidiEvent::from_vst(e) {
                         Err(_) => {
@@ -235,6 +240,11 @@ impl Plugin for HelgoboxPlugin {
                         }
                         Ok(e) => e,
                     };
+                    let timestamp = ControlEventTimestamp::from_rt(
+                        sample_count,
+                        device_sample_rate,
+                        our_event.offset().to_seconds(self.sample_rate),
+                    );
                     let our_event = ControlEvent::new(our_event, timestamp);
                     if let Some(lazy_data) = self.lazy_data.get() {
                         lazy_data.instance_shell.process_incoming_midi_from_plugin(
@@ -285,8 +295,9 @@ impl Plugin for HelgoboxPlugin {
         tracing::debug!("VST resume");
     }
 
-    fn set_block_size(&mut self, _size: i64) {
+    fn set_block_size(&mut self, size: i64) {
         tracing::debug!("VST set block size");
+        self.block_size = size as u32;
     }
 
     fn start_process(&mut self) {

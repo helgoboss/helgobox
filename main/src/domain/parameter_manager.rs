@@ -1,6 +1,6 @@
 use crate::domain::{
-    CompartmentKind, CompartmentParamIndex, CompartmentParams, ParamSetting, ParameterMainTask,
-    PluginParamIndex, PluginParams, RawParamValue,
+    CompartmentKind, CompartmentParamIndex, CompartmentParams, ControlEventTimestamp, ParamSetting,
+    ParameterMainTask, PluginParamIndex, PluginParams, RawParamValue,
 };
 use base::{blocking_read_lock, blocking_write_lock, NamedChannelSender, SenderToNormalThread};
 use reaper_high::Reaper;
@@ -79,8 +79,14 @@ impl ParameterManager {
         // When rendering, we don't do it because that will accumulate until the rendering is
         // finished, which is pointless.
         if !is_rendering() {
-            self.parameter_main_task_sender
-                .send_complaining(ParameterMainTask::UpdateSingleParamValue { index, value });
+            let timestamp = ControlEventTimestamp::from_main_thread();
+            self.parameter_main_task_sender.send_complaining(
+                ParameterMainTask::UpdateSingleParamValue {
+                    index,
+                    value,
+                    timestamp,
+                },
+            );
         }
     }
 

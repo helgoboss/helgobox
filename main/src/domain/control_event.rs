@@ -1,4 +1,6 @@
+use crate::domain::GLOBAL_AUDIO_STATE;
 use helgoboss_learn::AbstractTimestamp;
+use reaper_common_types::{DurationInSeconds, Hz};
 use std::fmt::{Display, Formatter};
 use std::ops::Sub;
 use std::sync::LazyLock;
@@ -11,16 +13,36 @@ pub type ControlEvent<P> = helgoboss_learn::ControlEvent<P, ControlEventTimestam
 // Don't expose the inner field, it should stay private. We might swap the time unit in future to
 // improve performance and accuracy.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct ControlEventTimestamp(Instant);
+pub struct ControlEventTimestamp(Duration);
+
+impl ControlEventTimestamp {
+    pub fn from_main_thread() -> Self {
+        let block_count = GLOBAL_AUDIO_STATE.load_block_count();
+        let block_size = GLOBAL_AUDIO_STATE.load_block_size();
+        let sample_count = block_count * block_size as u64;
+        Self::from_rt(
+            sample_count,
+            GLOBAL_AUDIO_STATE.load_sample_rate(),
+            DurationInSeconds::ZERO,
+        )
+    }
+}
 
 impl AbstractTimestamp for ControlEventTimestamp {
-    fn now() -> Self {
-        Self(Instant::now())
-    }
-
     fn duration(&self) -> Duration {
-        static INSTANT: LazyLock<Instant> = LazyLock::new(|| Instant::now());
-        self.0.saturating_duration_since(*INSTANT)
+        self.0
+    }
+}
+
+impl ControlEventTimestamp {
+    pub fn from_rt(
+        sample_count: u64,
+        sample_rate: Hz,
+        intra_block_offset: DurationInSeconds,
+    ) -> Self {
+        let start_secs = sample_count as f64 / sample_rate.get();
+        let final_secs = start_secs + intra_block_offset.get();
+        Self(Duration::from_secs_f64(final_secs))
     }
 }
 
@@ -28,7 +50,7 @@ impl Sub for ControlEventTimestamp {
     type Output = Duration;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        self.0 - rhs.0
+        self.0.saturating_sub(rhs.0)
     }
 }
 

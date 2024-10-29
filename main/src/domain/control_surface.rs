@@ -253,7 +253,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn run_internal(&mut self) {
-        let timestamp = ControlEventTimestamp::now();
+        let timestamp = ControlEventTimestamp::from_main_thread();
         #[cfg(debug_assertions)]
         {
             // TODO-high-playtime-refactoring This is propagated using main processors but it's a global event. We

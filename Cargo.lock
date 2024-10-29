@@ -3055,6 +3055,7 @@ dependencies = [
  "serde_yaml",
  "slug",
  "smallvec",
+ "static_assertions",
  "strum",
  "swell-ui",
  "sys-info",

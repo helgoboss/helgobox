@@ -44,7 +44,7 @@ where
     ///
     /// If yes, we should completely "eat" the message and don't do anything else with it.
     fn process_control(&mut self, msg: KeyMessage) -> bool {
-        let evt = ControlEvent::new(msg, ControlEventTimestamp::now());
+        let evt = ControlEvent::new(msg, ControlEventTimestamp::from_main_thread());
         let mut filter_out_event = false;
         let mut notified_backbone = false;
         for proc in &mut *self.main_processors.borrow_mut() {

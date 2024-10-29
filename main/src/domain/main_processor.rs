@@ -979,9 +979,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateAllParams(params) => {
                     self.update_all_params(params);
                 }
-                UpdateSingleParamValue { index, value } => {
-                    self.update_single_param_value(index, value)
-                }
+                UpdateSingleParamValue {
+                    index,
+                    value,
+                    timestamp,
+                } => self.update_single_param_value(index, value, timestamp),
             }
             count += 1;
             if count == PARAMETER_TASK_BULK_SIZE {
@@ -992,7 +994,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     // https://github.com/rust-lang/rust-clippy/issues/6066
     #[allow(clippy::needless_collect)]
-    fn update_single_param_value(&mut self, index: PluginParamIndex, value: RawParamValue) {
+    fn update_single_param_value(
+        &mut self,
+        index: PluginParamIndex,
+        value: RawParamValue,
+        timestamp: ControlEventTimestamp,
+    ) {
         debug!("Updating parameter {} to {}...", index, value);
         // Work around REAPER's inability to notify about parameter changes in
         // monitoring FX by simulating the notification ourselves.
@@ -1052,10 +1059,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if self.basics.settings.real_input_logging_enabled {
             self.log_incoming_message(&control_msg);
         }
-        let control_event = ControlEvent::new(
-            MainSourceMessage::Reaper(&control_msg),
-            ControlEventTimestamp::now(),
-        );
+        let control_event = ControlEvent::new(MainSourceMessage::Reaper(&control_msg), timestamp);
         self.process_incoming_message_internal(control_event);
     }
 
@@ -2982,6 +2986,7 @@ pub enum ParameterMainTask {
     UpdateSingleParamValue {
         index: PluginParamIndex,
         value: RawParamValue,
+        timestamp: ControlEventTimestamp,
     },
     UpdateAllParams(PluginParams),
 }
