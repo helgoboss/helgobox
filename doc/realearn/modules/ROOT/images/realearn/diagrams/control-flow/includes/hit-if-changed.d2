@@ -1,10 +1,9 @@
 class: container
 
-discard1.class: discard
-discard2.class: discard
+discard.class: discard
 
 is_target_retriggerable -> does_target_have_desired_value: no
-does_target_have_desired_value -> discard1: yes
+does_target_have_desired_value -> discard: yes
 is_target_retriggerable: {
   label: Is target retriggerable?
   class: decision

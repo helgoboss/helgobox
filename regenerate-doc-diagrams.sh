@@ -7,7 +7,7 @@ process_files() {
       FILE_NAME=$(basename "$FILE")
       echo "Processing $FILE_NAME"
       FILE_NAME_NO_EXT="${FILE_NAME%.*}"
-      d2 "$FILE" "$DIR/target/$FILE_NAME_NO_EXT.svg"
+      d2 --sketch "$FILE" "$DIR/target/$FILE_NAME_NO_EXT.svg"
     fi
   done
 }
