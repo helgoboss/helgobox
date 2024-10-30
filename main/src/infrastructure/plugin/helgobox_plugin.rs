@@ -30,7 +30,6 @@ use crate::infrastructure::plugin::helgobox_plugin_editor::HelgoboxPluginEditor;
 use crate::infrastructure::plugin::instance_shell::InstanceShell;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::{anyhow, Context};
-use helgoboss_learn::AbstractTimestamp;
 use std::convert::TryInto;
 use std::ptr::null_mut;
 use std::rc::Rc;

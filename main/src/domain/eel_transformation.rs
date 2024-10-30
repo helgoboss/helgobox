@@ -41,6 +41,8 @@ pub enum OutputVariable {
 pub trait Script {
     fn uses_time(&self) -> bool;
 
+    fn produces_relative_values(&self) -> bool;
+
     fn evaluate(
         &self,
         input: TransformationInput<AdditionalTransformationInput>,
@@ -49,6 +51,10 @@ pub trait Script {
 
 impl Script for () {
     fn uses_time(&self) -> bool {
+        false
+    }
+
+    fn produces_relative_values(&self) -> bool {
         false
     }
 
@@ -76,21 +82,21 @@ impl Script for EelTransformation {
         self.wants_to_be_polled()
     }
 
+    fn produces_relative_values(&self) -> bool {
+        let input = TransformationInput::default();
+        let Ok(output) = self.transform(input) else {
+            return false;
+        };
+        // For now, we only support relative-discrete
+        output.produced_kind == ControlValueKind::RelativeDiscrete
+    }
+
     fn evaluate(
         &self,
         input: TransformationInput<AdditionalTransformationInput>,
     ) -> Result<TransformationOutput, &'static str> {
         self.transform(input)
     }
-
-    // fn evaluate(
-    //     &self,
-    //     input: TransformationInput<UnitValue>,
-    //     output_value: UnitValue,
-    //     additional_input: AdditionalTransformationInput,
-    // ) -> Result<TransformationOutput<ControlValue>, &'static str> {
-    //     self.transform_continuous(input, output_value, additional_input)
-    // }
 }
 
 impl EelTransformation {
@@ -237,7 +243,7 @@ const CONTROL_AND_STOP_MAGIC: f64 = 8965019.0;
 mod tests {
     use super::*;
     use bytesize::ByteSize;
-    use helgoboss_learn::TransformationInputMetaData;
+    use helgoboss_learn::TransformationInputEvent;
     use sysinfo::ProcessRefreshKind;
 
     #[test]
@@ -291,15 +297,14 @@ mod tests {
             .map(|i| {
                 let code = format!("y = x * {i}");
                 let transformation = EelTransformation::compile_for_control(&code).unwrap();
-                let input = TransformationInput::new(
-                    0.5,
-                    TransformationInputMetaData {
-                        rel_time: Default::default(),
+                let input = TransformationInput {
+                    event: TransformationInputEvent {
+                        input_value: 0.5,
+                        ..Default::default()
                     },
-                );
-                transformation
-                    .transform(input, 0.5, AdditionalTransformationInput::default())
-                    .unwrap();
+                    ..Default::default()
+                };
+                transformation.transform(input).unwrap();
                 transformation
             })
             .collect()

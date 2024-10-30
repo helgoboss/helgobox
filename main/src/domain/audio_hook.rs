@@ -7,7 +7,7 @@ use crate::domain::{
 use base::byte_pattern::{BytePattern, PatternByte};
 use base::metrics_util::{measure_time, record_duration};
 use base::non_blocking_lock;
-use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvent, RawMidiEvents};
+use helgoboss_learn::{MidiSourceValue, RawMidiEvent, RawMidiEvents};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage, ShortMessage, ShortMessageType};
 use helgobox_allocator::*;
 use reaper_common_types::DurationInSeconds;
@@ -18,7 +18,6 @@ use reaper_medium::{
 };
 use smallvec::SmallVec;
 use std::fmt::{Display, Formatter};
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 use tinyvec::ArrayVec;

@@ -486,16 +486,20 @@ impl MappingModel {
     }
 
     pub fn base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {
+        let transformation =
+            EelTransformation::compile_for_control(self.mode_model.eel_control_transformation());
         ModeApplicabilityCheckInput {
             target_is_virtual: self.target_model.is_virtual(),
             // TODO-high-discrete Enable (also taking source into consideration!)
             target_supports_discrete_values: false,
-            control_transformation_uses_time: {
-                let transformation = EelTransformation::compile_for_control(
-                    self.mode_model.eel_control_transformation(),
-                );
-                transformation.map(|t| t.uses_time()).unwrap_or(false)
-            },
+            control_transformation_uses_time: transformation
+                .as_ref()
+                .map(|t| t.uses_time())
+                .unwrap_or(false),
+            control_transformation_produces_relative_values: transformation
+                .as_ref()
+                .map(|t| t.produces_relative_values())
+                .unwrap_or(false),
             is_feedback: false,
             make_absolute: self.mode_model.make_absolute(),
             use_textual_feedback: self.mode_model.feedback_type().is_textual(),

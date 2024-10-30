@@ -91,7 +91,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::future::Future;
 use std::rc::{Rc, Weak};
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;

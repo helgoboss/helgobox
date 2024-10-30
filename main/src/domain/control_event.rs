@@ -3,8 +3,7 @@ use helgoboss_learn::AbstractTimestamp;
 use reaper_common_types::{DurationInSeconds, Hz};
 use std::fmt::{Display, Formatter};
 use std::ops::Sub;
-use std::sync::LazyLock;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub type ControlEvent<P> = helgoboss_learn::ControlEvent<P, ControlEventTimestamp>;
 
