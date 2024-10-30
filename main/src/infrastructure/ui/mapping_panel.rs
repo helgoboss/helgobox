@@ -7778,13 +7778,13 @@ fn pick_virtual_control_element(
             control_element_domains::daw::PREDEFINED_VIRTUAL_BUTTON_NAMES
                 .iter()
                 .chain(control_element_domains::daw::PREDEFINED_VIRTUAL_MULTI_NAMES.iter())
-                .map(|e| *e)
+                .copied()
                 .collect();
         let grid_control_names: Vec<_> =
             control_element_domains::grid::PREDEFINED_VIRTUAL_BUTTON_NAMES
                 .iter()
                 .chain(control_element_domains::grid::PREDEFINED_VIRTUAL_MULTI_NAMES.iter())
-                .map(|e| *e)
+                .copied()
                 .collect();
 
         let include_actual_element = |mappings: &[&SharedMapping]| -> bool {
@@ -8122,7 +8122,7 @@ fn build_slash_menu_entries(
             }
         } else {
             // A nested entry (menu).
-            let remaining_names: Vec<_> = group.map(|name| extract_remaining_name(name)).collect();
+            let remaining_names: Vec<_> = group.map(extract_remaining_name).collect();
             let new_prefix = if prefix.is_empty() {
                 key.to_string()
             } else {

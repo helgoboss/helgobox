@@ -50,7 +50,7 @@ impl SampleOffset {
         self.0
     }
 
-    pub fn to_seconds(&self, sample_rate: Hz) -> DurationInSeconds {
+    pub fn to_seconds(self, sample_rate: Hz) -> DurationInSeconds {
         DurationInSeconds::new_panic(self.0 as f64 / sample_rate.get())
     }
 }
