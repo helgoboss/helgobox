@@ -1,0 +1,59 @@
+= Control direction
+
+The diagrams in this section illustrate how control values travel through the xref:key-concepts.adoc#glue[] section of a mapping, from source to target.
+
+== Absolute control values
+
+The following diagrams apply whenever the source emits xref:further-concepts/mapping.adoc#absolute-control-value[absolute] control values.
+
+=== Absolute mode "Normal"
+
+See xref:user-interface/mapping-panel/glue-section.adoc#absolute-mode-normal[].
+
+image::realearn/diagrams/control-flow/target/control-flow-absolute-normal.svg[]
+
+=== Absolute mode "Toggle button"
+
+See xref:user-interface/mapping-panel/glue-section.adoc#toggle-button-mode[].
+
+image::realearn/diagrams/control-flow/target/control-flow-absolute-toggle.svg[]
+
+=== Absolute mode "Incremental button"
+
+See xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[].
+
+include::partial$under-construction.adoc[]
+
+image::realearn/diagrams/control-flow/target/control-flow-absolute-incremental.svg[]
+
+=== Absolute mode "Performance control"
+
+See xref:user-interface/mapping-panel/glue-section.adoc#performance-control[].
+
+include::partial$under-construction.adoc[]
+
+image::realearn/diagrams/control-flow/target/control-flow-absolute-performance.svg[]
+
+=== Absolute mode "Make relative"
+
+See xref:user-interface/mapping-panel/glue-section.adoc#make-relative[].
+
+include::partial$under-construction.adoc[]
+
+image::realearn/diagrams/control-flow/target/control-flow-absolute-make-relative.svg[]
+
+== Relative control values
+
+The following diagrams apply whenever the source emits xref:further-concepts/mapping.adoc#relative-control-value[relative] control values.
+
+=== "Make absolute" disabled
+
+image::realearn/diagrams/control-flow/target/control-flow-relative-normal.svg[]
+
+=== "Make absolute" enabled
+
+See xref:user-interface/mapping-panel/glue-section.adoc#make-absolute[].
+
+include::partial$under-construction.adoc[]
+
+image::realearn/diagrams/control-flow/target/control-flow-relative-make-absolute.svg[]

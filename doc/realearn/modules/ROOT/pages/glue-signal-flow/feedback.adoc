@@ -1,0 +1,5 @@
+= Feedback direction
+
+The diagrams in this section illustrate how feedback values travel through the xref:key-concepts.adoc#glue[] section of a mapping, from target to source.
+
+include::partial$under-construction.adoc[]

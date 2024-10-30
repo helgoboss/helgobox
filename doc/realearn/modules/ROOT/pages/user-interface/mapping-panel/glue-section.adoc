@@ -22,11 +22,6 @@ It shows or hides them based on criteria like this:
 * What are the characteristics of the source and target?
 * What's the current setting of <<absolute-mode>> and <<make-absolute>>?
 
-== Signal flow
-
-.Control flow
-d2::control-flow/glue-control-flow.d2[]
-
 == Reset to defaults button
 
 Resets the settings to some sensible defaults.
@@ -251,7 +246,7 @@ It mostly depends on the character of the source.
 If a mode doesn't make sense given the current source, it will be marked as `NOT APPLICABLE`.
 In this case, you should choose another mode or change the source.
 
-Normal::
+[[absolute-mode-normal]] Normal::
 
 Takes and optionally transforms absolute source control values _the normal way_. _Normal_ means that the current target value is irrelevant and the target will just be set to whatever absolute control value is coming in (potentially transformed).
 

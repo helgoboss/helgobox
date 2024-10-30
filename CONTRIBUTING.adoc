@@ -90,6 +90,15 @@ cargo run helgobox-artwork-processor
 
 3 different approaches for generating code ... yes, maybe it's time to unify this ;)
 
+==== Regenerate diagrams in documentation
+
+This is about the diagrams in the Antora documentation, e.g. the glue signal flow.
+
+[source,shell]
+----
+sh regenerate-doc-diagrams.sh
+----
+
 ==== Building with Playtime (can only be done by Helgoboss)
 
 Add this to `$HOME/.cargo/config` (otherwise Cargo will have issues fetching the private submodules):

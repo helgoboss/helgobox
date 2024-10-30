@@ -130,6 +130,8 @@ Examples: MIDI source, OSC source
 
 A _glue_ is the part of a <<mapping>> that sits between <<source>> and <<target>>, filtering and transforming <<control>> and <<feedback>> streams.
 
+This is a very powerful feature of ReaLearn, as can be seen by looking at the xref:glue-signal-flow.adoc[].
+
 [[target]]
 == Target
 
