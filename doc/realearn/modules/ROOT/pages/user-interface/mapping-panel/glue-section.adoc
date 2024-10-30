@@ -377,6 +377,18 @@ The following variables/functions are available in the formula:
 You can use that value in order to calculate the new value.
 With this, you can essentially craft your own relative mode!
 
+`y_type`:: This contains the type of the produced output value.
+By default, it's 0. The following types are currently supported:
+
+`0`::: Absolute continuous value (a value between 0.0 and 1.0)
+`1`::: Relative discrete value (an integer, e.g. -5 for 5 decrements)
+
+`realearn_timestamp`:: This contains the precise timestamp of the incoming control event in seconds.
+This can be used to calculate the delta time between two consecutive control events, which in turn can be used to simulate encoder acceleration, for example.
++
+The timestamp has audio block precision.
+For MIDI events, it even takes the intra-block offset into account - which is as precise as it can get, even if you use a high audio buffer size in the REAPER audio device settings.
+
 `y_last`:: This contains the last value of the target before it was affected by this particular mapping.
 +
 Allows you to come up with a performance control mode typical for synth parameter mappings, just like the built-in <<performance-control>> mode but more customizable.
@@ -413,13 +425,19 @@ In this case, one can return `none`, in which case the target will not be touche
 +
 Good for transitions that are not continuous, especially if other mappings want to control the parameter as well from time to time.
 
-ReaLearn's control processing order is like this:
+`realearn_last_feedback_value`::
+Contains the last numeric feedback value sent through this mapping.
+Before that, it's zero.
+This can come in handy for mappings with xref:further-concepts/target.adoc#virtual-target[], for which the variable `y` is always zero because virtual targets don't know the concept of a current value.
++
+WARNING: This variable is experimental, better don't rely on it!
 
-. Apply source interval
-. Apply transformation
-. Apply reverse
-. Apply target interval
-. Apply rounding
+`realearn_dbg()`::
+This is a function which takes a floating-point value as parameter.
+It prints that floating-point value to `stdout` (*not* the ReaScript debug console!).
+Useful for debugging.
+
+Learn more about the order in which ReaLearn processes the elements in the glue section by looking at the xref:glue-signal-flow.adoc[] diagrams.
 
 [#step-size-min-max]
 == Step size Min/Max controls

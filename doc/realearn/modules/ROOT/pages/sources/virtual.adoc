@@ -12,7 +12,8 @@ See xref:further-concepts/compartment.adoc#virtual-control-element-id[].
 
 === Pick menu
 
-The convenient picker provides IDs from standardized xref:further-concepts/compartment.adoc#virtual-control-scheme[virtual control schemes]:
+The convenient picker provides IDs from standardized xref:further-concepts/compartment.adoc#virtual-control-scheme[virtual control schemes].
+It also contains a category for accessing the virtual control elements that are currently exposed by the xref:key-concepts.adoc#controller-compartment[].
 
 === ID field
 

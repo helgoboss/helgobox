@@ -45,6 +45,8 @@ Prevent echo feedback::
 This option mainly exists for motorized faders that don't like getting feedback while being moved.
 If checked, ReaLearn won't send feedback if the target value change was caused by incoming source events of this mapping.
 However, it will still send feedback if the target value change was caused by something else, e.g. a mouse action within REAPER itself.
++
+Since ReaLearn 2.16.12, this also works in controller mappings with virtual targets.
 
 Send feedback after control::
 This checkbox mainly exists for "fixing" controllers which allow their LEDs to be controlled via incoming MIDI/OSC _but at the same time_ insist on controlling these LEDs themselves.
