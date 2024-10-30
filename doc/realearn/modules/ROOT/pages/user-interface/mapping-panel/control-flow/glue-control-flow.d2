@@ -1,0 +1,118 @@
+...@includes/declarations.d2
+
+direction: down
+
+discard1.class: discard
+discard2.class: discard
+
+
+# (* -> *)[*] {
+#   # style.animated: true
+# }
+
+source: {
+  label: Source
+  class: start
+}
+
+target: {
+  label: Target
+  class: end
+}
+
+apply_button_filter_and_fire_mode {
+  label: Apply button filter and fire mode
+}
+
+source -> which_control_value_type: Control Value
+which_control_value_type -> apply_button_filter_and_fire_mode: Absolute
+which_control_value_type -> apply_encoder_filter: Relative
+
+apply_encoder_filter {
+  label: Apply encoder filter
+}
+
+apply_encoder_filter -> encoder_filter_result
+
+encoder_filter_result {
+  label: Result?
+  class: decision
+}
+
+encoder_filter_result -> discard2: ignore
+encoder_filter_result -> is_make_absolute: pass
+
+is_make_absolute {
+  label: Make absolute?
+  class: decision
+}
+
+
+is_make_absolute -> control_relative_normal.is_value_seq_defined: no
+is_make_absolute -> todo: yes
+
+control_relative_normal: @includes/control-relative-normal.d2
+
+control_relative_normal.prepare_increment.apply_reverse -> hit_target_absolutely_with_unit_increment.is_wrap
+control_relative_normal.prepare_increment2.apply_reverse -> target
+
+
+control_relative_normal.apply_step_size_min_max -> hit_target_absolutely_with_unit_increment.is_wrap
+
+hit_target_absolutely_with_unit_increment: @includes/hit-target-absolutely-with-unit-increment.d2
+
+hit_target_absolutely_with_unit_increment.apply_increment_by_clamping -> hit_if_changed.is_target_retriggerable
+hit_target_absolutely_with_unit_increment.apply_increment_by_wrapping -> hit_if_changed.is_target_retriggerable
+
+control_relative_normal.process_negative_speed_result -> target: Hit with 100%
+
+apply_button_filter_and_fire_mode -> fire_mode_result
+fire_mode_result -> discard1: ignore
+fire_mode_result -> which_absolute_mode: pass
+
+
+fire_mode_result {
+  label: Result?
+  class: decision
+}
+
+which_absolute_mode -> pre_process_absolute_value.is_in_source_interval: Normal
+which_absolute_mode -> control_absolute_toggle_buttons.is_control_value_zero: Toggle button
+which_absolute_mode -> control_absolute_incremental_buttons.is_zero_or_out_of_range: Incremental button
+which_absolute_mode -> todo5: Make relative
+which_absolute_mode -> todo6: Performance control
+
+control_absolute_incremental_buttons: @includes/control-absolute-incremental-buttons.d2
+
+control_absolute_toggle_buttons: @includes/control-absolute-toggle-buttons.d2
+
+control_absolute_toggle_buttons.choose_zero_or_target_max -> target
+control_absolute_toggle_buttons.choose_target_min_or_max -> target
+
+which_absolute_mode {
+  label: What's the absolute mode?
+  class: decision
+}
+
+which_control_value_type {
+  label: Which type of control value do we have?
+  class: decision
+}
+
+pre_process_absolute_value: @includes/pre-process-absolute-value.d2
+pre_process_absolute_value.source_min_max -> prepare_absolute_value_no_performance_mode.control_transformation
+
+prepare_absolute_value_no_performance_mode: @includes/prepare-absolute-value-no-performance-mode.d2
+
+prepare_absolute_value_no_performance_mode.round_target_value-> hit_target_considering_max_jump.does_target_provide_value
+
+hit_target_considering_max_jump: @includes/hit-target-considering-max-jump.d2
+prepare_absolute_value_no_performance_mode.value_sequence -> hit_target_considering_max_jump.does_target_provide_value
+
+hit_target_considering_max_jump.does_target_provide_value -> target: No (could be virtual target)
+hit_target_considering_max_jump.which_takeover_mode -> hit_if_changed.is_target_retriggerable: Normal
+hit_target_considering_max_jump.takover_mode_result -> hit_if_changed.is_target_retriggerable: pass
+
+hit_if_changed: @includes/hit-if-changed.d2
+hit_if_changed.is_target_retriggerable -> target: yes
+hit_if_changed.does_target_have_desired_value -> target: no

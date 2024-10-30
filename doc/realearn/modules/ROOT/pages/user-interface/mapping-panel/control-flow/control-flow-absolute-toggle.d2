@@ -1,0 +1,11 @@
+...@includes/declarations.d2
+
+direction: down
+
+...@includes/absolute-control-start.d2
+
+fire_mode_result -> control_absolute_toggle_buttons.is_control_value_zero: pass
+
+control_absolute_toggle_buttons: @includes/control-absolute-toggle-buttons.d2
+control_absolute_toggle_buttons.choose_zero_or_target_max -> target
+control_absolute_toggle_buttons.choose_target_min_or_max -> target

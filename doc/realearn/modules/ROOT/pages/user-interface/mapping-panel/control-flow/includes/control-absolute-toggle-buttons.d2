@@ -1,0 +1,17 @@
+is_control_value_zero: {
+  label: "Is control value zero?"
+  class: decision
+}
+is_control_value_zero -> discard: yes
+is_control_value_zero -> is_target_min_max_equal: no
+is_target_min_max_equal: {
+  label: "Is target min/max equal?"
+}
+is_target_min_max_equal -> choose_zero_or_target_max: yes
+is_target_min_max_equal -> choose_target_min_or_max: no
+choose_zero_or_target_max: {
+  label: "Choose zero or target max"
+}
+choose_target_min_or_max: {
+  label: "Choose target min or max"
+}

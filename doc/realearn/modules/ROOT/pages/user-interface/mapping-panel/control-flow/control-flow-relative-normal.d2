@@ -1,0 +1,22 @@
+...@includes/declarations.d2
+
+direction: down
+
+...@includes/relative-control-start.d2
+
+encoder_filter_result -> control_relative_normal.is_value_seq_defined: pass
+
+control_relative_normal: @includes/control-relative-normal.d2
+control_relative_normal.prepare_increment.apply_reverse -> apply_increment
+control_relative_normal.prepare_increment2.apply_reverse -> target
+control_relative_normal.apply_step_size_min_max -> apply_increment
+control_relative_normal.process_negative_speed_result -> target: Hit with 100%
+
+apply_increment {
+  label: Apply increment respecting wrap and target min/max
+}
+apply_increment -> hit_if_changed.is_target_retriggerable
+
+hit_if_changed: @includes/hit-if-changed.d2
+hit_if_changed.is_target_retriggerable -> target: yes
+hit_if_changed.does_target_have_desired_value -> target: no

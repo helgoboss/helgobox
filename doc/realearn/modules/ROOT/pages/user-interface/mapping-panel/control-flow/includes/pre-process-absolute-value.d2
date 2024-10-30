@@ -1,0 +1,21 @@
+discard1.class: discard
+
+is_in_source_interval: {
+  label: Is source value within Source Min/Max range?
+  class: decision
+}
+out_of_range: {
+  label: Apply out-of-range behavior
+}
+is_in_source_interval -> out_of_range: Out of range
+is_in_source_interval -> source_min_max: Within range
+out_of_range -> out_of_range_result
+out_of_range_result -> discard1: ignore
+out_of_range_result -> source_min_max: pass
+source_min_max: {
+  label: Normalize value to source min/max
+}
+out_of_range_result: {
+  label: Result?
+  class: decision
+}

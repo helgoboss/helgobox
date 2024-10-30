@@ -1,0 +1,15 @@
+discard1.class: discard
+
+apply_button_filter_and_fire_mode: {
+  label: Apply button filter and fire mode
+}
+
+source -> apply_button_filter_and_fire_mode: Absolute control value
+
+apply_button_filter_and_fire_mode -> fire_mode_result
+
+fire_mode_result: {
+  label: Result?
+  class: decision
+}
+fire_mode_result -> discard1: ignore {left}

@@ -1,0 +1,52 @@
+discard1.class: discard
+discard2.class: discard
+
+is_value_seq_defined: {
+  label: Do we have a value sequence?
+  class: decision
+}
+is_value_seq_defined -> todo: yes
+is_value_seq_defined -> which_target_control_type: no
+which_target_control_type: {
+  label: What control type does the target have?
+  class: decision
+}
+which_target_control_type -> does_target_provide_value: Absolute continuous
+which_target_control_type -> prepare_increment.apply_speed: Absolute discrete
+which_target_control_type -> prepare_increment2: Relative or virtual
+
+prepare_increment2: @prepare-increment.d2
+
+prepare_increment: @prepare-increment.d2
+
+does_target_provide_value: {
+  label: Does target provide current value?
+  class: decision
+}
+does_target_provide_value -> is_target_retriggerable: no
+is_target_retriggerable: {
+  label: Is target retriggerable?
+  class: decision
+}
+is_target_retriggerable -> discard1: no
+is_target_retriggerable -> process_negative_speed: yes
+does_target_provide_value -> apply_reverse: yes
+
+apply_reverse: {
+  label: Reverse if desired
+}
+
+apply_reverse -> apply_step_size_min_max
+apply_step_size_min_max: {
+  label: Apply step size min/max
+}
+
+process_negative_speed: {
+  label: Process negative speed
+}
+process_negative_speed -> process_negative_speed_result
+process_negative_speed_result: {
+  label: Result?
+  class: decision
+}
+process_negative_speed_result -> discard2: ignore

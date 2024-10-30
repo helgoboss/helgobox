@@ -1,0 +1,12 @@
+@startuml
+actor "Customer" as customer
+actor "Clerk" as clerk
+usecase "Perform checkout" as checkout
+usecase "Payment" as payment
+usecase "Get help" as help
+
+customer - checkout
+checkout -[dashed]-> payment : include
+checkout -[dashed]-> help : extends
+checkout - clerk
+@enduml

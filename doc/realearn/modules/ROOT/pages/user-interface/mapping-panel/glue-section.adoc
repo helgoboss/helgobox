@@ -24,11 +24,8 @@ It shows or hides them based on criteria like this:
 
 == Signal flow
 
-[d2]
-.Control signal flow
-....
-include::partial$glue/glue-control-flow.d2[]
-....
+.Control flow
+d2::control-flow/glue-control-flow.d2[]
 
 == Reset to defaults button
 

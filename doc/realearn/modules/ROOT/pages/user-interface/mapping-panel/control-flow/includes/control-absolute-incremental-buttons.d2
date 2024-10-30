@@ -1,0 +1,20 @@
+discard1.class: discard
+
+is_zero_or_out_of_range: {
+  label: Is value zero or out of source min/max range?
+  class: decision
+}
+is_zero_or_out_of_range -> discard1: yes
+is_zero_or_out_of_range -> is_make_absolute: no
+is_make_absolute: {
+  label: Is make-absolute enabled?
+  class: decision
+}
+is_make_absolute -> todo: yes
+is_make_absolute -> is_value_seq_defined: no
+is_value_seq_defined: {
+  label: Do we have a value sequence?
+  class: decision
+}
+is_value_seq_defined -> todo2: yes
+is_value_seq_defined -> todo3: no

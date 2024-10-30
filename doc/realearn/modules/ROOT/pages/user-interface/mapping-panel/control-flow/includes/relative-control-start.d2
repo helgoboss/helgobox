@@ -1,0 +1,16 @@
+discard.class: discard
+
+source -> apply_encoder_filter: Relative control Value
+
+apply_encoder_filter {
+  label: Apply encoder filter
+}
+
+apply_encoder_filter -> encoder_filter_result
+
+encoder_filter_result {
+  label: Result?
+  class: decision
+}
+
+encoder_filter_result -> discard: ignore

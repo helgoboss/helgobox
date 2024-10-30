@@ -1,0 +1,22 @@
+
+discard1.class: discard
+
+does_target_provide_value -> which_takeover_mode: Yes (real target)
+which_takeover_mode -> takeover_mode: else
+takeover_mode -> takover_mode_result
+takover_mode_result -> discard1: ignore
+takeover_mode: {
+  label: Apply special takeover mode
+}
+does_target_provide_value: {
+  label: Does the target provide a current value?
+  class: decision
+}
+which_takeover_mode: {
+  label: What's the takeover mode?
+  class: decision
+}
+takover_mode_result: {
+  label: Result?
+  class: decision
+}

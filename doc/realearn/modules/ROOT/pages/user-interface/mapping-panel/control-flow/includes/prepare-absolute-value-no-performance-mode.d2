@@ -1,0 +1,32 @@
+control_transformation: {
+  label: Apply EEL control transformation
+}
+reverse: {
+  label: Reverse value if desired
+}
+target_min_max: {
+  label: Denormalize value to target min/max
+}
+round_target_value: {
+  label: Round value if desired
+}
+value_sequence: {
+  label: Pick value from sequence
+}
+control_transformation -> control_transformation_result
+control_transformation_result -> reverse: absolute
+control_transformation_result -> todo10: relative
+reverse -> is_value_seq_defined
+is_value_seq_defined -> value_sequence: yes
+is_value_seq_defined -> target_min_max: no
+target_min_max -> round_target_value
+
+control_transformation_result: {
+  label: Result?
+  class: decision
+}
+
+is_value_seq_defined: {
+  label: Do we have a value sequence?
+  class: decision
+}
