@@ -17,7 +17,9 @@ value_sequence: {
 }
 control_transformation -> control_transformation_result
 control_transformation_result -> reverse: absolute
-control_transformation_result -> todo10: relative
+control_transformation_result -> portal_normal_relative_control: relative
+...@portal-normal-relative-control.d2
+
 reverse -> is_value_seq_defined
 is_value_seq_defined -> value_sequence: yes
 is_value_seq_defined -> target_min_max: no

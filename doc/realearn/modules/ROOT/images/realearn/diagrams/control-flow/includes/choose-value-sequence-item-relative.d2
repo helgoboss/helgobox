@@ -1,0 +1,16 @@
+class: container
+
+discard.class: discard
+
+choose_value_sequence_item_relative {
+    label: Choose value in sequence relatively, considering wrap
+}
+
+choose_value_sequence_item_relative -> equals_target_value
+
+equals_target_value {
+    label: Same as current target value?
+    class: decision
+}
+
+equals_target_value -> discard: yes

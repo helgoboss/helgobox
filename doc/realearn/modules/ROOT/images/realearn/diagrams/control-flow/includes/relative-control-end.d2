@@ -1,0 +1,14 @@
+...@portal-normal-relative-control.d2
+portal_normal_relative_control -> control_relative_normal
+
+control_relative_normal: @control-relative-normal.d2
+control_relative_normal.prepare_increment.apply_reverse -> apply_increment
+control_relative_normal.prepare_increment2.apply_reverse -> target
+control_relative_normal.apply_step_size_min_max -> apply_increment
+control_relative_normal.process_negative_speed_result -> target: Hit with 100%
+control_relative_normal.choose_value_sequence_item_relative.equals_target_value -> target: no
+
+apply_increment {
+  label: Apply increment respecting wrap and target min/max
+}
+apply_increment -> hit_if_changed.is_target_retriggerable

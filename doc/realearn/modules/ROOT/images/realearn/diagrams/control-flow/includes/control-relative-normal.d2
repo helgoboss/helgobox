@@ -7,7 +7,13 @@ is_value_seq_defined: {
   label: Do we have a value sequence?
   class: decision
 }
-is_value_seq_defined -> todo: yes
+is_value_seq_defined -> prepare_increment3.apply_speed: yes
+
+prepare_increment3: @prepare-increment.d2
+prepare_increment3.apply_reverse -> choose_value_sequence_item_relative.choose_value_sequence_item_relative
+choose_value_sequence_item_relative: @choose-value-sequence-item-relative.d2
+
+
 is_value_seq_defined -> which_target_control_type: no
 which_target_control_type: {
   label: What control type does the target have?

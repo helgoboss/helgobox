@@ -15,10 +15,10 @@ prepare_absolute_value_no_performance_mode.round_target_value-> hit_target_consi
 prepare_absolute_value_no_performance_mode.value_sequence -> hit_target_considering_max_jump.does_target_provide_value
 
 hit_target_considering_max_jump: @includes/hit-target-considering-max-jump.d2
-hit_target_considering_max_jump.does_target_provide_value -> target: No (could be virtual target)
+hit_target_considering_max_jump.does_target_provide_value -> target: No (e.g. virtual target)
 hit_target_considering_max_jump.which_takeover_mode -> hit_if_changed.is_target_retriggerable: Normal
 hit_target_considering_max_jump.takover_mode_result -> hit_if_changed.is_target_retriggerable: pass
 
-hit_if_changed: @includes/hit-if-changed.d2
-hit_if_changed.is_target_retriggerable -> target: yes
-hit_if_changed.does_target_have_desired_value -> target: no
+
+# Common end
+...@includes/hit-if-changed-end.d2
