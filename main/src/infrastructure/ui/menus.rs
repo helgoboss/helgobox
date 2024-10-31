@@ -701,17 +701,25 @@ where
             infos.sort_by_key(|info| &info.meta_data.name);
             let entries = categorizer.create_sub_entries(infos.into_iter(), build_id, current_id);
             let mut contains_current_entry = false;
+            const CURRENT_CATEGORY_SUFFIX: &str = " *";
             let entries = entries
                 .into_iter()
                 .inspect(|e| {
-                    if let Entry::Item(item) = e {
-                        if item.opts.checked {
-                            contains_current_entry = true;
-                        }
+                    let is_current = match e {
+                        Entry::Menu(m) => m.text.ends_with(CURRENT_CATEGORY_SUFFIX),
+                        Entry::Item(i) => i.opts.checked,
+                        _ => false,
+                    };
+                    if is_current {
+                        contains_current_entry = true;
                     }
                 })
                 .collect();
-            let category_suffix = if contains_current_entry { " *" } else { "" };
+            let category_suffix = if contains_current_entry {
+                CURRENT_CATEGORY_SUFFIX
+            } else {
+                ""
+            };
             let category_label = format!("{category}{category_suffix}");
             menu(category_label, entries)
         })
