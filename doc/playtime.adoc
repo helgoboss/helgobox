@@ -1,5 +1,0 @@
-= Playtime 2
-:toc:
-:toclevels: 2
-
-== Notes for later
