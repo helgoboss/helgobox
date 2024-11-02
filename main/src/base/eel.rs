@@ -56,7 +56,8 @@ impl Vm {
             root::NSEEL_addfunc_ret_type(
                 name.as_c_str().as_ptr(),
                 1,
-                -1,
+                // Return double
+                1,
                 Some(root::NSEEL_PProc_THIS),
                 f as *mut c_void,
                 &mut *self.function_table as *mut _,
@@ -73,7 +74,8 @@ impl Vm {
             root::NSEEL_addfunc_ret_type(
                 name.as_c_str().as_ptr(),
                 1,
-                1,
+                // Return void or bool
+                -1,
                 Some(root::NSEEL_PProc_THIS),
                 f as *mut c_void,
                 &mut *self.function_table as *mut _,
