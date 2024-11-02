@@ -1,3 +1,9 @@
 = Target "FX parameter: Set automation touch state"
 
-This does the same as xref:targets/track/set-automation-touch-state.adoc[] but for FX parameter value changes.
+This is similar to xref:targets/track/set-automation-touch-state.adoc[] but for FX parameter value changes.
+
+IMPORTANT: There's one difference.
+This target currently only reacts to _release_ events, not _press_ events.
+So you can't start writing automation by touching the fader.
+You can only end writing automation by releasing it.
+The reason is that REAPER doesn't provide a function `TrackFX_BeginParamEdit`, it only provides link:https://www.reaper.fm/sdk/reascript/reascripthelp.html#TrackFX_EndParamEdit[TrackFX_EndParamEdit].
