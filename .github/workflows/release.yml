@@ -107,7 +107,7 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu-')
         run: |
           sudo apt-get update
-          sudo apt-get install nasm php binutils-arm-linux-gnueabihf binutils-aarch64-linux-gnu libxdo-dev libx11-dev libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev libspeechd-dev libgtk-3-dev
+          sudo apt-get install nasm php binutils-arm-linux-gnueabihf binutils-aarch64-linux-gnu libudev-dev libxdo-dev libx11-dev  libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev libspeechd-dev libgtk-3-dev
       - run: brew install php
         if: matrix.os == 'macos-latest'
       # Override SDK root and deployment target (macOS aarch64 only)
