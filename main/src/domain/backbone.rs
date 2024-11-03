@@ -5,7 +5,8 @@ use base::{
 use crate::domain::{
     AdditionalFeedbackEvent, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
     FeedbackOutput, InstanceId, RealearnSourceState, RealearnTargetState, ReaperTarget,
-    ReaperTargetType, SafeLua, SharedInstance, UnitId, WeakInstance,
+    ReaperTargetType, SafeLua, SharedInstance, StreamDeckDeviceId, StreamDeckDeviceManager,
+    StreamDeckSourceFeedbackValue, UnitId, WeakInstance,
 };
 #[allow(unused)]
 use anyhow::{anyhow, Context};
@@ -13,7 +14,11 @@ use pot::{PotFavorites, PotFilterExcludes};
 
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use fragile::Fragile;
-use helgobox_api::persistence::TargetTouchCause;
+use helgoboss_learn::{RgbColor, UnitValue};
+use helgobox_api::persistence::{
+    StreamDeckButtonBackground, StreamDeckButtonForeground, TargetTouchCause,
+};
+use image::Pixel;
 use once_cell::sync::Lazy;
 use reaper_high::Fx;
 use std::cell::{Cell, Ref, RefCell, RefMut};
@@ -21,6 +26,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
+use streamdeck::StreamDeck;
 use strum::EnumCount;
 
 make_available_globally_in_main_thread_on_demand!(Backbone);
@@ -45,12 +51,14 @@ pub struct Backbone {
     /// We hold pointers to all ReaLearn instances in order to let instance B
     /// borrow a clip matrix which is owned by instance A. This is great because it allows us to
     /// control the same clip matrix from different controllers.
-    // TODO-high-playtime-refactoring Since the introduction of units, foreign matrixes are not used in practice. Let's
+    // TODO-high-playtime-refactoring Since the introduction of units, foreign matrices are not used in practice. Let's
     //  keep this for a while and remove.
     instances: RefCell<NonCryptoHashMap<InstanceId, WeakInstance>>,
     was_processing_keyboard_input: Cell<bool>,
     global_pot_filter_exclude_list: RefCell<PotFilterExcludes>,
     recently_focused_fx_container: Rc<RefCell<RecentlyFocusedFxContainer>>,
+    stream_deck_device_manager: RefCell<StreamDeckDeviceManager>,
+    stream_decks: RefCell<NonCryptoHashMap<StreamDeckDeviceId, StreamDeck>>,
 }
 
 #[derive(Debug, Default)]
@@ -165,7 +173,104 @@ impl Backbone {
             was_processing_keyboard_input: Default::default(),
             global_pot_filter_exclude_list: Default::default(),
             recently_focused_fx_container: Default::default(),
+            stream_deck_device_manager: Default::default(),
+            stream_decks: Default::default(),
         }
+    }
+
+    pub fn detect_stream_deck_device_changes(&self) {
+        let devices_in_use = self.stream_deck_device_manager.borrow().devices_in_use();
+        let actually_connected_devices: NonCryptoHashSet<_> =
+            self.stream_decks.borrow().keys().copied().collect();
+        if devices_in_use == actually_connected_devices {
+            return;
+        }
+        println!("Try to connect");
+        self.connect_or_disconnect_stream_deck_devices(&devices_in_use);
+    }
+
+    pub fn register_stream_deck_usage(&self, unit_id: UnitId, device: Option<StreamDeckDeviceId>) {
+        // Change device usage
+        let mut manager = self.stream_deck_device_manager.borrow_mut();
+        manager.register_device_usage(unit_id, device);
+        let devices_in_use = manager.devices_in_use();
+        // Update connections
+        self.connect_or_disconnect_stream_deck_devices(&devices_in_use);
+    }
+
+    fn connect_or_disconnect_stream_deck_devices(
+        &self,
+        devices_in_use: &NonCryptoHashSet<StreamDeckDeviceId>,
+    ) {
+        let mut decks = self.stream_decks.borrow_mut();
+        decks.retain(|id, _| devices_in_use.contains(id));
+        for dev_id in devices_in_use {
+            if decks.contains_key(&dev_id) {
+                continue;
+            }
+            if let Ok(con) = dev_id.connect() {
+                decks.insert(*dev_id, con);
+            }
+        }
+    }
+
+    pub fn stream_decks_mut(&self) -> RefMut<NonCryptoHashMap<StreamDeckDeviceId, StreamDeck>> {
+        self.stream_decks.borrow_mut()
+    }
+
+    pub fn send_stream_deck_feedback(
+        &self,
+        dev_id: StreamDeckDeviceId,
+        value: StreamDeckSourceFeedbackValue,
+    ) -> anyhow::Result<()> {
+        use image::{DynamicImage, ImageBuffer, Rgba};
+        let mut stream_decks = self.stream_decks.borrow_mut();
+        let sd = stream_decks
+            .get_mut(&dev_id)
+            .context("stream deck not connected")?;
+        const DEFAULT_BG_COLOR: RgbColor = RgbColor::BLACK;
+        const DEFAULT_FG_COLOR: RgbColor = RgbColor::WHITE;
+        let width = 72;
+        let height = 72;
+        // Paint background
+        let bg_color = value.background_color.unwrap_or(DEFAULT_BG_COLOR);
+        let mut img: ImageBuffer<Rgba<u8>, _> = match value.button_design.background {
+            StreamDeckButtonBackground::Solid(_) => {
+                ImageBuffer::from_pixel(width, height, bg_color.into())
+            }
+            StreamDeckButtonBackground::Image(_) => ImageBuffer::default(),
+        };
+        // Paint foreground
+        if value.numeric_value.is_some() || value.text_value.is_some() {
+            let fg_color = value.foreground_color.unwrap_or(DEFAULT_FG_COLOR);
+            match value.button_design.foreground {
+                StreamDeckButtonForeground::Solid(_) => {
+                    let opacity = value.numeric_value.unwrap_or(UnitValue::MAX);
+                    let mut rgba: Rgba<u8> = fg_color.into();
+                    rgba[3] = (opacity.get() * 255.0).round() as u8;
+                    for pixel in img.pixels_mut() {
+                        pixel.blend(&rgba);
+                    }
+                }
+                StreamDeckButtonForeground::Image(_) => {}
+                StreamDeckButtonForeground::Bar(_) => {
+                    let percentage = value.numeric_value.map(|v| v.get()).unwrap_or(0.0);
+                    let rect_height = (height as f64 * percentage) as u32;
+                    // Fill the background
+                    // TODO-high CONTINUE Only change foreground pixels. Background already painted.
+                    for (x, y, pixel) in img.enumerate_pixels_mut() {
+                        *pixel = if y >= height - rect_height {
+                            fg_color.into()
+                        } else {
+                            bg_color.into()
+                        };
+                    }
+                }
+                StreamDeckButtonForeground::Arc(_) => {}
+            }
+        }
+        sd.set_button_image(value.button_index as _, DynamicImage::ImageRgba8(img))?;
+        Ok(())
     }
 
     pub fn duration_since_time_of_start(&self) -> Duration {

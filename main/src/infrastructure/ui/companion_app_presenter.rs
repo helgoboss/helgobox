@@ -93,11 +93,7 @@ impl CompanionAppPresenter {
         self.session.upgrade().expect("session gone")
     }
 
-    fn generate_qr_code(
-        &self,
-        content: &str,
-        target_file: &Path,
-    ) -> Result<(u32, u32), Box<dyn std::error::Error>> {
+    fn generate_qr_code(&self, content: &str, target_file: &Path) -> anyhow::Result<(u32, u32)> {
         let code = QrCode::new(content)?;
         type P = image::LumaA<u8>;
         let min_size = 250;

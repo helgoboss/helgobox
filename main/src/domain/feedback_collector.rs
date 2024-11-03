@@ -73,6 +73,11 @@ impl<'a> FeedbackCollector<'a> {
                     preliminary_feedback_value.projection,
                     Some(FinalSourceFeedbackValue::Reaper(v)),
                 ),
+                // Is final StreamDeck source value already.
+                PreliminarySourceFeedbackValue::StreamDeck(v) => FinalRealFeedbackValue::new(
+                    preliminary_feedback_value.projection,
+                    Some(FinalSourceFeedbackValue::StreamDeck(v)),
+                ),
             },
         }
     }

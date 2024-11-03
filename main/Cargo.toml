@@ -98,9 +98,9 @@ tower-http = { version = "0.4.2", features = ["cors"] }
 tonic.workspace = true
 prost.workspace = true
 # For generating projection QR code
-qrcode = { version = "0.13.0" }
+qrcode = { version = "0.14.1" }
 # For rendering projection QR code to PNG
-image = "0.24.8"
+image = { workspace = true, features = ["png"] }
 # For generating self-signed certificate for projection web server
 rcgen = "0.12.0"
 # For showing different ways of connecting to this computer (projection feature)
@@ -209,6 +209,10 @@ serde_plain.workspace = true
 atomic.workspace = true
 # For making sure that sharing global audio state uses atomics
 static_assertions.workspace = true
+# For Stream Deck support
+streamdeck = "0.9.0"
+# For Stream Deck support
+hidapi = "2.4"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

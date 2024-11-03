@@ -198,6 +198,9 @@ impl HeaderPanel {
             One(WantsKeyboardInput) => {
                 self.invalidate_control_input_button();
             }
+            One(StreamDeckDeviceId) => {
+                self.invalidate_control_input_button();
+            }
             One(InCompartment(compartment, One(InGroup(_, _))))
                 if *compartment == self.active_compartment() =>
             {
@@ -1719,9 +1722,9 @@ impl HeaderPanel {
     }
 
     fn invalidate_control_input_button(&self) {
-        let session = self.session();
-        let session = session.borrow();
-        let mut text = match session.control_input() {
+        let unit_model = self.session();
+        let unit = unit_model.borrow();
+        let mut text = match unit.control_input() {
             ControlInput::Midi(midi_control_input) => match midi_control_input {
                 MidiControlInput::FxInput => CONTROL_INPUT_MIDI_FX_INPUT_LABEL.to_string(),
                 MidiControlInput::Device(dev_id) => {
@@ -1731,8 +1734,11 @@ impl HeaderPanel {
             },
             ControlInput::Osc(osc_device_id) => get_osc_dev_list_label(&osc_device_id, false),
         };
-        if session.wants_keyboard_input() {
+        if unit.wants_keyboard_input() {
             text.insert_str(0, "[Keyboard] + ");
+        }
+        if unit.stream_deck_device_id().is_some() {
+            text.insert_str(0, "[Stream Deck] + ");
         }
         self.view
             .require_control(root::ID_CONTROL_INPUT_BUTTON)
@@ -1786,13 +1792,21 @@ impl HeaderPanel {
     }
 
     fn pick_control_input(&self) {
-        let (current_control_input, current_wants_keyboard_input) = {
+        let (current_control_input, current_wants_keyboard_input, current_stream_deck_dev_id) = {
             let session = self.session();
             let session = session.borrow();
-            (session.control_input(), session.wants_keyboard_input())
+            (
+                session.control_input(),
+                session.wants_keyboard_input(),
+                session.stream_deck_device_id(),
+            )
         };
         let result = self.view.require_window().open_popup_menu(
-            menus::control_input_menu(current_control_input, current_wants_keyboard_input),
+            menus::control_input_menu(
+                current_control_input,
+                current_wants_keyboard_input,
+                current_stream_deck_dev_id,
+            ),
             Window::cursor_pos(),
         );
         if let Some(action) = result {
@@ -1806,14 +1820,22 @@ impl HeaderPanel {
                     self.execute_osc_dev_management_action(action);
                 }
                 ControlInputMenuAction::ToggleWantsKeyboardInput => {
-                    let weak_session = self.session.clone();
-                    if let Some(session) = weak_session.upgrade() {
+                    if let Some(session) = self.session.clone().upgrade() {
                         let mut session = session.borrow_mut();
                         let current_value = session.wants_keyboard_input();
                         session.change_with_notification(
                             SessionCommand::SetWantsKeyboardInput(!current_value),
                             None,
-                            weak_session,
+                            self.session.clone(),
+                        )
+                    }
+                }
+                ControlInputMenuAction::SelectStreamDeckDevice(dev) => {
+                    if let Some(session) = self.session.clone().upgrade() {
+                        session.borrow_mut().change_with_notification(
+                            SessionCommand::SetStreamDeckDevice(dev),
+                            None,
+                            self.session.clone(),
                         )
                     }
                 }

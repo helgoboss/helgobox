@@ -18,9 +18,10 @@ use crate::domain::{
     RealTimeTargetUpdate, RealearnModeContext, RealearnMonitoringFxParameterValueChangedEvent,
     RealearnParameterChangePayload, RealearnSourceContext, ReaperConfigChange, ReaperMessage,
     ReaperSourceFeedbackValue, ReaperTarget, SharedInstance, SharedUnit, SourceFeedbackEvent,
-    SourceFeedbackLogger, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
-    TargetValueChangedEvent, UnitContainer, UnitEvent, UnitOrchestrationEvent,
-    UpdatedSingleMappingOnStateEvent, VirtualControlElement, VirtualSourceValue,
+    SourceFeedbackLogger, SourceReleasedEvent, SpecificCompoundFeedbackValue, StreamDeckDeviceId,
+    StreamDeckMessage, StreamDeckSourceFeedbackValue, TargetControlEvent, TargetValueChangedEvent,
+    UnitContainer, UnitEvent, UnitOrchestrationEvent, UpdatedSingleMappingOnStateEvent,
+    VirtualControlElement, VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -129,6 +130,7 @@ impl FeedbackChecksum {
             FinalSourceFeedbackValue::Midi(v) => Self::from_midi(v),
             FinalSourceFeedbackValue::Osc(v) => Self::from_osc(v),
             FinalSourceFeedbackValue::Reaper(v) => Self::from_reaper(v),
+            FinalSourceFeedbackValue::StreamDeck(v) => Self::from_stream_deck(v),
         }
     }
 
@@ -155,6 +157,15 @@ impl FeedbackChecksum {
         for arg in &v.args {
             hash_osc_arg(arg, &mut hasher);
         }
+        FeedbackChecksum::Hashed(hasher.finish())
+    }
+
+    fn from_stream_deck(v: &StreamDeckSourceFeedbackValue) -> Self {
+        let mut hasher = hash_util::create_non_crypto_hasher();
+        // Doesn't implement Hash, probably because it contains floating point numbers.
+        // We don't care about floating point hash/equality issues because we just want a checksum
+        // for comparing current feedback with last feedback.
+        v.hash(&mut hasher);
         FeedbackChecksum::Hashed(hasher.finish())
     }
 
@@ -1445,6 +1456,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics
             .update_settings_internal(settings, any_main_mapping_is_effectively_on);
         self.potentially_enable_or_disable_control_or_feedback(any_main_mapping_is_effectively_on);
+        Backbone::get()
+            .register_stream_deck_usage(self.basics.unit_id, settings.streamdeck_device_id);
     }
 
     fn update_all_mappings(
@@ -1929,6 +1942,23 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             match_outcome,
             filter_out_event,
         }
+    }
+
+    /// This doesn't check if control enabled! You need to check before.
+    pub fn process_incoming_stream_deck_msg(&mut self, evt: ControlEvent<StreamDeckMessage>) {
+        if self.basics.settings.real_input_logging_enabled {
+            self.log_incoming_message(evt);
+        }
+        self.process_incoming_message_internal(evt.map_payload(MainSourceMessage::StreamDeck));
+    }
+
+    pub fn wants_stream_deck_input_from(&self, dev: StreamDeckDeviceId) -> bool {
+        self.wants_messages_in_general()
+            && self
+                .basics
+                .settings
+                .streamdeck_device_id
+                .is_some_and(|d| d == dev)
     }
 
     fn process_incoming_msg_for_controlling(
@@ -2869,6 +2899,7 @@ pub enum NormalMainTask {
 pub struct BasicSettings {
     pub control_input: ControlInput,
     pub wants_keyboard_input: bool,
+    pub streamdeck_device_id: Option<StreamDeckDeviceId>,
     pub feedback_output: Option<FeedbackOutput>,
     pub real_input_logging_enabled: bool,
     pub real_output_logging_enabled: bool,
@@ -3895,6 +3926,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 }
                 (FinalSourceFeedbackValue::Reaper(ReaperSourceFeedbackValue::Speech(v)), _) => {
                     let _ = say(v);
+                }
+                (FinalSourceFeedbackValue::StreamDeck(v), _) => {
+                    if let Some(dev_id) = self.settings.streamdeck_device_id {
+                        let _ = Backbone::get().send_stream_deck_feedback(dev_id, v);
+                    }
                 }
                 _ => {}
             }

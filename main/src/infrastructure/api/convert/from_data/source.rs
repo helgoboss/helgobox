@@ -259,6 +259,13 @@ pub fn convert_source(
             };
             persistence::Source::Key(s)
         }
+        StreamDeck => {
+            let s = persistence::StreamDeckSource {
+                button_index: data.button_index,
+                button_design: data.button_design,
+            };
+            persistence::Source::StreamDeck(s)
+        }
     };
     Ok(source)
 }

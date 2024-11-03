@@ -8,7 +8,7 @@ use crate::domain::{
     compartment_param_index_iter, CompartmentKind, CompartmentParamIndex, CompartmentParams,
     ControlInput, FeedbackOutput, GroupId, GroupKey, MappingId, MappingKey,
     MappingSnapshotContainer, MappingSnapshotId, MidiControlInput, MidiDestination, OscDeviceId,
-    Param, PluginParams, StayActiveWhenProjectInBackground, Tag, Unit,
+    Param, PluginParams, StayActiveWhenProjectInBackground, StreamDeckDeviceId, Tag, Unit,
 };
 use crate::infrastructure::data::{
     convert_target_value_to_api, convert_target_value_to_model,
@@ -107,6 +107,12 @@ pub struct UnitData {
         skip_serializing_if = "is_default"
     )]
     wants_keyboard_input: bool,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    stream_deck_device_id: Option<StreamDeckDeviceId>,
     ///
     /// - `None` means "\<None>"
     /// - `Some("fx-output")` means "\<FX output>"
@@ -420,6 +426,7 @@ impl Default for UnitData {
                 session_defaults::RESET_FEEDBACK_WHEN_RELEASING_SOURCE,
             control_device_id: None,
             wants_keyboard_input: session_defaults::WANTS_KEYBOARD_INPUT,
+            stream_deck_device_id: None,
             feedback_device_id: None,
             default_group: None,
             default_controller_group: None,
@@ -511,6 +518,7 @@ impl UnitData {
                 }
             },
             wants_keyboard_input: session.wants_keyboard_input(),
+            stream_deck_device_id: session.stream_deck_device_id(),
             feedback_device_id: {
                 session.feedback_output().map(|output| match output {
                     FeedbackOutput::Midi(MidiDestination::FxOutput) => {
@@ -709,6 +717,9 @@ impl UnitData {
             .set_without_notification(feedback_output);
         let _ = session.change(SessionCommand::SetWantsKeyboardInput(
             self.wants_keyboard_input || wants_keyboard_input_legacy,
+        ));
+        let _ = session.change(SessionCommand::SetStreamDeckDevice(
+            self.stream_deck_device_id,
         ));
         // Let events through or not
         {

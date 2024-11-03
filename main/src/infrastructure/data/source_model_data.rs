@@ -9,7 +9,9 @@ use crate::infrastructure::data::VirtualControlElementIdData;
 use base::default_util::{deserialize_null_default, is_default};
 use helgoboss_learn::{DisplayType, MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
-use helgobox_api::persistence::{MidiScriptKind, VirtualControlElementCharacter};
+use helgobox_api::persistence::{
+    MidiScriptKind, StreamDeckButtonDesign, VirtualControlElementCharacter,
+};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -149,6 +151,11 @@ pub struct SourceModelData {
         skip_serializing_if = "is_default"
     )]
     pub keystroke: Option<Keystroke>,
+    // StreamDeck
+    #[serde(default)]
+    pub button_index: u32,
+    #[serde(default)]
+    pub button_design: StreamDeckButtonDesign,
     // Virtual
     #[serde(
         default,
@@ -211,6 +218,8 @@ impl SourceModelData {
             osc_arg_value_range: OscValueRange::from_interval(model.osc_arg_value_range()),
             osc_feedback_args: model.osc_feedback_args().to_vec(),
             keystroke: model.keystroke(),
+            button_index: model.button_index(),
+            button_design: model.create_stream_deck_button_design(),
             control_element_type: model.control_element_character(),
             control_element_index: VirtualControlElementIdData::from_model(
                 model.control_element_id(),
@@ -299,6 +308,13 @@ impl SourceModelData {
         model.change(P::SetTimerMillis(self.timer_millis));
         model.change(P::SetParameterIndex(self.parameter_index));
         model.change(P::SetKeystroke(self.keystroke));
+        model.change(P::SetButtonIndex(self.button_index));
+        model.change(P::SetButtonBackgroundType(
+            (&self.button_design.background).into(),
+        ));
+        model.change(P::SetButtonForegroundType(
+            (&self.button_design.foreground).into(),
+        ));
     }
 }
 

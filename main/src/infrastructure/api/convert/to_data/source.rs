@@ -125,6 +125,14 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             Source::Key(s) => s.keystroke.map(convert_keystroke),
             _ => Default::default(),
         },
+        button_index: match &s {
+            Source::StreamDeck(s) => s.button_index,
+            _ => Default::default(),
+        },
+        button_design: match &s {
+            Source::StreamDeck(s) => s.button_design.clone(),
+            _ => Default::default(),
+        },
         control_element_type: match &s {
             Source::Virtual(s) => s.character.unwrap_or_default(),
             _ => Default::default(),
@@ -182,6 +190,7 @@ fn convert_category(s: &Source) -> SourceCategory {
         | LaunchpadProScrollingTextDisplay => SourceCategory::Midi,
         Osc(_) => SourceCategory::Osc,
         Key(_) => SourceCategory::Keyboard,
+        StreamDeck(_) => SourceCategory::StreamDeck,
         Virtual(_) => SourceCategory::Virtual,
     }
 }

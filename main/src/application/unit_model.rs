@@ -18,8 +18,8 @@ use crate::domain::{
     MessageCaptureEvent, MidiControlInput, NormalMainTask, OscFeedbackTask, ParamSetting,
     PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
     RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget, ReaperTargetType, SharedInstance,
-    SharedUnit, SourceFeedbackEvent, StayActiveWhenProjectInBackground, Tag, TargetControlEvent,
-    TargetTouchEvent, TargetValueChangedEvent, Unit, UnitContainer, UnitId,
+    SharedUnit, SourceFeedbackEvent, StayActiveWhenProjectInBackground, StreamDeckDeviceId, Tag,
+    TargetControlEvent, TargetTouchEvent, TargetValueChangedEvent, Unit, UnitContainer, UnitId,
     VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
     LUA_FEEDBACK_SCRIPT_RUNTIME_NAME, LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME,
 };
@@ -103,6 +103,7 @@ pub struct UnitModel {
     pub reset_feedback_when_releasing_source: Prop<bool>,
     pub control_input: Prop<ControlInput>,
     wants_keyboard_input: bool,
+    stream_deck_device_id: Option<StreamDeckDeviceId>,
     pub feedback_output: Prop<Option<FeedbackOutput>>,
     pub auto_load_mode: Prop<AutoLoadMode>,
     pub auto_load_fallback_compartment: Option<CompartmentModel>,
@@ -278,6 +279,7 @@ impl UnitModel {
             ),
             control_input: prop(initial_input),
             wants_keyboard_input: session_defaults::WANTS_KEYBOARD_INPUT,
+            stream_deck_device_id: None,
             feedback_output: prop(initial_output),
             auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
             auto_load_fallback_compartment: None,
@@ -469,6 +471,9 @@ impl UnitModel {
                 _ => false,
             },
             InputDescriptor::Keyboard => self.wants_keyboard_input,
+            InputDescriptor::StreamDeck { device_id } => {
+                self.stream_deck_device_id == Some(*device_id)
+            }
         }
     }
 
@@ -764,6 +769,10 @@ impl UnitModel {
                 }
             });
         res
+    }
+
+    pub fn stream_deck_device_id(&self) -> Option<StreamDeckDeviceId> {
+        self.stream_deck_device_id
     }
 
     pub fn wants_keyboard_input(&self) -> bool {
@@ -1139,6 +1148,10 @@ impl UnitModel {
                 self.wants_keyboard_input = value;
                 Some(One(P::WantsKeyboardInput))
             }
+            C::SetStreamDeckDevice(value) => {
+                self.stream_deck_device_id = value;
+                Some(One(P::StreamDeckDeviceId))
+            }
             C::ChangeCompartment(compartment, cmd) => self
                 .change_compartment_internal(compartment, cmd)?
                 .map(|affected| One(P::InCompartment(compartment, affected))),
@@ -1272,7 +1285,7 @@ impl UnitModel {
                         One(UnitName) => {
                             session.ui().handle_unit_name_changed();
                         }
-                        One(WantsKeyboardInput) => {
+                        One(WantsKeyboardInput | StreamDeckDeviceId) => {
                             session.sync_settings();
                         }
                         One(InCompartment(compartment, One(Notes))) => {
@@ -2601,6 +2614,7 @@ impl UnitModel {
         let settings = BasicSettings {
             control_input: self.control_input(),
             wants_keyboard_input: self.wants_keyboard_input,
+            streamdeck_device_id: self.stream_deck_device_id,
             feedback_output: self.feedback_output(),
             real_input_logging_enabled: self.real_input_logging_enabled.get(),
             real_output_logging_enabled: self.real_output_logging_enabled.get(),
@@ -3017,6 +3031,7 @@ pub enum SessionCommand {
     SetInstanceTrack(TrackDescriptor),
     SetInstanceFx(FxDescriptor),
     SetWantsKeyboardInput(bool),
+    SetStreamDeckDevice(Option<StreamDeckDeviceId>),
     ChangeCompartment(CompartmentKind, CompartmentCommand),
     AdjustMappingModeIfNecessary(QualifiedMappingId),
 }
@@ -3026,6 +3041,7 @@ pub enum SessionProp {
     InstanceTrack,
     InstanceFx,
     WantsKeyboardInput,
+    StreamDeckDeviceId,
     InCompartment(CompartmentKind, Affected<CompartmentProp>),
 }
 

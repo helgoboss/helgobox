@@ -90,17 +90,13 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ) + NOT_WS_GROUP,
         dropdown(
             ids.named_id("ID_SOURCE_CHANNEL_COMBO_BOX"),
-            context.rect(48, 136, 120, 30),
+            context.rect(48, 136, 120, 15),
         ) + WS_VSCROLL
             + WS_TABSTOP,
         edittext(
             ids.named_id("ID_SOURCE_LINE_3_EDIT_CONTROL"),
             context.rect(48, 135, 120, 14),
         ) + ES_AUTOHSCROLL,
-        dropdown(
-            ids.named_id("ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX"),
-            context.rect(48, 136, 120, 15),
-        ) + WS_TABSTOP,
         ltext(
             "Note/CC number",
             ids.named_id("ID_SOURCE_NOTE_OR_CC_NUMBER_LABEL_TEXT"),

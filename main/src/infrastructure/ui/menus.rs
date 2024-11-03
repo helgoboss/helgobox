@@ -1,8 +1,9 @@
 use crate::application::{UnitModel, WeakUnitModel};
 use crate::domain::{
-    compartment_param_index_iter, CompartmentKind, CompartmentParamIndex, CompartmentParams,
-    ControlInput, FeedbackOutput, MappingId, MidiControlInput, MidiDestination, OscDeviceId,
-    ReaperTargetType, TargetSection,
+    compartment_param_index_iter, probe_stream_deck_devices, CompartmentKind,
+    CompartmentParamIndex, CompartmentParams, ControlInput, FeedbackOutput, MappingId,
+    MidiControlInput, MidiDestination, OscDeviceId, ProbedStreamDeckDevice, ReaperTargetType,
+    StreamDeckDeviceId, TargetSection,
 };
 use crate::infrastructure::data::{CommonPresetInfo, OscDevice};
 use crate::infrastructure::plugin::{ActionSection, BackboneShell, ACTION_DEFS};
@@ -28,6 +29,7 @@ pub enum ControlInputMenuAction {
     SelectControlInput(ControlInput),
     ManageOsc(OscDeviceManagementAction),
     ToggleWantsKeyboardInput,
+    SelectStreamDeckDevice(Option<StreamDeckDeviceId>),
 }
 
 pub fn midi_device_input_menu(
@@ -35,6 +37,10 @@ pub fn midi_device_input_menu(
     none_label: &str,
 ) -> Menu<Option<MidiInputDeviceId>> {
     let (open_midi_devs, closed_midi_devs) = get_open_and_closed_midi_input_devs();
+    let unavailable_midi_input_devices = closed_midi_devs
+        .into_iter()
+        .map(|dev| build_midi_input_dev_menu_item(dev, current_value))
+        .collect();
     let entries = iter::once(item_with_opts(
         none_label,
         ItemOpts {
@@ -48,13 +54,10 @@ pub fn midi_device_input_menu(
             .into_iter()
             .map(|dev| build_midi_input_dev_menu_item(dev, current_value)),
     )
-    .chain(iter::once(menu(
+    .chain([create_category_menu(
         "Unavailable MIDI input devices",
-        closed_midi_devs
-            .into_iter()
-            .map(|dev| build_midi_input_dev_menu_item(dev, current_value))
-            .collect(),
-    )));
+        unavailable_midi_input_devices,
+    )]);
     anonymous_menu(entries.collect())
 }
 
@@ -67,7 +70,8 @@ fn get_open_and_closed_midi_input_devs() -> (Vec<MidiInputDevice>, Vec<MidiInput
 
 pub fn control_input_menu(
     current_value: ControlInput,
-    wants_keyboard_input: bool,
+    current_wants_keyboard_input: bool,
+    current_stream_deck_dev_id: Option<StreamDeckDeviceId>,
 ) -> Menu<ControlInputMenuAction> {
     let fx_input = ControlInput::Midi(MidiControlInput::FxInput);
     let (open_midi_devs, closed_midi_devs) = get_open_and_closed_midi_input_devs();
@@ -78,6 +82,24 @@ pub fn control_input_menu(
             .devices()
             .partition(|dev| dev.input_status().is_connected())
     };
+    let stream_deck_devices = probe_stream_deck_devices().unwrap_or_default();
+    let unavailable_midi_input_devs = closed_midi_devs
+        .into_iter()
+        .map(|dev| build_control_input_midi_input_dev_menu_item(dev, current_value))
+        .collect();
+    let unavailable_osc_devs = closed_osc_devs
+        .into_iter()
+        .map(|dev| build_osc_input_dev_menu_item(dev, current_value))
+        .collect();
+    let unavailable_stream_deck_devs = stream_deck_devices
+        .iter()
+        .filter(|d| !d.available)
+        .map(|dev| build_stream_deck_dev_menu_item(dev, current_stream_deck_dev_id))
+        .collect();
+    let available_stream_deck_devs = stream_deck_devices
+        .iter()
+        .filter(|d| d.available)
+        .map(|dev| build_stream_deck_dev_menu_item(dev, current_stream_deck_dev_id));
     let entries = [item_with_opts(
         CONTROL_INPUT_MIDI_FX_INPUT_LABEL,
         ItemOpts {
@@ -93,12 +115,9 @@ pub fn control_input_menu(
             .map(|dev| build_control_input_midi_input_dev_menu_item(dev, current_value)),
     )
     .chain([
-        menu(
+        create_category_menu(
             "Unavailable MIDI input devices",
-            closed_midi_devs
-                .into_iter()
-                .map(|dev| build_control_input_midi_input_dev_menu_item(dev, current_value))
-                .collect(),
+            unavailable_midi_input_devs,
         ),
         separator(),
     ])
@@ -108,27 +127,34 @@ pub fn control_input_menu(
             .map(|dev| build_osc_input_dev_menu_item(dev, current_value)),
     )
     .chain([
-        menu(
-            "Unavailable OSC devices",
-            closed_osc_devs
-                .into_iter()
-                .map(|dev| build_osc_input_dev_menu_item(dev, current_value))
-                .collect(),
-        ),
+        create_category_menu("Unavailable OSC devices", unavailable_osc_devs),
         menu(
             "Manage OSC devices",
             osc_device_management_menu_entries(ControlInputMenuAction::ManageOsc),
         ),
         separator(),
-        item_with_opts(
-            CONTROL_INPUT_KEYBOARD_LABEL,
-            ItemOpts {
-                enabled: true,
-                checked: wants_keyboard_input,
-            },
-            ControlInputMenuAction::ToggleWantsKeyboardInput,
-        ),
-    ]);
+    ])
+    .chain([item_with_opts(
+        "Stream Deck: <None>",
+        ItemOpts {
+            enabled: true,
+            checked: current_stream_deck_dev_id.is_none(),
+        },
+        ControlInputMenuAction::SelectStreamDeckDevice(None),
+    )])
+    .chain(available_stream_deck_devs)
+    .chain([
+        create_category_menu("Unavailable Stream Decks", unavailable_stream_deck_devs),
+        separator(),
+    ])
+    .chain([item_with_opts(
+        CONTROL_INPUT_KEYBOARD_LABEL,
+        ItemOpts {
+            enabled: true,
+            checked: current_wants_keyboard_input,
+        },
+        ControlInputMenuAction::ToggleWantsKeyboardInput,
+    )]);
     let mut entries: Vec<_> = entries.collect();
     if Reaper::get()
         .medium_reaper()
@@ -170,6 +196,14 @@ pub fn feedback_output_menu(
             .devices()
             .partition(|dev| dev.input_status().is_connected())
     };
+    let unsvailable_midi_devs = closed_midi_devs
+        .into_iter()
+        .map(|dev| build_midi_output_dev_menu_item(dev, current_value))
+        .collect();
+    let unavailable_osc_devs = closed_osc_devs
+        .into_iter()
+        .map(|dev| build_osc_output_dev_menu_item(dev, current_value))
+        .collect();
     let entries = iter::once(item_with_opts(
         FEEDBACK_OUTPUT_NONE_LABEL,
         ItemOpts {
@@ -192,31 +226,23 @@ pub fn feedback_output_menu(
             .into_iter()
             .map(|dev| build_midi_output_dev_menu_item(dev, current_value)),
     )
-    .chain(iter::once(menu(
-        "Unavailable MIDI output devices",
-        closed_midi_devs
-            .into_iter()
-            .map(|dev| build_midi_output_dev_menu_item(dev, current_value))
-            .collect(),
-    )))
-    .chain(iter::once(separator()))
+    .chain([
+        create_category_menu("Unavailable MIDI output devices", unsvailable_midi_devs),
+        separator(),
+    ])
     .chain(
         open_osc_devs
             .into_iter()
             .map(|dev| build_osc_output_dev_menu_item(dev, current_value)),
     )
-    .chain(iter::once(menu(
-        "Unavailable OSC devices",
-        closed_osc_devs
-            .into_iter()
-            .map(|dev| build_osc_output_dev_menu_item(dev, current_value))
-            .collect(),
-    )))
-    .chain(iter::once(menu(
-        "Manage OSC devices",
-        osc_device_management_menu_entries(FeedbackOutputMenuAction::ManageOsc),
-    )))
-    .chain(iter::once(separator()));
+    .chain([
+        create_category_menu("Unavailable OSC devices", unavailable_osc_devs),
+        menu(
+            "Manage OSC devices",
+            osc_device_management_menu_entries(FeedbackOutputMenuAction::ManageOsc),
+        ),
+        separator(),
+    ]);
     anonymous_menu(entries.collect())
 }
 
@@ -296,6 +322,20 @@ fn build_osc_output_dev_menu_item(
             checked: current_value == feedback_output,
         },
         FeedbackOutputMenuAction::SelectFeedbackOutput(feedback_output),
+    )
+}
+
+fn build_stream_deck_dev_menu_item(
+    dev: &ProbedStreamDeckDevice,
+    current: Option<StreamDeckDeviceId>,
+) -> Entry<ControlInputMenuAction> {
+    item_with_opts(
+        format!("Stream Deck: {}", dev.dev.name),
+        ItemOpts {
+            enabled: true,
+            checked: current == Some(dev.dev.id),
+        },
+        ControlInputMenuAction::SelectStreamDeckDevice(Some(dev.dev.id)),
     )
 }
 
@@ -700,28 +740,7 @@ where
         .map(move |(category, mut infos)| {
             infos.sort_by_key(|info| &info.meta_data.name);
             let entries = categorizer.create_sub_entries(infos.into_iter(), build_id, current_id);
-            let mut contains_current_entry = false;
-            const CURRENT_CATEGORY_SUFFIX: &str = " *";
-            let entries = entries
-                .into_iter()
-                .inspect(|e| {
-                    let is_current = match e {
-                        Entry::Menu(m) => m.text.ends_with(CURRENT_CATEGORY_SUFFIX),
-                        Entry::Item(i) => i.opts.checked,
-                        _ => false,
-                    };
-                    if is_current {
-                        contains_current_entry = true;
-                    }
-                })
-                .collect();
-            let category_suffix = if contains_current_entry {
-                CURRENT_CATEGORY_SUFFIX
-            } else {
-                ""
-            };
-            let category_label = format!("{category}{category_suffix}");
-            menu(category_label, entries)
+            create_category_menu(category, entries)
         })
         .collect()
 }
@@ -933,4 +952,20 @@ impl<'a> Categorizer<'a> for ManufacturerCategorizer {
     ) -> Vec<Entry<T>> {
         build_compartment_preset_menu_entries_internal(infos.into_iter(), build_id, current_id)
     }
+}
+
+fn create_category_menu<R>(category: impl Display, entries: Vec<Entry<R>>) -> Entry<R> {
+    const CURRENT_CATEGORY_SUFFIX: &str = " *";
+    let contains_current_entry = entries.iter().any(|e| match e {
+        Entry::Menu(m) => m.text.ends_with(CURRENT_CATEGORY_SUFFIX),
+        Entry::Item(i) => i.opts.checked,
+        _ => false,
+    });
+    let category_suffix = if contains_current_entry {
+        CURRENT_CATEGORY_SUFFIX
+    } else {
+        ""
+    };
+    let category_label = format!("{category}{category_suffix}");
+    menu(category_label, entries)
 }

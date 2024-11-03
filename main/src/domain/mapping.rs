@@ -7,10 +7,11 @@ use crate::domain::{
     Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState, PluginParamIndex,
     PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget, RealTimeTargetUpdate,
     RealearnParameterChangePayload, RealearnParameterSource, RealearnSourceContext, RealearnTarget,
-    ReaperMessage, ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, Tag,
-    TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
-    VirtualFeedbackValue, VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
-    COMPARTMENT_PARAMETER_COUNT,
+    ReaperMessage, ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType,
+    StreamDeckDeviceId, StreamDeckMessage, StreamDeckScanResult, StreamDeckSource,
+    StreamDeckSourceAddress, StreamDeckSourceFeedbackValue, Tag, TargetCharacter, TrackExclusivity,
+    UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue, VirtualSource,
+    VirtualSourceAddress, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_map::Enum;
@@ -1300,6 +1301,9 @@ impl MainMapping {
                 s.control(m, compartment).map(ControlOutcome::Matched)
             }
             (MainSourceMessage::Key(m), CompoundMappingSource::Key(s)) => s.control(m),
+            (MainSourceMessage::StreamDeck(m), CompoundMappingSource::StreamDeck(s)) => {
+                s.control(m).map(ControlOutcome::Matched)
+            }
             _ => None,
         }
     }
@@ -1341,6 +1345,7 @@ pub enum MainSourceMessage<'a> {
     Osc(&'a OscMessage),
     Reaper(&'a ReaperMessage),
     Key(KeyMessage),
+    StreamDeck(StreamDeckMessage),
 }
 
 impl<'a> MainSourceMessage<'a> {
@@ -1354,6 +1359,10 @@ impl<'a> MainSourceMessage<'a> {
                 dev_id: None,
             }),
             Key(msg) => MessageCaptureResult::Keyboard(msg),
+            StreamDeck(msg) => MessageCaptureResult::StreamDeck(StreamDeckScanResult {
+                message: msg,
+                dev_id: None,
+            }),
             Reaper(msg) => {
                 use ReaperMessage::*;
                 match msg {
@@ -1593,6 +1602,7 @@ pub enum CompoundMappingSource {
     Virtual(VirtualSource),
     Reaper(ReaperSource),
     Key(KeySource),
+    StreamDeck(StreamDeckSource),
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -1601,6 +1611,7 @@ pub enum CompoundMappingSourceAddress {
     Osc(OscSourceAddress),
     Virtual(VirtualSourceAddress),
     Reaper(ReaperSourceAddress),
+    StreamDeck(StreamDeckSourceAddress),
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -1658,6 +1669,9 @@ impl CompoundMappingSource {
             Reaper(s) => s
                 .extract_feedback_address()
                 .map(CompoundMappingSourceAddress::Reaper),
+            StreamDeck(s) => Some(CompoundMappingSourceAddress::StreamDeck(
+                s.feedback_address(),
+            )),
             _ => None,
         }
     }
@@ -1678,6 +1692,9 @@ impl CompoundMappingSource {
             (Midi(s), FinalSourceFeedbackValue::Midi(v)) => {
                 s.has_same_feedback_address_as_value(v, source_context)
             }
+            (StreamDeck(s), FinalSourceFeedbackValue::StreamDeck(v)) => {
+                s.has_same_feedback_address_as_value(v)
+            }
             _ => false,
         }
     }
@@ -1696,6 +1713,7 @@ impl CompoundMappingSource {
         match (self, other) {
             (Osc(s1), Osc(s2)) => s1.has_same_feedback_address_as_source(s2),
             (Midi(s1), Midi(s2)) => s1.has_same_feedback_address_as_source(s2, source_context),
+            (StreamDeck(s1), StreamDeck(s2)) => s1.has_same_feedback_address_as_source(s2),
             (Virtual(s1), Virtual(s2)) => s1.has_same_feedback_address_as_source(s2),
             _ => false,
         }
@@ -1725,6 +1743,9 @@ impl CompoundMappingSource {
             (Key(s), IncomingCompoundSourceValue::Key(m)) => {
                 s.reacts_to_message_with(m).map(ControlResult::Processed)
             }
+            (StreamDeck(s), IncomingCompoundSourceValue::StreamDeck(m)) => {
+                s.control(m).map(ControlResult::Processed)
+            }
             _ => None,
         }
     }
@@ -1746,6 +1767,11 @@ impl CompoundMappingSource {
                 let key_source = KeySource::new(msg.stroke());
                 Self::Key(key_source)
             }
+            StreamDeck(scan_result) => {
+                let source =
+                    StreamDeckSource::new(scan_result.message.button_index, Default::default());
+                Self::StreamDeck(source)
+            }
             RealearnParameter(payload) => {
                 let reaper_source = ReaperSource::RealearnParameter(RealearnParameterSource {
                     parameter_index: payload.parameter_index,
@@ -1763,7 +1789,9 @@ impl CompoundMappingSource {
             Virtual(s) => s.format_control_value(value),
             Osc(s) => s.format_control_value(value),
             Reaper(s) => s.format_control_value(value),
-            Never | Key(_) => Ok(format_percentage_without_unit(value.to_unit_value()?.get())),
+            Never | Key(_) | StreamDeck(_) => {
+                Ok(format_percentage_without_unit(value.to_unit_value()?.get()))
+            }
         }
     }
 
@@ -1774,7 +1802,7 @@ impl CompoundMappingSource {
             Virtual(s) => s.parse_control_value(text),
             Osc(s) => s.parse_control_value(text),
             Reaper(s) => s.parse_control_value(text),
-            Never | Key(_) => parse_percentage_without_unit(text)?.try_into(),
+            Never | Key(_) | StreamDeck(_) => parse_percentage_without_unit(text)?.try_into(),
         }
     }
 
@@ -1786,7 +1814,9 @@ impl CompoundMappingSource {
             Osc(s) => ExtendedSourceCharacter::Normal(s.character()),
             Reaper(s) => ExtendedSourceCharacter::Normal(s.character()),
             Never => ExtendedSourceCharacter::VirtualContinuous,
-            Key(_) => ExtendedSourceCharacter::Normal(SourceCharacter::MomentaryButton),
+            Key(_) | StreamDeck(_) => {
+                ExtendedSourceCharacter::Normal(SourceCharacter::MomentaryButton)
+            }
         }
     }
 
@@ -1806,6 +1836,9 @@ impl CompoundMappingSource {
             Reaper(s) => s
                 .feedback(&feedback_value)
                 .map(PreliminarySourceFeedbackValue::Reaper),
+            StreamDeck(s) => s
+                .feedback(&feedback_value)
+                .map(PreliminarySourceFeedbackValue::StreamDeck),
             // This is handled in a special way by consumers.
             Virtual(_) => None,
             // No feedback for other sources.
@@ -1817,7 +1850,7 @@ impl CompoundMappingSource {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.consumes(msg),
-            Reaper(_) | Virtual(_) | Osc(_) | Never | Key(_) => false,
+            Reaper(_) | Virtual(_) | Osc(_) | Never | Key(_) | StreamDeck(_) => false,
         }
     }
 
@@ -1831,7 +1864,7 @@ impl CompoundMappingSource {
             Midi(s) => s.max_discrete_value(),
             // TODO-medium OSC will also support discrete values as soon as we allow integers and
             //  configuring max values
-            Reaper(_) | Virtual(_) | Osc(_) | Never | Key(_) => None,
+            Reaper(_) | Virtual(_) | Osc(_) | Never | Key(_) | StreamDeck(_) => None,
         }
     }
 }
@@ -1989,6 +2022,7 @@ pub enum PreliminarySourceFeedbackValue {
     Midi(PreliminaryMidiSourceFeedbackValue<'static, RawShortMessage>),
     Osc(OscMessage),
     Reaper(ReaperSourceFeedbackValue),
+    StreamDeck(StreamDeckSourceFeedbackValue),
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -1996,6 +2030,7 @@ pub enum FinalSourceFeedbackValue {
     Midi(MidiSourceValue<'static, RawShortMessage>),
     Osc(OscMessage),
     Reaper(ReaperSourceFeedbackValue),
+    StreamDeck(StreamDeckSourceFeedbackValue),
 }
 
 impl FinalSourceFeedbackValue {
@@ -2010,6 +2045,9 @@ impl FinalSourceFeedbackValue {
             FinalSourceFeedbackValue::Reaper(v) => v
                 .extract_feedback_address()
                 .map(CompoundMappingSourceAddress::Reaper),
+            FinalSourceFeedbackValue::StreamDeck(v) => Some(
+                CompoundMappingSourceAddress::StreamDeck(v.feedback_address()),
+            ),
         }
     }
 }
@@ -2676,6 +2714,7 @@ pub enum MessageCaptureResult {
     Midi(MidiScanResult),
     Osc(OscScanResult),
     Keyboard(KeyMessage),
+    StreamDeck(StreamDeckScanResult),
     RealearnParameter(RealearnParameterChangePayload),
 }
 
@@ -2689,6 +2728,7 @@ impl MessageCaptureResult {
             Midi(res) => IncomingCompoundSourceValue::Midi(&res.value),
             Osc(res) => IncomingCompoundSourceValue::Osc(&res.message),
             Keyboard(res) => IncomingCompoundSourceValue::Key(*res),
+            StreamDeck(res) => IncomingCompoundSourceValue::StreamDeck(res.message),
             RealearnParameter(payload) => IncomingCompoundSourceValue::RealearnParameter(*payload),
         }
     }
@@ -2709,6 +2749,9 @@ impl MessageCaptureResult {
                 device_id: r.dev_id?,
             },
             Keyboard(_) => InputDescriptor::Keyboard,
+            StreamDeck(r) => InputDescriptor::StreamDeck {
+                device_id: r.dev_id?,
+            },
             RealearnParameter(_) => return None,
         };
         Some(res)
@@ -2721,6 +2764,7 @@ pub enum IncomingCompoundSourceValue<'a> {
     Osc(&'a OscMessage),
     Virtual(&'a VirtualSourceValue),
     Key(KeyMessage),
+    StreamDeck(StreamDeckMessage),
     RealearnParameter(RealearnParameterChangePayload),
 }
 
@@ -2733,6 +2777,9 @@ pub enum InputDescriptor {
         device_id: OscDeviceId,
     },
     Keyboard,
+    StreamDeck {
+        device_id: StreamDeckDeviceId,
+    },
 }
 
 #[derive(Copy, Clone)]

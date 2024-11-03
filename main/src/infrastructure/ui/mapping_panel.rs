@@ -47,9 +47,10 @@ use crate::application::{
     MappingRefModel, MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake, MidiSourceType,
     ModeCommand, ModeModel, ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType,
     SessionProp, SharedMapping, SharedUnitModel, SourceCategory, SourceCommand, SourceModel,
-    SourceProp, TargetCategory, TargetCommand, TargetModel, TargetModelFormatVeryShort,
-    TargetModelWithContext, TargetProp, TargetUnit, TrackRouteSelectorType, UnitModel,
-    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakUnitModel, KEY_UNDEFINED_LABEL,
+    SourceProp, StreamDeckButtonBackgroundType, StreamDeckButtonForegroundType, TargetCategory,
+    TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
+    TargetUnit, TrackRouteSelectorType, UnitModel, VirtualFxParameterType, VirtualFxType,
+    VirtualTrackType, WeakUnitModel, KEY_UNDEFINED_LABEL,
 };
 use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::{
@@ -282,7 +283,7 @@ impl MappingPanel {
                                             }
                                             P::Channel => {
                                                 view.invalidate_source_control_visibilities();
-                                                view.invalidate_source_line_3_combo_box_1();
+                                                view.invalidate_source_line_3_combo_box();
                                                 view.invalidate_source_line_5_combo_box();
                                             }
                                             P::MidiMessageNumber => {
@@ -304,7 +305,7 @@ impl MappingPanel {
                                                 view.invalidate_mode_controls();
                                             }
                                             P::MidiClockTransportMessage => {
-                                                view.invalidate_source_line_3_combo_box_2();
+                                                view.invalidate_source_line_3_combo_box();
                                             }
                                             P::IsRegistered => {
                                                 view.invalidate_source_line_4_check_box();
@@ -329,7 +330,7 @@ impl MappingPanel {
                                                 view.invalidate_source_line_7_edit_control(initiator);
                                             }
                                             P::ParameterIndex => {
-                                                view.invalidate_source_line_3_combo_box_1()
+                                                view.invalidate_source_line_3_combo_box()
                                             }
                                             P::MidiScriptKind => {
                                                 view.invalidate_source_line_3(initiator);
@@ -346,6 +347,13 @@ impl MappingPanel {
                                             }
                                             P::Keystroke => {
                                                 view.invalidate_source_line_3(initiator);
+                                            }
+                                            P::ButtonIndex => { view.invalidate_source_line_3(initiator); }
+                                            P::ButtonBackgroundType => {
+                                                view.invalidate_source_line_4(initiator);
+                                            }
+                                            P::ButtonForegroundType => {
+                                                view.invalidate_source_line_5(initiator);
                                             }
                                         }
                                     }
@@ -1994,15 +2002,29 @@ impl<'a> MutableMappingPanel<'a> {
                     SourceCommand::SetOscArgIsRelative(checked),
                 ));
             }
-            Reaper | Virtual | Never | Keyboard => {}
+            Reaper | Virtual | Never | Keyboard | StreamDeck => {}
         };
     }
 
-    fn handle_source_line_3_combo_box_1_change(&mut self) {
+    fn handle_source_line_3_combo_box_change(&mut self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         use SourceCategory::*;
         match self.mapping.source_model.category() {
             Midi => match self.mapping.source_model.midi_source_type() {
+                MidiSourceType::ClockTransport => {
+                    let i = b.selected_combo_box_item_index();
+                    let msg_type = i.try_into().expect("invalid MTC message type");
+                    self.change_mapping(MappingCommand::ChangeSource(
+                        SourceCommand::SetMidiClockTransportMessage(msg_type),
+                    ));
+                }
+                MidiSourceType::Display => {
+                    let i = b.selected_combo_box_item_index();
+                    let display_type = i.try_into().expect("invalid display type");
+                    self.change_mapping(MappingCommand::ChangeSource(
+                        SourceCommand::SetDisplayType(display_type),
+                    ));
+                }
                 MidiSourceType::Script => {
                     let i = b.selected_combo_box_item_index();
                     let kind = i.try_into().expect("invalid source script kind");
@@ -2030,8 +2052,14 @@ impl<'a> MutableMappingPanel<'a> {
                         ),
                     ));
                 }
-                _ => b.hide(),
+                _ => {}
             },
+            StreamDeck => {
+                let index = b.selected_combo_box_item_index() as u32;
+                self.change_mapping(MappingCommand::ChangeSource(SourceCommand::SetButtonIndex(
+                    index,
+                )));
+            }
             _ => {}
         };
     }
@@ -2096,11 +2124,18 @@ impl<'a> MutableMappingPanel<'a> {
                     SourceCommand::SetOscArgTypeTag(tag),
                 ));
             }
+            StreamDeck => {
+                let i = b.selected_combo_box_item_index();
+                let background_type = i.try_into().expect("invalid background type");
+                self.change_mapping(MappingCommand::ChangeSource(
+                    SourceCommand::SetButtonBackgroundType(background_type),
+                ));
+            }
             _ => {}
         }
     }
 
-    fn handle_source_line_5_combo_box_2_change(&mut self) {
+    fn handle_source_line_5_combo_box_change(&mut self) {
         let b = self
             .view
             .require_control(root::ID_SOURCE_CHARACTER_COMBO_BOX);
@@ -2127,6 +2162,13 @@ impl<'a> MutableMappingPanel<'a> {
                     }
                     _ => {}
                 }
+            }
+            StreamDeck => {
+                let i = b.selected_combo_box_item_index();
+                let foreground_type = i.try_into().expect("invalid background type");
+                self.change_mapping(MappingCommand::ChangeSource(
+                    SourceCommand::SetButtonForegroundType(foreground_type),
+                ));
             }
             _ => {}
         }
@@ -2172,33 +2214,6 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
-    fn handle_source_line_3_combo_box_2_change(&mut self) {
-        let b = self
-            .view
-            .require_control(root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX);
-        use SourceCategory::*;
-        match self.mapping.source_model.category() {
-            Midi => match self.mapping.source_model.midi_source_type() {
-                MidiSourceType::ClockTransport => {
-                    let i = b.selected_combo_box_item_index();
-                    let msg_type = i.try_into().expect("invalid MTC message type");
-                    self.change_mapping(MappingCommand::ChangeSource(
-                        SourceCommand::SetMidiClockTransportMessage(msg_type),
-                    ));
-                }
-                MidiSourceType::Display => {
-                    let i = b.selected_combo_box_item_index();
-                    let display_type = i.try_into().expect("invalid display type");
-                    self.change_mapping(MappingCommand::ChangeSource(
-                        SourceCommand::SetDisplayType(display_type),
-                    ));
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-    }
-
     fn handle_source_line_4_edit_control_change(&mut self) {
         let edit_control_id = root::ID_SOURCE_NUMBER_EDIT_CONTROL;
         let c = self.view.require_control(edit_control_id);
@@ -2221,7 +2236,7 @@ impl<'a> MutableMappingPanel<'a> {
                     Some(edit_control_id),
                 );
             }
-            Reaper | Never | Keyboard | Osc => {}
+            Reaper | Never | Keyboard | Osc | StreamDeck => {}
         };
     }
 
@@ -2264,7 +2279,7 @@ impl<'a> MutableMappingPanel<'a> {
                     }
                     _ => {}
                 },
-                Midi | Virtual | Never | Keyboard => {}
+                Midi | Virtual | Never | Keyboard | StreamDeck => {}
             }
         }
     }
@@ -4202,8 +4217,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_line_3(&self, initiator: Option<u32>) {
         self.invalidate_source_line_3_label_1();
         self.invalidate_source_line_3_label_2();
-        self.invalidate_source_line_3_combo_box_1();
-        self.invalidate_source_line_3_combo_box_2();
+        self.invalidate_source_line_3_combo_box();
         self.invalidate_source_line_3_edit_control(initiator);
     }
 
@@ -4222,6 +4236,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 _ => None,
             },
             Keyboard => Some("Key"),
+            StreamDeck => Some("Button"),
             _ => None,
         };
         self.view
@@ -4244,11 +4259,23 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text_or_hide(text);
     }
 
-    fn invalidate_source_line_3_combo_box_1(&self) {
+    fn invalidate_source_line_3_combo_box(&self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         use SourceCategory::*;
         match self.source.category() {
             Midi => match self.source.midi_source_type() {
+                MidiSourceType::ClockTransport => {
+                    b.show();
+                    b.fill_combo_box_indexed(MidiClockTransportMessage::iter());
+                    b.select_combo_box_item_by_index(
+                        self.source.midi_clock_transport_message().into(),
+                    );
+                }
+                MidiSourceType::Display => {
+                    b.show();
+                    b.fill_combo_box_indexed(DisplayType::iter());
+                    b.select_combo_box_item_by_index(self.source.display_type().into());
+                }
                 MidiSourceType::Script => {
                     b.fill_combo_box_indexed(MidiScriptKind::iter());
                     b.show();
@@ -4283,6 +4310,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 _ => b.hide(),
             },
+            StreamDeck => {
+                b.fill_combo_box_indexed((0..32).map(|i| (i + 1).to_string()));
+                b.select_combo_box_item_by_index(self.source.button_index() as _);
+                b.show();
+            }
             _ => {
                 b.hide();
             }
@@ -4376,6 +4408,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             }
             Virtual => Some("ID"),
             Osc => Some("Argument"),
+            StreamDeck => Some("Background"),
             _ => None,
         };
         self.view
@@ -4456,6 +4489,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             Osc if self.source.osc_arg_index().is_some() => {
                 let tag = self.source.osc_arg_type_tag();
                 invalidate_with_osc_arg_type_tag(b, tag);
+            }
+            StreamDeck => {
+                b.fill_combo_box_indexed(StreamDeckButtonBackgroundType::iter());
+                b.show();
+                b.select_combo_box_item_by_index(self.source.button_background_type().into());
             }
             _ => {
                 b.hide();
@@ -4630,6 +4668,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
             }
             Osc if self.source.supports_osc_arg_value_range() => Some("Range"),
+            StreamDeck => Some("Foreground"),
             _ => None,
         };
         self.view
@@ -4676,6 +4715,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                     }
                 }
             }
+            StreamDeck => {
+                b.fill_combo_box_indexed(StreamDeckButtonForegroundType::iter());
+                b.show();
+                b.select_combo_box_item_by_index(self.source.button_foreground_type().into());
+            }
             _ => {
                 b.hide();
             }
@@ -4700,35 +4744,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_control(root::ID_SOURCE_LINE_5_EDIT_CONTROL)
             .set_text_or_hide(text);
-    }
-
-    fn invalidate_source_line_3_combo_box_2(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX);
-        use SourceCategory::*;
-        match self.source.category() {
-            Midi => match self.source.midi_source_type() {
-                MidiSourceType::ClockTransport => {
-                    b.show();
-                    b.fill_combo_box_indexed(MidiClockTransportMessage::iter());
-                    b.select_combo_box_item_by_index(
-                        self.source.midi_clock_transport_message().into(),
-                    );
-                }
-                MidiSourceType::Display => {
-                    b.show();
-                    b.fill_combo_box_indexed(DisplayType::iter());
-                    b.select_combo_box_item_by_index(self.source.display_type().into());
-                }
-                _ => {
-                    b.hide();
-                }
-            },
-            _ => {
-                b.hide();
-            }
-        }
     }
 
     fn invalidate_target_controls(&self, initiator: Option<u32>) {
@@ -6903,7 +6918,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Midi => b.fill_combo_box_indexed(MidiSourceType::iter()),
             Reaper => b.fill_combo_box_indexed(ReaperSourceType::iter()),
             Virtual => b.fill_combo_box_indexed(VirtualControlElementCharacter::iter()),
-            Osc | Never | Keyboard => {}
+            Osc | Never | Keyboard | StreamDeck => {}
         };
     }
 
@@ -7156,7 +7171,7 @@ impl View for MappingPanel {
                 self.write(|p| p.handle_source_line_2_combo_box_change())
             }
             root::ID_SOURCE_CHANNEL_COMBO_BOX => {
-                self.write(|p| p.handle_source_line_3_combo_box_1_change())
+                self.write(|p| p.handle_source_line_3_combo_box_change())
             }
             root::ID_SOURCE_NUMBER_COMBO_BOX => {
                 self.write(|p| p.handle_source_line_4_combo_box_2_change())
@@ -7165,10 +7180,7 @@ impl View for MappingPanel {
                 self.write(|p| p.handle_source_line_4_combo_box_1_change())
             }
             root::ID_SOURCE_CHARACTER_COMBO_BOX => {
-                self.write(|p| p.handle_source_line_5_combo_box_2_change())
-            }
-            root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX => {
-                self.write(|p| p.handle_source_line_3_combo_box_2_change())
+                self.write(|p| p.handle_source_line_5_combo_box_change())
             }
             // Mode
             root::ID_SETTINGS_MODE_COMBO_BOX => self.write(|p| p.update_mode_type()),
@@ -8296,7 +8308,6 @@ impl Section {
             | ID_SOURCE_CHANNEL_LABEL
             | ID_SOURCE_CHANNEL_COMBO_BOX
             | ID_SOURCE_LINE_3_EDIT_CONTROL
-            | ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX
             | ID_SOURCE_NOTE_OR_CC_NUMBER_LABEL_TEXT
             | ID_SOURCE_RPN_CHECK_BOX
             | ID_SOURCE_LINE_4_COMBO_BOX_1

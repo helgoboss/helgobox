@@ -5,7 +5,7 @@ use crate::base::CloneAsDefault;
 use crate::domain::{
     Backbone, CompartmentKind, CompartmentParamIndex, CompoundMappingSource, EelMidiSourceScript,
     ExtendedSourceCharacter, FlexibleMidiSourceScript, KeySource, Keystroke, LuaMidiSourceScript,
-    MidiSource, RealearnParameterSource, ReaperSource, SpeechSource, TimerSource,
+    MidiSource, RealearnParameterSource, ReaperSource, SpeechSource, StreamDeckSource, TimerSource,
     VirtualControlElement, VirtualControlElementId, VirtualSource,
 };
 use derive_more::Display;
@@ -16,7 +16,10 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use helgoboss_midi::{Channel, U14, U7};
-use helgobox_api::persistence::{MidiScriptKind, VirtualControlElementCharacter};
+use helgobox_api::persistence::{
+    MidiScriptKind, StreamDeckButtonBackground, StreamDeckButtonDesign, StreamDeckButtonForeground,
+    VirtualControlElementCharacter,
+};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
@@ -54,6 +57,9 @@ pub enum SourceCommand {
     SetTimerMillis(u64),
     SetParameterIndex(CompartmentParamIndex),
     SetKeystroke(Option<Keystroke>),
+    SetButtonIndex(u32),
+    SetButtonBackgroundType(StreamDeckButtonBackgroundType),
+    SetButtonForegroundType(StreamDeckButtonForegroundType),
     SetControlElementCharacter(VirtualControlElementCharacter),
     SetControlElementId(VirtualControlElementId),
 }
@@ -87,6 +93,9 @@ pub enum SourceProp {
     TimerMillis,
     ParameterIndex,
     Keystroke,
+    ButtonIndex,
+    ButtonBackgroundType,
+    ButtonForegroundType,
 }
 
 impl GetProcessingRelevance for SourceProp {
@@ -213,6 +222,18 @@ impl<'a> Change<'a> for SourceModel {
                 self.keystroke = v;
                 One(P::Keystroke)
             }
+            C::SetButtonIndex(v) => {
+                self.button_index = v;
+                One(P::ButtonIndex)
+            }
+            C::SetButtonBackgroundType(v) => {
+                self.button_background_type = v;
+                One(P::ButtonBackgroundType)
+            }
+            C::SetButtonForegroundType(v) => {
+                self.button_foreground_type = v;
+                One(P::ButtonForegroundType)
+            }
         };
         Some(affected)
     }
@@ -250,6 +271,10 @@ pub struct SourceModel {
     parameter_index: CompartmentParamIndex,
     // Key
     keystroke: Option<Keystroke>,
+    // Stream Deck
+    button_index: u32,
+    button_background_type: StreamDeckButtonBackgroundType,
+    button_foreground_type: StreamDeckButtonForegroundType,
     // Virtual
     control_element_character: VirtualControlElementCharacter,
     control_element_id: VirtualControlElementId,
@@ -291,6 +316,9 @@ impl SourceModel {
             timer_millis: Default::default(),
             parameter_index: Default::default(),
             keystroke: None,
+            button_index: 0,
+            button_background_type: Default::default(),
+            button_foreground_type: Default::default(),
         }
     }
 
@@ -382,6 +410,18 @@ impl SourceModel {
         self.keystroke
     }
 
+    pub fn button_index(&self) -> u32 {
+        self.button_index
+    }
+
+    pub fn button_background_type(&self) -> StreamDeckButtonBackgroundType {
+        self.button_background_type
+    }
+
+    pub fn button_foreground_type(&self) -> StreamDeckButtonForegroundType {
+        self.button_foreground_type
+    }
+
     pub fn reaper_source_type(&self) -> ReaperSourceType {
         self.reaper_source_type
     }
@@ -408,7 +448,7 @@ impl SourceModel {
             Midi => self.midi_source_type.supports_control(),
             Osc => self.osc_arg_type_tag.supports_control(),
             Reaper => self.reaper_source_type.supports_control(),
-            Virtual | Keyboard => true,
+            Virtual | Keyboard | StreamDeck => true,
             // Main use case: Group interaction (follow-only).
             Never => true,
         }
@@ -420,7 +460,7 @@ impl SourceModel {
             Midi => self.midi_source_type.supports_feedback(),
             Osc => self.osc_arg_type_tag.supports_feedback(),
             Reaper => self.reaper_source_type.supports_feedback(),
-            Virtual => true,
+            StreamDeck | Virtual => true,
             Keyboard | Never => false,
         }
     }
@@ -514,6 +554,10 @@ impl SourceModel {
                     MidiDeviceChanges | RealearnInstanceStart | Timer(_) | Speech(_) => {}
                 }
             }
+            StreamDeck(s) => {
+                self.category = SourceCategory::StreamDeck;
+                self.button_index = s.button_index;
+            }
             Never => {
                 self.category = SourceCategory::Never;
             }
@@ -563,7 +607,9 @@ impl SourceModel {
                 DetailedSourceCharacter::RangeControl,
                 DetailedSourceCharacter::Relative,
             ],
-            CompoundMappingSource::Key(_) => vec![DetailedSourceCharacter::MomentaryOnOffButton],
+            CompoundMappingSource::Key(_) | CompoundMappingSource::StreamDeck(_) => {
+                vec![DetailedSourceCharacter::MomentaryOnOffButton]
+            }
         }
     }
 
@@ -683,10 +729,42 @@ impl SourceModel {
                 };
                 CompoundMappingSource::Reaper(reaper_source)
             }
-            Never => CompoundMappingSource::Never,
             Keyboard => CompoundMappingSource::Key(self.create_key_source()?),
+            StreamDeck => CompoundMappingSource::StreamDeck(self.create_stream_deck_source()),
+            Never => CompoundMappingSource::Never,
         };
         Some(source)
+    }
+
+    pub fn create_stream_deck_source(&self) -> StreamDeckSource {
+        StreamDeckSource::new(self.button_index, self.create_stream_deck_button_design())
+    }
+
+    pub fn create_stream_deck_button_design(&self) -> StreamDeckButtonDesign {
+        StreamDeckButtonDesign {
+            background: match self.button_background_type {
+                StreamDeckButtonBackgroundType::Solid => {
+                    StreamDeckButtonBackground::Solid(Default::default())
+                }
+                StreamDeckButtonBackgroundType::Image => {
+                    StreamDeckButtonBackground::Image(Default::default())
+                }
+            },
+            foreground: match self.button_foreground_type {
+                StreamDeckButtonForegroundType::Solid => {
+                    StreamDeckButtonForeground::Solid(Default::default())
+                }
+                StreamDeckButtonForegroundType::Image => {
+                    StreamDeckButtonForeground::Image(Default::default())
+                }
+                StreamDeckButtonForegroundType::Bar => {
+                    StreamDeckButtonForeground::Bar(Default::default())
+                }
+                StreamDeckButtonForegroundType::Arc => {
+                    StreamDeckButtonForeground::Arc(Default::default())
+                }
+            },
+        }
     }
 
     pub fn create_key_source(&self) -> Option<KeySource> {
@@ -951,6 +1029,10 @@ impl Display for SourceModel {
                     .unwrap_or_else(|| Cow::Borrowed(KEY_UNDEFINED_LABEL));
                 vec![text]
             }
+            StreamDeck => {
+                let text = self.create_stream_deck_source().to_string();
+                vec![Cow::Owned(text)]
+            }
         };
         let non_empty_lines: Vec<_> = lines.into_iter().filter(|l| !l.is_empty()).collect();
         write!(f, "{}", non_empty_lines.join("\n"))
@@ -991,6 +1073,9 @@ pub enum SourceCategory {
     #[serde(rename = "reaper")]
     #[display(fmt = "REAPER")]
     Reaper,
+    #[serde(rename = "stream-deck")]
+    #[display(fmt = "Stream Deck")]
+    StreamDeck,
     #[serde(rename = "virtual")]
     #[display(fmt = "Virtual")]
     Virtual,
@@ -1014,6 +1099,7 @@ impl SourceCategory {
                 Osc => true,
                 Reaper => true,
                 Keyboard => true,
+                StreamDeck => true,
                 Virtual => false,
             },
             CompartmentKind::Main => true,
@@ -1219,6 +1305,48 @@ impl ReaperSourceType {
         match self {
             MidiDeviceChanges | RealearnUnitStart | Timer | RealearnParameter => false,
             Speech => true,
+        }
+    }
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Default, EnumIter, TryFromPrimitive, IntoPrimitive, Display,
+)]
+#[repr(usize)]
+pub enum StreamDeckButtonBackgroundType {
+    #[default]
+    Solid,
+    Image,
+}
+
+impl From<&StreamDeckButtonBackground> for StreamDeckButtonBackgroundType {
+    fn from(value: &StreamDeckButtonBackground) -> Self {
+        match value {
+            StreamDeckButtonBackground::Solid(_) => Self::Solid,
+            StreamDeckButtonBackground::Image(_) => Self::Image,
+        }
+    }
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Default, EnumIter, TryFromPrimitive, IntoPrimitive, Display,
+)]
+#[repr(usize)]
+pub enum StreamDeckButtonForegroundType {
+    #[default]
+    Solid,
+    Image,
+    Bar,
+    Arc,
+}
+
+impl From<&StreamDeckButtonForeground> for StreamDeckButtonForegroundType {
+    fn from(value: &StreamDeckButtonForeground) -> Self {
+        match value {
+            StreamDeckButtonForeground::Solid(_) => Self::Solid,
+            StreamDeckButtonForeground::Image(_) => Self::Image,
+            StreamDeckButtonForeground::Arc(_) => Self::Arc,
+            StreamDeckButtonForeground::Bar(_) => Self::Bar,
         }
     }
 }

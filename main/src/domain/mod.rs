@@ -114,6 +114,12 @@ pub use reaper_source::*;
 mod key_source;
 pub use key_source::*;
 
+mod stream_deck_device;
+pub use stream_deck_device::*;
+
+mod stream_deck_source;
+pub use stream_deck_source::*;
+
 mod device_change_detector;
 pub use device_change_detector::*;
 
@@ -172,4 +178,5 @@ mod hex;
 pub use hex::*;
 
 mod global_audio_state;
+
 pub use global_audio_state::*;

@@ -41,6 +41,8 @@ pub enum Source {
     Osc(OscSource),
     // Keyboard
     Key(KeySource),
+    // StreamDeck
+    StreamDeck(StreamDeckSource),
     // Virtual
     Virtual(VirtualSource),
 }
@@ -307,6 +309,64 @@ pub struct KeySource {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keystroke: Option<Keystroke>,
 }
+
+#[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct StreamDeckSource {
+    pub button_index: u32,
+    pub button_design: StreamDeckButtonDesign,
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Default, Serialize, Deserialize)]
+pub struct StreamDeckButtonDesign {
+    pub background: StreamDeckButtonBackground,
+    pub foreground: StreamDeckButtonForeground,
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum StreamDeckButtonForeground {
+    Solid(StreamDeckButtonSolidForeground),
+    Image(StreamDeckButtonImageForeground),
+    Bar(StreamDeckButtonBarForeground),
+    Arc(StreamDeckButtonArcForeground),
+}
+
+impl Default for StreamDeckButtonForeground {
+    fn default() -> Self {
+        Self::Solid(StreamDeckButtonSolidForeground::default())
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum StreamDeckButtonBackground {
+    Solid(StreamDeckButtonSolidBackground),
+    Image(StreamDeckButtonImageBackground),
+}
+
+impl Default for StreamDeckButtonBackground {
+    fn default() -> Self {
+        Self::Solid(StreamDeckButtonSolidBackground::default())
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
+pub struct StreamDeckButtonImageForeground {}
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
+pub struct StreamDeckButtonSolidForeground {}
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
+pub struct StreamDeckButtonBarForeground {}
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
+pub struct StreamDeckButtonArcForeground {}
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
+pub struct StreamDeckButtonImageBackground {}
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
+pub struct StreamDeckButtonSolidBackground {}
 
 #[derive(Copy, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Keystroke {
