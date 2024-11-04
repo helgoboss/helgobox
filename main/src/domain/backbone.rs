@@ -13,13 +13,13 @@ use anyhow::{anyhow, Context};
 use pot::{PotFavorites, PotFilterExcludes};
 
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
+use cached::proc_macro::cached;
 use egui::epaint::ahash::HashSetExt;
 use fragile::Fragile;
 use helgoboss_learn::{RgbColor, UnitValue};
 use helgobox_api::persistence::{
     StreamDeckButtonBackground, StreamDeckButtonForeground, TargetTouchCause,
 };
-use image::Pixel;
 use once_cell::sync::Lazy;
 use reaper_high::Fx;
 use std::cell::{Cell, Ref, RefCell, RefMut};
@@ -27,7 +27,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
-use streamdeck::StreamDeck;
+use streamdeck::{Kind, StreamDeck};
 use strum::EnumCount;
 
 make_available_globally_in_main_thread_on_demand!(Backbone);
@@ -236,36 +236,70 @@ impl Backbone {
         dev_id: StreamDeckDeviceId,
         value: StreamDeckSourceFeedbackValue,
     ) -> anyhow::Result<()> {
-        use image::{DynamicImage, ImageBuffer, Rgba};
+        use image::{DynamicImage, Pixel, Rgba, RgbaImage};
+        const DEFAULT_BG_COLOR: RgbColor = RgbColor::BLACK;
+        const DEFAULT_FG_COLOR: RgbColor = RgbColor::WHITE;
+        #[cached(option = true)]
+        fn load_image_for_stream_deck(path: String, width: u32, height: u32) -> Option<RgbaImage> {
+            let image = image::open(path).ok()?;
+            let image = image
+                .resize_to_fill(width, height, image::imageops::FilterType::Lanczos3)
+                .into();
+            Some(image)
+        }
+        fn blit_with_alpha(target: &mut RgbaImage, overlay: &RgbaImage, alpha: f32) {
+            for (x, y, overlay_pixel) in overlay.enumerate_pixels() {
+                let target_pixel = target.get_pixel_mut(x, y);
+                let blended_pixel = Rgba([
+                    (overlay_pixel[0] as f32 * alpha + target_pixel[0] as f32 * (1.0 - alpha))
+                        as u8,
+                    (overlay_pixel[1] as f32 * alpha + target_pixel[1] as f32 * (1.0 - alpha))
+                        as u8,
+                    (overlay_pixel[2] as f32 * alpha + target_pixel[2] as f32 * (1.0 - alpha))
+                        as u8,
+                    255,
+                ]);
+                *target_pixel = blended_pixel;
+            }
+        }
         let mut stream_decks = self.stream_decks.borrow_mut();
         let sd = stream_decks
             .get_mut(&dev_id)
             .context("stream deck not connected")?;
-        const DEFAULT_BG_COLOR: RgbColor = RgbColor::BLACK;
-        const DEFAULT_FG_COLOR: RgbColor = RgbColor::WHITE;
-        let width = 72;
-        let height = 72;
+        let (width, height) = match sd.kind() {
+            Kind::Xl => (96, 96),
+            Kind::Original | Kind::OriginalV2 | Kind::Mini | Kind::Mk2 => (72, 72),
+        };
         // Paint background
         let bg_color = value.background_color.unwrap_or(DEFAULT_BG_COLOR);
-        let mut img: ImageBuffer<Rgba<u8>, _> = match value.button_design.background {
+        let mut img: RgbaImage = match value.button_design.background {
             StreamDeckButtonBackground::Color(_) => {
-                ImageBuffer::from_pixel(width, height, bg_color.into())
+                RgbaImage::from_pixel(width, height, bg_color.into())
             }
-            StreamDeckButtonBackground::Image(b) => image::open(b.path).unwrap().into(),
+            StreamDeckButtonBackground::Image(b) => {
+                load_image_for_stream_deck(b.path, width, height)
+                    .unwrap_or_else(|| RgbaImage::from_pixel(width, height, RgbColor::BLACK.into()))
+            }
         };
         // Paint foreground
         if value.numeric_value.is_some() || value.text_value.is_some() {
             let fg_color = value.foreground_color.unwrap_or(DEFAULT_FG_COLOR);
+            let opacity = value.numeric_value.unwrap_or(UnitValue::MAX);
             match value.button_design.foreground {
                 StreamDeckButtonForeground::FadingColor(_) => {
-                    let opacity = value.numeric_value.unwrap_or(UnitValue::MAX);
                     let mut rgba: Rgba<u8> = fg_color.into();
                     rgba[3] = (opacity.get() * 255.0).round() as u8;
                     for pixel in img.pixels_mut() {
                         pixel.blend(&rgba);
                     }
                 }
-                StreamDeckButtonForeground::FadingImage(_) => {}
+                StreamDeckButtonForeground::FadingImage(b) => {
+                    let fg_img =
+                        load_image_for_stream_deck(b.path, width, height).unwrap_or_else(|| {
+                            RgbaImage::from_pixel(width, height, RgbColor::WHITE.into())
+                        });
+                    blit_with_alpha(&mut img, &fg_img, opacity.get() as _);
+                }
                 StreamDeckButtonForeground::FullBar(_) => {
                     let percentage = value.numeric_value.map(|v| v.get()).unwrap_or(0.0);
                     let rect_height = (height as f64 * percentage) as u32;

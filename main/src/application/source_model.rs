@@ -1,3 +1,4 @@
+use crate::application::SourceProp::ButtonBackgroundImagePath;
 use crate::application::{
     Affected, Change, GetProcessingRelevance, MappingProp, ProcessingRelevance,
 };
@@ -8,6 +9,7 @@ use crate::domain::{
     MidiSource, RealearnParameterSource, ReaperSource, SpeechSource, StreamDeckSource, TimerSource,
     VirtualControlElement, VirtualControlElementId, VirtualSource,
 };
+use camino::{Utf8Path, Utf8PathBuf};
 use derive_more::Display;
 use helgoboss_learn::{
     ControlValue, DetailedSourceCharacter, DisplaySpec, DisplayType, Interval, MackieLcdScope,
@@ -17,8 +19,9 @@ use helgoboss_learn::{
 };
 use helgoboss_midi::{Channel, U14, U7};
 use helgobox_api::persistence::{
-    MidiScriptKind, StreamDeckButtonBackground, StreamDeckButtonDesign, StreamDeckButtonForeground,
-    VirtualControlElementCharacter,
+    MidiScriptKind, StreamDeckButtonBackground, StreamDeckButtonDesign,
+    StreamDeckButtonFadingImageForeground, StreamDeckButtonForeground,
+    StreamDeckButtonImageBackground, VirtualControlElementCharacter,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
@@ -59,7 +62,9 @@ pub enum SourceCommand {
     SetKeystroke(Option<Keystroke>),
     SetButtonIndex(u32),
     SetButtonBackgroundType(StreamDeckButtonBackgroundType),
+    SetButtonBackgroundImagePath(Utf8PathBuf),
     SetButtonForegroundType(StreamDeckButtonForegroundType),
+    SetButtonForegroundImagePath(Utf8PathBuf),
     SetControlElementCharacter(VirtualControlElementCharacter),
     SetControlElementId(VirtualControlElementId),
 }
@@ -95,7 +100,9 @@ pub enum SourceProp {
     Keystroke,
     ButtonIndex,
     ButtonBackgroundType,
+    ButtonBackgroundImagePath,
     ButtonForegroundType,
+    ButtonForegroundImagePath,
 }
 
 impl GetProcessingRelevance for SourceProp {
@@ -230,9 +237,17 @@ impl<'a> Change<'a> for SourceModel {
                 self.button_background_type = v;
                 One(P::ButtonBackgroundType)
             }
+            C::SetButtonBackgroundImagePath(v) => {
+                self.button_background_image_path = v;
+                One(P::ButtonBackgroundImagePath)
+            }
             C::SetButtonForegroundType(v) => {
                 self.button_foreground_type = v;
                 One(P::ButtonForegroundType)
+            }
+            C::SetButtonForegroundImagePath(v) => {
+                self.button_foreground_image_path = v;
+                One(P::ButtonForegroundImagePath)
             }
         };
         Some(affected)
@@ -274,7 +289,9 @@ pub struct SourceModel {
     // Stream Deck
     button_index: u32,
     button_background_type: StreamDeckButtonBackgroundType,
+    button_background_image_path: Utf8PathBuf,
     button_foreground_type: StreamDeckButtonForegroundType,
+    button_foreground_image_path: Utf8PathBuf,
     // Virtual
     control_element_character: VirtualControlElementCharacter,
     control_element_id: VirtualControlElementId,
@@ -318,7 +335,9 @@ impl SourceModel {
             keystroke: None,
             button_index: 0,
             button_background_type: Default::default(),
+            button_background_image_path: Default::default(),
             button_foreground_type: Default::default(),
+            button_foreground_image_path: Default::default(),
         }
     }
 
@@ -416,6 +435,14 @@ impl SourceModel {
 
     pub fn button_background_type(&self) -> StreamDeckButtonBackgroundType {
         self.button_background_type
+    }
+
+    pub fn button_background_image_path(&self) -> &Utf8Path {
+        &self.button_background_image_path
+    }
+
+    pub fn button_foreground_image_path(&self) -> &Utf8Path {
+        &self.button_foreground_image_path
     }
 
     pub fn button_foreground_type(&self) -> StreamDeckButtonForegroundType {
@@ -747,7 +774,9 @@ impl SourceModel {
                     StreamDeckButtonBackground::Color(Default::default())
                 }
                 StreamDeckButtonBackgroundType::Image => {
-                    StreamDeckButtonBackground::Image(Default::default())
+                    StreamDeckButtonBackground::Image(StreamDeckButtonImageBackground {
+                        path: self.button_background_image_path.to_string(),
+                    })
                 }
             },
             foreground: match self.button_foreground_type {
@@ -755,7 +784,9 @@ impl SourceModel {
                     StreamDeckButtonForeground::FadingColor(Default::default())
                 }
                 StreamDeckButtonForegroundType::Image => {
-                    StreamDeckButtonForeground::FadingImage(Default::default())
+                    StreamDeckButtonForeground::FadingImage(StreamDeckButtonFadingImageForeground {
+                        path: self.button_foreground_image_path.to_string(),
+                    })
                 }
                 StreamDeckButtonForegroundType::Bar => {
                     StreamDeckButtonForeground::FullBar(Default::default())

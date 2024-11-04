@@ -10,7 +10,8 @@ use base::default_util::{deserialize_null_default, is_default};
 use helgoboss_learn::{DisplayType, MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use helgobox_api::persistence::{
-    MidiScriptKind, StreamDeckButtonDesign, VirtualControlElementCharacter,
+    MidiScriptKind, StreamDeckButtonBackground, StreamDeckButtonDesign, StreamDeckButtonForeground,
+    VirtualControlElementCharacter,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -312,6 +313,20 @@ impl SourceModelData {
         model.change(P::SetButtonBackgroundType(
             (&self.button_design.background).into(),
         ));
+        match &self.button_design.background {
+            StreamDeckButtonBackground::Color(_) => {}
+            StreamDeckButtonBackground::Image(b) => {
+                model.change(P::SetButtonBackgroundImagePath(b.path.clone().into()));
+            }
+        }
+        match &self.button_design.foreground {
+            StreamDeckButtonForeground::FadingColor(_) => {}
+            StreamDeckButtonForeground::FadingImage(b) => {
+                model.change(P::SetButtonForegroundImagePath(b.path.clone().into()));
+            }
+            StreamDeckButtonForeground::FullBar(_) => {}
+            StreamDeckButtonForeground::Arc(_) => {}
+        }
         model.change(P::SetButtonForegroundType(
             (&self.button_design.foreground).into(),
         ));

@@ -352,6 +352,10 @@ impl MappingPanel {
                                             P::ButtonBackgroundType => {
                                                 view.invalidate_source_line_4(initiator);
                                             }
+                                            P::ButtonBackgroundImagePath => {
+                                            }
+                                            P::ButtonForegroundImagePath => {
+                                            }
                                             P::ButtonForegroundType => {
                                                 view.invalidate_source_line_5(initiator);
                                             }
