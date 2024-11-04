@@ -3085,6 +3085,7 @@ dependencies = [
  "hidapi",
  "hostname",
  "image 0.25.2",
+ "imageproc 0.25.0",
  "include_dir",
  "indexmap 2.1.0",
  "itertools 0.12.0",
@@ -3498,6 +3499,24 @@ dependencies = [
  "ab_glyph",
  "approx",
  "conv",
+ "getrandom",
+ "image 0.25.2",
+ "itertools 0.12.0",
+ "nalgebra",
+ "num",
+ "rand",
+ "rand_distr",
+ "rayon",
+]
+
+[[package]]
+name = "imageproc"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2393fb7808960751a52e8a154f67e7dd3f8a2ef9bd80d1553078a7b4e8ed3f0d"
+dependencies = [
+ "ab_glyph",
+ "approx",
  "getrandom",
  "image 0.25.2",
  "itertools 0.12.0",
@@ -6625,7 +6644,7 @@ dependencies = [
  "hidapi",
  "humantime",
  "image 0.25.2",
- "imageproc",
+ "imageproc 0.24.0",
  "log",
  "simplelog",
  "structopt",

@@ -261,7 +261,60 @@ impl Backbone {
                 ]);
                 *target_pixel = blended_pixel;
             }
+            // for (x, y, target_pixel) in target.enumerate_pixels_mut() {
+            //     let mut overlay_pixel = *overlay.get_pixel(x, y);
+            //     overlay_pixel[3] = (alpha * 255.0).round() as u8;
+            //     target_pixel.blend(&overlay_pixel)
+            // }
         }
+        use std::f32::consts::PI;
+
+        /// Draws a knob with an indicator showing the given value (0% to 100%).
+        /// The knob is centered within the specified width and height.
+        /// - `width`: The width of the image.
+        /// - `height`: The height of the image.
+        /// - `value`: The value to display, from 0.0 to 100.0 (percentage).
+        /// - `filename`: The filename to save the image as.
+        fn draw_knob(img: &mut RgbaImage, width: u32, height: u32, value: f32) {
+            let cx = width as f32 / 2.0;
+            let cy = height as f32 / 2.0;
+            // Circle
+            let radius = cx.min(cy) - 10.0;
+            let gray = 40;
+            let knob_color = Rgba([gray, gray, gray, 100]);
+            imageproc::drawing::draw_filled_circle_mut(
+                img,
+                (cx as _, cy as _),
+                radius as _,
+                knob_color,
+            );
+            // Indicator line
+            let angle = value * 2.0 * PI - PI / 2.0; // Start at the top (12 o'clock)
+            let line_length = radius - 5.0;
+            let line_x = cx + line_length * angle.cos();
+            let line_y = cy + line_length * angle.sin();
+            let indicator_color = Rgba([255, 255, 255, 1]);
+            draw_line(
+                img,
+                cx as i32,
+                cy as i32,
+                line_x as i32,
+                line_y as i32,
+                indicator_color,
+            );
+        }
+
+        /// Draws a simple line between two points on the image using Bresenham's line algorithm.
+        fn draw_line(img: &mut RgbaImage, x0: i32, y0: i32, x1: i32, y1: i32, color: Rgba<u8>) {
+            imageproc::drawing::draw_antialiased_line_segment_mut(
+                img,
+                (x0, y0),
+                (x1, y1),
+                color,
+                |i, o, a| i,
+            );
+        }
+
         let mut stream_decks = self.stream_decks.borrow_mut();
         let sd = stream_decks
             .get_mut(&dev_id)
@@ -284,13 +337,13 @@ impl Backbone {
         // Paint foreground
         if value.numeric_value.is_some() || value.text_value.is_some() {
             let fg_color = value.foreground_color.unwrap_or(DEFAULT_FG_COLOR);
-            let opacity = value.numeric_value.unwrap_or(UnitValue::MAX);
+            let fb_value = value.numeric_value.unwrap_or(UnitValue::MIN).get() as f32;
             match value.button_design.foreground {
                 StreamDeckButtonForeground::FadingColor(_) => {
-                    let mut rgba: Rgba<u8> = fg_color.into();
-                    rgba[3] = (opacity.get() * 255.0).round() as u8;
+                    let mut fg_color: Rgba<u8> = fg_color.into();
+                    fg_color[3] = (fb_value * 255.0).round() as u8;
                     for pixel in img.pixels_mut() {
-                        pixel.blend(&rgba);
+                        pixel.blend(&fg_color);
                     }
                 }
                 StreamDeckButtonForeground::FadingImage(b) => {
@@ -298,22 +351,22 @@ impl Backbone {
                         load_image_for_stream_deck(b.path, width, height).unwrap_or_else(|| {
                             RgbaImage::from_pixel(width, height, RgbColor::WHITE.into())
                         });
-                    blit_with_alpha(&mut img, &fg_img, opacity.get() as _);
+                    blit_with_alpha(&mut img, &fg_img, fb_value);
                 }
                 StreamDeckButtonForeground::FullBar(_) => {
-                    let percentage = value.numeric_value.map(|v| v.get()).unwrap_or(0.0);
-                    let rect_height = (height as f64 * percentage) as u32;
+                    let mut fg_color: Rgba<u8> = fg_color.into();
+                    fg_color[3] = 100;
+                    let rect_height = (height as f32 * fb_value) as u32;
                     // Fill the background
-                    // TODO-high CONTINUE Only change foreground pixels. Background already painted.
-                    for (x, y, pixel) in img.enumerate_pixels_mut() {
-                        *pixel = if y >= height - rect_height {
-                            fg_color.into()
-                        } else {
-                            bg_color.into()
-                        };
+                    for (_, y, pixel) in img.enumerate_pixels_mut() {
+                        if y >= height - rect_height {
+                            pixel.blend(&fg_color);
+                        }
                     }
                 }
-                StreamDeckButtonForeground::Arc(_) => {}
+                StreamDeckButtonForeground::Arc(_) => {
+                    draw_knob(&mut img, width, height, fb_value);
+                }
             }
         }
         sd.set_button_image(value.button_index as _, DynamicImage::ImageRgba8(img))?;

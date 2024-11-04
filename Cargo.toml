@@ -123,6 +123,7 @@ atomic = "0.6.0"
 static_assertions = "1.1.0"
 image = { version = "0.25.2", default-features = false }
 cached = "0.53.1"
+imageproc = "0.25.0"
 
 [profile.release]
 # This is important for having line numbers in bug reports.

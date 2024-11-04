@@ -328,7 +328,7 @@ pub enum StreamDeckButtonForeground {
     FadingColor(StreamDeckButtonFadingColorForeground),
     FadingImage(StreamDeckButtonFadingImageForeground),
     FullBar(StreamDeckButtonFullBarForeground),
-    Arc(StreamDeckButtonArcForeground),
+    Arc(StreamDeckButtonKnobForeground),
 }
 
 impl Default for StreamDeckButtonForeground {
@@ -362,7 +362,7 @@ pub struct StreamDeckButtonFadingColorForeground {}
 pub struct StreamDeckButtonFullBarForeground {}
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
-pub struct StreamDeckButtonArcForeground {}
+pub struct StreamDeckButtonKnobForeground {}
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
 pub struct StreamDeckButtonImageBackground {
