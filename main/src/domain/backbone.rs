@@ -248,16 +248,16 @@ impl Backbone {
         // Paint background
         let bg_color = value.background_color.unwrap_or(DEFAULT_BG_COLOR);
         let mut img: ImageBuffer<Rgba<u8>, _> = match value.button_design.background {
-            StreamDeckButtonBackground::Solid(_) => {
+            StreamDeckButtonBackground::Color(_) => {
                 ImageBuffer::from_pixel(width, height, bg_color.into())
             }
-            StreamDeckButtonBackground::Image(_) => ImageBuffer::default(),
+            StreamDeckButtonBackground::Image(b) => image::open(b.path).unwrap().into(),
         };
         // Paint foreground
         if value.numeric_value.is_some() || value.text_value.is_some() {
             let fg_color = value.foreground_color.unwrap_or(DEFAULT_FG_COLOR);
             match value.button_design.foreground {
-                StreamDeckButtonForeground::Solid(_) => {
+                StreamDeckButtonForeground::FadingColor(_) => {
                     let opacity = value.numeric_value.unwrap_or(UnitValue::MAX);
                     let mut rgba: Rgba<u8> = fg_color.into();
                     rgba[3] = (opacity.get() * 255.0).round() as u8;
@@ -265,8 +265,8 @@ impl Backbone {
                         pixel.blend(&rgba);
                     }
                 }
-                StreamDeckButtonForeground::Image(_) => {}
-                StreamDeckButtonForeground::Bar(_) => {
+                StreamDeckButtonForeground::FadingImage(_) => {}
+                StreamDeckButtonForeground::FullBar(_) => {
                     let percentage = value.numeric_value.map(|v| v.get()).unwrap_or(0.0);
                     let rect_height = (height as f64 * percentage) as u32;
                     // Fill the background

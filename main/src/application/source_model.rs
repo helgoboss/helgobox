@@ -744,7 +744,7 @@ impl SourceModel {
         StreamDeckButtonDesign {
             background: match self.button_background_type {
                 StreamDeckButtonBackgroundType::Solid => {
-                    StreamDeckButtonBackground::Solid(Default::default())
+                    StreamDeckButtonBackground::Color(Default::default())
                 }
                 StreamDeckButtonBackgroundType::Image => {
                     StreamDeckButtonBackground::Image(Default::default())
@@ -752,13 +752,13 @@ impl SourceModel {
             },
             foreground: match self.button_foreground_type {
                 StreamDeckButtonForegroundType::Solid => {
-                    StreamDeckButtonForeground::Solid(Default::default())
+                    StreamDeckButtonForeground::FadingColor(Default::default())
                 }
                 StreamDeckButtonForegroundType::Image => {
-                    StreamDeckButtonForeground::Image(Default::default())
+                    StreamDeckButtonForeground::FadingImage(Default::default())
                 }
                 StreamDeckButtonForegroundType::Bar => {
-                    StreamDeckButtonForeground::Bar(Default::default())
+                    StreamDeckButtonForeground::FullBar(Default::default())
                 }
                 StreamDeckButtonForegroundType::Arc => {
                     StreamDeckButtonForeground::Arc(Default::default())
@@ -1322,7 +1322,7 @@ pub enum StreamDeckButtonBackgroundType {
 impl From<&StreamDeckButtonBackground> for StreamDeckButtonBackgroundType {
     fn from(value: &StreamDeckButtonBackground) -> Self {
         match value {
-            StreamDeckButtonBackground::Solid(_) => Self::Solid,
+            StreamDeckButtonBackground::Color(_) => Self::Solid,
             StreamDeckButtonBackground::Image(_) => Self::Image,
         }
     }
@@ -1343,10 +1343,10 @@ pub enum StreamDeckButtonForegroundType {
 impl From<&StreamDeckButtonForeground> for StreamDeckButtonForegroundType {
     fn from(value: &StreamDeckButtonForeground) -> Self {
         match value {
-            StreamDeckButtonForeground::Solid(_) => Self::Solid,
-            StreamDeckButtonForeground::Image(_) => Self::Image,
+            StreamDeckButtonForeground::FadingColor(_) => Self::Solid,
+            StreamDeckButtonForeground::FadingImage(_) => Self::Image,
             StreamDeckButtonForeground::Arc(_) => Self::Arc,
-            StreamDeckButtonForeground::Bar(_) => Self::Bar,
+            StreamDeckButtonForeground::FullBar(_) => Self::Bar,
         }
     }
 }

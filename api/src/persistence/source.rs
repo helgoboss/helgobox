@@ -325,48 +325,52 @@ pub struct StreamDeckButtonDesign {
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum StreamDeckButtonForeground {
-    Solid(StreamDeckButtonSolidForeground),
-    Image(StreamDeckButtonImageForeground),
-    Bar(StreamDeckButtonBarForeground),
+    FadingColor(StreamDeckButtonFadingColorForeground),
+    FadingImage(StreamDeckButtonFadingImageForeground),
+    FullBar(StreamDeckButtonFullBarForeground),
     Arc(StreamDeckButtonArcForeground),
 }
 
 impl Default for StreamDeckButtonForeground {
     fn default() -> Self {
-        Self::Solid(StreamDeckButtonSolidForeground::default())
+        Self::FadingColor(StreamDeckButtonFadingColorForeground::default())
     }
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum StreamDeckButtonBackground {
-    Solid(StreamDeckButtonSolidBackground),
+    Color(StreamDeckButtonColorBackground),
     Image(StreamDeckButtonImageBackground),
 }
 
 impl Default for StreamDeckButtonBackground {
     fn default() -> Self {
-        Self::Solid(StreamDeckButtonSolidBackground::default())
+        Self::Color(StreamDeckButtonColorBackground::default())
     }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
-pub struct StreamDeckButtonImageForeground {}
+pub struct StreamDeckButtonFadingImageForeground {
+    pub path: String,
+}
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
-pub struct StreamDeckButtonSolidForeground {}
+pub struct StreamDeckButtonFadingColorForeground {}
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
-pub struct StreamDeckButtonBarForeground {}
+pub struct StreamDeckButtonFullBarForeground {}
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
 pub struct StreamDeckButtonArcForeground {}
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
-pub struct StreamDeckButtonImageBackground {}
+pub struct StreamDeckButtonImageBackground {
+    pub path: String,
+}
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
-pub struct StreamDeckButtonSolidBackground {}
+pub struct StreamDeckButtonColorBackground {}
 
 #[derive(Copy, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Keystroke {
