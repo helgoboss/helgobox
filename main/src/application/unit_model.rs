@@ -251,7 +251,7 @@ impl UnitModel {
             .unwrap_or_default();
         let initial_output = auto_unit.as_ref().and_then(|au| au.feedback_output());
         let initial_send_feedback_only_if_armed =
-            get_appropriate_send_feedback_only_if_armed_default(initial_input);
+            get_appropriate_send_feedback_only_if_armed_default(initial_input, None);
         // Make unit key deterministic if we have an auto unit. That can help later if we want to let other units
         // (or anything really) refer to automatically loaded units.
         let initial_unit_key = auto_unit
@@ -769,6 +769,17 @@ impl UnitModel {
                 }
             });
         res
+    }
+
+    pub fn auto_correct_send_feedback_only_if_armed_if_enabled(&mut self) {
+        if !self.auto_correct_settings.get() {
+            return;
+        }
+        let value = get_appropriate_send_feedback_only_if_armed_default(
+            self.control_input.get(),
+            self.stream_deck_device_id,
+        );
+        self.send_feedback_only_if_armed.set(value);
     }
 
     pub fn stream_deck_device_id(&self) -> Option<StreamDeckDeviceId> {
@@ -3094,8 +3105,11 @@ impl RealearnControlSurfaceMainTaskSender {
 
 const SESSION_GONE: &str = "session gone";
 
-pub fn get_appropriate_send_feedback_only_if_armed_default(control_input: ControlInput) -> bool {
-    control_input == ControlInput::Midi(MidiControlInput::FxInput)
+pub fn get_appropriate_send_feedback_only_if_armed_default(
+    control_input: ControlInput,
+    stream_deck_dev_id: Option<StreamDeckDeviceId>,
+) -> bool {
+    control_input == ControlInput::Midi(MidiControlInput::FxInput) && stream_deck_dev_id.is_none()
 }
 
 fn compile_common_lua(

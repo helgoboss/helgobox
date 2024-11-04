@@ -200,6 +200,9 @@ impl HeaderPanel {
             }
             One(StreamDeckDeviceId) => {
                 self.invalidate_control_input_button();
+                // self.session()
+                //     .borrow_mut()
+                //     .auto_correct_send_feedback_only_if_armed_if_enabled();
             }
             One(InCompartment(compartment, One(InGroup(_, _))))
                 if *compartment == self.active_compartment() =>
@@ -2648,11 +2651,7 @@ impl HeaderPanel {
                 session.let_matched_events_through.set(true);
                 session.let_unmatched_events_through.set(true);
             }
-            if session.auto_correct_settings.get() {
-                session.send_feedback_only_if_armed.set(
-                    get_appropriate_send_feedback_only_if_armed_default(control_input),
-                );
-            }
+            session.auto_correct_send_feedback_only_if_armed_if_enabled();
         });
         self.when(session.feedback_output.changed(), |view, _| {
             view.invalidate_feedback_output_button()
