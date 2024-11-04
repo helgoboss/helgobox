@@ -15,7 +15,8 @@
             "request": "launch",
             "program": "/home/helgoboss/opt/REAPER/reaper",
             "args": [],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.vscode/launch.env"
         },
         {
             "name": "Portable Windows 64-bit",
@@ -25,10 +26,7 @@
             "args": ["-newinst"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [
-                {"name": "HELGOBOX_LOG", "value": "debug,vst=info,hyper=trace"}
-                // {"name": "CONTROL_SURFACE_METRICS", "value": "true"}
-            ]
+            "envFile": "${workspaceFolder}/.vscode/launch.env"
         },
         {
             "name": "Portable Windows 32-bit",
@@ -38,7 +36,7 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": []
+            "envFile": "${workspaceFolder}/.vscode/launch.env"
         },
         {
             "name": "Global Windows 64-bit",
@@ -48,7 +46,7 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": []
+            "envFile": "${workspaceFolder}/.vscode/launch.env"
         },
         {
             "name": "Windows attach",

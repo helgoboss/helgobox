@@ -110,6 +110,7 @@ modules.xml
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
+!.vscode/launch.env
 !.vscode/launch.json
 !.vscode/extensions.json
 
