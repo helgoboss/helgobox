@@ -3997,9 +3997,12 @@ impl<EH: DomainEventHandler> Basics<EH> {
     }
 
     pub fn unit_feedback_is_effectively_enabled(&self) -> bool {
+        if !self.feedback_is_globally_enabled {
+            return false;
+        }
         if let Some(fo) = self.settings.feedback_output {
-            self.feedback_is_globally_enabled
-                && Backbone::get().feedback_is_allowed(&self.unit_id, fo)
+            // Feedback output is set
+            Backbone::get().feedback_is_allowed(&self.unit_id, fo)
         } else {
             // Pointless but allowed
             true
