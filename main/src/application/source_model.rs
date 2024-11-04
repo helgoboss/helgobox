@@ -792,7 +792,7 @@ impl SourceModel {
                     StreamDeckButtonForeground::FullBar(Default::default())
                 }
                 StreamDeckButtonForegroundType::Knob => {
-                    StreamDeckButtonForeground::Arc(Default::default())
+                    StreamDeckButtonForeground::Knob(Default::default())
                 }
             },
         }
@@ -1382,7 +1382,7 @@ impl From<&StreamDeckButtonForeground> for StreamDeckButtonForegroundType {
         match value {
             StreamDeckButtonForeground::FadingColor(_) => Self::FadingColor,
             StreamDeckButtonForeground::FadingImage(_) => Self::FadingImage,
-            StreamDeckButtonForeground::Arc(_) => Self::Knob,
+            StreamDeckButtonForeground::Knob(_) => Self::Knob,
             StreamDeckButtonForeground::FullBar(_) => Self::FullBar,
         }
     }

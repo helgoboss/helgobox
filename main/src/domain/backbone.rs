@@ -364,7 +364,7 @@ impl Backbone {
                         }
                     }
                 }
-                StreamDeckButtonForeground::Arc(_) => {
+                StreamDeckButtonForeground::Knob(_) => {
                     draw_knob(&mut img, width, height, fb_value);
                 }
             }

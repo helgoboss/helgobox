@@ -325,7 +325,7 @@ impl SourceModelData {
                 model.change(P::SetButtonForegroundImagePath(b.path.clone().into()));
             }
             StreamDeckButtonForeground::FullBar(_) => {}
-            StreamDeckButtonForeground::Arc(_) => {}
+            StreamDeckButtonForeground::Knob(_) => {}
         }
         model.change(P::SetButtonForegroundType(
             (&self.button_design.foreground).into(),

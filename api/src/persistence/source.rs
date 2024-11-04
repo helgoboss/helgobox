@@ -328,7 +328,7 @@ pub enum StreamDeckButtonForeground {
     FadingColor(StreamDeckButtonFadingColorForeground),
     FadingImage(StreamDeckButtonFadingImageForeground),
     FullBar(StreamDeckButtonFullBarForeground),
-    Arc(StreamDeckButtonKnobForeground),
+    Knob(StreamDeckButtonKnobForeground),
 }
 
 impl Default for StreamDeckButtonForeground {
