@@ -111,6 +111,7 @@ If not, it makes an adjustment.
 This autocorrection is usually helpful.
 You can disable this checkbox if you don't like this behavior.
 
+[[send-feedback-only-if-track-armed]]
 Send feedback only if track armed:::
 Here you can tell ReaLearn to only send feedback when the track is armed.
 +

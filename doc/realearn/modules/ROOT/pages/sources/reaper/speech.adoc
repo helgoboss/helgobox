@@ -1,4 +1,11 @@
 = Source "Speech"
 
-This source works for feedback only.
+This source works for xref:key-concepts.adoc#feedback[] only.
 It uses the native Windows or macOS text-to-speech engine to speak out any feedback value.
+
+== Troubleshooting
+
+If you don't hear anything, check the xref:user-interface/main-panel/bottom-section.adoc[] if unit-wide feedback is currently off.
+If yes, maybe xref:user-interface/main-panel/menu-bar.adoc#send-feedback-only-if-track-armed[] is enabled but your track is not armed.
+
+Also keep in mind that ReaLearn only resends feedback when it changed. Therefore, the speech source will only say something when the target value actually changes.
