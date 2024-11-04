@@ -1,4 +1,6 @@
-use crate::domain::{CompartmentKind, CompartmentParamIndex, RawParamValue, ReaperSourceAddress};
+use crate::domain::{
+    CompartmentKind, CompartmentParamIndex, RawParamValue, ReaperSourceAddress, StreamDeckDeviceId,
+};
 use base::hash_util::NonCryptoHashSet;
 use core::fmt;
 use derive_more::Display;
@@ -194,6 +196,10 @@ impl ReaperSource {
     ) -> Option<ControlValue> {
         use ReaperMessage::*;
         let control_value = match msg {
+            StreamDeckDevicesConnected(_) => {
+                // We don't have a corresponding source yet
+                return None;
+            }
             MidiDevicesConnected(_) => match self {
                 ReaperSource::MidiDeviceChanges => ControlValue::AbsoluteContinuous(UnitValue::MAX),
                 _ => return None,
@@ -257,6 +263,7 @@ pub enum ReaperMessage {
     MidiDevicesDisconnected(MidiDeviceChangePayload),
     RealearnUnitStarted,
     RealearnParameterChange(RealearnParameterChangePayload),
+    StreamDeckDevicesConnected(StreamDeckDevicePayload),
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -273,6 +280,17 @@ impl Display for RealearnParameterChangePayload {
             "Parameter {} with value {}",
             self.parameter_index, self.value
         )
+    }
+}
+
+#[derive(Eq, PartialEq, Debug)]
+pub struct StreamDeckDevicePayload {
+    pub devices: NonCryptoHashSet<StreamDeckDeviceId>,
+}
+
+impl Display for StreamDeckDevicePayload {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Devices: {:?}", &self.devices,)
     }
 }
 

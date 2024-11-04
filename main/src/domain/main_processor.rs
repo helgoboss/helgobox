@@ -1871,6 +1871,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
+        // Convenience: Send all feedback whenever a Stream Deck device is connected.
+        if let ReaperMessage::StreamDeckDevicesConnected(payload) = evt.payload() {
+            if let Some(dev_id) = self.basics.settings.streamdeck_device_id {
+                if payload.devices.contains(&dev_id) {
+                    self.basics
+                        .channels
+                        .self_normal_sender
+                        .send_if_space(NormalMainTask::SendAllFeedback);
+                }
+            }
+        }
         // Inform UI of MIDI device changes
         if matches!(
             evt.payload(),

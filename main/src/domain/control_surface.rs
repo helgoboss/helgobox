@@ -4,8 +4,9 @@ use crate::domain::{
     MainProcessor, MidiDeviceChangeDetector, MidiDeviceChangePayload,
     MonitoringFxChainChangeDetector, OscDeviceId, OscInputDevice, OscScanResult,
     QualifiedInstanceEvent, ReaperConfigChangeDetector, ReaperMessage, ReaperTarget,
-    SharedInstance, SharedMainProcessors, StreamDeckDeviceId, StreamDeckMessage, TargetTouchEvent,
-    TouchedTrackParameterType, UnitEvent, UnitId, WeakInstance,
+    SharedInstance, SharedMainProcessors, StreamDeckDeviceId, StreamDeckDevicePayload,
+    StreamDeckMessage, TargetTouchEvent, TouchedTrackParameterType, UnitEvent, UnitId,
+    WeakInstance,
 };
 use base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
 use crossbeam_channel::Receiver;
@@ -724,7 +725,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         if self.counter % (30 * 2) != 0 {
             return;
         }
-        Backbone::get().detect_stream_deck_device_changes();
+        // Stream deck
+        let added_stream_deck_device_ids = Backbone::get().detect_stream_deck_device_changes();
+        // MIDI
         let midi_in_diff = self
             .device_change_detector
             .poll_for_midi_input_device_changes();
@@ -736,7 +739,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             midi_in_diff.added_devices.iter().copied(),
             midi_out_diff.added_devices.iter().copied(),
         );
-        // Handle events
+        // Pass events to event handler
         if midi_in_diff.devices_changed() || midi_in_diff.device_config_changed {
             self.event_handler
                 .midi_input_devices_changed(&midi_in_diff, midi_in_diff.device_config_changed);
@@ -746,23 +749,31 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 .midi_output_devices_changed(&midi_out_diff, midi_out_diff.device_config_changed);
         }
         // Emit as REAPER source messages
-        let mut msgs = Vec::with_capacity(2);
+        let mut msg = Vec::with_capacity(2);
         if !midi_in_diff.added_devices.is_empty() || !midi_out_diff.added_devices.is_empty() {
             let payload = MidiDeviceChangePayload {
                 input_devices: midi_in_diff.added_devices,
                 output_devices: midi_out_diff.added_devices,
             };
-            msgs.push(ReaperMessage::MidiDevicesConnected(payload));
+            msg.push(ReaperMessage::MidiDevicesConnected(payload));
         }
         if !midi_in_diff.removed_devices.is_empty() || !midi_out_diff.removed_devices.is_empty() {
             let payload = MidiDeviceChangePayload {
                 input_devices: midi_in_diff.removed_devices,
                 output_devices: midi_out_diff.removed_devices,
             };
-            msgs.push(ReaperMessage::MidiDevicesDisconnected(payload));
+            msg.push(ReaperMessage::MidiDevicesDisconnected(payload));
         }
+        if !added_stream_deck_device_ids.is_empty() {
+            msg.push(ReaperMessage::StreamDeckDevicesConnected(
+                StreamDeckDevicePayload {
+                    devices: added_stream_deck_device_ids,
+                },
+            ));
+        }
+        // Inform main processors
         for p in &mut *self.main_processors.borrow_mut() {
-            for msg in &msgs {
+            for msg in &msg {
                 let evt = ControlEvent::new(msg, timestamp);
                 p.process_reaper_message(evt);
             }

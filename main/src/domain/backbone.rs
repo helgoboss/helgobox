@@ -13,6 +13,7 @@ use anyhow::{anyhow, Context};
 use pot::{PotFavorites, PotFilterExcludes};
 
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
+use egui::epaint::ahash::HashSetExt;
 use fragile::Fragile;
 use helgoboss_learn::{RgbColor, UnitValue};
 use helgobox_api::persistence::{
@@ -178,15 +179,15 @@ impl Backbone {
         }
     }
 
-    pub fn detect_stream_deck_device_changes(&self) {
+    /// Returns IDs of newly connected Stream Deck devices.
+    pub fn detect_stream_deck_device_changes(&self) -> NonCryptoHashSet<StreamDeckDeviceId> {
         let devices_in_use = self.stream_deck_device_manager.borrow().devices_in_use();
         let actually_connected_devices: NonCryptoHashSet<_> =
             self.stream_decks.borrow().keys().copied().collect();
         if devices_in_use == actually_connected_devices {
-            return;
+            return NonCryptoHashSet::new();
         }
-        println!("Try to connect");
-        self.connect_or_disconnect_stream_deck_devices(&devices_in_use);
+        self.connect_or_disconnect_stream_deck_devices(&devices_in_use)
     }
 
     pub fn register_stream_deck_usage(&self, unit_id: UnitId, device: Option<StreamDeckDeviceId>) {
@@ -201,22 +202,29 @@ impl Backbone {
     fn connect_or_disconnect_stream_deck_devices(
         &self,
         devices_in_use: &NonCryptoHashSet<StreamDeckDeviceId>,
-    ) {
+    ) -> NonCryptoHashSet<StreamDeckDeviceId> {
         let mut decks = self.stream_decks.borrow_mut();
+        // Disconnect from devices that are not in use anymore
         decks.retain(|id, _| devices_in_use.contains(id));
-        for dev_id in devices_in_use {
-            if decks.contains_key(&dev_id) {
-                continue;
-            }
-            match dev_id.connect() {
-                Ok(dev) => {
-                    decks.insert(*dev_id, dev);
+        // Connect to devices
+        devices_in_use
+            .iter()
+            .filter_map(|dev_id| {
+                if decks.contains_key(dev_id) {
+                    return None;
                 }
-                Err(e) => {
-                    tracing::warn!(msg = "Couldn't connect to Stream Deck device", %e);
+                match dev_id.connect() {
+                    Ok(dev) => {
+                        decks.insert(*dev_id, dev);
+                        Some(*dev_id)
+                    }
+                    Err(e) => {
+                        tracing::warn!(msg = "Couldn't connect to Stream Deck device", %e);
+                        None
+                    }
                 }
-            }
-        }
+            })
+            .collect()
     }
 
     pub fn stream_decks_mut(&self) -> RefMut<NonCryptoHashMap<StreamDeckDeviceId, StreamDeck>> {

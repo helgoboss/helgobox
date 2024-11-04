@@ -1,7 +1,9 @@
 use crate::domain::UnitId;
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
+use derive_more::Display;
 use hidapi::HidApi;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 use streamdeck::{pids, StreamDeck};
 
 pub struct ProbedStreamDeckDevice {
@@ -62,6 +64,12 @@ pub struct StreamDeckDeviceId {
     pub pid: u16,
     // Serial number (for distinguishing between multiple devices of the same type).
     // pub serial_number: Option<String>,
+}
+
+impl Display for StreamDeckDeviceId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", self.vid, self.pid)
+    }
 }
 
 impl StreamDeckDeviceId {
