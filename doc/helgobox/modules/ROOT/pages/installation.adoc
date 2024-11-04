@@ -40,6 +40,12 @@ You can install it like this:
 ----
 sudo apt-get install -y libxdo-dev
 ----
++
+[source,shell]
+.openSUSE
+----
+sudo zypper install xdotool
+----
 
 == Installing Helgobox
 
