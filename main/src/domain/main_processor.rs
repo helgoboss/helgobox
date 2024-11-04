@@ -357,7 +357,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// not be accidentally cleared while still guaranteeing that feedback for non-used control
     /// elements are cleared eventually - independently from the order of instance processing.
     pub fn maybe_takeover_source(&self, released_event: &SourceReleasedEvent) -> bool {
-        if Some(released_event.feedback_output) != self.basics.settings.feedback_output {
+        if released_event.feedback_output != self.basics.settings.feedback_output {
             // Difference feedback device. No source takeover of course.
             return false;
         }
@@ -369,7 +369,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 )
         }) {
             if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
-                if self.basics.instance_feedback_is_effectively_enabled() {
+                if self.basics.unit_feedback_is_effectively_enabled() {
                     debug!("Taking over source {:?}...", mapping_with_source.source());
                     // TODO-low Shouldn't we update the single mapping-on state here?
                     let feedback = followed_mapping.feedback(
@@ -398,7 +398,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// off.
     pub fn finally_switch_off_source(
         &self,
-        feedback_output: FeedbackOutput,
+        feedback_output: Option<FeedbackOutput>,
         feedback_value: FinalSourceFeedbackValue,
     ) {
         debug!("Finally switching off source with {:?}...", feedback_value);
@@ -416,7 +416,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// because we want to pause controlling in that case! Otherwise we could control targets and
     /// they would be learned although not touched via mouse, that's not good.
     pub fn run_control(&mut self, timestamp: ControlEventTimestamp) {
-        let control_is_effectively_enabled = self.basics.instance_control_is_effectively_enabled();
+        let control_is_effectively_enabled = self.basics.unit_control_is_effectively_enabled();
         // Collect control tasks (we do that in any case to not let get channels full).
         let mut count = 0;
         while let Ok(task) = self.basics.channels.control_task_receiver.try_recv() {
@@ -1836,7 +1836,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn wants_messages_in_general(&self) -> bool {
         match &self.basics.control_mode {
             ControlMode::Disabled => false,
-            ControlMode::Controlling => self.basics.instance_control_is_effectively_enabled(),
+            ControlMode::Controlling => self.basics.unit_control_is_effectively_enabled(),
             ControlMode::LearningSource { .. } => self.basics.control_is_globally_enabled,
         }
     }
@@ -1887,7 +1887,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if self.basics.settings.real_input_logging_enabled {
             log_real_control_input(self.basics.unit_id, evt);
         }
-        if !self.basics.instance_control_is_effectively_enabled() {
+        if !self.basics.unit_control_is_effectively_enabled() {
             return;
         }
         let evt = evt.map_payload(MainSourceMessage::Reaper);
@@ -2345,7 +2345,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .and_then(FeedbackOutput::device_output)
             == Some(feedback_output)
         {
-            if self.basics.instance_feedback_is_effectively_enabled() {
+            if self.basics.unit_feedback_is_effectively_enabled() {
                 debug!("Reactivating unit...");
                 // For this to really work reliably (eventual feedback consistency), it was
                 // necessary to let the direct MIDI device feedback process in the global
@@ -2369,7 +2369,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn switch_lights_off(&mut self) {
-        if self.basics.instance_feedback_is_effectively_enabled() {
+        if self.basics.unit_feedback_is_effectively_enabled() {
             // We clear feedback right here and now because that's the last chance.
             // Other instances can take over the feedback output afterwards.
             self.clear_all_feedback_preventing_source_takeover();
@@ -3597,7 +3597,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         let mapping_feedback_is_effectively_on = m.feedback_is_effectively_on();
         let with_projection_feedback = mapping_feedback_is_effectively_on;
         let with_source_feedback =
-            self.instance_feedback_is_effectively_enabled() && mapping_feedback_is_effectively_on;
+            self.unit_feedback_is_effectively_enabled() && mapping_feedback_is_effectively_on;
         let logger = self.source_feedback_logger(m.qualified_id());
         let feedback_value = m.feedback_entry_point(
             FeedbackDestinations {
@@ -3829,7 +3829,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
     pub fn send_direct_source_feedback(
         &self,
-        output: FeedbackOutput,
+        output: Option<FeedbackOutput>,
         reason: FeedbackReason,
         cause: FeedbackCause,
         source_feedback_value: FinalSourceFeedbackValue,
@@ -3876,7 +3876,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         } else {
             // Production
             match (source_feedback_value, output) {
-                (FinalSourceFeedbackValue::Midi(v), FeedbackOutput::Midi(midi_output)) => {
+                (FinalSourceFeedbackValue::Midi(v), Some(FeedbackOutput::Midi(midi_output))) => {
                     match midi_output {
                         MidiDestination::FxOutput => {
                             if self.settings.real_output_logging_enabled {
@@ -3916,7 +3916,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         }
                     }
                 }
-                (FinalSourceFeedbackValue::Osc(msg), FeedbackOutput::Osc(dev_id)) => {
+                (FinalSourceFeedbackValue::Osc(msg), Some(FeedbackOutput::Osc(dev_id))) => {
                     if self.settings.real_output_logging_enabled {
                         log_real_feedback_output(self.unit_id, reason, format_osc_message(&msg));
                     }
@@ -3962,43 +3962,41 @@ impl<EH: DomainEventHandler> Basics<EH> {
         cause: FeedbackCause,
         value: Option<FinalSourceFeedbackValue>,
     ) {
-        if !reason.is_always_allowed() && !self.instance_feedback_is_effectively_enabled() {
+        if !reason.is_always_allowed() && !self.unit_feedback_is_effectively_enabled() {
             return;
         }
-        if let Some(feedback_output) = self.settings.feedback_output {
-            if let Some(source_feedback_value) = value {
-                // At this point we can be sure that this mapping can't have a
-                // virtual source.
-                if reason.is_source_release() {
-                    // Possible interference with other instances. Don't switch off yet!
-                    // Give other instances the chance to take over.
-                    let event = UnitOrchestrationEvent::SourceReleased(SourceReleasedEvent {
-                        unit_id: self.unit_id.to_owned(),
-                        feedback_output,
-                        feedback_value: source_feedback_value,
-                    });
-                    self.channels
-                        .unit_orchestration_event_sender
-                        .send_complaining(event);
-                } else {
-                    // Send feedback right now.
-                    self.send_direct_source_feedback(
-                        feedback_output,
-                        reason,
-                        cause,
-                        source_feedback_value,
-                    );
-                }
+        if let Some(source_feedback_value) = value {
+            // At this point we can be sure that this mapping can't have a
+            // virtual source.
+            if reason.is_source_release() {
+                // Possible interference with other instances. Don't switch off yet!
+                // Give other instances the chance to take over.
+                let event = UnitOrchestrationEvent::SourceReleased(SourceReleasedEvent {
+                    unit_id: self.unit_id.to_owned(),
+                    feedback_output: self.settings.feedback_output,
+                    feedback_value: source_feedback_value,
+                });
+                self.channels
+                    .unit_orchestration_event_sender
+                    .send_complaining(event);
+            } else {
+                // Send feedback right now.
+                self.send_direct_source_feedback(
+                    self.settings.feedback_output,
+                    reason,
+                    cause,
+                    source_feedback_value,
+                );
             }
         }
     }
 
-    pub fn instance_control_is_effectively_enabled(&self) -> bool {
+    pub fn unit_control_is_effectively_enabled(&self) -> bool {
         self.control_is_globally_enabled
             && Backbone::get().control_is_allowed(&self.unit_id, self.settings.control_input)
     }
 
-    pub fn instance_feedback_is_effectively_enabled(&self) -> bool {
+    pub fn unit_feedback_is_effectively_enabled(&self) -> bool {
         if let Some(fo) = self.settings.feedback_output {
             self.feedback_is_globally_enabled
                 && Backbone::get().feedback_is_allowed(&self.unit_id, fo)
@@ -4365,7 +4363,7 @@ fn determine_feedback_globally_enabled(
     settings: &BasicSettings,
     project_options: ProjectOptions,
 ) -> bool {
-    settings.feedback_output.is_some()
+    (settings.feedback_output.is_some() || settings.streamdeck_device_id.is_some())
         && context.containing_fx().is_enabled()
         && track_arm_conditions_are_met(context, settings)
         && passes_background_project_check(

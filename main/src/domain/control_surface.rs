@@ -28,7 +28,7 @@ use reaper_medium::{
 use rxrust::prelude::*;
 use std::fmt::Debug;
 use std::mem;
-use streamdeck::{Error, StreamDeck};
+use streamdeck::StreamDeck;
 use tracing::debug;
 
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
@@ -166,7 +166,7 @@ pub struct IoUpdatedEvent {
 #[derive(Debug)]
 pub struct SourceReleasedEvent {
     pub unit_id: UnitId,
-    pub feedback_output: FeedbackOutput,
+    pub feedback_output: Option<FeedbackOutput>,
     pub feedback_value: FinalSourceFeedbackValue,
 }
 

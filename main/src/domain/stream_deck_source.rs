@@ -1,8 +1,7 @@
-use crate::domain::{OscDeviceId, StreamDeckDeviceId};
+use crate::domain::StreamDeckDeviceId;
 use derivative::Derivative;
 use helgoboss_learn::{ControlValue, FeedbackValue, RgbColor, UnitValue};
 use helgobox_api::persistence::StreamDeckButtonDesign;
-use rosc::OscMessage;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 

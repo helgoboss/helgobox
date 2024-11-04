@@ -214,7 +214,7 @@ impl Backbone {
                 }
                 Err(e) => {
                     tracing::warn!(msg = "Couldn't connect to Stream Deck device", %e);
-                },
+                }
             }
         }
     }
@@ -410,9 +410,9 @@ impl Backbone {
         self.instances.borrow_mut().remove(id);
     }
 
-    pub fn control_is_allowed(&self, instance_id: &UnitId, control_input: ControlInput) -> bool {
+    pub fn control_is_allowed(&self, unit_id: &UnitId, control_input: ControlInput) -> bool {
         if let Some(dev_input) = control_input.device_input() {
-            self.interaction_is_allowed(instance_id, dev_input, &self.control_input_usages)
+            self.interaction_is_allowed(unit_id, dev_input, &self.control_input_usages)
         } else {
             true
         }
@@ -446,13 +446,9 @@ impl Backbone {
             .cloned()
     }
 
-    pub fn feedback_is_allowed(
-        &self,
-        instance_id: &UnitId,
-        feedback_output: FeedbackOutput,
-    ) -> bool {
+    pub fn feedback_is_allowed(&self, unit_id: &UnitId, feedback_output: FeedbackOutput) -> bool {
         if let Some(dev_output) = feedback_output.device_output() {
-            self.interaction_is_allowed(instance_id, dev_output, &self.feedback_output_usages)
+            self.interaction_is_allowed(unit_id, dev_output, &self.feedback_output_usages)
         } else {
             true
         }
