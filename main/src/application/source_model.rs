@@ -23,6 +23,7 @@ use helgobox_api::persistence::{
     StreamDeckButtonImageBackground, VirtualControlElementCharacter,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use reaper_high::Reaper;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use std::borrow::Cow;
@@ -237,7 +238,7 @@ impl<'a> Change<'a> for SourceModel {
                 One(P::ButtonBackgroundType)
             }
             C::SetButtonBackgroundImagePath(v) => {
-                self.button_background_image_path = v;
+                self.button_background_image_path = relativize_against_resource_dir(v);
                 One(P::ButtonBackgroundImagePath)
             }
             C::SetButtonForegroundType(v) => {
@@ -245,7 +246,7 @@ impl<'a> Change<'a> for SourceModel {
                 One(P::ButtonForegroundType)
             }
             C::SetButtonForegroundImagePath(v) => {
-                self.button_foreground_image_path = v;
+                self.button_foreground_image_path = relativize_against_resource_dir(v);
                 One(P::ButtonForegroundImagePath)
             }
         };
@@ -1393,6 +1394,15 @@ pub fn parse_osc_feedback_args(text: &str) -> Vec<String> {
 
 pub fn format_osc_feedback_args(args: &[String]) -> String {
     itertools::join(args.iter(), " ")
+}
+
+fn relativize_against_resource_dir(path: Utf8PathBuf) -> Utf8PathBuf {
+    let reaper_resource_path = Reaper::get().resource_path();
+    if let Some(relative_path) = pathdiff::diff_paths(&path, reaper_resource_path) {
+        Utf8PathBuf::try_from(relative_path).unwrap()
+    } else {
+        path
+    }
 }
 
 #[cfg(test)]

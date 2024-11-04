@@ -217,6 +217,8 @@ hidapi = "2.4"
 cached.workspace = true
 # For drawing knobs for Stream Deck button
 imageproc.workspace = true
+# For relativizing paths for Stream Deck button images
+pathdiff.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

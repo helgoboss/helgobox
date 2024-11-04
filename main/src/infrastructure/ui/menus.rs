@@ -718,6 +718,29 @@ where
     )
 }
 
+pub fn build_enum_variants_menu<V>(
+    variants: impl IntoIterator<Item = V>,
+    current_variant: V,
+) -> Menu<V>
+where
+    V: Copy + Display + PartialEq,
+{
+    let entries = variants
+        .into_iter()
+        .map(|v| {
+            item_with_opts(
+                v.to_string(),
+                ItemOpts {
+                    enabled: true,
+                    checked: v == current_variant,
+                },
+                v,
+            )
+        })
+        .collect();
+    anonymous_menu(entries)
+}
+
 fn build_compartment_preset_menu_entries_flexible<'a, T, C>(
     preset_infos: impl Iterator<Item = &'a CommonPresetInfo> + 'a,
     build_id: &impl Fn(&'a CommonPresetInfo) -> T,

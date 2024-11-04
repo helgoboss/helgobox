@@ -1,3 +1,4 @@
+use camino::Utf8PathBuf;
 use derive_more::Display;
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use itertools::Itertools;
@@ -75,7 +76,9 @@ use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::help::{
     ConceptTopic, HelpTopic, HelpTopicDescription, MappingTopic, SourceTopic, TargetTopic,
 };
-use crate::infrastructure::ui::menus::{get_midi_input_device_list_label, get_param_name};
+use crate::infrastructure::ui::menus::{
+    build_enum_variants_menu, get_midi_input_device_list_label, get_param_name,
+};
 use crate::infrastructure::ui::ui_element_container::UiElementContainer;
 use crate::infrastructure::ui::util::colors::ColorPair;
 use crate::infrastructure::ui::util::{
@@ -349,14 +352,10 @@ impl MappingPanel {
                                                 view.invalidate_source_line_3(initiator);
                                             }
                                             P::ButtonIndex => { view.invalidate_source_line_3(initiator); }
-                                            P::ButtonBackgroundType => {
+                                            P::ButtonBackgroundType | P::ButtonBackgroundImagePath => {
                                                 view.invalidate_source_line_4(initiator);
                                             }
-                                            P::ButtonBackgroundImagePath => {
-                                            }
-                                            P::ButtonForegroundImagePath => {
-                                            }
-                                            P::ButtonForegroundType => {
+                                            P::ButtonForegroundType | P::ButtonForegroundImagePath => {
                                                 view.invalidate_source_line_5(initiator);
                                             }
                                         }
@@ -833,38 +832,105 @@ impl MappingPanel {
     }
 
     fn handle_source_line_4_button_press(&self) -> Result<(), &'static str> {
-        let (control_element_type, control_enabled, feedback_enabled) = {
-            let m = self.displayed_mapping().ok_or("no mapping set")?;
-            let m = m.borrow();
-            (
-                m.source_model.control_element_character(),
-                m.control_is_enabled(),
-                m.feedback_is_enabled(),
-            )
-        };
-        let window = self.view.require_window();
-        let controller_mappings: Vec<_> = {
-            let session = self.session();
-            let session = session.borrow();
-            session
-                .mappings(CompartmentKind::Controller)
-                .cloned()
-                .collect()
-        };
-        let grouped_mappings =
-            group_mappings_by_virtual_control_element(controller_mappings.iter());
-        let text = pick_virtual_control_element(
-            window,
-            control_element_type,
-            &grouped_mappings,
-            control_enabled,
-            feedback_enabled,
-        )
-        .ok_or("nothing picked")?;
-        let control_element_id = text.parse().unwrap_or_default();
-        self.change_mapping(MappingCommand::ChangeSource(
-            SourceCommand::SetControlElementId(control_element_id),
-        ));
+        let m = self.displayed_mapping().ok_or("no mapping set")?;
+        let source_category = m.borrow().source_model.category();
+        match source_category {
+            SourceCategory::StreamDeck => {
+                let current_value = m.borrow().source_model.button_background_type();
+                let menu =
+                    build_enum_variants_menu(StreamDeckButtonBackgroundType::iter(), current_value);
+                if let Some(new_value) = self
+                    .view
+                    .require_window()
+                    .open_popup_menu(menu, Window::cursor_pos())
+                {
+                    self.change_mapping(MappingCommand::ChangeSource(
+                        SourceCommand::SetButtonBackgroundType(new_value),
+                    ));
+                    if new_value == StreamDeckButtonBackgroundType::Image {
+                        let current_file = m
+                            .borrow()
+                            .source_model
+                            .button_background_image_path()
+                            .to_path_buf();
+                        if let Some(new_file_name) = pick_png_file(current_file) {
+                            self.change_mapping(MappingCommand::ChangeSource(
+                                SourceCommand::SetButtonBackgroundImagePath(new_file_name),
+                            ));
+                        }
+                    }
+                }
+            }
+            SourceCategory::Virtual => {
+                let (control_element_type, control_enabled, feedback_enabled) = {
+                    let m = m.borrow();
+                    (
+                        m.source_model.control_element_character(),
+                        m.control_is_enabled(),
+                        m.feedback_is_enabled(),
+                    )
+                };
+                let window = self.view.require_window();
+                let controller_mappings: Vec<_> = {
+                    let session = self.session();
+                    let session = session.borrow();
+                    session
+                        .mappings(CompartmentKind::Controller)
+                        .cloned()
+                        .collect()
+                };
+                let grouped_mappings =
+                    group_mappings_by_virtual_control_element(controller_mappings.iter());
+                let text = pick_virtual_control_element(
+                    window,
+                    control_element_type,
+                    &grouped_mappings,
+                    control_enabled,
+                    feedback_enabled,
+                )
+                .ok_or("nothing picked")?;
+                let control_element_id = text.parse().unwrap_or_default();
+                self.change_mapping(MappingCommand::ChangeSource(
+                    SourceCommand::SetControlElementId(control_element_id),
+                ));
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_source_line_5_button_press(&self) -> Result<(), &'static str> {
+        let m = self.displayed_mapping().ok_or("no mapping set")?;
+        let source_category = m.borrow().source_model.category();
+        match source_category {
+            SourceCategory::StreamDeck => {
+                let current_value = m.borrow().source_model.button_foreground_type();
+                let menu =
+                    build_enum_variants_menu(StreamDeckButtonForegroundType::iter(), current_value);
+                if let Some(new_value) = self
+                    .view
+                    .require_window()
+                    .open_popup_menu(menu, Window::cursor_pos())
+                {
+                    self.change_mapping(MappingCommand::ChangeSource(
+                        SourceCommand::SetButtonForegroundType(new_value),
+                    ));
+                    if new_value == StreamDeckButtonForegroundType::FadingImage {
+                        let current_file = m
+                            .borrow()
+                            .source_model
+                            .button_foreground_image_path()
+                            .to_path_buf();
+                        if let Some(new_file_name) = pick_png_file(current_file) {
+                            self.change_mapping(MappingCommand::ChangeSource(
+                                SourceCommand::SetButtonForegroundImagePath(new_file_name),
+                            ));
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
         Ok(())
     }
 
@@ -2128,13 +2194,6 @@ impl<'a> MutableMappingPanel<'a> {
                     SourceCommand::SetOscArgTypeTag(tag),
                 ));
             }
-            StreamDeck => {
-                let i = b.selected_combo_box_item_index();
-                let background_type = i.try_into().expect("invalid background type");
-                self.change_mapping(MappingCommand::ChangeSource(
-                    SourceCommand::SetButtonBackgroundType(background_type),
-                ));
-            }
             _ => {}
         }
     }
@@ -2166,13 +2225,6 @@ impl<'a> MutableMappingPanel<'a> {
                     }
                     _ => {}
                 }
-            }
-            StreamDeck => {
-                let i = b.selected_combo_box_item_index();
-                let foreground_type = i.try_into().expect("invalid background type");
-                self.change_mapping(MappingCommand::ChangeSource(
-                    SourceCommand::SetButtonForegroundType(foreground_type),
-                ));
             }
             _ => {}
         }
@@ -2233,6 +2285,14 @@ impl<'a> MutableMappingPanel<'a> {
                     Some(edit_control_id),
                 );
             }
+            StreamDeck => {
+                self.change_mapping_with_initiator(
+                    MappingCommand::ChangeSource(SourceCommand::SetButtonBackgroundImagePath(
+                        text.into(),
+                    )),
+                    Some(edit_control_id),
+                );
+            }
             Virtual => {
                 let value = text.parse().unwrap_or_default();
                 self.change_mapping_with_initiator(
@@ -2240,7 +2300,7 @@ impl<'a> MutableMappingPanel<'a> {
                     Some(edit_control_id),
                 );
             }
-            Reaper | Never | Keyboard | Osc | StreamDeck => {}
+            Reaper | Never | Keyboard | Osc => {}
         };
     }
 
@@ -2250,6 +2310,14 @@ impl<'a> MutableMappingPanel<'a> {
         let text = c.text().unwrap_or_default();
         use SourceCategory::*;
         match self.mapping.source_model.category() {
+            StreamDeck => {
+                self.change_mapping_with_initiator(
+                    MappingCommand::ChangeSource(SourceCommand::SetButtonForegroundImagePath(
+                        text.into(),
+                    )),
+                    Some(edit_control_id),
+                );
+            }
             Osc => {
                 let v = parse_osc_arg_value_range(&text);
                 self.change_mapping_with_initiator(
@@ -4380,7 +4448,8 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_line_4_button(&self) {
         use SourceCategory::*;
         let text = match self.source.category() {
-            Virtual => Some("Pick!"),
+            StreamDeck => Some(self.source.button_background_type().to_string()),
+            Virtual => Some("Pick!".to_string()),
             _ => None,
         };
         self.view
@@ -4494,11 +4563,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 let tag = self.source.osc_arg_type_tag();
                 invalidate_with_osc_arg_type_tag(b, tag);
             }
-            StreamDeck => {
-                b.fill_combo_box_indexed(StreamDeckButtonBackgroundType::iter());
-                b.show();
-                b.select_combo_box_item_by_index(self.source.button_background_type().into());
-            }
             _ => {
                 b.hide();
             }
@@ -4520,6 +4584,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 _ => None,
             },
+            StreamDeck
+                if self.source.button_background_type()
+                    == StreamDeckButtonBackgroundType::Image =>
+            {
+                Some(self.source.button_background_image_path().to_string())
+            }
             Virtual => Some(self.source.control_element_id().to_string()),
             _ => None,
         };
@@ -4650,6 +4720,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_source_line_5(&self, initiator: Option<u32>) {
         self.invalidate_source_line_5_label();
+        self.invalidate_source_line_5_button();
         self.invalidate_source_line_5_combo_box();
         self.invalidate_source_line_5_edit_control(initiator);
     }
@@ -4677,6 +4748,17 @@ impl<'a> ImmutableMappingPanel<'a> {
         };
         self.view
             .require_control(root::ID_SOURCE_CHARACTER_LABEL_TEXT)
+            .set_text_or_hide(text);
+    }
+
+    fn invalidate_source_line_5_button(&self) {
+        use SourceCategory::*;
+        let text = match self.source.category() {
+            StreamDeck => Some(self.source.button_foreground_type().to_string()),
+            _ => None,
+        };
+        self.view
+            .require_control(root::ID_SOURCE_LINE_5_BUTTON)
             .set_text_or_hide(text);
     }
 
@@ -4719,11 +4801,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                     }
                 }
             }
-            StreamDeck => {
-                b.fill_combo_box_indexed(StreamDeckButtonForegroundType::iter());
-                b.show();
-                b.select_combo_box_item_by_index(self.source.button_foreground_type().into());
-            }
             _ => {
                 b.hide();
             }
@@ -4742,6 +4819,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                     self.source.osc_arg_type_tag(),
                 );
                 Some(text)
+            }
+            StreamDeck
+                if self.source.button_background_type()
+                    == StreamDeckButtonBackgroundType::Image =>
+            {
+                Some(self.source.button_foreground_image_path().to_string())
             }
             _ => None,
         };
@@ -7116,6 +7199,9 @@ impl View for MappingPanel {
             root::ID_SOURCE_LINE_4_BUTTON => {
                 let _ = self.handle_source_line_4_button_press();
             }
+            root::ID_SOURCE_LINE_5_BUTTON => {
+                let _ = self.handle_source_line_5_button_press();
+            }
             root::ID_MODE_EEL_CONTROL_TRANSFORMATION_DETAIL_BUTTON => {
                 self.edit_control_transformation()
             }
@@ -8673,4 +8759,15 @@ fn find_help_topic_for_resource(id: u32) -> Option<HelpTopic> {
             }
             Some(*param)
         })
+}
+
+fn pick_png_file(current_file: Utf8PathBuf) -> Option<Utf8PathBuf> {
+    let current_file = if current_file.as_str().trim().is_empty() {
+        Reaper::get().resource_path()
+    } else {
+        current_file
+    };
+    Reaper::get()
+        .medium_reaper()
+        .get_user_file_name_for_read(&current_file, "Pick image", "png")
 }

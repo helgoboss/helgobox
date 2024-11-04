@@ -134,9 +134,14 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.named_id("ID_SOURCE_CHARACTER_COMBO_BOX"),
             context.rect(48, 176, 120, 15),
         ) + WS_TABSTOP,
+        pushbutton(
+            "Pick",
+            ids.named_id("ID_SOURCE_LINE_5_BUTTON"),
+            context.rect(47, 176, 26, 14),
+        ),
         edittext(
             ids.named_id("ID_SOURCE_LINE_5_EDIT_CONTROL"),
-            context.rect(48, 176, 120, 14),
+            context.rect(87, 176, 80, 14),
         ) + ES_AUTOHSCROLL,
         context.checkbox(
             "14-bit values",

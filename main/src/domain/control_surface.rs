@@ -662,6 +662,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     fn emit_stream_deck_events(&mut self, timestamp: ControlEventTimestamp) -> Option<()> {
         let backbone = Backbone::get();
         let mut decks = backbone.stream_decks_mut();
+        // TODO-high CONTINUE This doesn't work with targets for which we immediately send feedback (BorrowMut)!
+        //  Maybe we should let the Backbone just return the necessary change events and THEN process.
         decks.retain(|id, deck| {
             match self.emit_stream_deck_events_for_deck(*id, deck, timestamp) {
                 Ok(_) => true,

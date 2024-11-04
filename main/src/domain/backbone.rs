@@ -14,6 +14,7 @@ use pot::{PotFavorites, PotFilterExcludes};
 
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use cached::proc_macro::cached;
+use camino::Utf8PathBuf;
 use egui::epaint::ahash::HashSetExt;
 use fragile::Fragile;
 use helgoboss_learn::{RgbColor, UnitValue};
@@ -21,7 +22,7 @@ use helgobox_api::persistence::{
     StreamDeckButtonBackground, StreamDeckButtonForeground, TargetTouchCause,
 };
 use once_cell::sync::Lazy;
-use reaper_high::Fx;
+use reaper_high::{Fx, Reaper};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::hash::Hash;
 use std::rc::Rc;
@@ -241,9 +242,15 @@ impl Backbone {
         const DEFAULT_FG_COLOR: RgbColor = RgbColor::WHITE;
         #[cached(option = true)]
         fn load_image_for_stream_deck(path: String, width: u32, height: u32) -> Option<RgbaImage> {
+            let path: Utf8PathBuf = path.into();
+            let path = if path.is_relative() {
+                Reaper::get().resource_path().join(path)
+            } else {
+                path
+            };
             let image = image::open(path).ok()?;
             let image = image
-                .resize_to_fill(width, height, image::imageops::FilterType::Lanczos3)
+                .resize_exact(width, height, image::imageops::FilterType::Lanczos3)
                 .into();
             Some(image)
         }
@@ -311,7 +318,7 @@ impl Backbone {
                 (x0, y0),
                 (x1, y1),
                 color,
-                |i, o, a| i,
+                |i, _, _| i,
             );
         }
 
