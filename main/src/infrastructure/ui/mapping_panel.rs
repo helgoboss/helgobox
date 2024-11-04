@@ -4412,7 +4412,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             }
             Virtual => Some("ID"),
             Osc => Some("Argument"),
-            StreamDeck => Some("Background"),
+            StreamDeck => Some("Back"),
             _ => None,
         };
         self.view
@@ -4672,7 +4672,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
             }
             Osc if self.source.supports_osc_arg_value_range() => Some("Range"),
-            StreamDeck => Some("Foreground"),
+            StreamDeck => Some("Front"),
             _ => None,
         };
         self.view
