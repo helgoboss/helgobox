@@ -61,9 +61,20 @@ Can deal with bundles:::: By default, ReaLearn aggregates multiple OSC messages 
 Some devices (e.g. from Behringer) can't deal with OSC bundles.
 Untick the checkbox in this case and ReaLearn will send single OSC messages.
 
+Stream Deck: <None>::
+Disables Stream Deck control.
+
+Stream Deck: _Some device_::
+When selected, this ReaLearn instance will _additionally_ listen to button presses of the chosen Stream Deck device. See xref:sources/stream-deck.adoc[] for details.
++
+Unlike MIDI or OSC, choosing a Stream Deck device automatically enables feedback to the Stream Deck buttons, so you won't find a Stream Deck entry in the <<output>>.
+
+_Unavailable Stream Deck devices_::
+This submenu contains supported Stream Deck devices that are currently not connected.
+
 [[computer-keyboard]] Computer keyboard::
-This is a checkbox.
-If enabled, this ReaLearn instance will additionally listen to key press and release events.
+
+If enabled, this ReaLearn instance will _additionally_ listen to key press and release events.
 
 [#output]
 == Output menu
@@ -71,7 +82,7 @@ If enabled, this ReaLearn instance will additionally listen to key press and rel
 Here you can choose to which xref:key-concepts.adoc#output-port[] ReaLearn should send MIDI/OSC xref:key-concepts.adoc#feedback[].
 
 <None>::
-This means, no feedback will be sent at all.
+This means, ReaLearn won't send any feedback to MIDI or OSC devices.
 This is the default.
 
 [[fx-output]] MIDI: <FX output>::

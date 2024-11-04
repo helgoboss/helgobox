@@ -1,0 +1,67 @@
+= Source "Stream Deck"
+
+With this source, you can leverage your Stream Deck with ReaLearn, for example the link:https://www.elgato.com/en/en/p/stream-deck-mk2-black[Elgato Stream Deck MK.2]. This includes reacting to buttons and sending xref:key-concepts.adoc#feedback[] to the button displays.
+
+== Supported devices
+
+The following StreamDeck devices are currently supported:
+
+* Original
+* Original v2
+* Mini
+* Revised Mini
+* XL
+* MK.2
+
+[[linux]]
+== Enabling Stream Deck support on Linux
+
+If you use Stream Deck on Linux, you also need to explicitly allow normal users access to the device, otherwise ReaLearn won't be able to connect to it.
+
+=== 1. Find the Vendor and Product ID
+
+Plug in the Stream Deck and identify its vendor and product IDs:
+
+[source,bash]
+----
+lsusb
+----
+
+Look for a line similar to:
+
+`Bus 001 Device 002: ID 0fd9:006d Elgato Systems GmbH`
+
+In this example, `0fd9` is the vendor ID, and `006d` is the product ID (these may vary).
+
+=== 2. Create a udev Rule
+
+Create a new udev rule file in `/etc/udev/rules.d/`:
+
+[source,bash]
+----
+sudo nano /etc/udev/rules.d/99-streamdeck.rules
+----
+
+Add the following rule, replacing `0fd9` and `006d` with the correct vendor and product IDs if necessary:
+
+[source]
+----
+SUBSYSTEM=="usb", ATTR{idVendor}=="0fd9", ATTR{idProduct}=="006d", MODE="0660", GROUP="plugdev"
+KERNEL=="hidraw*", ATTRS{idVendor}=="0fd9", ATTRS{idProduct}=="006d", MODE="0660", GROUP="plugdev"
+----
+
+This rule sets permissions to `0660`, allowing the device owner and users in the `plugdev` group access to the device with the specified vendor and product IDs.
+
+=== 3. Reload udev Rules
+
+Reload the udev rules to apply changes:
+
+[source,bash]
+----
+sudo udevadm control --reload-rules
+----
+
+=== 4. Unplug and Replug the Device
+
+Unplug the Stream Deck and plug it back in to apply the new rule.
+Alternatively, you can execute `sudo udevadm trigger`.

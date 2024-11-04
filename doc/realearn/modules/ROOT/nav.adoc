@@ -38,6 +38,7 @@
 *** xref:sources/midi/display.adoc[]
 *** xref:sources/midi/specific-program-change.adoc[]
 ** xref:sources/osc.adoc[]
+** xref:sources/stream-deck.adoc[]
 ** xref:sources/keyboard.adoc[]
 ** xref:sources/reaper.adoc[]
 *** xref:sources/reaper/midi-device-changes.adoc[]

@@ -47,7 +47,7 @@ const ELGATO_VENDOR_ID: u16 = 0x0fd9;
 
 const SUPPORTED_DEVICES: &[StreamDeckDevice] = &[
     StreamDeckDevice::new(ELGATO_VENDOR_ID, pids::ORIGINAL, "Original"),
-    StreamDeckDevice::new(ELGATO_VENDOR_ID, pids::ORIGINAL_V2, "Original V2"),
+    StreamDeckDevice::new(ELGATO_VENDOR_ID, pids::ORIGINAL_V2, "Original v2"),
     StreamDeckDevice::new(ELGATO_VENDOR_ID, pids::MINI, "Mini"),
     StreamDeckDevice::new(ELGATO_VENDOR_ID, pids::XL, "XL"),
     StreamDeckDevice::new(ELGATO_VENDOR_ID, pids::MK2, "MK2"),

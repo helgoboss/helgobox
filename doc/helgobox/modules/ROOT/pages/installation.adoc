@@ -47,6 +47,8 @@ sudo apt-get install -y libxdo-dev
 sudo zypper install xdotool
 ----
 
+IMPORTANT: If you want to use ReaLearn with the Stream Deck on Linux, xref:realearn::sources/stream-deck.adoc#linux[more setup] is necessary.
+
 == Installing Helgobox
 
 Please choose:
