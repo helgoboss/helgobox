@@ -208,8 +208,13 @@ impl Backbone {
             if decks.contains_key(&dev_id) {
                 continue;
             }
-            if let Ok(con) = dev_id.connect() {
-                decks.insert(*dev_id, con);
+            match dev_id.connect() {
+                Ok(dev) => {
+                    decks.insert(*dev_id, dev);
+                }
+                Err(e) => {
+                    tracing::warn!(msg = "Couldn't connect to Stream Deck device", %e);
+                },
             }
         }
     }
