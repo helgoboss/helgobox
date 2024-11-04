@@ -93,7 +93,6 @@ pub struct UnitModel {
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
     pub stay_active_when_project_in_background: Prop<StayActiveWhenProjectInBackground>,
-    pub auto_correct_settings: Prop<bool>,
     pub real_input_logging_enabled: Prop<bool>,
     pub real_output_logging_enabled: Prop<bool>,
     pub virtual_input_logging_enabled: Prop<bool>,
@@ -211,10 +210,9 @@ pub mod session_defaults {
     pub const LET_UNMATCHED_EVENTS_THROUGH: bool = true;
     pub const STAY_ACTIVE_WHEN_PROJECT_IN_BACKGROUND: StayActiveWhenProjectInBackground =
         StayActiveWhenProjectInBackground::OnlyIfBackgroundProjectIsRunning;
-    pub const AUTO_CORRECT_SETTINGS: bool = true;
     pub const WANTS_KEYBOARD_INPUT: bool = false;
     pub const LIVES_ON_UPPER_FLOOR: bool = false;
-    pub const SEND_FEEDBACK_ONLY_IF_ARMED: bool = true;
+    pub const SEND_FEEDBACK_ONLY_IF_ARMED: bool = false;
     pub const RESET_FEEDBACK_WHEN_RELEASING_SOURCE: bool = true;
     pub const MAIN_PRESET_AUTO_LOAD_MODE: AutoLoadMode = AutoLoadMode::Off;
     /// This is mainly for backward-compatibility with "Auto-load: Depending on focused FX"
@@ -250,8 +248,6 @@ impl UnitModel {
             .map(|au| au.control_input())
             .unwrap_or_default();
         let initial_output = auto_unit.as_ref().and_then(|au| au.feedback_output());
-        let initial_send_feedback_only_if_armed =
-            get_appropriate_send_feedback_only_if_armed_default(initial_input, None);
         // Make unit key deterministic if we have an auto unit. That can help later if we want to let other units
         // (or anything really) refer to automatically loaded units.
         let initial_unit_key = auto_unit
@@ -267,13 +263,12 @@ impl UnitModel {
             stay_active_when_project_in_background: prop(
                 session_defaults::STAY_ACTIVE_WHEN_PROJECT_IN_BACKGROUND,
             ),
-            auto_correct_settings: prop(session_defaults::AUTO_CORRECT_SETTINGS),
             real_input_logging_enabled: prop(false),
             real_output_logging_enabled: prop(false),
             virtual_input_logging_enabled: prop(false),
             virtual_output_logging_enabled: prop(false),
             target_control_logging_enabled: prop(false),
-            send_feedback_only_if_armed: prop(initial_send_feedback_only_if_armed),
+            send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
             reset_feedback_when_releasing_source: prop(
                 session_defaults::RESET_FEEDBACK_WHEN_RELEASING_SOURCE,
             ),
@@ -685,7 +680,6 @@ impl UnitModel {
             .merge(self.stay_active_when_project_in_background.changed())
             .merge(self.control_input.changed())
             .merge(self.feedback_output.changed())
-            .merge(self.auto_correct_settings.changed())
             .merge(self.send_feedback_only_if_armed.changed())
             .merge(self.reset_feedback_when_releasing_source.changed())
             .merge(self.auto_load_mode.changed())
@@ -769,17 +763,6 @@ impl UnitModel {
                 }
             });
         res
-    }
-
-    pub fn auto_correct_send_feedback_only_if_armed_if_enabled(&mut self) {
-        if !self.auto_correct_settings.get() {
-            return;
-        }
-        let value = get_appropriate_send_feedback_only_if_armed_default(
-            self.control_input.get(),
-            self.stream_deck_device_id,
-        );
-        self.send_feedback_only_if_armed.set(value);
     }
 
     pub fn stream_deck_device_id(&self) -> Option<StreamDeckDeviceId> {
@@ -3104,13 +3087,6 @@ impl RealearnControlSurfaceMainTaskSender {
 }
 
 const SESSION_GONE: &str = "session gone";
-
-pub fn get_appropriate_send_feedback_only_if_armed_default(
-    control_input: ControlInput,
-    stream_deck_dev_id: Option<StreamDeckDeviceId>,
-) -> bool {
-    control_input == ControlInput::Midi(MidiControlInput::FxInput) && stream_deck_dev_id.is_none()
-}
 
 fn compile_common_lua(
     compartment: CompartmentKind,

@@ -10,11 +10,10 @@ use reaper_high::Reaper;
 use swell_ui::{DeviceContext, Pixels, Point, SharedView, View, ViewContext, WeakView, Window};
 
 use crate::application::{
-    get_appropriate_send_feedback_only_if_armed_default, reaper_supports_global_midi_filter,
-    Affected, AutoLoadMode, CompartmentCommand, CompartmentPresetManager, CompartmentPresetModel,
-    CompartmentProp, FxId, FxPresetLinkConfig, MakeFxNonStickyMode, MakeTrackNonStickyMode,
-    MappingCommand, MappingModel, PresetLinkMutator, SessionCommand, SessionProp, SharedMapping,
-    SharedUnitModel, WeakUnitModel,
+    reaper_supports_global_midi_filter, Affected, AutoLoadMode, CompartmentCommand,
+    CompartmentPresetManager, CompartmentPresetModel, CompartmentProp, FxId, FxPresetLinkConfig,
+    MakeFxNonStickyMode, MakeTrackNonStickyMode, MappingCommand, MappingModel, PresetLinkMutator,
+    SessionCommand, SessionProp, SharedMapping, SharedUnitModel, WeakUnitModel,
 };
 use crate::base::when;
 use crate::domain::{
@@ -200,9 +199,6 @@ impl HeaderPanel {
             }
             One(StreamDeckDeviceId) => {
                 self.invalidate_control_input_button();
-                // self.session()
-                //     .borrow_mut()
-                //     .auto_correct_send_feedback_only_if_armed_if_enabled();
             }
             One(InCompartment(compartment, One(InGroup(_, _))))
                 if *compartment == self.active_compartment() =>
@@ -594,14 +590,6 @@ impl HeaderPanel {
                     "Unit options",
                     vec![
                         item_with_opts(
-                            "Auto-correct settings",
-                            ItemOpts {
-                                enabled: true,
-                                checked: session.auto_correct_settings.get(),
-                            },
-                            MainMenuAction::ToggleAutoCorrectSettings,
-                        ),
-                        item_with_opts(
                             "Send feedback only if track armed",
                             if session.containing_fx_is_in_input_fx_chain() {
                                 ItemOpts {
@@ -828,7 +816,6 @@ impl HeaderPanel {
             MainMenuAction::FreezeClipMatrix => {
                 self.freeze_clip_matrix();
             }
-            MainMenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
             MainMenuAction::ToggleGlobalControl => self.toggle_global_control(),
             MainMenuAction::ToggleRealInputLogging => self.toggle_real_input_logging(),
             MainMenuAction::ToggleVirtualInputLogging => self.toggle_virtual_input_logging(),
@@ -1417,13 +1404,6 @@ impl HeaderPanel {
         self.session()
             .borrow_mut()
             .reset_feedback_when_releasing_source
-            .set_with(|prev| !*prev);
-    }
-
-    fn toggle_always_auto_detect(&self) {
-        self.session()
-            .borrow_mut()
-            .auto_correct_settings
             .set_with(|prev| !*prev);
     }
 
@@ -2651,7 +2631,6 @@ impl HeaderPanel {
                 session.let_matched_events_through.set(true);
                 session.let_unmatched_events_through.set(true);
             }
-            session.auto_correct_send_feedback_only_if_armed_if_enabled();
         });
         self.when(session.feedback_output.changed(), |view, _| {
             view.invalidate_feedback_output_button()
@@ -3153,7 +3132,6 @@ enum MainMenuAction {
     PasteFromLuaReplaceAllInGroup(Rc<String>),
     DryRunLuaScript(Rc<String>),
     FreezeClipMatrix,
-    ToggleAutoCorrectSettings,
     ToggleGlobalControl,
     ToggleRealInputLogging,
     ToggleVirtualInputLogging,

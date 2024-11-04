@@ -77,12 +77,6 @@ pub struct UnitData {
     )]
     stay_active_when_project_in_background: Option<StayActiveWhenProjectInBackground>,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
-    always_auto_detect_mode: bool,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_null_default",
-        skip_serializing_if = "is_default"
-    )]
     lives_on_upper_floor: bool,
     #[serde(
         default,
@@ -419,7 +413,6 @@ impl Default for UnitData {
             stay_active_when_project_in_background: Some(
                 session_defaults::STAY_ACTIVE_WHEN_PROJECT_IN_BACKGROUND,
             ),
-            always_auto_detect_mode: session_defaults::AUTO_CORRECT_SETTINGS,
             lives_on_upper_floor: session_defaults::LIVES_ON_UPPER_FLOOR,
             send_feedback_only_if_armed: session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED,
             reset_feedback_when_releasing_source:
@@ -502,7 +495,6 @@ impl UnitData {
             stay_active_when_project_in_background: Some(
                 session.stay_active_when_project_in_background.get(),
             ),
-            always_auto_detect_mode: session.auto_correct_settings.get(),
             lives_on_upper_floor: session.lives_on_upper_floor.get(),
             send_feedback_only_if_armed: session.send_feedback_only_if_armed.get(),
             reset_feedback_when_releasing_source: session
@@ -699,9 +691,6 @@ impl UnitData {
         if let Some(id) = &self.id {
             session.unit_key.set_without_notification(id.clone())
         };
-        session
-            .auto_correct_settings
-            .set(self.always_auto_detect_mode);
         session.lives_on_upper_floor.set(self.lives_on_upper_floor);
         session
             .send_feedback_only_if_armed
