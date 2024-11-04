@@ -1,6 +1,5 @@
 use crate::domain::UnitId;
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
-use derive_more::Display;
 use hidapi::HidApi;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};

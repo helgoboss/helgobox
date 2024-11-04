@@ -3,7 +3,7 @@ use reaper_low::firewall;
 use std::sync;
 
 use crate::domain::{ParameterManager, PluginParamIndex};
-use crate::infrastructure::data::InstanceOrUnitData;
+use crate::infrastructure::data::InstanceData;
 use crate::infrastructure::plugin::instance_shell::InstanceShell;
 use reaper_high::Reaper;
 use std::sync::{Arc, OnceLock, RwLock};
@@ -175,7 +175,7 @@ impl PluginParameters for InstanceParameterContainer {
                         .instance_shell
                         .upgrade()
                         .expect("instance shell gone")
-                        .apply_data(InstanceOrUnitData::default())
+                        .apply_data(InstanceData::default())
                         .expect("couldn't load factory default");
                 }
                 return;

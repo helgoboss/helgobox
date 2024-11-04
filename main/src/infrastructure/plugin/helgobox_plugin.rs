@@ -25,7 +25,7 @@ use std::sync::{Arc, OnceLock};
 
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 
-use crate::infrastructure::data::InstanceOrUnitData;
+use crate::infrastructure::data::InstanceData;
 use crate::infrastructure::plugin::helgobox_plugin_editor::HelgoboxPluginEditor;
 use crate::infrastructure::plugin::instance_shell::InstanceShell;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -414,9 +414,7 @@ impl HelgoboxPlugin {
         match param_name {
             SET_STATE_PARAM_NAME => {
                 let c_str = unsafe { CStr::from_ptr(buffer) };
-                let rust_str = c_str.to_str().expect("not valid UTF-8");
-                let data: InstanceOrUnitData = serde_json::from_str(rust_str)
-                    .context("couldn't deserialize instance or unit data")?;
+                let data = InstanceData::parse(c_str.to_bytes())?;
                 let lazy_data = self.lazy_data.get().context("lazy data not yet set")?;
                 lazy_data.instance_shell.clone().apply_data(data)?;
                 Ok(())

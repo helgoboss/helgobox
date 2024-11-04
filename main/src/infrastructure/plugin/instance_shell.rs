@@ -3,7 +3,7 @@ use crate::domain::{
     ControlEvent, IncomingMidiMessage, Instance, InstanceHandler, InstanceId, MidiEvent,
     ProcessorContext, SharedInstance, SharedRealTimeInstance, UnitId,
 };
-use crate::infrastructure::data::{InstanceData, InstanceOrUnitData, UnitData};
+use crate::infrastructure::data::{InstanceData, UnitData};
 use crate::infrastructure::plugin::unit_shell::UnitShell;
 use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -402,8 +402,7 @@ impl InstanceShell {
     /// Must be called from the main thread.
     pub fn save(&self) -> Vec<u8> {
         let instance_data = self.create_data();
-        let data = InstanceOrUnitData::InstanceData(instance_data);
-        serde_json::to_vec(&data).expect("couldn't serialize instance data")
+        serde_json::to_vec(&instance_data).expect("couldn't serialize instance data")
     }
 
     fn remove_auto_unit_if_requirements_met(
@@ -487,32 +486,22 @@ impl InstanceShell {
         // ReaLearn C++ saved some IPlug binary data in front of the actual JSON object. Find
         // start of JSON data.
         let data = &data[left_json_object_brace..];
-        let data: InstanceOrUnitData = match serde_json::from_slice(data) {
-            Ok(d) => d,
-            Err(e) => {
-                bail!(
-                    "Helgobox couldn't restore this unit: {}\n\nPlease also attach the following text when reporting this: \n\n{}",
-                    e,
-                    std::str::from_utf8(data).unwrap_or("UTF-8 decoding error")
-                )
-            }
-        };
-        self.apply_data_internal(data)?;
+        let instance_data = InstanceData::parse(data)?;
+        self.apply_data_internal(instance_data)?;
         Ok(())
     }
 
     pub fn apply_data(
         self: SharedInstanceShell,
-        instance_data: InstanceOrUnitData,
+        instance_data: InstanceData,
     ) -> anyhow::Result<()> {
         self.apply_data_internal(instance_data)
     }
 
     fn apply_data_internal(
         self: SharedInstanceShell,
-        instance_data: InstanceOrUnitData,
+        instance_data: InstanceData,
     ) -> anyhow::Result<()> {
-        let instance_data = instance_data.into_instance_data();
         let instance = self.instance();
         // General properties
         *self.settings.get().borrow_mut() = instance_data.settings;

@@ -1,4 +1,3 @@
-use crate::application::SourceProp::ButtonBackgroundImagePath;
 use crate::application::{
     Affected, Change, GetProcessingRelevance, MappingProp, ProcessingRelevance,
 };

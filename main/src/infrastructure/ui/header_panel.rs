@@ -24,8 +24,8 @@ use crate::domain::{
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
     CommonCompartmentPresetManager, CommonPresetInfo, CompartmentModelData,
-    FileBasedMainPresetManager, InstanceOrUnitData, MappingModelData, OscDevice, PresetFileType,
-    PresetOrigin, UnitData,
+    FileBasedMainPresetManager, MappingModelData, OscDevice, PresetFileType, PresetOrigin,
+    UnitData,
 };
 use crate::infrastructure::plugin::{
     update_auto_units_async, warn_about_failed_server_start, BackboneShell,
@@ -2047,7 +2047,7 @@ impl HeaderPanel {
                     let instance_panel = self.instance_panel();
                     instance_panel.show_unit(None);
                     let instance_shell = instance_panel.shell()?;
-                    instance_shell.apply_data(InstanceOrUnitData::InstanceData(*d))?;
+                    instance_shell.apply_data(*d)?;
                 }
             }
             Tagged(DataObject::Unit(Envelope { value: d, .. })) => {
