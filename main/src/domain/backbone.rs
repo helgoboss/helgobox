@@ -250,29 +250,31 @@ impl Backbone {
             };
             let image = image::open(path).ok()?;
             let image = image
-                .resize_exact(width, height, image::imageops::FilterType::Lanczos3)
+                .resize_to_fill(width, height, image::imageops::FilterType::Lanczos3)
                 .into();
             Some(image)
         }
-        fn blit_with_alpha(target: &mut RgbaImage, overlay: &RgbaImage, alpha: f32) {
-            for (x, y, overlay_pixel) in overlay.enumerate_pixels() {
-                let target_pixel = target.get_pixel_mut(x, y);
-                let blended_pixel = Rgba([
-                    (overlay_pixel[0] as f32 * alpha + target_pixel[0] as f32 * (1.0 - alpha))
-                        as u8,
-                    (overlay_pixel[1] as f32 * alpha + target_pixel[1] as f32 * (1.0 - alpha))
-                        as u8,
-                    (overlay_pixel[2] as f32 * alpha + target_pixel[2] as f32 * (1.0 - alpha))
-                        as u8,
-                    255,
-                ]);
-                *target_pixel = blended_pixel;
-            }
-            // for (x, y, target_pixel) in target.enumerate_pixels_mut() {
-            //     let mut overlay_pixel = *overlay.get_pixel(x, y);
-            //     overlay_pixel[3] = (alpha * 255.0).round() as u8;
-            //     target_pixel.blend(&overlay_pixel)
+        fn blit_with_alpha(target: &mut RgbaImage, overlay: &RgbaImage, alpha: Option<f32>) {
+            // for (x, y, overlay_pixel) in overlay.enumerate_pixels() {
+            //     let target_pixel = target.get_pixel_mut(x, y);
+            //     let blended_pixel = Rgba([
+            //         (overlay_pixel[0] as f32 * alpha + target_pixel[0] as f32 * (1.0 - alpha))
+            //             as u8,
+            //         (overlay_pixel[1] as f32 * alpha + target_pixel[1] as f32 * (1.0 - alpha))
+            //             as u8,
+            //         (overlay_pixel[2] as f32 * alpha + target_pixel[2] as f32 * (1.0 - alpha))
+            //             as u8,
+            //         255,
+            //     ]);
+            //     *target_pixel = blended_pixel;
             // }
+            for (x, y, target_pixel) in target.enumerate_pixels_mut() {
+                let mut overlay_pixel = *overlay.get_pixel(x, y);
+                if let Some(alpha) = alpha {
+                    overlay_pixel[3] = (alpha * 255.0).round() as u8;
+                }
+                target_pixel.blend(&overlay_pixel)
+            }
         }
         use std::f32::consts::PI;
 
@@ -330,53 +332,54 @@ impl Backbone {
             Kind::Xl => (96, 96),
             Kind::Original | Kind::OriginalV2 | Kind::Mini | Kind::Mk2 => (72, 72),
         };
-        // Paint background
+        // Paint grounding (important for images with alpha channel)
         let bg_color = value.background_color.unwrap_or(DEFAULT_BG_COLOR);
-        let mut img: RgbaImage = match value.button_design.background {
-            StreamDeckButtonBackground::Color(_) => {
-                RgbaImage::from_pixel(width, height, bg_color.into())
-            }
+        let mut bg_layer = RgbaImage::from_pixel(width, height, bg_color.into());
+        // Paint background
+        match value.button_design.background {
+            StreamDeckButtonBackground::Color(_) => {}
             StreamDeckButtonBackground::Image(b) => {
-                load_image_for_stream_deck(b.path, width, height)
-                    .unwrap_or_else(|| RgbaImage::from_pixel(width, height, RgbColor::BLACK.into()))
+                if let Some(bg_img) = load_image_for_stream_deck(b.path, width, height) {
+                    blit_with_alpha(&mut bg_layer, &bg_img, None);
+                }
             }
         };
         // Paint foreground
+        let fg_color = value.foreground_color.unwrap_or(DEFAULT_FG_COLOR);
         if value.numeric_value.is_some() || value.text_value.is_some() {
-            let fg_color = value.foreground_color.unwrap_or(DEFAULT_FG_COLOR);
             let fb_value = value.numeric_value.unwrap_or(UnitValue::MIN).get() as f32;
             match value.button_design.foreground {
                 StreamDeckButtonForeground::FadingColor(_) => {
                     let mut fg_color: Rgba<u8> = fg_color.into();
                     fg_color[3] = (fb_value * 255.0).round() as u8;
-                    for pixel in img.pixels_mut() {
+                    for pixel in bg_layer.pixels_mut() {
                         pixel.blend(&fg_color);
                     }
                 }
                 StreamDeckButtonForeground::FadingImage(b) => {
-                    let fg_img =
-                        load_image_for_stream_deck(b.path, width, height).unwrap_or_else(|| {
-                            RgbaImage::from_pixel(width, height, RgbColor::WHITE.into())
-                        });
-                    blit_with_alpha(&mut img, &fg_img, fb_value);
+                    let mut fg_layer = RgbaImage::from_pixel(width, height, fg_color.into());
+                    if let Some(fg_img) = load_image_for_stream_deck(b.path, width, height) {
+                        blit_with_alpha(&mut fg_layer, &fg_img, None);
+                    }
+                    blit_with_alpha(&mut bg_layer, &fg_layer, Some(fb_value));
                 }
                 StreamDeckButtonForeground::FullBar(_) => {
                     let mut fg_color: Rgba<u8> = fg_color.into();
                     fg_color[3] = 100;
                     let rect_height = (height as f32 * fb_value) as u32;
                     // Fill the background
-                    for (_, y, pixel) in img.enumerate_pixels_mut() {
+                    for (_, y, pixel) in bg_layer.enumerate_pixels_mut() {
                         if y >= height - rect_height {
                             pixel.blend(&fg_color);
                         }
                     }
                 }
                 StreamDeckButtonForeground::Knob(_) => {
-                    draw_knob(&mut img, width, height, fb_value);
+                    draw_knob(&mut bg_layer, width, height, fb_value);
                 }
             }
         }
-        sd.set_button_image(value.button_index as _, DynamicImage::ImageRgba8(img))?;
+        sd.set_button_image(value.button_index as _, DynamicImage::ImageRgba8(bg_layer))?;
         Ok(())
     }
 

@@ -1422,7 +1422,7 @@ fn load_realearn_preset(realearn: &RealearnTestInstance, json: &str) {
     let preset_c_string = CString::new(json).expect("couldn't convert preset into c string");
     unsafe {
         let bytes = preset_c_string.into_bytes_with_nul();
-        // TODO-high CONTINUE Use instance shell
+        // TODO-medium Use instance shell directly instead
         realearn
             .outcome
             .fx
