@@ -20,7 +20,6 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
     //  Those don't ever send feedback because there's no current value, and as such there's also no feedback value
     //  and the screen stays as it is.
     // TODO-high CONTINUE Toolbar images should be slided, not faded
-    // TODO-high CONTINUE "ReaLearn Unit Start" should be replaced with "ReaLearn Compartment load"
     let button_mappings = items.enumerate().map(|(i, item)| {
         let action = Reaper::get()
             .main_section()
@@ -76,6 +75,7 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
                 ..Default::default()
             },
             ActionCharacter::Trigger => Glue {
+                // TODO-high CONTINUE This is obsolete for Trigger as soon as the feedback prob is solved
                 button_filter: Some(ButtonFilter::PressOnly),
                 ..Default::default()
             },
@@ -91,6 +91,9 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
                 };
                 Some(cmd)
             },
+            // TODO-high CONTINUE This should be Trigger for trigger-like actions, as soon as the feedback prob is solved
+            // TODO-high CONTINUE It might be a problem in general that non-trigger actions are not retriggerable.
+            //  Because the value can't usually be relied on! Only in case of toggle actions.
             invocation: Some(ActionInvocationKind::Absolute7Bit),
             ..Default::default()
         };
@@ -104,7 +107,7 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
     });
     let set_brightness_to_max_mapping = Mapping {
         name: Some("Set brightness to max".to_string()),
-        source: Some(Source::RealearnInstanceStart),
+        source: Some(Source::RealearnCompartmentLoaded),
         target: Some(Target::StreamDeckBrightness(Default::default())),
         ..Default::default()
     };

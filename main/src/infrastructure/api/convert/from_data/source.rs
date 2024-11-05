@@ -235,6 +235,7 @@ pub fn convert_source(
             match data.reaper_source_type {
                 MidiDeviceChanges => persistence::Source::MidiDeviceChanges,
                 RealearnUnitStart => persistence::Source::RealearnInstanceStart,
+                RealearnCompartmentLoaded => persistence::Source::RealearnCompartmentLoaded,
                 Timer => persistence::Source::Timer(persistence::TimerSource {
                     duration: data.timer_millis,
                 }),

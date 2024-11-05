@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 pub enum ReaperSource {
     MidiDeviceChanges,
     RealearnInstanceStart,
+    RealearnCompartmentLoaded,
     Timer(TimerSource),
     RealearnParameter(RealearnParameterSource),
     Speech(SpeechSource),
@@ -150,6 +151,7 @@ impl ReaperSource {
         match self {
             MidiDeviceChanges => vec![DetailedSourceCharacter::MomentaryOnOffButton],
             RealearnInstanceStart => vec![DetailedSourceCharacter::MomentaryOnOffButton],
+            RealearnCompartmentLoaded => vec![DetailedSourceCharacter::Trigger],
             Timer(_) => vec![DetailedSourceCharacter::Trigger],
             RealearnParameter(_) => vec![
                 DetailedSourceCharacter::RangeControl,
@@ -173,7 +175,7 @@ impl ReaperSource {
     pub fn character(&self) -> SourceCharacter {
         use ReaperSource::*;
         match self {
-            MidiDeviceChanges | RealearnInstanceStart | Timer(_) => {
+            MidiDeviceChanges | RealearnInstanceStart | RealearnCompartmentLoaded | Timer(_) => {
                 SourceCharacter::MomentaryButton
             }
             RealearnParameter(_) => SourceCharacter::RangeElement,
@@ -214,6 +216,12 @@ impl ReaperSource {
                 }
                 _ => return None,
             },
+            RealearnCompartmentLoaded(kind) => match self {
+                ReaperSource::RealearnCompartmentLoaded if *kind == compartment => {
+                    ControlValue::AbsoluteContinuous(UnitValue::MAX)
+                }
+                _ => return None,
+            },
             RealearnParameterChange(c) => match self {
                 ReaperSource::RealearnParameter(s)
                     if c.compartment == compartment && c.parameter_index == s.parameter_index =>
@@ -229,7 +237,11 @@ impl ReaperSource {
     pub fn feedback(&self, feedback_value: &FeedbackValue) -> Option<ReaperSourceFeedbackValue> {
         use ReaperSource::*;
         match self {
-            MidiDeviceChanges | RealearnInstanceStart | Timer(_) | RealearnParameter(_) => None,
+            MidiDeviceChanges
+            | RealearnInstanceStart
+            | RealearnCompartmentLoaded
+            | Timer(_)
+            | RealearnParameter(_) => None,
             Speech(s) => Some(ReaperSourceFeedbackValue::Speech(
                 s.feedback(feedback_value),
             )),
@@ -262,6 +274,7 @@ pub enum ReaperMessage {
     #[display(fmt = "MidiDevicesDisconnected ({_0})")]
     MidiDevicesDisconnected(MidiDeviceChangePayload),
     RealearnUnitStarted,
+    RealearnCompartmentLoaded(CompartmentKind),
     RealearnParameterChange(RealearnParameterChangePayload),
     StreamDeckDevicesConnected(StreamDeckDevicePayload),
 }

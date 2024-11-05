@@ -2283,6 +2283,12 @@ impl UnitModel {
         }
         self.reset_parameters(compartment);
         self.notify_everything_has_changed();
+        self.notify_compartment_loaded(compartment);
+    }
+
+    pub fn notify_compartment_loaded(&self, compartment: CompartmentKind) {
+        self.normal_main_task_sender
+            .send_complaining(NormalMainTask::NotifyRealearnCompartmentLoaded(compartment));
     }
 
     fn reset_parameters(&self, compartment: CompartmentKind) {

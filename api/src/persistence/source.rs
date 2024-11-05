@@ -14,6 +14,7 @@ pub enum Source {
     // REAPER
     MidiDeviceChanges,
     RealearnInstanceStart,
+    RealearnCompartmentLoaded,
     Timer(TimerSource),
     RealearnParameter(RealearnParameterSource),
     Speech,

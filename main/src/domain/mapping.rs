@@ -1369,7 +1369,8 @@ impl<'a> MainSourceMessage<'a> {
                     MidiDevicesConnected(_)
                     | MidiDevicesDisconnected(_)
                     | StreamDeckDevicesConnected(_)
-                    | RealearnUnitStarted => return None,
+                    | RealearnUnitStarted
+                    | RealearnCompartmentLoaded(_) => return None,
                     RealearnParameterChange(payload) => {
                         MessageCaptureResult::RealearnParameter(*payload)
                     }

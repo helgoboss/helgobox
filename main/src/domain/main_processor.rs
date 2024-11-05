@@ -1242,6 +1242,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let evt = ControlEvent::new(&ReaperMessage::RealearnUnitStarted, timestamp);
                     self.process_reaper_message(evt);
                 }
+                NotifyRealearnCompartmentLoaded(kind) => {
+                    debug!("NotifyRealearnCompartmentLoaded received");
+                    let message = ReaperMessage::RealearnCompartmentLoaded(kind);
+                    let evt = ControlEvent::new(&message, timestamp);
+                    self.process_reaper_message(evt);
+                }
                 HitTarget { id, value } => {
                     self.hit_target(id, value);
                 }
@@ -2879,6 +2885,8 @@ pub enum NormalMainTask {
     },
     /// Invokes the "ReaLearn instance started" source.
     NotifyRealearnUnitStarted,
+    /// Invokes the "ReaLearn compartment loaded" source.
+    NotifyRealearnCompartmentLoaded(CompartmentKind),
     /// Instructs the main processor to hit the target directly.
     ///
     /// This doesn't invoke group interaction because it's meant to totally skip the mode.

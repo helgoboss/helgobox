@@ -603,6 +603,8 @@ impl UnitData {
         }
         // Notify
         session.notify_everything_has_changed();
+        session.notify_compartment_loaded(CompartmentKind::Main);
+        session.notify_compartment_loaded(CompartmentKind::Controller);
         Ok(())
     }
 

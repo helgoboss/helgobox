@@ -590,7 +590,11 @@ impl SourceModel {
                     RealearnParameter(p) => {
                         self.parameter_index = p.parameter_index;
                     }
-                    MidiDeviceChanges | RealearnInstanceStart | Timer(_) | Speech(_) => {}
+                    MidiDeviceChanges
+                    | RealearnInstanceStart
+                    | RealearnCompartmentLoaded
+                    | Timer(_)
+                    | Speech(_) => {}
                 }
             }
             StreamDeck(s) => {
@@ -760,6 +764,7 @@ impl SourceModel {
                 let reaper_source = match self.reaper_source_type {
                     MidiDeviceChanges => ReaperSource::MidiDeviceChanges,
                     RealearnUnitStart => ReaperSource::RealearnInstanceStart,
+                    RealearnCompartmentLoaded => ReaperSource::RealearnCompartmentLoaded,
                     Timer => ReaperSource::Timer(self.create_timer_source()),
                     RealearnParameter => {
                         ReaperSource::RealearnParameter(self.create_realearn_parameter_source())
@@ -1314,6 +1319,9 @@ pub enum ReaperSourceType {
     #[serde(rename = "realearn-instance-start")]
     #[display(fmt = "ReaLearn unit start")]
     RealearnUnitStart,
+    #[serde(rename = "realearn-compartment-loaded")]
+    #[display(fmt = "ReaLearn compartment loaded")]
+    RealearnCompartmentLoaded,
     #[serde(rename = "timer")]
     #[display(fmt = "Timer")]
     Timer,
@@ -1331,6 +1339,7 @@ impl ReaperSourceType {
         match source {
             MidiDeviceChanges => Self::MidiDeviceChanges,
             RealearnInstanceStart => Self::RealearnUnitStart,
+            RealearnCompartmentLoaded => Self::RealearnCompartmentLoaded,
             Timer(_) => Self::Timer,
             RealearnParameter(_) => Self::RealearnParameter,
             Speech(_) => Self::Speech,
@@ -1340,7 +1349,11 @@ impl ReaperSourceType {
     pub fn supports_control(self) -> bool {
         use ReaperSourceType::*;
         match self {
-            MidiDeviceChanges | RealearnUnitStart | Timer | RealearnParameter => true,
+            MidiDeviceChanges
+            | RealearnUnitStart
+            | RealearnCompartmentLoaded
+            | Timer
+            | RealearnParameter => true,
             Speech => false,
         }
     }
@@ -1348,7 +1361,11 @@ impl ReaperSourceType {
     pub fn supports_feedback(self) -> bool {
         use ReaperSourceType::*;
         match self {
-            MidiDeviceChanges | RealearnUnitStart | Timer | RealearnParameter => false,
+            MidiDeviceChanges
+            | RealearnUnitStart
+            | RealearnCompartmentLoaded
+            | Timer
+            | RealearnParameter => false,
             Speech => true,
         }
     }
