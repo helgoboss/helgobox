@@ -41,14 +41,15 @@ use crate::domain::{
     UnresolvedPlayrateTarget, UnresolvedPreviewPotPresetTarget, UnresolvedReaperTarget,
     UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
     UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget,
-    UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedTakeMappingSnapshotTarget,
-    UnresolvedTempoTarget, UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
-    UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
-    UnresolvedTrackParentSendTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
-    UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
-    UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
-    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualControlElement,
-    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualMappingSnapshotIdForLoad,
+    UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedStreamDeckBrightnessTarget,
+    UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
+    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
+    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackParentSendTarget,
+    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
+    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
+    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
+    UnresolvedTransportTarget, VirtualChainFx, VirtualControlElement, VirtualControlElementId,
+    VirtualFx, VirtualFxParameter, VirtualMappingSnapshotIdForLoad,
     VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 
@@ -2668,6 +2669,9 @@ impl TargetModel {
                             fx_descriptor: self.fx_descriptor()?,
                         })
                     }
+                    StreamDeckBrightness => UnresolvedReaperTarget::StreamDeckBrightness(
+                        UnresolvedStreamDeckBrightnessTarget {},
+                    ),
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(Box::new(target)))
             }

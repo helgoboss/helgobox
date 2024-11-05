@@ -195,3 +195,6 @@ pub use load_pot_preset_target::*;
 
 mod compartment_parameter_value_target;
 pub use compartment_parameter_value_target::*;
+
+mod stream_deck_brightness_target;
+pub use stream_deck_brightness_target::*;

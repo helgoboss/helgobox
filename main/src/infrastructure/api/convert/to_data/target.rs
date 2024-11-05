@@ -984,6 +984,11 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 ..init(d.commons)
             }
         }
+        Target::StreamDeckBrightness(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::StreamDeckBrightness,
+            ..init(d.commons)
+        },
         Target::Virtual(d) => TargetModelData {
             category: TargetCategory::Virtual,
             control_element_type: d.character.unwrap_or_default(),

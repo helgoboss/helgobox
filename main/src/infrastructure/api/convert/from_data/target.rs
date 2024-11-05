@@ -32,12 +32,12 @@ use helgobox_api::persistence::{
     PreviewPotPresetTarget, ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget,
     RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget,
     RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
-    SetTargetToLastTouchedMappingModification, TakeMappingSnapshotTarget, TempoTarget,
-    TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
-    TrackMonitoringModeTarget, TrackMuteStateTarget, TrackPanTarget, TrackParentSendStateTarget,
-    TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget,
-    TrackToolTarget, TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportActionTarget,
+    SetTargetToLastTouchedMappingModification, StreamDeckBrightnessTarget,
+    TakeMappingSnapshotTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
+    TrackAutomationTouchStateTarget, TrackMonitoringModeTarget, TrackMuteStateTarget,
+    TrackPanTarget, TrackParentSendStateTarget, TrackPeakTarget, TrackPhaseTarget,
+    TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget,
+    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -762,6 +762,7 @@ fn convert_real_target(
             commons,
             fx: convert_fx_descriptor(data, style),
         }),
+        StreamDeckBrightness => T::StreamDeckBrightness(StreamDeckBrightnessTarget { commons }),
     };
     Ok(target)
 }

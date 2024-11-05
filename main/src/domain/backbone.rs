@@ -231,6 +231,19 @@ impl Backbone {
             .collect()
     }
 
+    pub fn set_stream_deck_brightness(
+        &self,
+        dev_id: StreamDeckDeviceId,
+        percent: UnitValue,
+    ) -> anyhow::Result<()> {
+        let mut decks = self.stream_decks.borrow_mut();
+        let sd = decks
+            .get_mut(&dev_id)
+            .context("stream deck not connected")?;
+        sd.set_brightness((percent.get() * 100.0).round() as _)?;
+        Ok(())
+    }
+
     pub fn poll_stream_deck_messages(&self) -> Vec<QualifiedStreamDeckMessage> {
         let mut decks = self.stream_decks.borrow_mut();
         let mut button_states = self.stream_deck_button_states.borrow_mut();

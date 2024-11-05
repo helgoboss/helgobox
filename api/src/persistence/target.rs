@@ -171,6 +171,7 @@ pub enum Target {
     BrowsePotPresets(BrowsePotPresetsTarget),
     PreviewPotPreset(PreviewPotPresetTarget),
     LoadPotPreset(LoadPotPresetTarget),
+    StreamDeckBrightness(StreamDeckBrightnessTarget),
     Virtual(VirtualTarget),
 }
 
@@ -1208,6 +1209,12 @@ pub struct LoadPotPresetTarget {
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fx: Option<FxDescriptor>,
+}
+
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
+pub struct StreamDeckBrightnessTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
 }
 
 #[derive(

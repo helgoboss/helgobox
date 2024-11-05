@@ -16,13 +16,14 @@ use crate::domain::{
     UnresolvedPlayrateTarget, UnresolvedPreviewPotPresetTarget,
     UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
     UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget,
-    UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedTakeMappingSnapshotTarget,
-    UnresolvedTempoTarget, UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
-    UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
-    UnresolvedTrackParentSendTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
-    UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
-    UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
-    UnresolvedTrackWidthTarget, UnresolvedTransportTarget,
+    UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedStreamDeckBrightnessTarget,
+    UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
+    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
+    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackParentSendTarget,
+    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
+    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
+    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
+    UnresolvedTransportTarget,
 };
 use derive_more::{Display, Error};
 use enum_dispatch::enum_dispatch;
@@ -118,6 +119,7 @@ pub enum UnresolvedReaperTarget {
     PreviewPotPreset(UnresolvedPreviewPotPresetTarget),
     LoadPotPreset(UnresolvedLoadPotPresetTarget),
     CompartmentParameterValue(UnresolvedCompartmentParameterValueTarget),
+    StreamDeckBrightness(UnresolvedStreamDeckBrightnessTarget),
 }
 
 impl UnresolvedReaperTarget {

@@ -35,11 +35,11 @@ use crate::domain::{
     PlayrateTarget, PlaytimeColumnActionTarget, PlaytimeMatrixActionTarget,
     PlaytimeRowActionTarget, PlaytimeSlotTransportTarget, PreviewPotPresetTarget,
     RealTimeControlContext, RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget,
-    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, TakeMappingSnapshotTarget, TargetTypeDef,
-    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget,
-    TrackMuteTarget, TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget,
-    TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportTarget, UnitEvent,
+    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, StreamDeckBrightnessTarget,
+    TakeMappingSnapshotTarget, TargetTypeDef, TempoTarget, TrackArmTarget,
+    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
+    TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
+    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget, UnitEvent,
 };
 use crate::domain::{
     AnyOnTarget, BrowseGroupMappingsTarget, CompoundChangeEvent, EnableInstancesTarget,
@@ -160,6 +160,7 @@ pub enum ReaperTarget {
     PreviewPotPreset(PreviewPotPresetTarget),
     LoadPotPreset(LoadPotPresetTarget),
     CompartmentParameterValue(CompartmentParameterValueTarget),
+    StreamDeckBrightness(StreamDeckBrightnessTarget),
 }
 
 #[derive(
@@ -691,6 +692,7 @@ impl<'a> Target<'a> for ReaperTarget {
             PreviewPotPreset(t) => t.current_value(context),
             LoadPotPreset(t) => t.current_value(context),
             CompartmentParameterValue(t) => t.current_value(context),
+            StreamDeckBrightness(t) => t.current_value(context),
         }
     }
 

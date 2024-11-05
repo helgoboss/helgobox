@@ -863,6 +863,7 @@ impl UnitModel {
             feedback_real_time_task_sender: &self.feedback_real_time_task_sender,
             osc_feedback_task_sender: self.global_osc_feedback_task_sender,
             feedback_output: self.feedback_output(),
+            stream_deck_dev_id: self.stream_deck_device_id,
             unit_container: self.unit_container,
             instance: &self.instance,
             unit: self.unit(),

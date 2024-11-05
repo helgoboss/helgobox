@@ -3403,6 +3403,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             feedback_real_time_task_sender: &self.channels.feedback_real_time_task_sender,
             osc_feedback_task_sender: &self.channels.osc_feedback_task_sender,
             feedback_output: self.settings.feedback_output,
+            stream_deck_dev_id: self.settings.streamdeck_device_id,
             unit_container: self.unit_container,
             instance: &self.instance,
             unit: &self.unit,
