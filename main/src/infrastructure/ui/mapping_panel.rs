@@ -7522,7 +7522,7 @@ trait WindowExt {
 impl WindowExt for Window {
     fn slider_unit_value(&self) -> UnitValue {
         let discrete_value = self.slider_value();
-        UnitValue::new(discrete_value as f64 / 100.0)
+        UnitValue::new_clamped(discrete_value as f64 / 100.0)
     }
 
     fn slider_discrete_increment(&self) -> DiscreteIncrement {
