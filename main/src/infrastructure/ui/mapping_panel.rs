@@ -89,8 +89,9 @@ use crate::infrastructure::ui::util::{
 use crate::infrastructure::ui::{
     menus, EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine,
     ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine, MappingHeaderPanel, MappingRowsPanel,
-    OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput, ScriptEngine,
-    SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, UnitPanel, YamlEditorPanel,
+    OscFeedbackArgumentsEngine, PlainTextEngine, RawMidiScriptEngine, ScriptEditorInput,
+    ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, UnitPanel,
+    YamlEditorPanel,
 };
 use base::hash_util::NonCryptoHashMap;
 use base::Global;
@@ -357,6 +358,9 @@ impl MappingPanel {
                                             }
                                             P::ButtonForegroundType | P::ButtonForegroundImagePath => {
                                                 view.invalidate_source_line_5(initiator);
+                                            }
+                                            P::ButtonStaticText => {
+                                                view.invalidate_source_line_7_edit_control(initiator);
                                             }
                                         }
                                     }
@@ -1214,7 +1218,7 @@ impl MappingPanel {
         self.main_panel.upgrade().expect("main view gone")
     }
 
-    fn edit_source_pattern_or_script(&self) {
+    fn handle_source_line_7_button_press(&self) {
         let mapping = self.mapping();
         let category = mapping.borrow().source_model.category();
         match category {
@@ -1269,6 +1273,20 @@ impl MappingPanel {
                             session.clone(),
                             m,
                             MappingCommand::ChangeSource(SourceCommand::SetOscFeedbackArgs(args)),
+                            None,
+                        );
+                    },
+                );
+            }
+            SourceCategory::StreamDeck => {
+                let session = self.session.clone();
+                self.edit_stream_deck_static_text_internal(
+                    |m| m.source_model.button_static_text().to_string(),
+                    move |m, text| {
+                        UnitModel::change_mapping_from_ui_simple(
+                            session.clone(),
+                            m,
+                            MappingCommand::ChangeSource(SourceCommand::SetButtonStaticText(text)),
                             None,
                         );
                     },
@@ -1366,6 +1384,16 @@ impl MappingPanel {
         let engine = Box::new(OscFeedbackArgumentsEngine);
         let help_url =
             "https://github.com/helgoboss/helgobox/blob/master/doc/realearn-user-guide.adoc#feedback-arguments";
+        self.edit_script_in_simple_editor(engine, help_url, get_initial_value, apply);
+    }
+
+    fn edit_stream_deck_static_text_internal(
+        &self,
+        get_initial_value: impl Fn(&MappingModel) -> String,
+        apply: impl Fn(&mut MappingModel, String) + 'static,
+    ) {
+        let engine = Box::new(PlainTextEngine);
+        let help_url = "https://docs.helgoboss.org/realearn/sources/stream-deck.html#linux";
         self.edit_script_in_simple_editor(engine, help_url, get_initial_value, apply);
     }
 
@@ -2384,6 +2412,10 @@ impl<'a> MutableMappingPanel<'a> {
                     Some(edit_control_id),
                 )
             }
+            StreamDeck => self.change_mapping_with_initiator(
+                MappingCommand::ChangeSource(SourceCommand::SetButtonStaticText(value)),
+                Some(edit_control_id),
+            ),
             _ => {}
         }
     }
@@ -4614,7 +4646,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             {
                 Some("...")
             }
-            Osc => Some("..."),
+            Osc | StreamDeck => Some("..."),
             _ => None,
         };
         self.view
@@ -4631,6 +4663,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 _ => None,
             },
             Osc => Some("Feedback arguments"),
+            StreamDeck => Some("Default text"),
             _ => None,
         };
         self.view
@@ -4711,6 +4744,10 @@ impl<'a> ImmutableMappingPanel<'a> {
             Osc => {
                 let text = format_osc_feedback_args(self.source.osc_feedback_args());
                 (Some(text), false)
+            }
+            StreamDeck => {
+                let text = self.source.button_static_text();
+                (Some(text.to_string()), has_multiple_lines(text))
             }
             _ => (None, false),
         };
@@ -7205,7 +7242,7 @@ impl View for MappingPanel {
             root::ID_MODE_EEL_CONTROL_TRANSFORMATION_DETAIL_BUTTON => {
                 self.edit_control_transformation()
             }
-            root::ID_SOURCE_SCRIPT_DETAIL_BUTTON => self.edit_source_pattern_or_script(),
+            root::ID_SOURCE_SCRIPT_DETAIL_BUTTON => self.handle_source_line_7_button_press(),
             // Mode
             root::ID_SETTINGS_ROTATE_CHECK_BOX => self.write(|p| p.update_mode_rotate()),
             root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX => {

@@ -313,13 +313,18 @@ pub struct KeySource {
 #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct StreamDeckSource {
     pub button_index: u32,
+    #[serde(default)]
     pub button_design: StreamDeckButtonDesign,
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Default, Serialize, Deserialize)]
 pub struct StreamDeckButtonDesign {
+    #[serde(default)]
     pub background: StreamDeckButtonBackground,
+    #[serde(default)]
     pub foreground: StreamDeckButtonForeground,
+    #[serde(default)]
+    pub static_text: String,
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]

@@ -65,6 +65,7 @@ pub enum SourceCommand {
     SetButtonBackgroundImagePath(Utf8PathBuf),
     SetButtonForegroundType(StreamDeckButtonForegroundType),
     SetButtonForegroundImagePath(Utf8PathBuf),
+    SetButtonStaticText(String),
     SetControlElementCharacter(VirtualControlElementCharacter),
     SetControlElementId(VirtualControlElementId),
 }
@@ -103,6 +104,7 @@ pub enum SourceProp {
     ButtonBackgroundImagePath,
     ButtonForegroundType,
     ButtonForegroundImagePath,
+    ButtonStaticText,
 }
 
 impl GetProcessingRelevance for SourceProp {
@@ -249,6 +251,10 @@ impl<'a> Change<'a> for SourceModel {
                 self.button_foreground_image_path = relativize_against_resource_dir(v);
                 One(P::ButtonForegroundImagePath)
             }
+            C::SetButtonStaticText(v) => {
+                self.button_static_text = v;
+                One(P::ButtonStaticText)
+            }
         };
         Some(affected)
     }
@@ -292,6 +298,7 @@ pub struct SourceModel {
     button_background_image_path: Utf8PathBuf,
     button_foreground_type: StreamDeckButtonForegroundType,
     button_foreground_image_path: Utf8PathBuf,
+    button_static_text: String,
     // Virtual
     control_element_character: VirtualControlElementCharacter,
     control_element_id: VirtualControlElementId,
@@ -338,6 +345,7 @@ impl SourceModel {
             button_background_image_path: Default::default(),
             button_foreground_type: Default::default(),
             button_foreground_image_path: Default::default(),
+            button_static_text: Default::default(),
         }
     }
 
@@ -427,6 +435,10 @@ impl SourceModel {
 
     pub fn keystroke(&self) -> Option<Keystroke> {
         self.keystroke
+    }
+
+    pub fn button_static_text(&self) -> &str {
+        &self.button_static_text
     }
 
     pub fn button_index(&self) -> u32 {
@@ -795,6 +807,7 @@ impl SourceModel {
                     StreamDeckButtonForeground::Knob(Default::default())
                 }
             },
+            static_text: self.button_static_text.clone(),
         }
     }
 

@@ -3035,6 +3035,7 @@ dependencies = [
 name = "helgobox"
 version = "2.16.13"
 dependencies = [
+ "ab_glyph",
  "anyhow",
  "approx",
  "arboard",

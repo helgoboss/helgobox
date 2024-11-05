@@ -330,6 +330,9 @@ impl SourceModelData {
         model.change(P::SetButtonForegroundType(
             (&self.button_design.foreground).into(),
         ));
+        model.change(P::SetButtonStaticText(
+            self.button_design.static_text.clone(),
+        ));
     }
 }
 

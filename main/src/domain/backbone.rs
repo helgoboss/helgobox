@@ -13,6 +13,7 @@ use crate::domain::{
 use anyhow::{anyhow, Context};
 use pot::{PotFavorites, PotFilterExcludes};
 
+use ab_glyph::{FontRef, PxScale};
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use cached::proc_macro::cached;
 use camino::Utf8PathBuf;
@@ -22,12 +23,14 @@ use helgoboss_learn::{RgbColor, UnitValue};
 use helgobox_api::persistence::{
     StreamDeckButtonBackground, StreamDeckButtonForeground, TargetTouchCause,
 };
+use imageproc::definitions::{HasBlack, HasWhite};
 use once_cell::sync::Lazy;
+use palette::IntoColor;
 use reaper_high::{Fx, Reaper};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::hash::Hash;
 use std::rc::Rc;
-use std::sync::RwLock;
+use std::sync::{LazyLock, RwLock};
 use std::time::{Duration, Instant};
 use streamdeck::{Kind, StreamDeck};
 use strum::EnumCount;
@@ -284,26 +287,19 @@ impl Backbone {
                 .into();
             Some(image)
         }
-        fn blit_with_alpha(target: &mut RgbaImage, overlay: &RgbaImage, alpha: Option<f32>) {
-            // for (x, y, overlay_pixel) in overlay.enumerate_pixels() {
-            //     let target_pixel = target.get_pixel_mut(x, y);
-            //     let blended_pixel = Rgba([
-            //         (overlay_pixel[0] as f32 * alpha + target_pixel[0] as f32 * (1.0 - alpha))
-            //             as u8,
-            //         (overlay_pixel[1] as f32 * alpha + target_pixel[1] as f32 * (1.0 - alpha))
-            //             as u8,
-            //         (overlay_pixel[2] as f32 * alpha + target_pixel[2] as f32 * (1.0 - alpha))
-            //             as u8,
-            //         255,
-            //     ]);
-            //     *target_pixel = blended_pixel;
-            // }
+        fn overlay_with_image(target: &mut RgbaImage, overlay: &RgbaImage, alpha: Option<f32>) {
             for (x, y, target_pixel) in target.enumerate_pixels_mut() {
                 let mut overlay_pixel = *overlay.get_pixel(x, y);
                 if let Some(alpha) = alpha {
                     overlay_pixel[3] = (alpha * 255.0).round() as u8;
                 }
                 target_pixel.blend(&overlay_pixel)
+            }
+        }
+        fn overlay_with_color(target: &mut RgbaImage, mut overlay: Rgba<u8>, alpha: f32) {
+            overlay[3] = (alpha * 255.0).round() as u8;
+            for pixel in target.pixels_mut() {
+                pixel.blend(&overlay);
             }
         }
         use std::f32::consts::PI;
@@ -332,7 +328,7 @@ impl Backbone {
             let line_length = radius - 5.0;
             let line_x = cx + line_length * angle.cos();
             let line_y = cy + line_length * angle.sin();
-            let indicator_color = Rgba([255, 255, 255, 1]);
+            let indicator_color = Rgba::white();
             draw_line(
                 img,
                 cx as i32,
@@ -363,50 +359,106 @@ impl Backbone {
             Kind::Original | Kind::OriginalV2 | Kind::Mini | Kind::Mk2 => (72, 72),
         };
         // Paint grounding (important for images with alpha channel)
-        let bg_color = value.background_color.unwrap_or(DEFAULT_BG_COLOR);
-        let mut bg_layer = RgbaImage::from_pixel(width, height, bg_color.into());
+        let bg_color: Rgba<u8> = value.background_color.unwrap_or(DEFAULT_BG_COLOR).into();
+        let mut bg_layer = RgbaImage::from_pixel(width, height, bg_color);
         // Paint background
-        match value.button_design.background {
-            StreamDeckButtonBackground::Color(_) => {}
+        let solid_bg_color = match value.button_design.background {
+            StreamDeckButtonBackground::Color(_) => Some(bg_color),
             StreamDeckButtonBackground::Image(b) => {
                 if let Some(bg_img) = load_image_for_stream_deck(b.path, width, height) {
-                    blit_with_alpha(&mut bg_layer, &bg_img, None);
+                    overlay_with_image(&mut bg_layer, &bg_img, None);
+                    None
+                } else {
+                    Some(bg_color)
                 }
             }
         };
         // Paint foreground
-        let fg_color = value.foreground_color.unwrap_or(DEFAULT_FG_COLOR);
-        if value.numeric_value.is_some() || value.text_value.is_some() {
-            let fb_value = value.numeric_value.unwrap_or(UnitValue::MIN).get() as f32;
+        let mut fg_color: Rgba<u8> = value.foreground_color.unwrap_or(DEFAULT_FG_COLOR).into();
+        let solid_bg_color = if value.numeric_value.is_some() {
+            let numeric_value = value.numeric_value.unwrap_or(UnitValue::MIN).get() as f32;
             match value.button_design.foreground {
                 StreamDeckButtonForeground::FadingColor(_) => {
-                    let mut fg_color: Rgba<u8> = fg_color.into();
-                    fg_color[3] = (fb_value * 255.0).round() as u8;
-                    for pixel in bg_layer.pixels_mut() {
-                        pixel.blend(&fg_color);
-                    }
+                    overlay_with_color(&mut bg_layer, fg_color, numeric_value);
+                    // If the grounding was a solid color, the result is a solid color
+                    solid_bg_color.map(|mut c| {
+                        c.blend(&fg_color);
+                        c
+                    })
                 }
                 StreamDeckButtonForeground::FadingImage(b) => {
                     let mut fg_layer = RgbaImage::from_pixel(width, height, fg_color.into());
                     if let Some(fg_img) = load_image_for_stream_deck(b.path, width, height) {
-                        blit_with_alpha(&mut fg_layer, &fg_img, None);
+                        overlay_with_image(&mut fg_layer, &fg_img, None);
                     }
-                    blit_with_alpha(&mut bg_layer, &fg_layer, Some(fb_value));
+                    overlay_with_image(&mut bg_layer, &fg_layer, Some(numeric_value));
+                    // An image can have any colors, so we can't assume that the result is solid
+                    None
                 }
                 StreamDeckButtonForeground::FullBar(_) => {
-                    let mut fg_color: Rgba<u8> = fg_color.into();
                     fg_color[3] = 100;
-                    let rect_height = (height as f32 * fb_value) as u32;
+                    let rect_height = (height as f32 * numeric_value) as u32;
                     // Fill the background
                     for (_, y, pixel) in bg_layer.enumerate_pixels_mut() {
                         if y >= height - rect_height {
                             pixel.blend(&fg_color);
                         }
                     }
+                    // The bar changes the result quite a bit, so we can't assume that the result is solid
+                    None
                 }
                 StreamDeckButtonForeground::Knob(_) => {
-                    draw_knob(&mut bg_layer, width, height, fb_value);
+                    draw_knob(&mut bg_layer, width, height, numeric_value);
+                    // The knob changes the result quite a bit, so we can't assume that the result is solid
+                    None
                 }
+            }
+        } else {
+            solid_bg_color
+        };
+        // Draw text
+        let text = value.text_value.unwrap_or(value.button_design.static_text);
+        if !text.trim().is_empty() {
+            static FONT: LazyLock<FontRef> = LazyLock::new(|| {
+                FontRef::try_from_slice(include_bytes!("./Exo2-Light.otf")).unwrap()
+            });
+            let text_color = if let Some(c) = solid_bg_color {
+                // Background is a solid color. Calculate the contrast color.
+                let solid_bg_color = palette::Srgb::new(c[0], c[1], c[2]);
+                let solid_bg_color: palette::Srgb = solid_bg_color.into_format();
+                let lab: palette::Lab = solid_bg_color.into_color();
+                if lab.l > 50.0 {
+                    // Bright background => Dark text color
+                    Rgba::black()
+                } else {
+                    // Dark background => Bright text color
+                    Rgba::white()
+                }
+            } else {
+                // Background is not a solid color, so we need to add some background to ensure the text is visible
+                overlay_with_color(&mut bg_layer, Rgba::black(), 0.5);
+                Rgba::white()
+            };
+            let num_display_lines = 4;
+            let line_height = (height as f32 / num_display_lines as f32).round() as u32;
+            let scale = PxScale::from(line_height as f32);
+            let num_text_lines = text.lines().count() as u32;
+            let y_offset = (height.saturating_sub(num_text_lines * line_height) / 2)
+                .saturating_sub(line_height / 2);
+            for (l, text_line) in text.lines().take(num_display_lines).enumerate() {
+                let (text_line_width, _) = imageproc::drawing::text_size(scale, &*FONT, text_line);
+                // Center text horizontally
+                let x = width.saturating_sub(text_line_width) / 2;
+                let y = y_offset + l as u32 * line_height;
+                imageproc::drawing::draw_text_mut(
+                    &mut bg_layer,
+                    text_color.into(),
+                    x as _,
+                    y as _,
+                    scale,
+                    &*FONT,
+                    text_line,
+                );
             }
         }
         sd.set_button_image(value.button_index as _, DynamicImage::ImageRgba8(bg_layer))?;

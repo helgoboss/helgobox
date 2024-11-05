@@ -212,6 +212,8 @@ static_assertions.workspace = true
 # For Stream Deck support
 streamdeck = "0.9.0"
 # For Stream Deck support
+ab_glyph = "0.2.29"
+# For Stream Deck support
 hidapi = "2.4"
 # For caching button images for Stream Deck
 cached.workspace = true
