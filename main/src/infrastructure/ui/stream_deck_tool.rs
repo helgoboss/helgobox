@@ -1,5 +1,5 @@
 use helgobox_api::persistence::{
-    AbsoluteMode, ActionInvocationKind, ButtonFilter, Compartment, Glue, Mapping,
+    AbsoluteMode, ActionInvocationKind, ButtonFilter, Compartment, Glue, Interval, Mapping,
     ReaperActionTarget, ReaperCommand, Source, StreamDeckButtonBackground, StreamDeckButtonDesign,
     StreamDeckButtonFadingImageForeground, StreamDeckButtonForeground,
     StreamDeckButtonImageBackground, StreamDeckSource, Target,
@@ -15,6 +15,7 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
         .take_while(|item| item.is_some())
         .flatten()
         .flatten();
+    let reaper_resource_path = Reaper::get().resource_path();
     let button_mappings = items.enumerate().map(|(i, item)| {
         let action = Reaper::get()
             .main_section()
@@ -23,7 +24,9 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
         let button_icon_path = item
             .icon_file_name
             .as_ref()
-            .map(|icon| format!("Data/toolbar_icons/200/{icon}"));
+            .map(|icon| format!("Data/toolbar_icons/200/{icon}"))
+            // It's possible that the image doesn't exist (e.g. if it's an internal icon)
+            .filter(|path| reaper_resource_path.join(path).exists());
         let static_text = if item.icon_file_name.is_some() {
             String::new()
         } else {
@@ -58,7 +61,12 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
         };
         let glue = match action_character {
             ActionCharacter::Toggle => Glue {
-                // source_interval: Some(Interval(0.5, 1.0)),
+                source_interval: if item.icon_file_name.is_some() {
+                    // Show icon dimmed when off and with full brightness when on
+                    Some(Interval(0.5, 1.0))
+                } else {
+                    None
+                },
                 absolute_mode: Some(AbsoluteMode::ToggleButton),
                 ..Default::default()
             },

@@ -586,9 +586,9 @@ impl HeaderPanel {
                     vec![
                         menu(
                             "Convert toolbar to Stream Deck mappings",
-                            ["Main toolbar"].into_iter().map(|toolbar_name| {
+                            ["Main toolbar".to_string()].into_iter().chain((0..32).map(|i| format!("Floating toolbar {}", i + 1))).map(|toolbar_name| {
                                 item(
-                                    toolbar_name,
+                                    toolbar_name.clone(),
                                     MainMenuAction::ConvertToolbarToStreamDeckMappings(toolbar_name)
                                 )
                             }).collect()
@@ -927,7 +927,7 @@ impl HeaderPanel {
             }
             MainMenuAction::ConvertToolbarToStreamDeckMappings(toolbar_name) => {
                 self.notify_user_on_anyhow_error(
-                    self.convert_toolbar_to_stream_deck_mappings(toolbar_name),
+                    self.convert_toolbar_to_stream_deck_mappings(&toolbar_name),
                 );
             }
         };
@@ -3193,7 +3193,7 @@ enum MainMenuAction {
     EditCompartmentWideLuaCode,
     CreateCompartmentPresetWorkspace,
     CreateCompartmentPresetWorkspaceIncludingFactoryPresets,
-    ConvertToolbarToStreamDeckMappings(&'static str),
+    ConvertToolbarToStreamDeckMappings(String),
 }
 
 enum HelpMenuAction {

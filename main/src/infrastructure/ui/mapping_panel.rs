@@ -4858,8 +4858,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 Some(text)
             }
             StreamDeck
-                if self.source.button_background_type()
-                    == StreamDeckButtonBackgroundType::Image =>
+                if self.source.button_foreground_type()
+                    == StreamDeckButtonForegroundType::FadingImage =>
             {
                 Some(self.source.button_foreground_image_path().to_string())
             }
