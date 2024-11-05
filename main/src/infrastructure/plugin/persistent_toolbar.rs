@@ -1,4 +1,6 @@
 use anyhow::{bail, Context};
+use camino::Utf8PathBuf;
+use ini::{Ini, Properties};
 use reaper_high::Reaper;
 
 /// This attempts to add a toolbar button persistently by modifying the "reaper-menu.ini" file.
@@ -8,13 +10,9 @@ use reaper_high::Reaper;
 pub fn add_toolbar_button_persistently(
     command_name: &str,
     action_label: &str,
-    icon_file_name: &str,
+    icon_file_name: Option<&str>,
 ) -> anyhow::Result<()> {
     // Load toolbar button INI file
-    let reaper = Reaper::get();
-    let reaper_menu_ini = reaper
-        .medium_reaper()
-        .get_resource_path(|p| p.join("reaper-menu.ini"));
     const MISSING_CUSTOMIZATION: &str = "Because of limitations of the REAPER extension API, Helgobox can't automatically add toolbar buttons if you haven't already customized the toolbar at least once!\n\
         \n\
         Please add an arbitrary toolbar customization first and try again:\n\
@@ -27,23 +25,13 @@ pub fn add_toolbar_button_persistently(
         6. Click \"OK\"\n\
         7. Try again\n\
     ";
-    let mut ini = ini::Ini::load_from_file_opt(
-        &reaper_menu_ini,
-        ini::ParseOption {
-            enabled_quote: false,
-            enabled_escape: false,
-        },
-    )
-    .context(MISSING_CUSTOMIZATION)?;
+    let mut ini = MenuIni::load().context(MISSING_CUSTOMIZATION)?;
     // Look through existing toolbar buttons
-    let toolbar_section = ini
-        .section_mut(Some("Main toolbar"))
+    let mut toolbar_section = ini
+        .get_toolbar("Main toolbar")
         .context(MISSING_CUSTOMIZATION)?;
     let mut max_item_index = -1i32;
-    for (key, value) in toolbar_section.iter() {
-        let Some(toolbar_item) = ToolbarItem::parse_from_ini_prop(key, value) else {
-            continue;
-        };
+    for toolbar_item in toolbar_section.items() {
         if &toolbar_item.command[1..] == command_name {
             // Toolbar button exists already
             return Ok(());
@@ -55,35 +43,99 @@ pub fn add_toolbar_button_persistently(
     }
     // Add new toolbar button
     let next_item_index = max_item_index + 1;
-    toolbar_section.insert(
-        format!("item_{next_item_index}"),
-        format!("_{command_name} {action_label}"),
-    );
-    if !icon_file_name.is_empty() {
-        toolbar_section.insert(format!("icon_{next_item_index}"), icon_file_name);
-    }
-    ini.write_to_file(&reaper_menu_ini)?;
+    let new_item = ToolbarItem {
+        index: next_item_index as u32,
+        command: command_name,
+        desc: action_label,
+        icon: icon_file_name,
+    };
+    toolbar_section.add_item(new_item);
+    ini.save()?;
+    let reaper = Reaper::get();
     reaper.medium_reaper().update_arrange();
     reaper.medium_reaper().update_timeline();
     Ok(())
 }
 
-struct ToolbarItem<'a> {
-    index: u32,
-    command: &'a str,
-    _desc: &'a str,
+pub struct MenuIni {
+    ini: Ini,
+    path: Utf8PathBuf,
+}
+
+impl MenuIni {
+    pub fn load() -> anyhow::Result<Self> {
+        let path = Reaper::get()
+            .medium_reaper()
+            .get_resource_path(|p| p.join("reaper-menu.ini"));
+        let ini = Ini::load_from_file_opt(
+            &path,
+            ini::ParseOption {
+                enabled_quote: false,
+                enabled_escape: false,
+            },
+        )?;
+        let menu_ini = Self { ini, path };
+        Ok(menu_ini)
+    }
+
+    pub fn get_toolbar(&mut self, toolbar_name: &str) -> anyhow::Result<Toolbar> {
+        let properties = self
+            .ini
+            .section_mut(Some(toolbar_name))
+            .context("finding section")?;
+        Ok(Toolbar(properties))
+    }
+
+    pub fn save(&self) -> anyhow::Result<()> {
+        self.ini.write_to_file(&self.path)?;
+        Ok(())
+    }
+}
+
+pub struct Toolbar<'a>(&'a mut Properties);
+
+impl<'a> Toolbar<'a> {
+    pub fn items(&'a self) -> impl Iterator<Item = ToolbarItem<'a>> + 'a {
+        self.0
+            .iter()
+            .filter_map(move |(key, value)| ToolbarItem::parse_from_ini_prop(self, key, value))
+    }
+
+    pub fn find_icon(&self, index: u32) -> Option<&str> {
+        self.0.get(format!("icon_{index}"))
+    }
+
+    pub fn add_item(&mut self, item: ToolbarItem) {
+        self.0.insert(
+            format!("item_{}", item.index),
+            format!("_{} {}", item.command, item.desc),
+        );
+        if let Some(icon) = item.icon {
+            self.0.insert(format!("icon_{}", item.index), icon);
+        }
+    }
+}
+
+pub struct ToolbarItem<'a> {
+    pub index: u32,
+    pub command: &'a str,
+    pub desc: &'a str,
+    pub icon: Option<&'a str>,
 }
 
 impl<'a> ToolbarItem<'a> {
-    fn parse_from_ini_prop(key: &'a str, value: &'a str) -> Option<Self> {
+    fn parse_from_ini_prop(toolbar: &'a Toolbar, key: &'a str, value: &'a str) -> Option<Self> {
         let Some(("item", i)) = key.split_once('_') else {
             return None;
         };
         let (command, desc) = value.split_once(' ')?;
+        let index = i.parse().ok()?;
+        let icon = toolbar.find_icon(index);
         let item = ToolbarItem {
-            index: i.parse().ok()?,
+            index: index,
             command,
-            _desc: desc,
+            desc,
+            icon,
         };
         Some(item)
     }

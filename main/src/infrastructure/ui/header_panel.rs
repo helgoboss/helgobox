@@ -35,6 +35,7 @@ use crate::infrastructure::ui::bindings::root;
 
 use crate::base::notification::{notify_processing_result, notify_user_about_anyhow_error};
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
+use crate::infrastructure::api::convert::to_data;
 use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -53,10 +54,10 @@ use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
     get_text_from_clipboard, menus, serialize_data_object, serialize_data_object_to_json,
-    serialize_data_object_to_lua, DataObject, GroupFilter, GroupPanel, IndependentPanelManager,
-    LuaCompartmentCommonScriptEngine, MappingRowsPanel, PlainTextEngine, ScriptEditorInput,
-    SearchExpression, SerializationFormat, SharedIndependentPanelManager, SharedMainState,
-    SimpleScriptEditorPanel, SourceFilter, UntaggedDataObject,
+    serialize_data_object_to_lua, stream_deck_tool, DataObject, GroupFilter, GroupPanel,
+    IndependentPanelManager, LuaCompartmentCommonScriptEngine, MappingRowsPanel, PlainTextEngine,
+    ScriptEditorInput, SearchExpression, SerializationFormat, SharedIndependentPanelManager,
+    SharedMainState, SimpleScriptEditorPanel, SourceFilter, UntaggedDataObject,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use anyhow::{bail, Context};
@@ -580,6 +581,20 @@ impl HeaderPanel {
                         ),
                     ],
                 ),
+                menu(
+                    "Compartment tools",
+                    vec![
+                        menu(
+                            "Convert toolbar to Stream Deck mappings",
+                            ["Main toolbar"].into_iter().map(|toolbar_name| {
+                                item(
+                                    toolbar_name,
+                                    MainMenuAction::ConvertToolbarToStreamDeckMappings(toolbar_name)
+                                )
+                            }).collect()
+                        )
+                    ]
+                ),
                 item(
                     "Edit compartment-wide Lua code",
                     MainMenuAction::EditCompartmentWideLuaCode,
@@ -909,6 +924,11 @@ impl HeaderPanel {
                 with_scoped_preset_link_mutator(scope, &self.session, |m| {
                     link_to_preset(m, fx_id, preset_id);
                 });
+            }
+            MainMenuAction::ConvertToolbarToStreamDeckMappings(toolbar_name) => {
+                self.notify_user_on_anyhow_error(
+                    self.convert_toolbar_to_stream_deck_mappings(toolbar_name),
+                );
             }
         };
         Ok(())
@@ -1845,7 +1865,7 @@ impl HeaderPanel {
         }
     }
 
-    fn update_compartment(&self, compartment: CompartmentKind) {
+    fn activate_compartment(&self, compartment: CompartmentKind) {
         let mut main_state = self.main_state.borrow_mut();
         main_state.stop_filter_learning();
         main_state.clear_all_filters();
@@ -2095,12 +2115,12 @@ impl HeaderPanel {
             Tagged(DataObject::MainCompartment(Envelope { value, version })) => {
                 let compartment = CompartmentKind::Main;
                 self.import_compartment(compartment, version.as_ref(), value);
-                self.update_compartment(compartment);
+                self.activate_compartment(compartment);
             }
             Tagged(DataObject::ControllerCompartment(Envelope { value, version })) => {
                 let compartment = CompartmentKind::Controller;
                 self.import_compartment(compartment, version.as_ref(), value);
-                self.update_compartment(compartment);
+                self.activate_compartment(compartment);
             }
             Tagged(DataObject::Mappings { .. }) => {
                 bail!("The clipboard contains just a lose collection of mappings. Please import them using the context menus.")
@@ -2123,9 +2143,7 @@ impl HeaderPanel {
     ) {
         if self.view.require_window().confirm(
             "ReaLearn",
-            format!(
-                "Do you want to continue replacing the {compartment} with the data in the clipboard?",
-            ),
+            format!("Do you want to continue replacing the {compartment}?",),
         ) {
             let session = self.session();
             let mut session = session.borrow_mut();
@@ -2732,6 +2750,21 @@ impl HeaderPanel {
     fn is_invoked_programmatically(&self) -> bool {
         self.is_invoked_programmatically.get()
     }
+
+    fn convert_toolbar_to_stream_deck_mappings(&self, toolbar_name: &str) -> anyhow::Result<()> {
+        let api_compartment =
+            stream_deck_tool::create_stream_deck_compartment_reflecting_toolbar(toolbar_name)?;
+        let compartment_kind = CompartmentKind::Main;
+        let data_compartment =
+            to_data::convert_compartment(CompartmentKind::Main, api_compartment)?;
+        self.import_compartment(
+            compartment_kind,
+            Some(BackboneShell::version()),
+            data_compartment.into(),
+        );
+        self.activate_compartment(compartment_kind);
+        Ok(())
+    }
 }
 
 fn build_create_compartment_preset_workspace_label(include_factory_presets: bool) -> String {
@@ -2856,10 +2889,10 @@ impl View for HeaderPanel {
                 self.show_projection();
             }
             root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON => {
-                self.update_compartment(CompartmentKind::Controller)
+                self.activate_compartment(CompartmentKind::Controller)
             }
             root::ID_MAIN_COMPARTMENT_RADIO_BUTTON => {
-                self.update_compartment(CompartmentKind::Main)
+                self.activate_compartment(CompartmentKind::Main)
             }
             _ => {}
         }
@@ -3160,6 +3193,7 @@ enum MainMenuAction {
     EditCompartmentWideLuaCode,
     CreateCompartmentPresetWorkspace,
     CreateCompartmentPresetWorkspaceIncludingFactoryPresets,
+    ConvertToolbarToStreamDeckMappings(&'static str),
 }
 
 enum HelpMenuAction {

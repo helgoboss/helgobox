@@ -65,30 +65,30 @@ impl StreamDeckSource {
         let value = match feedback_value {
             FeedbackValue::Off => StreamDeckSourceFeedbackValue {
                 button_index: self.button_index,
-                button_design: self.button_design.clone(),
-                background_color: Some(RgbColor::BLACK),
-                foreground_color: None,
-                numeric_value: None,
-                text_value: None,
+                payload: StreamDeckSourceFeedbackPayload::Off,
             },
             FeedbackValue::Numeric(v) => StreamDeckSourceFeedbackValue {
                 button_index: self.button_index,
-                button_design: self.button_design.clone(),
-                background_color: v.style.background_color,
-                foreground_color: v.style.color,
-                numeric_value: Some(v.value.to_unit_value()),
-                text_value: None,
+                payload: StreamDeckSourceFeedbackPayload::On(StreamDeckSourceFeedbackOnPayload {
+                    button_design: self.button_design.clone(),
+                    background_color: v.style.background_color,
+                    foreground_color: v.style.color,
+                    numeric_value: Some(v.value.to_unit_value()),
+                    text_value: None,
+                }),
             },
             FeedbackValue::Textual(v) => StreamDeckSourceFeedbackValue {
                 button_index: self.button_index,
-                button_design: self.button_design.clone(),
-                background_color: v.style.background_color,
-                foreground_color: v.style.color,
-                numeric_value: None,
-                text_value: Some(v.text.to_string()),
+                payload: StreamDeckSourceFeedbackPayload::On(StreamDeckSourceFeedbackOnPayload {
+                    button_design: self.button_design.clone(),
+                    background_color: v.style.background_color,
+                    foreground_color: v.style.color,
+                    numeric_value: None,
+                    text_value: Some(v.text.to_string()),
+                }),
             },
             FeedbackValue::Complex(_) => {
-                // TODO-high CONTINUE supporting complex dynamically generated feedback (by glue section)
+                // TODO-medium At some point we might want to support complex dynamically generated feedback (by glue section)
                 return None;
             }
         };
@@ -129,10 +129,21 @@ impl Display for StreamDeckMessage {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Derivative)]
-#[derivative(Hash)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct StreamDeckSourceFeedbackValue {
     pub button_index: u32,
+    pub payload: StreamDeckSourceFeedbackPayload,
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub enum StreamDeckSourceFeedbackPayload {
+    Off,
+    On(StreamDeckSourceFeedbackOnPayload),
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Derivative)]
+#[derivative(Hash)]
+pub struct StreamDeckSourceFeedbackOnPayload {
     pub button_design: StreamDeckButtonDesign,
     pub background_color: Option<RgbColor>,
     pub foreground_color: Option<RgbColor>,

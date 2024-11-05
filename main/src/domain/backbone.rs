@@ -6,8 +6,8 @@ use crate::domain::{
     AdditionalFeedbackEvent, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
     FeedbackOutput, InstanceId, QualifiedStreamDeckMessage, RealearnSourceState,
     RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua, SharedInstance,
-    StreamDeckDeviceId, StreamDeckDeviceManager, StreamDeckMessage, StreamDeckSourceFeedbackValue,
-    UnitId, WeakInstance,
+    StreamDeckDeviceId, StreamDeckDeviceManager, StreamDeckMessage,
+    StreamDeckSourceFeedbackPayload, StreamDeckSourceFeedbackValue, UnitId, WeakInstance,
 };
 #[allow(unused)]
 use anyhow::{anyhow, Context};
@@ -270,7 +270,7 @@ impl Backbone {
         dev_id: StreamDeckDeviceId,
         value: StreamDeckSourceFeedbackValue,
     ) -> anyhow::Result<()> {
-        use image::{DynamicImage, Pixel, Rgba, RgbaImage};
+        use image::{Pixel, Rgba, RgbaImage};
         const DEFAULT_BG_COLOR: RgbColor = RgbColor::BLACK;
         const DEFAULT_FG_COLOR: RgbColor = RgbColor::WHITE;
         #[cached(option = true)]
@@ -287,17 +287,20 @@ impl Backbone {
                 .into();
             Some(image)
         }
+        fn set_alpha(pixel: &mut Rgba<u8>, alpha: f32) {
+            pixel[3] = (alpha * 255.0).round() as u8;
+        }
         fn overlay_with_image(target: &mut RgbaImage, overlay: &RgbaImage, alpha: Option<f32>) {
             for (x, y, target_pixel) in target.enumerate_pixels_mut() {
                 let mut overlay_pixel = *overlay.get_pixel(x, y);
                 if let Some(alpha) = alpha {
-                    overlay_pixel[3] = (alpha * 255.0).round() as u8;
+                    set_alpha(&mut overlay_pixel, alpha);
                 }
                 target_pixel.blend(&overlay_pixel)
             }
         }
         fn overlay_with_color(target: &mut RgbaImage, mut overlay: Rgba<u8>, alpha: f32) {
-            overlay[3] = (alpha * 255.0).round() as u8;
+            set_alpha(&mut overlay, alpha);
             for pixel in target.pixels_mut() {
                 pixel.blend(&overlay);
             }
@@ -358,11 +361,17 @@ impl Backbone {
             Kind::Xl => (96, 96),
             Kind::Original | Kind::OriginalV2 | Kind::Mini | Kind::Mk2 => (72, 72),
         };
+        let StreamDeckSourceFeedbackPayload::On(payload) = value.payload else {
+            // Switch display off
+            let black = RgbaImage::from_pixel(width, height, Rgba::black());
+            sd.set_button_image(value.button_index as _, black.into())?;
+            return Ok(());
+        };
         // Paint grounding (important for images with alpha channel)
-        let bg_color: Rgba<u8> = value.background_color.unwrap_or(DEFAULT_BG_COLOR).into();
+        let bg_color: Rgba<u8> = payload.background_color.unwrap_or(DEFAULT_BG_COLOR).into();
         let mut bg_layer = RgbaImage::from_pixel(width, height, bg_color);
         // Paint background
-        let solid_bg_color = match value.button_design.background {
+        let solid_bg_color = match payload.button_design.background {
             StreamDeckButtonBackground::Color(_) => Some(bg_color),
             StreamDeckButtonBackground::Image(b) => {
                 if let Some(bg_img) = load_image_for_stream_deck(b.path, width, height) {
@@ -374,14 +383,16 @@ impl Backbone {
             }
         };
         // Paint foreground
-        let mut fg_color: Rgba<u8> = value.foreground_color.unwrap_or(DEFAULT_FG_COLOR).into();
-        let solid_bg_color = if value.numeric_value.is_some() {
-            let numeric_value = value.numeric_value.unwrap_or(UnitValue::MIN).get() as f32;
-            match value.button_design.foreground {
+        let mut fg_color: Rgba<u8> = payload.foreground_color.unwrap_or(DEFAULT_FG_COLOR).into();
+        let solid_bg_color = if payload.numeric_value.is_some() {
+            let numeric_value = payload.numeric_value.unwrap_or(UnitValue::MIN).get() as f32;
+            match payload.button_design.foreground {
+                StreamDeckButtonForeground::None => solid_bg_color,
                 StreamDeckButtonForeground::FadingColor(_) => {
                     overlay_with_color(&mut bg_layer, fg_color, numeric_value);
                     // If the grounding was a solid color, the result is a solid color
                     solid_bg_color.map(|mut c| {
+                        set_alpha(&mut fg_color, numeric_value);
                         c.blend(&fg_color);
                         c
                     })
@@ -417,7 +428,9 @@ impl Backbone {
             solid_bg_color
         };
         // Draw text
-        let text = value.text_value.unwrap_or(value.button_design.static_text);
+        let text = payload
+            .text_value
+            .unwrap_or(payload.button_design.static_text);
         if !text.trim().is_empty() {
             static FONT: LazyLock<FontRef> = LazyLock::new(|| {
                 FontRef::try_from_slice(include_bytes!("./Exo2-Light.otf")).unwrap()
@@ -443,8 +456,8 @@ impl Backbone {
             let line_height = (height as f32 / num_display_lines as f32).round() as u32;
             let scale = PxScale::from(line_height as f32);
             let num_text_lines = text.lines().count() as u32;
-            let y_offset = (height.saturating_sub(num_text_lines * line_height) / 2)
-                .saturating_sub(line_height / 2);
+            // Center text vertically
+            let y_offset = height.saturating_sub(num_text_lines * line_height) / 2;
             for (l, text_line) in text.lines().take(num_display_lines).enumerate() {
                 let (text_line_width, _) = imageproc::drawing::text_size(scale, &*FONT, text_line);
                 // Center text horizontally
@@ -461,7 +474,7 @@ impl Backbone {
                 );
             }
         }
-        sd.set_button_image(value.button_index as _, DynamicImage::ImageRgba8(bg_layer))?;
+        sd.set_button_image(value.button_index as _, bg_layer.into())?;
         Ok(())
     }
 

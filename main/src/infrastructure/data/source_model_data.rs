@@ -320,6 +320,7 @@ impl SourceModelData {
             }
         }
         match &self.button_design.foreground {
+            StreamDeckButtonForeground::None => {}
             StreamDeckButtonForeground::FadingColor(_) => {}
             StreamDeckButtonForeground::FadingImage(b) => {
                 model.change(P::SetButtonForegroundImagePath(b.path.clone().into()));

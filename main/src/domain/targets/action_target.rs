@@ -238,7 +238,7 @@ impl<'a> Target<'a> for ActionTarget {
                 UnitValue::MIN
             }
         } else {
-            // Relative or trigger. Returning any "fake" value here because this will let the
+            // Relative or trigger. Not returning any "fake" value here because this will let the
             // glue section make wrong assumptions, especially for "Trigger" invocation mode.
             return None;
         };

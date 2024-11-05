@@ -327,19 +327,15 @@ pub struct StreamDeckButtonDesign {
     pub static_text: String,
 }
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum StreamDeckButtonForeground {
+    #[default]
+    None,
     FadingColor(StreamDeckButtonFadingColorForeground),
     FadingImage(StreamDeckButtonFadingImageForeground),
     FullBar(StreamDeckButtonFullBarForeground),
     Knob(StreamDeckButtonKnobForeground),
-}
-
-impl Default for StreamDeckButtonForeground {
-    fn default() -> Self {
-        Self::FadingColor(StreamDeckButtonFadingColorForeground::default())
-    }
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]

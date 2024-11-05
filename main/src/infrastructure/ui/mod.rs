@@ -86,6 +86,8 @@ pub mod color_panel;
 pub mod instance_panel;
 pub mod welcome_panel;
 
+pub mod stream_deck_tool;
+
 mod ui_element_container;
 
 mod help;

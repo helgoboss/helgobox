@@ -792,6 +792,7 @@ impl SourceModel {
                 }
             },
             foreground: match self.button_foreground_type {
+                StreamDeckButtonForegroundType::None => StreamDeckButtonForeground::None,
                 StreamDeckButtonForegroundType::FadingColor => {
                     StreamDeckButtonForeground::FadingColor(Default::default())
                 }
@@ -1380,6 +1381,8 @@ impl From<&StreamDeckButtonBackground> for StreamDeckButtonBackgroundType {
 #[repr(usize)]
 pub enum StreamDeckButtonForegroundType {
     #[default]
+    #[display(fmt = "None")]
+    None,
     #[display(fmt = "Fading color")]
     FadingColor,
     #[display(fmt = "Fading image")]
@@ -1393,6 +1396,7 @@ pub enum StreamDeckButtonForegroundType {
 impl From<&StreamDeckButtonForeground> for StreamDeckButtonForegroundType {
     fn from(value: &StreamDeckButtonForeground) -> Self {
         match value {
+            StreamDeckButtonForeground::None => Self::None,
             StreamDeckButtonForeground::FadingColor(_) => Self::FadingColor,
             StreamDeckButtonForeground::FadingImage(_) => Self::FadingImage,
             StreamDeckButtonForeground::Knob(_) => Self::Knob,

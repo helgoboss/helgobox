@@ -90,7 +90,7 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         action_name: "Show/hide Playtime",
         op: BackboneShell::show_hide_playtime,
         add_toolbar_button: true,
-        icon_file_name: "toolbar_playtime.png",
+        icon_file_name: Some("toolbar_playtime.png"),
         default_key_binding: Some(KeyBinding {
             behavior: make_bitflags!(AcceleratorBehavior::{Shift | Control | VirtKey}),
             key_code: AcceleratorKeyCode::new(b'P' as _),
@@ -137,7 +137,7 @@ pub struct ActionDef {
     pub developer: bool,
     pub requires_instance: bool,
     pub default_key_binding: Option<KeyBinding>,
-    pub icon_file_name: &'static str,
+    pub icon_file_name: Option<&'static str>,
     pub add_toolbar_button: bool,
 }
 
@@ -149,7 +149,7 @@ const DEFAULT_DEF: ActionDef = ActionDef {
     developer: false,
     requires_instance: false,
     default_key_binding: None,
-    icon_file_name: "",
+    icon_file_name: None,
     add_toolbar_button: false,
 };
 
