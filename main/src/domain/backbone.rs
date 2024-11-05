@@ -324,7 +324,7 @@ impl Backbone {
                 knob_color,
             );
             // Indicator line
-            let angle = value * 2.0 * PI - PI / 2.0; // Start at the top (12 o'clock)
+            let angle = value * 1.5 * PI + PI * 0.75;
             let line_length = radius - 5.0;
             let line_x = cx + line_length * angle.cos();
             let line_y = cy + line_length * angle.sin();
