@@ -4,9 +4,10 @@ use base::{
 
 use crate::domain::{
     AdditionalFeedbackEvent, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
-    FeedbackOutput, InstanceId, RealearnSourceState, RealearnTargetState, ReaperTarget,
-    ReaperTargetType, SafeLua, SharedInstance, StreamDeckDeviceId, StreamDeckDeviceManager,
-    StreamDeckSourceFeedbackValue, UnitId, WeakInstance,
+    FeedbackOutput, InstanceId, QualifiedStreamDeckMessage, RealearnSourceState,
+    RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua, SharedInstance,
+    StreamDeckDeviceId, StreamDeckDeviceManager, StreamDeckMessage, StreamDeckSourceFeedbackValue,
+    UnitId, WeakInstance,
 };
 #[allow(unused)]
 use anyhow::{anyhow, Context};
@@ -61,6 +62,7 @@ pub struct Backbone {
     recently_focused_fx_container: Rc<RefCell<RecentlyFocusedFxContainer>>,
     stream_deck_device_manager: RefCell<StreamDeckDeviceManager>,
     stream_decks: RefCell<NonCryptoHashMap<StreamDeckDeviceId, StreamDeck>>,
+    stream_deck_button_states: RefCell<NonCryptoHashMap<StreamDeckDeviceId, Vec<u8>>>,
 }
 
 #[derive(Debug, Default)]
@@ -177,6 +179,7 @@ impl Backbone {
             recently_focused_fx_container: Default::default(),
             stream_deck_device_manager: Default::default(),
             stream_decks: Default::default(),
+            stream_deck_button_states: Default::default(),
         }
     }
 
@@ -228,8 +231,22 @@ impl Backbone {
             .collect()
     }
 
-    pub fn stream_decks_mut(&self) -> RefMut<NonCryptoHashMap<StreamDeckDeviceId, StreamDeck>> {
-        self.stream_decks.borrow_mut()
+    pub fn poll_stream_deck_messages(&self) -> Vec<QualifiedStreamDeckMessage> {
+        let mut decks = self.stream_decks.borrow_mut();
+        let mut button_states = self.stream_deck_button_states.borrow_mut();
+        let mut messages = vec![];
+        decks.retain(|id, deck| {
+            let result = poll_stream_deck_messages(&mut messages, *id, deck, &mut button_states);
+            match result {
+                Ok(_) => true,
+                Err(streamdeck::Error::NoData) => true,
+                Err(e) => {
+                    tracing::warn!(msg = "Error polling for stream deck events", %e);
+                    false
+                }
+            }
+        });
+        messages
     }
 
     pub fn send_stream_deck_feedback(
@@ -676,4 +693,27 @@ impl RecentlyFocusedFxContainer {
         self.previous = self.current.take();
         self.current = Some(new_fx);
     }
+}
+
+fn poll_stream_deck_messages(
+    messages: &mut Vec<QualifiedStreamDeckMessage>,
+    dev_id: StreamDeckDeviceId,
+    sd: &mut StreamDeck,
+    button_states: &mut NonCryptoHashMap<StreamDeckDeviceId, Vec<u8>>,
+) -> Result<(), streamdeck::Error> {
+    let old_button_states = button_states.entry(dev_id).or_default();
+    let new_button_states = sd.read_buttons(None)?;
+    for (i, new_is_on) in new_button_states.iter().enumerate() {
+        let old_is_on = old_button_states.get(i).copied().unwrap_or(0);
+        if *new_is_on == old_is_on {
+            continue;
+        }
+        let msg = QualifiedStreamDeckMessage {
+            dev_id,
+            msg: StreamDeckMessage::new(i as u32, *new_is_on > 0),
+        };
+        messages.push(msg);
+    }
+    *old_button_states = new_button_states;
+    Ok(())
 }

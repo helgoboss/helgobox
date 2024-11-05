@@ -108,6 +108,12 @@ pub struct StreamDeckMessage {
     pub press: bool,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub struct QualifiedStreamDeckMessage {
+    pub dev_id: StreamDeckDeviceId,
+    pub msg: StreamDeckMessage,
+}
+
 impl StreamDeckMessage {
     pub fn new(button_index: u32, press: bool) -> Self {
         Self {

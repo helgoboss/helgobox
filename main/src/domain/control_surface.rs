@@ -4,9 +4,8 @@ use crate::domain::{
     MainProcessor, MidiDeviceChangeDetector, MidiDeviceChangePayload,
     MonitoringFxChainChangeDetector, OscDeviceId, OscInputDevice, OscScanResult,
     QualifiedInstanceEvent, ReaperConfigChangeDetector, ReaperMessage, ReaperTarget,
-    SharedInstance, SharedMainProcessors, StreamDeckDeviceId, StreamDeckDevicePayload,
-    StreamDeckMessage, TargetTouchEvent, TouchedTrackParameterType, UnitEvent, UnitId,
-    WeakInstance,
+    SharedInstance, SharedMainProcessors, StreamDeckDevicePayload, TargetTouchEvent,
+    TouchedTrackParameterType, UnitEvent, UnitId, WeakInstance,
 };
 use base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
 use crossbeam_channel::Receiver;
@@ -29,7 +28,6 @@ use reaper_medium::{
 use rxrust::prelude::*;
 use std::fmt::Debug;
 use std::mem;
-use streamdeck::StreamDeck;
 use tracing::debug;
 
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
@@ -71,7 +69,6 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     last_undesired_allocation_count: u32,
     event_handler: Box<dyn ControlSurfaceEventHandler>,
     osc_buffer: Vec<OscPacket>,
-    stream_deck_button_states: NonCryptoHashMap<StreamDeckDeviceId, Vec<u8>>,
 }
 
 #[cfg(feature = "playtime")]
@@ -251,7 +248,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             last_undesired_allocation_count: 0,
             event_handler,
             osc_buffer: Default::default(),
-            stream_deck_button_states: Default::default(),
         }
     }
 
@@ -659,48 +655,17 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn emit_stream_deck_events(&mut self, timestamp: ControlEventTimestamp) -> Option<()> {
+    fn emit_stream_deck_events(&mut self, timestamp: ControlEventTimestamp) {
         let backbone = Backbone::get();
-        let mut decks = backbone.stream_decks_mut();
-        // TODO-high CONTINUE This doesn't work with targets for which we immediately send feedback (BorrowMut)!
-        //  Maybe we should let the Backbone just return the necessary change events and THEN process.
-        decks.retain(|id, deck| {
-            match self.emit_stream_deck_events_for_deck(*id, deck, timestamp) {
-                Ok(_) => true,
-                Err(streamdeck::Error::NoData) => true,
-                Err(e) => {
-                    tracing::warn!(msg = "Error polling for stream deck events", %e);
-                    false
-                }
-            }
-        });
-        Some(())
-    }
-
-    fn emit_stream_deck_events_for_deck(
-        &mut self,
-        id: StreamDeckDeviceId,
-        sd: &mut StreamDeck,
-        timestamp: ControlEventTimestamp,
-    ) -> Result<(), streamdeck::Error> {
-        let old_button_states = self.stream_deck_button_states.entry(id).or_default();
-        let new_button_states = sd.read_buttons(None)?;
-        for (i, new_is_on) in new_button_states.iter().enumerate() {
-            let old_is_on = old_button_states.get(i).copied().unwrap_or(0);
-            if *new_is_on == old_is_on {
-                continue;
-            }
-            let msg = StreamDeckMessage::new(i as u32, *new_is_on > 0);
+        for msg in backbone.poll_stream_deck_messages() {
             for p in &mut *self.main_processors.borrow_mut() {
-                if !p.wants_stream_deck_input_from(id) {
+                if !p.wants_stream_deck_input_from(msg.dev_id) {
                     continue;
                 }
-                let event = ControlEvent::new(msg, timestamp);
+                let event = ControlEvent::new(msg.msg, timestamp);
                 p.process_incoming_stream_deck_msg(event);
             }
         }
-        *old_button_states = new_button_states;
-        Ok(())
     }
 
     fn emit_beats_as_feedback_events(&mut self) {
