@@ -18,7 +18,6 @@ pub use actions::*;
 mod dynamic_toolbar;
 mod hidden_helper_panel;
 pub mod persistent_toolbar;
-#[cfg(debug_assertions)]
 mod sandbox;
 mod unit_shell;
 pub use unit_shell::*;

@@ -126,8 +126,11 @@ cached = "0.53.1"
 imageproc = "0.25.0"
 
 [profile.release]
-# This is important for having line numbers in bug reports.
+# There's a long reasoning about those values in CONTRIBUTING.adoc
 debug = 2
+# Switching to "symbols" will reduce size even more but leads to useless stack traces when panicking
+strip = "debuginfo"
+split-debuginfo = "packed"
 
 [profile.dev-llvm-out-of-memory-fix]
 inherits = "dev"

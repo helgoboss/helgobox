@@ -118,13 +118,12 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         requires_instance: true,
         ..DEFAULT_DEF
     },
-    #[cfg(debug_assertions)]
     ActionDef {
         section: ActionSection::General,
-        command_name: "HB_SANDBOX",
-        action_name: "Execute sandbox",
+        command_name: "HB_PANIC",
+        action_name: "Simulate error",
         developer: true,
-        op: crate::infrastructure::plugin::sandbox::execute,
+        op: crate::infrastructure::plugin::sandbox::simulate_error,
         ..DEFAULT_DEF
     },
 ];

@@ -56,7 +56,6 @@ jobs:
             extension-file-name: "not-yet-supported"
             target: x86_64-unknown-linux-gnu
             use-cross: false
-            strip-cmd: strip
             profile: release
             features: ""
     #          - artifact: linux-aarch64
@@ -66,7 +65,6 @@ jobs:
     #            extension-file-name: ""
     #            target: aarch64-unknown-linux-gnu
     #            use-cross: true
-    #            strip-cmd: aarch64-linux-gnu-strip
     #            profile: release
     #            features: ""
     #          - artifact: linux-armv7
@@ -76,7 +74,6 @@ jobs:
     #            extension-file-name: ""
     #            target: armv7-unknown-linux-gnueabihf
     #            use-cross: true
-    #            strip-cmd: arm-linux-gnueabihf-strip
     #            profile: release
     #            features: ""
     env:
@@ -138,17 +135,6 @@ jobs:
           command: build
           args: --features "${{ matrix.features }}" --profile ${{ matrix.profile }} --target ${{ matrix.target }}
           use-cross: ${{ matrix.use-cross }}
-      # Strip debug symbols (Linux and macOS)
-      # TODO-medium We could replace this with Cargo's recent built-in strip function
-      - name: Strip debug symbols from Linux binary
-        if: startsWith(matrix.os, 'ubuntu-')
-        run: |
-          cp target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }} target/${{ matrix.target }}/${{ matrix.profile }}/libhelgobox-debug.so
-          ${{ matrix.strip-cmd }} target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }}
-      - name: Strip debug symbols from macOS binary
-        if: matrix.os == 'macos-latest'
-        run: |
-          strip -u -r target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }}
       # Upload
       - name: Upload plug-in and extension to artifact
         uses: actions/upload-artifact@v4

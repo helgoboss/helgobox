@@ -75,7 +75,7 @@ once_cell.workspace = true
 derivative.workspace = true
 chrono.workspace = true
 smallvec = "1.7.0"
-backtrace = "0.3"
+backtrace = "0.3.74"
 regex.workspace = true
 enum-map.workspace = true
 # For generating controller file names from controller names

@@ -365,6 +365,115 @@ To be used like this:
 . Copy the error report to the clipboard.
 . Execute the action.
 
+=== Differences between debug levels
+
+==== macOS
+
+Insights:
+
+* The size difference between `debug = 1` and `debug = 2` is almost nothing (both 58 MB), and there's nothing to gain from `debug = 2` in terms of stack traces.
+* The size difference between `debug = 0` and `debug = 1` is around 5 MB (53 MB vs. 58 MB), and `debug = 1` only makes a difference if the source files exist (showing line numbers), and only for panics.
+* Hard crash stack traces are completely independent of the `debug` value.
+They are always helpful except when stripping the symbols.
+* `strip = symbols` leads to the smallest binaries (38 MB) but also to completely useless stack traces, both in soft and hard crashes.
+However, `split-debuginfo = "packed" seems to fix this at least for hard crashes, at a similar-sized binary (not for panics though) ... even if the DSYM directories are not on disk. What also fixes this for hard crashes is stripping via `strip -u -r`.
+We shouldn't do that anymore!
+* `strip = debuginfo` leads to an okay size reduction (53 MB) but removes line numbers even if source files exist.
+However, `split-debuginfo = "packed"` solves this by creating dSYM directories, as long as they are there.
+
+Takeaway:
+
+* We should build with `debug = 2`
+** While `debug = 1` is actually enough for most purposes, it can't hurt building with `debug = 2` since we strip debuginfo anyway.
+So there's no size difference for the final binary.
+That way we have more debuginfo on the server whenever we need it.
+* `strip = debuginfo` is the max we can strip away if we want panics to contain something useful
+* `strip = symbols` is only okay if we are fine with bogus stack traces in panics.
+In that case, we must use `split-debuginfo = "packed"` to get at least detailed stack traces in case of hard crashes.
+* We should use `split-debuginfo = "packed"` in all cases.
+* Would be good to find a way to leverage symbols for panic stack traces, but I think there is none.
+
+===== "debug = 0"
+
+.Panic (sources don't matter)
+----
+7:        0x120531450 - helgobox::infrastructure::plugin::sandbox::execute::h9608b1370cb08106
+----
+
+.Hard crash (sources don't matter)
+----
+4   helgobox-arm64.vst.dylib      	       0x120527df4 _$LT$helgobox..domain..targets..track_volume_target..TrackVolumeTarget$u20$as$u20$helgoboss_learn..mode..target..Target$GT$::current_value::hff7df2fe68cec5d5 + 20
+----
+
+===== "debug = 1"
+
+.Panic if sources exist
+----
+7:        0x13071ffdc - helgobox::infrastructure::plugin::sandbox::execute::hb564445c2d9211ee
+                               at /Users/helgoboss/Documents/projects/dev/realearn/main/src/infrastructure/plugin/sandbox.rs:3:5
+----
+
+.Panic if sources are gone
+----
+7:        0x140f1ffdc - helgobox::infrastructure::plugin::sandbox::execute::hb564445c2d9211ee
+----
+
+.Hard crash (sources don't matter)
+----
+6   helgobox-arm64.vst.dylib      	       0x1302d4a64 _$LT$helgobox..domain..mapping..CompoundMappingTarget$u20$as$u20$helgoboss_learn..mode..target..Target$GT$::current_value::hadfcb1be993900b3 + 20 (mapping.rs:2498) [inlined]
+----
+
+===== "debug = 2"
+
+.Panic if sources exist
+----
+7:        0x12160dafc - helgobox::infrastructure::plugin::sandbox::execute::h18fb689d4112e2d3
+                               at /Users/helgoboss/Documents/projects/dev/realearn/main/src/infrastructure/plugin/sandbox.rs:3:5
+----
+
+.Panic if sources are gone
+----
+7:        0x153f81afc - helgobox::infrastructure::plugin::sandbox::execute::h18fb689d4112e2d3
+----
+
+.Hard crash (sources don't matter)
+----
+6   helgobox-arm64.vst.dylib      	       0x1212d8148 _$LT$helgobox..domain..mapping..CompoundMappingTarget$u20$as$u20$helgoboss_learn..mode..target..Target$GT$::current_value::h15041e3226fa455d + 20 (mapping.rs:2498) [inlined]
+----
+
+===== "debug = 2; strip = debuginfo"
+
+.Panic (sources don't matter)
+----
+7:        0x138616570 - helgobox::infrastructure::plugin::sandbox::execute::hd0d406afe4d62df9
+----
+
+.Hard crash (sources don't matter)
+----
+4   helgobox-arm64.vst.dylib      	       0x13885aab4 _$LT$helgobox..domain..targets..track_volume_target..TrackVolumeTarget$u20$as$u20$helgoboss_learn..mode..target..Target$GT$::current_value::h35c07d80eb0a312b + 20
+----
+
+===== "debug = 2; strip = symbols"
+
+.Soft crash (sources don't matter)
+----
+0:        0x14bdef0ec - _NSEEL_HOSTSTUB_EnterMutex
+1:        0x14bd56f08 - _NSEEL_HOSTSTUB_EnterMutex
+2:        0x14bfbe4e4 - _cpp_to_rust_ProjectStateContext_SetTempFlag
+3:        0x14bfbddcc - _cpp_to_rust_ProjectStateContext_SetTempFlag
+4:        0x14bfbca08 - _cpp_to_rust_ProjectStateContext_SetTempFlag
+5:        0x14bfbdabc - _cpp_to_rust_ProjectStateContext_SetTempFlag
+6:        0x14c075710 - _cpp_to_rust_ProjectStateContext_SetTempFlag
+7:        0x14af50aa0 - _ReaperPluginEntry
+8:        0x14bd58fcc - _NSEEL_HOSTSTUB_EnterMutex
+9:        0x14bd82844 - _NSEEL_HOSTSTUB_EnterMutex
+----
+
+.Hard crash (sources don't matter)
+----
+7   helgobox-arm64.vst.dylib      	       0x14b34b5e0 0x14a65c000 + 13563360
+----
+
 == Documentation
 
 All documentation is written in AsciiDoc.
