@@ -46,6 +46,7 @@ use crate::infrastructure::ui::menus::{
     OscDeviceManagementAction, CONTROL_INPUT_MIDI_FX_INPUT_LABEL, FEEDBACK_OUTPUT_MIDI_FX_OUTPUT,
     FEEDBACK_OUTPUT_NONE_LABEL,
 };
+use crate::infrastructure::ui::stream_deck_tool::StreamDeckToolbarOptions;
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, colors, open_child_panel, open_child_panel_dyn, open_in_browser,
     open_in_file_manager, view, HEADER_PANEL_SCALING,
@@ -2752,8 +2753,12 @@ impl HeaderPanel {
     }
 
     fn convert_toolbar_to_stream_deck_mappings(&self, toolbar_name: &str) -> anyhow::Result<()> {
-        let api_compartment =
-            stream_deck_tool::create_stream_deck_compartment_reflecting_toolbar(toolbar_name)?;
+        let api_compartment = stream_deck_tool::create_stream_deck_compartment_reflecting_toolbar(
+            toolbar_name,
+            StreamDeckToolbarOptions {
+                use_sliding_images: true,
+            },
+        )?;
         let compartment_kind = CompartmentKind::Main;
         let data_compartment =
             to_data::convert_compartment(CompartmentKind::Main, api_compartment)?;

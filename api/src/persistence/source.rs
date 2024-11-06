@@ -335,6 +335,7 @@ pub enum StreamDeckButtonForeground {
     None,
     FadingColor(StreamDeckButtonFadingColorForeground),
     FadingImage(StreamDeckButtonFadingImageForeground),
+    SlidingImage(StreamDeckButtonSlidingImageForeground),
     FullBar(StreamDeckButtonFullBarForeground),
     Knob(StreamDeckButtonKnobForeground),
 }
@@ -354,6 +355,11 @@ impl Default for StreamDeckButtonBackground {
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
 pub struct StreamDeckButtonFadingImageForeground {
+    pub path: String,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, Serialize, Deserialize)]
+pub struct StreamDeckButtonSlidingImageForeground {
     pub path: String,
 }
 

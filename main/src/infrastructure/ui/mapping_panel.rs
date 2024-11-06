@@ -851,7 +851,7 @@ impl MappingPanel {
                     self.change_mapping(MappingCommand::ChangeSource(
                         SourceCommand::SetButtonBackgroundType(new_value),
                     ));
-                    if new_value == StreamDeckButtonBackgroundType::Image {
+                    if new_value.wants_image() {
                         let current_file = m
                             .borrow()
                             .source_model
@@ -919,7 +919,7 @@ impl MappingPanel {
                     self.change_mapping(MappingCommand::ChangeSource(
                         SourceCommand::SetButtonForegroundType(new_value),
                     ));
-                    if new_value == StreamDeckButtonForegroundType::FadingImage {
+                    if new_value.wants_image() {
                         let current_file = m
                             .borrow()
                             .source_model
@@ -4616,10 +4616,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 _ => None,
             },
-            StreamDeck
-                if self.source.button_background_type()
-                    == StreamDeckButtonBackgroundType::Image =>
-            {
+            StreamDeck if self.source.button_background_type().wants_image() => {
                 Some(self.source.button_background_image_path().to_string())
             }
             Virtual => Some(self.source.control_element_id().to_string()),
@@ -4857,10 +4854,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 );
                 Some(text)
             }
-            StreamDeck
-                if self.source.button_foreground_type()
-                    == StreamDeckButtonForegroundType::FadingImage =>
-            {
+            StreamDeck if self.source.button_foreground_type().wants_image() => {
                 Some(self.source.button_foreground_image_path().to_string())
             }
             _ => None,

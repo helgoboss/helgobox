@@ -20,7 +20,8 @@ use helgoboss_midi::{Channel, U14, U7};
 use helgobox_api::persistence::{
     MidiScriptKind, StreamDeckButtonBackground, StreamDeckButtonDesign,
     StreamDeckButtonFadingImageForeground, StreamDeckButtonForeground,
-    StreamDeckButtonImageBackground, VirtualControlElementCharacter,
+    StreamDeckButtonImageBackground, StreamDeckButtonSlidingImageForeground,
+    VirtualControlElementCharacter,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::Reaper;
@@ -806,6 +807,13 @@ impl SourceModel {
                         path: self.button_foreground_image_path.to_string(),
                     })
                 }
+                StreamDeckButtonForegroundType::SlidingImage => {
+                    StreamDeckButtonForeground::SlidingImage(
+                        StreamDeckButtonSlidingImageForeground {
+                            path: self.button_foreground_image_path.to_string(),
+                        },
+                    )
+                }
                 StreamDeckButtonForegroundType::FullBar => {
                     StreamDeckButtonForeground::FullBar(Default::default())
                 }
@@ -1383,6 +1391,12 @@ pub enum StreamDeckButtonBackgroundType {
     Image,
 }
 
+impl StreamDeckButtonBackgroundType {
+    pub fn wants_image(&self) -> bool {
+        *self == Self::Image
+    }
+}
+
 impl From<&StreamDeckButtonBackground> for StreamDeckButtonBackgroundType {
     fn from(value: &StreamDeckButtonBackground) -> Self {
         match value {
@@ -1400,14 +1414,23 @@ pub enum StreamDeckButtonForegroundType {
     #[default]
     #[display(fmt = "None")]
     None,
-    #[display(fmt = "Fading color")]
+    #[display(fmt = "Color fade")]
     FadingColor,
-    #[display(fmt = "Fading image")]
+    #[display(fmt = "Image fade")]
     FadingImage,
+    #[display(fmt = "Image slide")]
+    SlidingImage,
     #[display(fmt = "Full bar")]
     FullBar,
     #[display(fmt = "Knob")]
     Knob,
+}
+
+impl StreamDeckButtonForegroundType {
+    pub fn wants_image(&self) -> bool {
+        use StreamDeckButtonForegroundType::*;
+        matches!(self, FadingImage | SlidingImage)
+    }
 }
 
 impl From<&StreamDeckButtonForeground> for StreamDeckButtonForegroundType {
@@ -1416,6 +1439,7 @@ impl From<&StreamDeckButtonForeground> for StreamDeckButtonForegroundType {
             StreamDeckButtonForeground::None => Self::None,
             StreamDeckButtonForeground::FadingColor(_) => Self::FadingColor,
             StreamDeckButtonForeground::FadingImage(_) => Self::FadingImage,
+            StreamDeckButtonForeground::SlidingImage(_) => Self::SlidingImage,
             StreamDeckButtonForeground::Knob(_) => Self::Knob,
             StreamDeckButtonForeground::FullBar(_) => Self::FullBar,
         }

@@ -325,6 +325,9 @@ impl SourceModelData {
             StreamDeckButtonForeground::FadingImage(b) => {
                 model.change(P::SetButtonForegroundImagePath(b.path.clone().into()));
             }
+            StreamDeckButtonForeground::SlidingImage(b) => {
+                model.change(P::SetButtonForegroundImagePath(b.path.clone().into()));
+            }
             StreamDeckButtonForeground::FullBar(_) => {}
             StreamDeckButtonForeground::Knob(_) => {}
         }

@@ -2,13 +2,19 @@ use helgobox_api::persistence::{
     AbsoluteMode, ActionInvocationKind, ButtonFilter, Compartment, Glue, Interval, Mapping,
     ReaperActionTarget, ReaperCommand, Source, StreamDeckButtonBackground, StreamDeckButtonDesign,
     StreamDeckButtonFadingImageForeground, StreamDeckButtonForeground,
-    StreamDeckButtonImageBackground, StreamDeckSource, Target,
+    StreamDeckButtonImageBackground, StreamDeckButtonSlidingImageForeground, StreamDeckSource,
+    Target,
 };
 use reaper_high::{ActionCharacter, Reaper};
 use reaper_medium::{CommandItem, MenuOrToolbarItem};
 
+pub struct StreamDeckToolbarOptions {
+    pub use_sliding_images: bool,
+}
+
 pub fn create_stream_deck_compartment_reflecting_toolbar(
     toolbar_name: &str,
+    opts: StreamDeckToolbarOptions,
 ) -> anyhow::Result<Compartment> {
     let items = (0..)
         .map(|pos| get_toolbar_cmd_item(toolbar_name, pos))
@@ -19,7 +25,6 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
     // TODO-high CONTINUE How do we deal with targets that can't return a current value? Trigger-like targets?
     //  Those don't ever send feedback because there's no current value, and as such there's also no feedback value
     //  and the screen stays as it is.
-    // TODO-high CONTINUE Toolbar images should be slided, not faded
     let button_mappings = items.enumerate().map(|(i, item)| {
         let action = Reaper::get()
             .main_section()
@@ -41,8 +46,13 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
                 foreground: match button_icon_path {
                     None => StreamDeckButtonForeground::FadingColor(Default::default()),
                     Some(path) => {
-                        let fg = StreamDeckButtonFadingImageForeground { path };
-                        StreamDeckButtonForeground::FadingImage(fg)
+                        if opts.use_sliding_images {
+                            let fg = StreamDeckButtonSlidingImageForeground { path };
+                            StreamDeckButtonForeground::SlidingImage(fg)
+                        } else {
+                            let fg = StreamDeckButtonFadingImageForeground { path };
+                            StreamDeckButtonForeground::FadingImage(fg)
+                        }
                     }
                 },
                 static_text,
@@ -65,7 +75,7 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
         };
         let glue = match action_character {
             ActionCharacter::Toggle => Glue {
-                source_interval: if item.icon_file_name.is_some() {
+                source_interval: if opts.use_sliding_images && item.icon_file_name.is_some() {
                     // Show icon dimmed when off and with full brightness when on
                     Some(Interval(0.5, 1.0))
                 } else {

@@ -28,11 +28,12 @@ use once_cell::sync::Lazy;
 use palette::IntoColor;
 use reaper_high::{Fx, Reaper};
 use std::cell::{Cell, Ref, RefCell, RefMut};
+use std::cmp::min;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::{LazyLock, RwLock};
 use std::time::{Duration, Instant};
-use streamdeck::{Kind, StreamDeck};
+use streamdeck::StreamDeck;
 use strum::EnumCount;
 
 make_available_globally_in_main_thread_on_demand!(Backbone);
@@ -273,20 +274,51 @@ impl Backbone {
         use image::{Pixel, Rgba, RgbaImage};
         const DEFAULT_BG_COLOR: RgbColor = RgbColor::BLACK;
         const DEFAULT_FG_COLOR: RgbColor = RgbColor::WHITE;
-        #[cached(option = true)]
-        fn load_image_for_stream_deck(path: String, width: u32, height: u32) -> Option<RgbaImage> {
+        #[derive(Eq, PartialEq, Clone, Hash)]
+        enum ResizeMode {
+            Square,
+            ShortestSide,
+        }
+        fn adjust_size(dimension: u32, factor: f64) -> u32 {
+            (dimension as f64 * factor).floor() as u32
+        }
+        #[cached(result = true)]
+        fn load_image_for_stream_deck(
+            path: String,
+            size: u32,
+            resize_mode: ResizeMode,
+        ) -> anyhow::Result<RgbaImage> {
             let path: Utf8PathBuf = path.into();
             let path = if path.is_relative() {
                 Reaper::get().resource_path().join(path)
             } else {
                 path
             };
-            let image = image::open(path).ok()?;
+            let image = image::open(path)?;
+            let (width, height) = match resize_mode {
+                ResizeMode::Square => (size, size),
+                ResizeMode::ShortestSide => {
+                    let factor = size as f64 / min(image.width(), image.height()) as f64;
+                    (
+                        adjust_size(image.width(), factor),
+                        adjust_size(image.height(), factor),
+                    )
+                }
+            };
             let image = image
                 .resize_to_fill(width, height, image::imageops::FilterType::Lanczos3)
                 .into();
-            Some(image)
+            Ok(image)
         }
+        let mut error_msg: Option<String> = None;
+        let mut load_image_for_stream_deck_reporting_error =
+            |path: String, size: u32, resize_mode: ResizeMode| -> Option<RgbaImage> {
+                load_image_for_stream_deck(path, size, resize_mode)
+                    .inspect_err(|e| {
+                        error_msg = Some(e.to_string());
+                    })
+                    .ok()
+            };
         fn set_alpha(pixel: &mut Rgba<u8>, alpha: f32) {
             pixel[3] = (alpha * 255.0).round() as u8;
         }
@@ -357,24 +389,25 @@ impl Backbone {
         let sd = stream_decks
             .get_mut(&dev_id)
             .context("stream deck not connected")?;
-        let (width, height) = match sd.kind() {
-            Kind::Xl => (96, 96),
-            Kind::Original | Kind::OriginalV2 | Kind::Mini | Kind::Mk2 => (72, 72),
-        };
+        let button_size = sd.kind().image_size().0 as u32;
         let StreamDeckSourceFeedbackPayload::On(payload) = value.payload else {
             // Switch display off
-            let black = RgbaImage::from_pixel(width, height, Rgba::black());
+            let black = RgbaImage::from_pixel(button_size, button_size, Rgba::black());
             sd.set_button_image(value.button_index as _, black.into())?;
             return Ok(());
         };
         // Paint grounding (important for images with alpha channel)
         let bg_color: Rgba<u8> = payload.background_color.unwrap_or(DEFAULT_BG_COLOR).into();
-        let mut bg_layer = RgbaImage::from_pixel(width, height, bg_color);
+        let mut bg_layer = RgbaImage::from_pixel(button_size, button_size, bg_color);
         // Paint background
         let solid_bg_color = match payload.button_design.background {
             StreamDeckButtonBackground::Color(_) => Some(bg_color),
             StreamDeckButtonBackground::Image(b) => {
-                if let Some(bg_img) = load_image_for_stream_deck(b.path, width, height) {
+                if let Some(bg_img) = load_image_for_stream_deck_reporting_error(
+                    b.path,
+                    button_size,
+                    ResizeMode::Square,
+                ) {
                     overlay_with_image(&mut bg_layer, &bg_img, None);
                     None
                 } else {
@@ -398,20 +431,55 @@ impl Backbone {
                     })
                 }
                 StreamDeckButtonForeground::FadingImage(b) => {
-                    let mut fg_layer = RgbaImage::from_pixel(width, height, fg_color.into());
-                    if let Some(fg_img) = load_image_for_stream_deck(b.path, width, height) {
+                    let mut fg_layer =
+                        RgbaImage::from_pixel(button_size, button_size, fg_color.into());
+                    if let Some(fg_img) = load_image_for_stream_deck_reporting_error(
+                        b.path,
+                        button_size,
+                        ResizeMode::Square,
+                    ) {
                         overlay_with_image(&mut fg_layer, &fg_img, None);
                     }
                     overlay_with_image(&mut bg_layer, &fg_layer, Some(numeric_value));
                     // An image can have any colors, so we can't assume that the result is solid
                     None
                 }
+                StreamDeckButtonForeground::SlidingImage(b) => {
+                    if let Some(fg_img) = load_image_for_stream_deck_reporting_error(
+                        b.path,
+                        button_size,
+                        ResizeMode::ShortestSide,
+                    ) {
+                        let (longest_size_of_img, height_is_longest) =
+                            if fg_img.width() < fg_img.height() {
+                                (fg_img.height(), true)
+                            } else {
+                                (fg_img.width(), false)
+                            };
+                        let max_pos_offset = longest_size_of_img - button_size;
+                        let pos_offset = (numeric_value * max_pos_offset as f32).floor() as u32;
+                        for (button_x, button_y, target_pixel) in bg_layer.enumerate_pixels_mut() {
+                            let (fg_x, fg_y) = if height_is_longest {
+                                (button_x, pos_offset + button_y)
+                            } else {
+                                (pos_offset + button_x, button_y)
+                            };
+                            let fg_pixel = fg_img
+                                .get_pixel_checked(fg_x, fg_y)
+                                .copied()
+                                .unwrap_or(Rgba([0, 0, 0, 0]));
+                            target_pixel.blend(&fg_pixel)
+                        }
+                    }
+                    // An image can have any colors, so we can't assume that the result is solid
+                    None
+                }
                 StreamDeckButtonForeground::FullBar(_) => {
                     fg_color[3] = 100;
-                    let rect_height = (height as f32 * numeric_value) as u32;
+                    let rect_height = (button_size as f32 * numeric_value) as u32;
                     // Fill the background
                     for (_, y, pixel) in bg_layer.enumerate_pixels_mut() {
-                        if y >= height - rect_height {
+                        if y >= button_size - rect_height {
                             pixel.blend(&fg_color);
                         }
                     }
@@ -419,7 +487,7 @@ impl Backbone {
                     None
                 }
                 StreamDeckButtonForeground::Knob(_) => {
-                    draw_knob(&mut bg_layer, width, height, numeric_value);
+                    draw_knob(&mut bg_layer, button_size, button_size, numeric_value);
                     // The knob changes the result quite a bit, so we can't assume that the result is solid
                     None
                 }
@@ -428,8 +496,8 @@ impl Backbone {
             solid_bg_color
         };
         // Draw text
-        let text = payload
-            .text_value
+        let text = error_msg
+            .or(payload.text_value)
             .unwrap_or(payload.button_design.static_text);
         if !text.trim().is_empty() {
             static FONT: LazyLock<FontRef> = LazyLock::new(|| {
@@ -453,15 +521,15 @@ impl Backbone {
                 Rgba::white()
             };
             let num_display_lines = 4;
-            let line_height = (height as f32 / num_display_lines as f32).round() as u32;
+            let line_height = (button_size as f32 / num_display_lines as f32).round() as u32;
             let scale = PxScale::from(line_height as f32);
             let num_text_lines = text.lines().count() as u32;
             // Center text vertically
-            let y_offset = height.saturating_sub(num_text_lines * line_height) / 2;
+            let y_offset = button_size.saturating_sub(num_text_lines * line_height) / 2;
             for (l, text_line) in text.lines().take(num_display_lines).enumerate() {
                 let (text_line_width, _) = imageproc::drawing::text_size(scale, &*FONT, text_line);
                 // Center text horizontally
-                let x = width.saturating_sub(text_line_width) / 2;
+                let x = button_size.saturating_sub(text_line_width) / 2;
                 let y = y_offset + l as u32 * line_height;
                 imageproc::drawing::draw_text_mut(
                     &mut bg_layer,
