@@ -83,9 +83,19 @@ impl RealearnTarget for ActionTarget {
                         (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
                     }
                     Ok(ActionCharacter::Trigger) => {
-                        (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
+                        // If the action character is not toggle, it will emit ReaLearn-generated "fake" values,
+                        // because natively, trigger-like REAPER actions don't have the concept of a current value.
+                        // If that fake value is incorrect and the control type is not retriggerable, ReaLearn won't
+                        // fire. Bad. That's why we need to make it retriggerable.
+                        (
+                            ControlType::AbsoluteContinuousRetriggerable,
+                            TargetCharacter::Continuous,
+                        )
                     }
-                    Err(_) => (ControlType::AbsoluteContinuous, TargetCharacter::Continuous),
+                    Err(_) => (
+                        ControlType::AbsoluteContinuousRetriggerable,
+                        TargetCharacter::Continuous,
+                    ),
                 }
             }
             ActionInvocationType::Relative => (ControlType::Relative, TargetCharacter::Discrete),
