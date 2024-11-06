@@ -1132,12 +1132,27 @@ impl MainMapping {
         //   whether it wants numerical or textual feedback.
         let prop_provider = MappingPropProvider::new(self, control_context);
         let feedback_value = if self.core.mode.wants_advanced_feedback() {
+            // Advanced feedback (e.g. text expression)
             self.core
                 .mode
                 .build_feedback(&prop_provider, control_context.mode_context)
         } else {
+            // Normal numeric feedback
             let style = self.core.mode.feedback_style(&prop_provider);
-            FeedbackValue::Numeric(NumericFeedbackValue::new(style, combined_target_value?))
+            // https://github.com/helgoboss/helgobox/issues/1311:
+            // Before falling back to UnitValue::MIN, targets that didn't return a value (e.g. actions with invocation
+            // mode trigger) wouldn't cause any feedback. That means nothing happens to the connected feedback element.
+            // It's like feedback is disabled.
+            // This behavior turns out to be weird as soon as you have a display source that wants to display something
+            // (e.g. text), no matter whether the target supports feedback or not: The display will just be empty,
+            // nothing will happen to it. It will not even be switched off, so old content stays there ...
+            // which is misleading.
+            // I think the best way to deal with it is to emit the minimum feedback value = 0%. Emitting 0% is different
+            // from off. "Off" means, the mapping and/or target is inactive. So emitting 0% makes the source aware that
+            // an active target is connected.
+            let final_target_value =
+                combined_target_value.unwrap_or(AbsoluteValue::Continuous(UnitValue::MIN));
+            FeedbackValue::Numeric(NumericFeedbackValue::new(style, final_target_value))
         };
         let cause = if self.core.is_echo() {
             FeedbackCause::Echo

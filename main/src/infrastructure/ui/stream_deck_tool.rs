@@ -22,9 +22,6 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
         .flatten()
         .flatten();
     let reaper_resource_path = Reaper::get().resource_path();
-    // TODO-high CONTINUE How do we deal with targets that can't return a current value? Trigger-like targets?
-    //  Those don't ever send feedback because there's no current value, and as such there's also no feedback value
-    //  and the screen stays as it is.
     let button_mappings = items.enumerate().map(|(i, item)| {
         let action = Reaper::get()
             .main_section()
@@ -97,7 +94,6 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
                 };
                 Some(cmd)
             },
-            // TODO-high CONTINUE This should be Trigger for trigger-like actions, as soon as the feedback prob is solved
             invocation: {
                 let invocation = match action_character {
                     ActionCharacter::Toggle => ActionInvocationKind::Absolute7Bit,
