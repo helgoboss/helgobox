@@ -1,6 +1,6 @@
 use helgobox_api::persistence::{
-    AbsoluteMode, ActionInvocationKind, ButtonFilter, Compartment, Glue, Interval, Mapping,
-    ReaperActionTarget, ReaperCommand, Source, StreamDeckButtonBackground, StreamDeckButtonDesign,
+    AbsoluteMode, ActionInvocationKind, Compartment, Glue, Interval, Mapping, ReaperActionTarget,
+    ReaperCommand, Source, StreamDeckButtonBackground, StreamDeckButtonDesign,
     StreamDeckButtonFadingImageForeground, StreamDeckButtonForeground,
     StreamDeckButtonImageBackground, StreamDeckButtonSlidingImageForeground, StreamDeckSource,
     Target,
@@ -75,7 +75,7 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
         };
         let glue = match action_character {
             ActionCharacter::Toggle => Glue {
-                source_interval: if opts.use_sliding_images && item.icon_file_name.is_some() {
+                source_interval: if !opts.use_sliding_images && item.icon_file_name.is_some() {
                     // Show icon dimmed when off and with full brightness when on
                     Some(Interval(0.5, 1.0))
                 } else {
@@ -84,11 +84,7 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
                 absolute_mode: Some(AbsoluteMode::ToggleButton),
                 ..Default::default()
             },
-            ActionCharacter::Trigger => Glue {
-                // TODO-high CONTINUE This is obsolete for Trigger as soon as the feedback prob is solved
-                button_filter: Some(ButtonFilter::PressOnly),
-                ..Default::default()
-            },
+            ActionCharacter::Trigger => Glue::default(),
         };
         let target = ReaperActionTarget {
             command: {
@@ -102,9 +98,13 @@ pub fn create_stream_deck_compartment_reflecting_toolbar(
                 Some(cmd)
             },
             // TODO-high CONTINUE This should be Trigger for trigger-like actions, as soon as the feedback prob is solved
-            // TODO-high CONTINUE It might be a problem in general that non-trigger actions are not retriggerable.
-            //  Because the value can't usually be relied on! Only in case of toggle actions.
-            invocation: Some(ActionInvocationKind::Absolute7Bit),
+            invocation: {
+                let invocation = match action_character {
+                    ActionCharacter::Toggle => ActionInvocationKind::Absolute7Bit,
+                    ActionCharacter::Trigger => ActionInvocationKind::Trigger,
+                };
+                Some(invocation)
+            },
             ..Default::default()
         };
         Mapping {
