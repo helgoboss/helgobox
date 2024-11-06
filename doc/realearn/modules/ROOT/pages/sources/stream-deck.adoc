@@ -3,6 +3,8 @@
 With this source, you can leverage your Stream Deck with ReaLearn, for example the link:https://www.elgato.com/en/en/p/stream-deck-mk2-black[Elgato Stream Deck MK.2].
 This includes reacting to buttons and sending xref:key-concepts.adoc#feedback[] to the button displays.
 
+CAUTION: This source is experimental. Behavioral changes are still possible!
+
 == Supported devices
 
 The following StreamDeck devices are currently supported:
@@ -75,3 +77,80 @@ sudo udevadm control --reload-rules
 
 Unplug the Stream Deck and plug it back in to apply the new rule.
 Alternatively, you can execute `sudo udevadm trigger`.
+
+== User interface
+
+=== Button menu
+
+Select the button that you want to use to control or display something.
+
+=== Back menu
+
+Allows you to choose the desired button backgrounds.
+Unlike the button foreground, the button background is always static.
+It doesn't react to feedback value changes.
+
+Color::
+Uses a solid color as button background, by default black.
+You can change the color via xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[], that means the background color can even be dynamic, e.g. reflect the currently selected track's color.
+
+Image::
+Uses a PNG image as button background.
++
+The image should ideally be a square.
+If not, some parts of the image will not be visible.
+The ideal dimensions of that square depends on your specific device.
+On most Stream Decks, it's 72x72 pixels.
+But ReaLearn will automatically scale the image.
+If in doubt, prefer _larger_ image sizes.
+Scaling down gives you a better quality than scaling up.
++
+If the image has transparent parts, the color defined in xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[] will shine through.
+
+TIP: When picking images to be displayed on your Stream Deck, prefer images that are somewhere within your REAPER resource path (REAPER → Options → Show REAPER resource path in explorer/finder), e.g. toolbar icons.
+That makes ReaLearn save it as relative path, so your mapping becomes more portable (which is important if you want to share presets).
+
+=== Front menu
+
+Allows you to choose the desired button foreground, if desired.
+A foreground is usually dynamic, that means it can change depending on the target value.
+
+None::
+No foreground.
+Choose this if all you want to display is a static background.
+
+Color fade::
+Paints a color over the background with an opacity that depends on the target value.
+For example, if the target value is at 10%, the color will be almost transparent.
+It will fade depending The color is defined in xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[].
+
+Image fade::
+Paints an image over the background with an opacity that depends on the target value.
+In terms of sizing, it behaves exactly like a background image.
+
+Image slide::
+Paints the portion of an image over the background.
+Which portion, depends on the target value.
+Landscape images slide horizontally, portrait images slide vertically.
++
+This type of foreground is perfect for making use of REAPER's toolbar images.
+They are actually sprites, that means they contain multipe images in one file, at different horizontal positions.
+
+Full bar::
+Paints a full-sized bottom-up half-transparent bar over the background, indicating the current target value.
++
+Good in combination with targets that have a continuous range, such as xref:targets/track/set-volume.adoc[] or xref:targets/track/peak.adoc[].
+
+Knob::
+Paints a knob over the background, indicating the current target value.
+
+=== Default text field
+
+Here you can enter static text that should be displayed over the background and foreground.
+ReaLearn will automatically choose a contrast color or dim the background so that the text always stays readable.
+
+You can press btn:[...] to enter multi-line text.
+ReaLearn supports up to 4 lines of text.
+
+You can also display dynamic text from the target!
+See xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[].

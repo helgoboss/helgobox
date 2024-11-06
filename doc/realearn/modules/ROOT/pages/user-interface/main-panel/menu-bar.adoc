@@ -99,7 +99,18 @@ If you made direct changes to preset files, you should press this to reflect the
 This *will not* apply an adjusted preset to the current compartment, it will just reload the list.
 If you want to apply a preset that has been changed on disk, you need to reload it by selecting it in the preset dropdown once again!
 
-[[edit-compartment-wide-lua-code]] Edit compartment-wide Lua code:::
+Compartment tools::
+
+Convert toolbar to Stream Deck mappings:::
+This takes a toolbar of your choice and converts it to a list of mappings that will project the toolbar on your Stream Deck via xref::sources/stream-deck.adoc[].
++
+This feature is experimental and subject to improvement.
++
+NOTE: It will work best with custom toolbars that use non-default icons.
+Many of the default toolbar icons are not in the `Data/toolbar_icons` folder and therefore can't yet be loaded by ReaLearn. However, in this case, you will see a descriptive text instead.
+
+
+[[edit-compartment-wide-lua-code]] Edit compartment-wide Lua code::
 Allows you to edit the compartment-wide Lua code.
 See section xref:further-concepts/compartment.adoc#compartment-wide-lua-code[].
 
