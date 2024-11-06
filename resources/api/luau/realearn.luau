@@ -575,6 +575,8 @@ export type Source_MidiDeviceChanges = { kind: "MidiDeviceChanges" }
 
 export type Source_RealearnInstanceStart = { kind: "RealearnInstanceStart" }
 
+export type Source_RealearnCompartmentLoaded = { kind: "RealearnCompartmentLoaded" }
+
 export type Source_Timer = { kind: "Timer", duration: number }
 
 export type Source_RealearnParameter = { kind: "RealearnParameter", parameter_index: number }
@@ -684,11 +686,14 @@ export type Source_Osc = {
 
 export type Source_Key = { kind: "Key", keystroke: Keystroke? }
 
+export type Source_StreamDeck = { kind: "StreamDeck", button_index: number, button_design: StreamDeckButtonDesign? }
+
 export type Source_Virtual = { kind: "Virtual", id: VirtualControlElementId, character: VirtualControlElementCharacter? }
 export type Source =
 	Source_None
 	| Source_MidiDeviceChanges
 	| Source_RealearnInstanceStart
+	| Source_RealearnCompartmentLoaded
 	| Source_Timer
 	| Source_RealearnParameter
 	| Source_Speech
@@ -713,6 +718,7 @@ export type Source =
 	| Source_LaunchpadProScrollingTextDisplay
 	| Source_Osc
 	| Source_Key
+	| Source_StreamDeck
 	| Source_Virtual
 
 --- A type that represents all possible kinds of Source.
@@ -720,6 +726,7 @@ export type SourceKind =
 	"None"
 	| "MidiDeviceChanges"
 	| "RealearnInstanceStart"
+	| "RealearnCompartmentLoaded"
 	| "Timer"
 	| "RealearnParameter"
 	| "Speech"
@@ -744,6 +751,7 @@ export type SourceKind =
 	| "LaunchpadProScrollingTextDisplay"
 	| "Osc"
 	| "Key"
+	| "StreamDeck"
 	| "Virtual"
 
 --- Helper table to create Source values of different kinds.
@@ -767,6 +775,13 @@ end
 function module.Source.RealearnInstanceStart(): Source_RealearnInstanceStart
 	return {
 		kind = "RealearnInstanceStart",
+	}
+end
+
+--- Creates a Source of kind RealearnCompartmentLoaded.
+function module.Source.RealearnCompartmentLoaded(): Source_RealearnCompartmentLoaded
+	return {
+		kind = "RealearnCompartmentLoaded",
 	}
 end
 
@@ -943,6 +958,13 @@ end
 function module.Source.Key(value: KeySource): Source_Key
 	local t: any = table.clone(value)
 	t.kind = "Key"
+	return t
+end
+
+--- Creates a Source of kind StreamDeck.
+function module.Source.StreamDeck(value: StreamDeckSource): Source_StreamDeck
+	local t: any = table.clone(value)
+	t.kind = "StreamDeck"
 	return t
 end
 
@@ -1170,6 +1192,185 @@ export type KeySource = {
 }
 --- Creates a KeySource value.
 function module.KeySource(value: KeySource): KeySource
+	return value
+end
+
+export type StreamDeckSource = {
+	button_index: number,
+	button_design: StreamDeckButtonDesign?,
+}
+--- Creates a StreamDeckSource value.
+function module.StreamDeckSource(value: StreamDeckSource): StreamDeckSource
+	return value
+end
+
+export type StreamDeckButtonDesign = {
+	background: StreamDeckButtonBackground?,
+	foreground: StreamDeckButtonForeground?,
+	static_text: string?,
+}
+--- Creates a StreamDeckButtonDesign value.
+function module.StreamDeckButtonDesign(value: StreamDeckButtonDesign): StreamDeckButtonDesign
+	return value
+end
+
+export type StreamDeckButtonForeground_None = { kind: "None" }
+
+export type StreamDeckButtonForeground_FadingColor = { kind: "FadingColor" }
+
+export type StreamDeckButtonForeground_FadingImage = { kind: "FadingImage", path: string }
+
+export type StreamDeckButtonForeground_SlidingImage = { kind: "SlidingImage", path: string }
+
+export type StreamDeckButtonForeground_FullBar = { kind: "FullBar" }
+
+export type StreamDeckButtonForeground_Knob = { kind: "Knob" }
+export type StreamDeckButtonForeground =
+	StreamDeckButtonForeground_None
+	| StreamDeckButtonForeground_FadingColor
+	| StreamDeckButtonForeground_FadingImage
+	| StreamDeckButtonForeground_SlidingImage
+	| StreamDeckButtonForeground_FullBar
+	| StreamDeckButtonForeground_Knob
+
+--- A type that represents all possible kinds of StreamDeckButtonForeground.
+export type StreamDeckButtonForegroundKind = "None" | "FadingColor" | "FadingImage" | "SlidingImage" | "FullBar" | "Knob"
+
+--- Helper table to create StreamDeckButtonForeground values of different kinds.
+module.StreamDeckButtonForeground = {}
+
+--- Creates a StreamDeckButtonForeground of kind None.
+function module.StreamDeckButtonForeground.None(): StreamDeckButtonForeground_None
+	return {
+		kind = "None",
+	}
+end
+
+--- Creates a StreamDeckButtonForeground of kind FadingColor.
+function module.StreamDeckButtonForeground.FadingColor(
+	value: StreamDeckButtonFadingColorForeground
+): StreamDeckButtonForeground_FadingColor
+	local t: any = table.clone(value)
+	t.kind = "FadingColor"
+	return t
+end
+
+--- Creates a StreamDeckButtonForeground of kind FadingImage.
+function module.StreamDeckButtonForeground.FadingImage(
+	value: StreamDeckButtonFadingImageForeground
+): StreamDeckButtonForeground_FadingImage
+	local t: any = table.clone(value)
+	t.kind = "FadingImage"
+	return t
+end
+
+--- Creates a StreamDeckButtonForeground of kind SlidingImage.
+function module.StreamDeckButtonForeground.SlidingImage(
+	value: StreamDeckButtonSlidingImageForeground
+): StreamDeckButtonForeground_SlidingImage
+	local t: any = table.clone(value)
+	t.kind = "SlidingImage"
+	return t
+end
+
+--- Creates a StreamDeckButtonForeground of kind FullBar.
+function module.StreamDeckButtonForeground.FullBar(
+	value: StreamDeckButtonFullBarForeground
+): StreamDeckButtonForeground_FullBar
+	local t: any = table.clone(value)
+	t.kind = "FullBar"
+	return t
+end
+
+--- Creates a StreamDeckButtonForeground of kind Knob.
+function module.StreamDeckButtonForeground.Knob(value: StreamDeckButtonKnobForeground): StreamDeckButtonForeground_Knob
+	local t: any = table.clone(value)
+	t.kind = "Knob"
+	return t
+end
+
+export type StreamDeckButtonBackground_Color = { kind: "Color" }
+
+export type StreamDeckButtonBackground_Image = { kind: "Image", path: string }
+export type StreamDeckButtonBackground = StreamDeckButtonBackground_Color | StreamDeckButtonBackground_Image
+
+--- A type that represents all possible kinds of StreamDeckButtonBackground.
+export type StreamDeckButtonBackgroundKind = "Color" | "Image"
+
+--- Helper table to create StreamDeckButtonBackground values of different kinds.
+module.StreamDeckButtonBackground = {}
+
+--- Creates a StreamDeckButtonBackground of kind Color.
+function module.StreamDeckButtonBackground.Color(
+	value: StreamDeckButtonColorBackground
+): StreamDeckButtonBackground_Color
+	local t: any = table.clone(value)
+	t.kind = "Color"
+	return t
+end
+
+--- Creates a StreamDeckButtonBackground of kind Image.
+function module.StreamDeckButtonBackground.Image(
+	value: StreamDeckButtonImageBackground
+): StreamDeckButtonBackground_Image
+	local t: any = table.clone(value)
+	t.kind = "Image"
+	return t
+end
+
+export type StreamDeckButtonFadingImageForeground = {
+	path: string,
+}
+--- Creates a StreamDeckButtonFadingImageForeground value.
+function module.StreamDeckButtonFadingImageForeground(
+	value: StreamDeckButtonFadingImageForeground
+): StreamDeckButtonFadingImageForeground
+	return value
+end
+
+export type StreamDeckButtonSlidingImageForeground = {
+	path: string,
+}
+--- Creates a StreamDeckButtonSlidingImageForeground value.
+function module.StreamDeckButtonSlidingImageForeground(
+	value: StreamDeckButtonSlidingImageForeground
+): StreamDeckButtonSlidingImageForeground
+	return value
+end
+
+export type StreamDeckButtonFadingColorForeground = {}
+--- Creates a StreamDeckButtonFadingColorForeground value.
+function module.StreamDeckButtonFadingColorForeground(
+	value: StreamDeckButtonFadingColorForeground
+): StreamDeckButtonFadingColorForeground
+	return value
+end
+
+export type StreamDeckButtonFullBarForeground = {}
+--- Creates a StreamDeckButtonFullBarForeground value.
+function module.StreamDeckButtonFullBarForeground(
+	value: StreamDeckButtonFullBarForeground
+): StreamDeckButtonFullBarForeground
+	return value
+end
+
+export type StreamDeckButtonKnobForeground = {}
+--- Creates a StreamDeckButtonKnobForeground value.
+function module.StreamDeckButtonKnobForeground(value: StreamDeckButtonKnobForeground): StreamDeckButtonKnobForeground
+	return value
+end
+
+export type StreamDeckButtonImageBackground = {
+	path: string,
+}
+--- Creates a StreamDeckButtonImageBackground value.
+function module.StreamDeckButtonImageBackground(value: StreamDeckButtonImageBackground): StreamDeckButtonImageBackground
+	return value
+end
+
+export type StreamDeckButtonColorBackground = {}
+--- Creates a StreamDeckButtonColorBackground value.
+function module.StreamDeckButtonColorBackground(value: StreamDeckButtonColorBackground): StreamDeckButtonColorBackground
 	return value
 end
 
@@ -1617,6 +1818,8 @@ export type Target_PreviewPotPreset = { kind: "PreviewPotPreset", unit: TargetUn
 
 export type Target_LoadPotPreset = { kind: "LoadPotPreset", unit: TargetUnit?, fx: FxDescriptor? }
 
+export type Target_StreamDeckBrightness = { kind: "StreamDeckBrightness", unit: TargetUnit? }
+
 export type Target_Virtual = {
 	kind: "Virtual",
 	id: VirtualControlElementId,
@@ -1690,6 +1893,7 @@ export type Target =
 	| Target_BrowsePotPresets
 	| Target_PreviewPotPreset
 	| Target_LoadPotPreset
+	| Target_StreamDeckBrightness
 	| Target_Virtual
 
 --- A type that represents all possible kinds of Target.
@@ -1760,6 +1964,7 @@ export type TargetKind =
 	| "BrowsePotPresets"
 	| "PreviewPotPreset"
 	| "LoadPotPreset"
+	| "StreamDeckBrightness"
 	| "Virtual"
 
 --- Helper table to create Target values of different kinds.
@@ -2236,6 +2441,13 @@ end
 function module.Target.LoadPotPreset(value: LoadPotPresetTarget): Target_LoadPotPreset
 	local t: any = table.clone(value)
 	t.kind = "LoadPotPreset"
+	return t
+end
+
+--- Creates a Target of kind StreamDeckBrightness.
+function module.Target.StreamDeckBrightness(value: StreamDeckBrightnessTarget): Target_StreamDeckBrightness
+	local t: any = table.clone(value)
+	t.kind = "StreamDeckBrightness"
 	return t
 end
 
@@ -3207,6 +3419,14 @@ export type LoadPotPresetTarget = {
 }
 --- Creates a LoadPotPresetTarget value.
 function module.LoadPotPresetTarget(value: LoadPotPresetTarget): LoadPotPresetTarget
+	return value
+end
+
+export type StreamDeckBrightnessTarget = {
+	unit: TargetUnit?,
+}
+--- Creates a StreamDeckBrightnessTarget value.
+function module.StreamDeckBrightnessTarget(value: StreamDeckBrightnessTarget): StreamDeckBrightnessTarget
 	return value
 end
 

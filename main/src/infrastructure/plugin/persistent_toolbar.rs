@@ -132,7 +132,7 @@ impl<'a> ToolbarItem<'a> {
         let index = i.parse().ok()?;
         let icon = toolbar.find_icon(index);
         let item = ToolbarItem {
-            index: index,
+            index,
             command,
             desc,
             icon,

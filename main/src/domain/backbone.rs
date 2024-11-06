@@ -17,7 +17,6 @@ use ab_glyph::{FontRef, PxScale};
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use cached::proc_macro::cached;
 use camino::Utf8PathBuf;
-use egui::epaint::ahash::HashSetExt;
 use fragile::Fragile;
 use helgoboss_learn::{RgbColor, UnitValue};
 use helgobox_api::persistence::{
@@ -193,7 +192,7 @@ impl Backbone {
         let actually_connected_devices: NonCryptoHashSet<_> =
             self.stream_decks.borrow().keys().copied().collect();
         if devices_in_use == actually_connected_devices {
-            return NonCryptoHashSet::new();
+            return Default::default();
         }
         self.connect_or_disconnect_stream_deck_devices(&devices_in_use)
     }
@@ -431,8 +430,7 @@ impl Backbone {
                     })
                 }
                 StreamDeckButtonForeground::FadingImage(b) => {
-                    let mut fg_layer =
-                        RgbaImage::from_pixel(button_size, button_size, fg_color.into());
+                    let mut fg_layer = RgbaImage::from_pixel(button_size, button_size, fg_color);
                     if let Some(fg_img) = load_image_for_stream_deck_reporting_error(
                         b.path,
                         button_size,
@@ -533,7 +531,7 @@ impl Backbone {
                 let y = y_offset + l as u32 * line_height;
                 imageproc::drawing::draw_text_mut(
                     &mut bg_layer,
-                    text_color.into(),
+                    text_color,
                     x as _,
                     y as _,
                     scale,
