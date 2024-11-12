@@ -248,7 +248,7 @@ export type MatrixClipRecordSettings = {
 	play_start_timing: ClipPlayStartTimingOverrideAfterRecording?,
 	play_stop_timing: ClipPlayStopTimingOverrideAfterRecording?,
 	time_base: ClipRecordTimeBase?,
-	looped: boolean,
+	looped: boolean?,
 	midi_settings: MatrixClipRecordMidiSettings?,
 	audio_settings: MatrixClipRecordAudioSettings?,
 }
@@ -747,8 +747,8 @@ function module.ColumnSettings(value: ColumnSettings): ColumnSettings
 end
 
 export type ColumnClipPlaySettings = {
-	follows_scene: boolean,
-	exclusive: boolean,
+	follows_scene: boolean?,
+	exclusive: boolean?,
 	track: TrackId?,
 	start_timing: ClipPlayStartTiming?,
 	stop_timing: ClipPlayStopTiming?,
@@ -1018,11 +1018,11 @@ export type Clip = {
 	start_timing: ClipPlayStartTiming?,
 	stop_timing: ClipPlayStopTiming?,
 	velocity_sensitivity: number?,
-	looped: boolean,
+	looped: boolean?,
 	volume: number?,
 	color: ClipColor?,
 	dynamic_section: Section?,
-	fixed_section: Section,
+	fixed_section: Section?,
 	pitch_shift: Semitones?,
 	audio_settings: ClipAudioSettings?,
 	midi_settings: ClipMidiSettings?,
@@ -1033,7 +1033,7 @@ function module.Clip(value: Clip): Clip
 end
 
 export type ClipAudioSettings = {
-	apply_source_fades: boolean,
+	apply_source_fades: boolean?,
 	time_stretch_mode: AudioTimeStretchMode?,
 	resample_mode: VirtualResampleMode?,
 	cache_behavior: AudioCacheBehavior?,

@@ -394,9 +394,21 @@ pub struct SerdeArgs {
     #[darling(default)]
     untagged: bool,
     #[darling(default)]
-    default: Option<()>,
+    default: Option<FlagOrStringAttribute>,
     #[darling(default)]
     flatten: bool,
+}
+
+#[derive(Debug)]
+struct FlagOrStringAttribute;
+
+impl FromMeta for FlagOrStringAttribute {
+    fn from_meta(item: &Meta) -> Result<Self, darling::Error> {
+        match item {
+            Meta::Path(_) | Meta::NameValue(_) => Ok(Self),
+            _ => Err(darling::Error::unsupported_format("no default")),
+        }
+    }
 }
 
 impl<'a, H: Hook> Display for LuauEnum<'a, H> {

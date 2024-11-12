@@ -1255,6 +1255,7 @@ pub struct Clip {
     /// It then sets this section to the portion that actually matters. Once set, this section
     /// rarely changes.
     #[serde(alias = "section")]
+    #[serde(default)]
     pub fixed_section: Section,
     #[serde(default)]
     pub pitch_shift: Semitones,
