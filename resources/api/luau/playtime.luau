@@ -1011,21 +1011,21 @@ end
 export type Clip = {
 	id: ClipId?,
 	name: string?,
-	source: Source,
+	source: Source?,
 	frozen_source: Source?,
 	active_source: SourceOrigin?,
-	time_base: ClipTimeBase,
+	time_base: ClipTimeBase?,
 	start_timing: ClipPlayStartTiming?,
 	stop_timing: ClipPlayStopTiming?,
 	velocity_sensitivity: number?,
 	looped: boolean,
-	volume: number,
-	color: ClipColor,
+	volume: number?,
+	color: ClipColor?,
 	dynamic_section: Section?,
 	fixed_section: Section,
 	pitch_shift: Semitones?,
-	audio_settings: ClipAudioSettings,
-	midi_settings: ClipMidiSettings,
+	audio_settings: ClipAudioSettings?,
+	midi_settings: ClipMidiSettings?,
 }
 --- Creates a Clip value.
 function module.Clip(value: Clip): Clip
@@ -1085,7 +1085,7 @@ function module.MidiResetMessages(value: MidiResetMessages): MidiResetMessages
 end
 
 export type Section = {
-	start_pos: number,
+	start_pos: number?,
 	length: number?,
 }
 --- Creates a Section value.

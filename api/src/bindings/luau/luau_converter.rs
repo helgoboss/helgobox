@@ -394,7 +394,7 @@ pub struct SerdeArgs {
     #[darling(default)]
     untagged: bool,
     #[darling(default)]
-    default: bool,
+    default: Option<()>,
     #[darling(default)]
     flatten: bool,
 }
@@ -968,7 +968,7 @@ fn has_serde_flatten_arg(attributes: &[Attribute]) -> bool {
 }
 
 fn has_serde_default_arg(attributes: &[Attribute]) -> bool {
-    serde_args(attributes).any(|args| args.default)
+    serde_args(attributes).any(|args| args.default.is_some())
 }
 
 fn serde_args(attributes: &[Attribute]) -> impl Iterator<Item = SerdeArgs> + '_ {
