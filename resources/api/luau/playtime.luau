@@ -59,10 +59,10 @@ end
 export type Matrix = {
 	columns: { Column }?,
 	rows: { Row }?,
-	clip_play_settings: MatrixClipPlaySettings,
-	clip_record_settings: MatrixClipRecordSettings,
+	clip_play_settings: MatrixClipPlaySettings?,
+	clip_record_settings: MatrixClipRecordSettings?,
 	transport_sync_mode: TransportSyncMode?,
-	common_tempo_range: TempoRange,
+	common_tempo_range: TempoRange?,
 	activate_slot_on_trigger: boolean?,
 	click_volume: number?,
 	pre_roll_bars: number?,
@@ -218,9 +218,9 @@ end
 --- Matrix-global settings related to playing clips.
 export type MatrixClipPlaySettings = {
 	trigger_behavior: TriggerSlotBehavior?,
-	start_timing: ClipPlayStartTiming,
-	stop_timing: ClipPlayStopTiming,
-	audio_settings: MatrixClipPlayAudioSettings,
+	start_timing: ClipPlayStartTiming?,
+	stop_timing: ClipPlayStopTiming?,
+	audio_settings: MatrixClipPlayAudioSettings?,
 	velocity_sensitivity: number?,
 }
 --- Creates a MatrixClipPlaySettings value.
@@ -241,16 +241,16 @@ end
 
 --- Matrix-global settings related to recording clips.
 export type MatrixClipRecordSettings = {
-	start_timing: ClipRecordStartTiming,
-	stop_timing: ClipRecordStopTiming,
+	start_timing: ClipRecordStartTiming?,
+	stop_timing: ClipRecordStopTiming?,
 	length_mode: RecordLengthMode?,
 	custom_length: EvenQuantization?,
-	play_start_timing: ClipPlayStartTimingOverrideAfterRecording,
-	play_stop_timing: ClipPlayStopTimingOverrideAfterRecording,
-	time_base: ClipRecordTimeBase,
+	play_start_timing: ClipPlayStartTimingOverrideAfterRecording?,
+	play_stop_timing: ClipPlayStopTimingOverrideAfterRecording?,
+	time_base: ClipRecordTimeBase?,
 	looped: boolean,
-	midi_settings: MatrixClipRecordMidiSettings,
-	audio_settings: MatrixClipRecordAudioSettings,
+	midi_settings: MatrixClipRecordMidiSettings?,
+	audio_settings: MatrixClipRecordAudioSettings?,
 }
 --- Creates a MatrixClipRecordSettings value.
 --- Matrix-global settings related to recording clips.
@@ -261,10 +261,10 @@ end
 export type RecordLengthMode = "OpenEnd" | "CustomLength"
 
 export type MatrixClipRecordMidiSettings = {
-	record_mode: MidiClipRecordMode,
-	detect_downbeat: boolean,
-	detect_input: boolean,
-	auto_quantize: boolean,
+	record_mode: MidiClipRecordMode?,
+	detect_downbeat: boolean?,
+	detect_input: boolean?,
+	auto_quantize: boolean?,
 	clip_settings: ClipMidiSettings?,
 }
 --- Creates a MatrixClipRecordMidiSettings value.
@@ -273,8 +273,8 @@ function module.MatrixClipRecordMidiSettings(value: MatrixClipRecordMidiSettings
 end
 
 export type MatrixClipRecordAudioSettings = {
-	detect_downbeat: boolean,
-	detect_input: boolean,
+	detect_downbeat: boolean?,
+	detect_input: boolean?,
 }
 --- Creates a MatrixClipRecordAudioSettings value.
 function module.MatrixClipRecordAudioSettings(value: MatrixClipRecordAudioSettings): MatrixClipRecordAudioSettings
@@ -727,8 +727,8 @@ export type MatrixSequenceId = string
 export type Column = {
 	id: ColumnId?,
 	name: string?,
-	clip_play_settings: ColumnClipPlaySettings,
-	clip_record_settings: ColumnClipRecordSettings,
+	clip_play_settings: ColumnClipPlaySettings?,
+	clip_record_settings: ColumnClipRecordSettings?,
 	slots: { Slot }?,
 }
 --- Creates a Column value.
@@ -754,7 +754,7 @@ export type ColumnClipPlaySettings = {
 	stop_timing: ClipPlayStopTiming?,
 	trigger_behavior: TriggerSlotBehavior?,
 	velocity_sensitivity: number?,
-	audio_settings: ColumnClipPlayAudioSettings,
+	audio_settings: ColumnClipPlayAudioSettings?,
 }
 --- Creates a ColumnClipPlaySettings value.
 function module.ColumnClipPlaySettings(value: ColumnClipPlaySettings): ColumnClipPlaySettings
@@ -762,7 +762,7 @@ function module.ColumnClipPlaySettings(value: ColumnClipPlaySettings): ColumnCli
 end
 
 export type ColumnClipRecordSettings = {
-	origin: RecordOrigin,
+	origin: RecordOrigin?,
 	track: TrackId?,
 }
 --- Creates a ColumnClipRecordSettings value.

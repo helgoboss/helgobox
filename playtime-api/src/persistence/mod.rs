@@ -80,10 +80,13 @@ pub struct Matrix {
     /// All rows from top to bottom.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rows: Option<Vec<Row>>,
+    #[serde(default)]
     pub clip_play_settings: MatrixClipPlaySettings,
+    #[serde(default)]
     pub clip_record_settings: MatrixClipRecordSettings,
     #[serde(default)]
     pub transport_sync_mode: TransportSyncMode,
+    #[serde(default)]
     pub common_tempo_range: TempoRange,
     /// Whether to automatically activate a slot when it's triggered.
     ///
@@ -355,8 +358,11 @@ impl Default for TempoRange {
 pub struct MatrixClipPlaySettings {
     #[serde(default)]
     pub trigger_behavior: TriggerSlotBehavior,
+    #[serde(default)]
     pub start_timing: ClipPlayStartTiming,
+    #[serde(default)]
     pub stop_timing: ClipPlayStopTiming,
+    #[serde(default)]
     pub audio_settings: MatrixClipPlayAudioSettings,
     #[serde(default)]
     pub velocity_sensitivity: f64,
@@ -372,18 +378,26 @@ pub struct MatrixClipPlayAudioSettings {
 /// Matrix-global settings related to recording clips.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MatrixClipRecordSettings {
+    #[serde(default)]
     pub start_timing: ClipRecordStartTiming,
+    #[serde(default)]
     pub stop_timing: ClipRecordStopTiming,
     #[serde(default)]
     pub length_mode: RecordLengthMode,
     #[serde(default)]
     pub custom_length: EvenQuantization,
+    #[serde(default)]
     pub play_start_timing: ClipPlayStartTimingOverrideAfterRecording,
+    #[serde(default)]
     pub play_stop_timing: ClipPlayStopTimingOverrideAfterRecording,
+    #[serde(default)]
     pub time_base: ClipRecordTimeBase,
     /// If `true`, starts playing the clip right after recording.
+    #[serde(default = "looped_default")]
     pub looped: bool,
+    #[serde(default)]
     pub midi_settings: MatrixClipRecordMidiSettings,
+    #[serde(default)]
     pub audio_settings: MatrixClipRecordAudioSettings,
 }
 
@@ -496,23 +510,31 @@ impl Default for MatrixClipRecordSettings {
             play_start_timing: Default::default(),
             play_stop_timing: Default::default(),
             time_base: Default::default(),
-            looped: true,
+            looped: looped_default(),
             midi_settings: Default::default(),
             audio_settings: Default::default(),
         }
     }
 }
 
+fn looped_default() -> bool {
+    true
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MatrixClipRecordMidiSettings {
+    #[serde(default)]
     pub record_mode: MidiClipRecordMode,
     /// If `true`, attempts to detect the actual start of the recorded MIDI material and derives
     /// the downbeat position from that.
+    #[serde(default)]
     pub detect_downbeat: bool,
     /// Makes the global record button work for MIDI by allowing global input detection.
     // TODO-high-playtime-after-release
+    #[serde(default)]
     pub detect_input: bool,
     /// Applies quantization while recording using the current quantization settings.
+    #[serde(default)]
     pub auto_quantize: bool,
     /// These are the MIDI settings each recorded and otherwise created clip will get.
     #[serde(default)]
@@ -524,9 +546,11 @@ pub struct MatrixClipRecordAudioSettings {
     /// If `true`, attempts to detect the actual start of the recorded audio material and derives
     /// the downbeat position from that.
     // TODO-high-playtime-after-release
+    #[serde(default)]
     pub detect_downbeat: bool,
     /// Makes the global record button work for audio by allowing global input detection.
     // TODO-high-playtime-after-release
+    #[serde(default)]
     pub detect_input: bool,
 }
 
@@ -917,7 +941,9 @@ pub struct Column {
     pub id: ColumnId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(default)]
     pub clip_play_settings: ColumnClipPlaySettings,
+    #[serde(default)]
     pub clip_record_settings: ColumnClipRecordSettings,
     /// Slots in this column.
     ///
@@ -991,11 +1017,13 @@ pub struct ColumnClipPlaySettings {
     /// `None` means it uses the matrix-global sensitivity.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub velocity_sensitivity: Option<f64>,
+    #[serde(default)]
     pub audio_settings: ColumnClipPlayAudioSettings,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct ColumnClipRecordSettings {
+    #[serde(default)]
     pub origin: RecordOrigin,
     /// By default, Playtime records from the play track but this settings allows to override that.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1179,6 +1207,7 @@ pub struct Clip {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// Source of the audio/MIDI material of this clip.
+    #[serde(default)]
     pub source: Source,
     /// Source with effects "rendered in", usually audio.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1187,6 +1216,7 @@ pub struct Clip {
     #[serde(default)]
     pub active_source: SourceOrigin,
     /// Time base of the material provided by that source.
+    #[serde(default)]
     pub time_base: ClipTimeBase,
     /// Start timing override.
     ///
@@ -1204,10 +1234,13 @@ pub struct Clip {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub velocity_sensitivity: Option<f64>,
     /// Whether the clip should be played repeatedly or as a single shot.
+    #[serde(default = "looped_default")]
     pub looped: bool,
     /// Relative volume adjustment of clip.
+    #[serde(default)]
     pub volume: Db,
     /// Color of the clip.
+    #[serde(default)]
     pub color: ClipColor,
     /// A more variable kind of section within the main section.
     ///
@@ -1225,7 +1258,9 @@ pub struct Clip {
     pub fixed_section: Section,
     #[serde(default)]
     pub pitch_shift: Semitones,
+    #[serde(default)]
     pub audio_settings: ClipAudioSettings,
+    #[serde(default)]
     pub midi_settings: ClipMidiSettings,
     // /// Defines the total amount of time this clip should consume and where within that range the
     // /// portion of the original source is located.
@@ -1237,6 +1272,30 @@ pub struct Clip {
     // /// `None` means the canvas will have the same size as the source
     // /// section.
     // canvas: Option<Canvas>,
+}
+
+impl Default for Clip {
+    fn default() -> Self {
+        Self {
+            id: Default::default(),
+            name: None,
+            source: Default::default(),
+            frozen_source: None,
+            active_source: Default::default(),
+            time_base: Default::default(),
+            start_timing: None,
+            stop_timing: None,
+            velocity_sensitivity: None,
+            looped: looped_default(),
+            volume: Default::default(),
+            color: Default::default(),
+            dynamic_section: Default::default(),
+            fixed_section: Default::default(),
+            pitch_shift: Default::default(),
+            audio_settings: Default::default(),
+            midi_settings: Default::default(),
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -1264,6 +1323,7 @@ pub struct ClipAudioSettings {
     /// ## `true`
     ///
     /// Applies automatic fades to fix non-optimized source material, if necessary.
+    #[serde(default = "apply_source_fades_default")]
     pub apply_source_fades: bool,
     /// Defines how to adjust audio material.
     ///
@@ -1302,7 +1362,7 @@ impl Default for ClipAudioSettings {
     fn default() -> Self {
         Self {
             cache_behavior: Default::default(),
-            apply_source_fades: true,
+            apply_source_fades: apply_source_fades_default(),
             time_stretch_mode: None,
             resample_mode: None,
             original_tempo: None,
@@ -1310,9 +1370,14 @@ impl Default for ClipAudioSettings {
     }
 }
 
+fn apply_source_fades_default() -> bool {
+    true
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct ClipMidiSettings {
     /// If set, all MIDI channel MIDI events will be remapped to this channel.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub destination_channel: Option<u8>,
     /// Reset settings.
     #[serde(default)]
@@ -1445,6 +1510,7 @@ pub struct Section {
     /// Position in the source from which to start.
     ///
     /// If this is greater than zero, a fade-in will be used to avoid clicks.
+    #[serde(default)]
     pub start_pos: DurationInSeconds,
     /// Length of the material to be played, starting from `start_pos`.
     ///
@@ -1494,10 +1560,11 @@ impl Default for AudioCacheBehavior {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ClipColor {
     /// Inherits the color of the column's play track.
+    #[default]
     PlayTrackColor,
     /// Assigns a very specific custom color.
     CustomColor(CustomClipColor),
@@ -1524,6 +1591,12 @@ pub enum Source {
     MidiChunk(MidiChunkSource),
 }
 
+impl Default for Source {
+    fn default() -> Self {
+        Source::MidiChunk(Default::default())
+    }
+}
+
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct FileSource {
     /// Path to the media file.
@@ -1533,7 +1606,7 @@ pub struct FileSource {
     pub path: Utf8PathBuf,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MidiChunkSource {
     /// MIDI data in the same format that REAPER uses for in-project MIDI.
     pub chunk: String,
