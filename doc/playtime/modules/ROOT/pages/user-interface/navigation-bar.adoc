@@ -1,0 +1,3 @@
+= Navigation bar
+
+Buttons shown in the navigation bar are not specific to Playtime. See xref:helgobox::app/user-interface/navigation-bar.adoc[] in the Helgobox documentation.

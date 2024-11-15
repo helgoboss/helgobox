@@ -1,0 +1,6 @@
+[#todo-clip-midi-channel]
+== MIDI channel
+
+image:generated/screenshots/elements/todo/clip-midi-channel.png[MIDI channel, role="related thumb right"]
+
+Allows you to re-route the MIDI events in this clip to a MIDI channel of your choice.

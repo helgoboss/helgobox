@@ -1,0 +1,6 @@
+[#column-cell-label]
+=== Column label
+
+image:generated/screenshots/elements/column-cell/label.png[Column label, role="related thumb right"]
+
+Selects this column cell. This makes the inspector show settings related to this column.

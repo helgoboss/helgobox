@@ -1,0 +1,6 @@
+[#track-panel-mute]
+=== Mute track
+
+image:generated/screenshots/elements/track-panel/mute.png[Mute track, role="related thumb right"]
+
+Mutes this track

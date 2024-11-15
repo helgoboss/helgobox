@@ -1,0 +1,8 @@
+[#toolbar-matrix-start-timing]
+== Matrix start timing
+
+image:generated/screenshots/elements/toolbar/matrix-start-timing.png[Matrix start timing, role="related thumb right"]
+
+Decides when a clip actually starts playing after you have triggered its playback.
+
+This setting applies to all clips in the matrix but it can be overridden at column and clip level.

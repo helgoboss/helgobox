@@ -1,0 +1,8 @@
+[#info-panel-stats-pre-buffer-miss-count]
+=== Pre-buffer misses so far
+
+image:generated/screenshots/elements/info-panel/stats/pre-buffer-miss-count.png[Pre-buffer misses so far, role="related thumb right"]
+
+The number of times in which any audio clip's dynamic pre-buffer couldn't provide the desired pre-rendered audio content and even the static pre-buffer failed to provide it.
+
+If this rises from time to time, it's usually no reason to worry. Often the non-provided audio content lies within the count-in section of a clip, which is most likely silence anyway. However, if this continuously rises, it's not good and you will might experience audio dropouts or even completely silent clips. In this case, increasing REAPER's audio device buffer size and/or decreasing the sample rate might help. You can also try to increase Playtime's tempo latency.

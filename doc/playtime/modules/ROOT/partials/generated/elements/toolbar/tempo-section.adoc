@@ -1,0 +1,6 @@
+[#toolbar-tempo-section]
+== Tempo section
+
+image:generated/screenshots/elements/toolbar/tempo-section.png[Tempo section, role="related thumb right"]
+
+Provides tempo-related controls.

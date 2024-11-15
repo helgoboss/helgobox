@@ -1,0 +1,6 @@
+[#toolbar-record-matrix-sequence]
+=== Record matrix sequence
+
+image:generated/screenshots/elements/toolbar/record-matrix-sequence.png[Record matrix sequence, role="related thumb right"]
+
+Starts recording a new matrix performance

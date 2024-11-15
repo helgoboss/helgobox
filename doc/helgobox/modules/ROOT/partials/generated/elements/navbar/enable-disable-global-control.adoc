@@ -1,0 +1,10 @@
+[#navbar-enable-disable-global-control]
+== Enable/disable global control
+
+image:generated/screenshots/elements/navbar/enable-disable-global-control.png[Enable/disable global control, role="related thumb right"]
+
+Enables or disables the usage of global controllers for this Helgobox instance.
+
+If enabled, all connected controllers that you have equipped will load their corresponding main preset. You can configure controllers using the settings button in the window title bar.
+
+If disabled, global controllers will be ignored in this instance. You still have the freedom to create a custom control experience using ReaLearn.

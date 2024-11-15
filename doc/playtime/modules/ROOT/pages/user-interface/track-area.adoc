@@ -1,0 +1,49 @@
+= Track area
+
+include::partial$generated/elements/track-panel/header.adoc[]
+
+include::partial$generated/elements/track-panel/input-type-indicator.adoc[]
+
+include::partial$generated/elements/track-panel/label.adoc[]
+
+== Track input section
+
+include::partial$generated/elements/track-panel/input.adoc[]
+
+include::partial$generated/elements/track-panel/midi-channel-filter.adoc[]
+
+include::partial$generated/elements/track-panel/map-to-midi-channel.adoc[]
+
+include::partial$generated/elements/track-panel/input-monitoring.adoc[]
+
+include::partial$generated/elements/track-panel/input-monitoring-off.adoc[]
+
+include::partial$generated/elements/track-panel/input-monitoring-auto.adoc[]
+
+include::partial$generated/elements/track-panel/input-monitoring-on.adoc[]
+
+== Track output section
+
+=== PDC info
+
+If the track is affected by xref:further-concepts/general.adoc#pdc[], a small icon will light up.
+
+include::partial$generated/elements/track-panel/pdc-tiny.adoc[]
+include::partial$generated/elements/track-panel/pdc-significant.adoc[]
+include::partial$generated/elements/track-panel/pdc-critical.adoc[]
+
+include::partial$generated/elements/track-panel/pan.adoc[]
+
+include::partial$generated/elements/track-panel/volume.adoc[]
+
+include::partial$generated/elements/track-panel/instrument-fx.adoc[]
+
+include::partial$generated/elements/track-panel/fx-chain.adoc[]
+
+include::partial$generated/elements/track-panel/routing.adoc[]
+
+include::partial$generated/elements/track-panel/arm.adoc[]
+
+include::partial$generated/elements/track-panel/mute.adoc[]
+
+include::partial$generated/elements/track-panel/solo.adoc[]

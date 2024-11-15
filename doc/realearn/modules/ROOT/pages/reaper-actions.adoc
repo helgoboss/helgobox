@@ -1,29 +1,24 @@
 = REAPER actions
 
-ReaLearn provides some REAPER actions which become available as soon as at least one instance of ReaLearn is loaded.
-It can be useful to put a ReaLearn instance on REAPER's monitoring FX chain in order to have access to those actions at all times.
+ReaLearn provides the following REAPER actions in addition to the xref:helgobox::reaper-actions.adoc[general actions].
 
-In order to find these actions, open REAPER's _Actions_ menu, choose _Show action list…_ and simply search for
-`realearn`.
-The most important actions:
-
-ReaLearn: Find first mapping by source:: This action will ask you to touch some control element.
+Helgobox/ReaLearn: Find first mapping by source:: This action will ask you to touch some control element.
 As soon as you touch a control element which is mapped, it will open the mapping panel for the corresponding mapping.
 It will search within all ReaLearn instances/units loaded in your current project as well as the ones on the monitoring FX chain.
 
-ReaLearn: Find first mapping by target:: This action is similar to _Find first mapping by source_.
+Helgobox/ReaLearn: Find first mapping by target:: This action is similar to _Find first mapping by source_.
 It asks you to touch some (learnable) REAPER parameter.
 As soon as you touch one that is mapped, it will open its mapping panel.
 
-ReaLearn: Learn single mapping (reassigning source):: Asks you to touch a control element and target and adds a new mapping in the first ReaLearn unit that it encounters.
+Helgobox/ReaLearn: Learn single mapping (reassigning source):: Asks you to touch a control element and target and adds a new mapping in the first ReaLearn unit that it encounters.
 It prefers units in the current project over monitoring FX.
 It automatically chooses the unit with the correct MIDI/OSC input.
 If there's a unit which already has that source assigned, it will be reassigned to the new target that you touched.
 
-ReaLearn: Learn single mapping (reassigning source) and open it:: Like _Learn single mapping_ but additionally opens the mapping panel after having learned the mapping.
+Helgobox/ReaLearn: Learn single mapping (reassigning source) and open it:: Like _Learn single mapping_ but additionally opens the mapping panel after having learned the mapping.
 This is great for subsequent fine-tuning.
 
-ReaLearn: Learn source for last touched target (reassigning target):: This behaves similar to REAPER's built-in MIDI learn in that it always relates to the target that has been touched last.
+Helgobox/ReaLearn: Learn source for last touched target (reassigning target):: This behaves similar to REAPER's built-in MIDI learn in that it always relates to the target that has been touched last.
 
-ReaLearn: Send feedback for all instances:: Makes each ReaLearn instance/unit in all project tabs send feedback for all mappings.
+Helgobox/ReaLearn: Send feedback for all instances:: Makes each ReaLearn instance/unit in all project tabs send feedback for all mappings.
 That shouldn't be necessary most of the time because ReaLearn usually sends feedback automatically, but there are situations when it might come in handy.

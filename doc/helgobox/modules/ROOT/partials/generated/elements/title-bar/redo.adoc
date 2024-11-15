@@ -1,0 +1,6 @@
+[#title-bar-redo]
+== Redo
+
+image:generated/screenshots/elements/title-bar/redo.png[Redo, role="related thumb right"]
+
+

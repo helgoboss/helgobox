@@ -1,0 +1,5 @@
+= Title bar
+
+Most buttons shown in the title bar are not specific to Playtime. See xref:helgobox::app/user-interface/title-bar.adoc[] in the Helgobox documentation.
+
+TODO Playtime-specific parts

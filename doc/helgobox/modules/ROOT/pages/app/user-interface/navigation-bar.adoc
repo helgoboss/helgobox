@@ -1,0 +1,14 @@
+= Navigation bar
+
+The bar on the left is the _Navigation bar_.
+Its main purpose is to switch between different user interface pages.
+
+include::partial$generated/elements/navbar/home.adoc[]
+
+include::partial$generated/elements/navbar/projection.adoc[]
+
+include::partial$generated/elements/navbar/playtime.adoc[]
+
+include::partial$generated/elements/navbar/enable-disable-global-control.adoc[]
+
+include::partial$generated/elements/navbar/show-helgobox-plugin.adoc[]

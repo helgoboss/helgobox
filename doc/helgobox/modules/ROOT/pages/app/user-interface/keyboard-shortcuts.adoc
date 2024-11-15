@@ -1,0 +1,41 @@
+= Keyboard shortcuts
+
+Within the app, you can use the following keyboard shortcuts.
+
+|===
+|Shortcut |Purpose
+
+|kbd:[Esc]
+|Hides the app window.
+
+By default, you can quickly bring it back by pressing kbd:[Shift+Cmd/Ctrl+P].
+
+|kbd:[F]
+|Toggle full-screen mode
+
+|kbd:[Shift+Cmd/Ctrl+H]
+|Executes the REAPER action xref:helgobox::reaper-actions.adoc#toggle-app-focus[].
+
+|===
+
+Depending on the currently selected page, more keyboard shortcuts are available:
+
+- xref:playtime::user-interface/keyboard-shortcuts.adoc[Playtime shortcuts]
+
+[TIP]
+====
+**Normal REAPER's keyboard shortcuts are generally disabled when the app is focused!**
+
+This prevents conflicts and ensures flexibility for adding more app shortcuts in the future.
+
+If you want to use a certain REAPER shortcut while the app is focused, you must make it global:
+
+. Open menu:Actions[Show action list...]
+. Press btn:[Find shortcut...]
+. Press the shortcut key
++
+The action list should jump to the action mapped to that key.
+. Double-click the desired shortcut in the "Shortcuts for selected action" list
+. Change the property "Scope" to **Global**
+. Press btn:[OK]
+====

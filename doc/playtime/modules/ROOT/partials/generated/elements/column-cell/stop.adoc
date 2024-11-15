@@ -1,0 +1,8 @@
+[#column-cell-stop]
+=== Stop column
+
+image:generated/screenshots/elements/column-cell/stop.png[Stop column, role="related thumb right"]
+
+A single click stops all playing clips in this column according to their stop timing.
+
+A double click stops all playing clips in this column instantly.

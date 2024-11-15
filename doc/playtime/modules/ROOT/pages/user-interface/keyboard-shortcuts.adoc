@@ -1,0 +1,54 @@
+= Keyboard shortcuts
+
+Playtime provides keyboard shortcuts in addition to the xref:helgobox::app/user-interface/keyboard-shortcuts.adoc[general ones].
+
+|===
+|Shortcut |Purpose
+
+|kbd:[Cmd+Z]
+|Invokes Playtime's undo function.
+
+|kbd:[Cmd+R]
+|Invokes Playtime's redo function.
+
+|kbd:[Backspace/Delete]
+|Deletes the currently selected column or row, or clears the selected slot's contents.
+
+|kbd:[Cmd/Ctrl+C]
+|Copies the currently selected row or slot contents to the clipboard.
+
+|kbd:[Cmd/Ctrl+X]
+|Cuts the currently selected row or slot contents to the clipboard.
+
+|kbd:[Cmd/Ctrl+V]
+|Pastes row or slot contents from the clipboard to the currently selected row or slot.
+
+|kbd:[Space]
+|Starts or stops playback.
+
+|kbd:[F2]
+|Renames the currently selected column, row, clip or track.
+
+|kbd:[T]
+|Taps the tempo.
+
+|kbd:[M]
+|Toggles the metronome.
+
+|kbd:[E]
+|Edits the first clip in the currently selected slot.
+
+|kbd:[Q]
+|Quantizes the first clip in the currently selected slot.
+
+|kbd:[O]
+|Overdubs the first clip in the currently selected slot, if it's a MIDI clip.
+
+|kbd:[A]
+|Exports the complete matrix or the currently selected column, row or clip to the arrangement.
+
+|kbd:[Shift+Cmd/Ctrl+P]
+|Executes the REAPER action xref:reaper-actions.adoc#show-hide-playtime[].
+
+|===
+

@@ -1,0 +1,8 @@
+[#navbar-projection]
+== ReaLearn Projection
+
+image:generated/screenshots/elements/navbar/projection.png[ReaLearn Projection, role="related thumb right"]
+
+Shows the ReaLearn Projection page for this Helgobox instance.
+
+The main part of ReaLearn can be found in the Helgobox plug-in! The app only contains the Projection feature of ReaLearn.

@@ -1,0 +1,6 @@
+[#title-bar-undo]
+== Undo
+
+image:generated/screenshots/elements/title-bar/undo.png[Undo, role="related thumb right"]
+
+

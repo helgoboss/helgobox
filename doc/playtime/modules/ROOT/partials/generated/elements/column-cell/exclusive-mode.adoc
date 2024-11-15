@@ -1,0 +1,8 @@
+[#column-cell-exclusive-mode]
+=== Exclusive mode
+
+image:generated/screenshots/elements/column-cell/exclusive-mode.png[Exclusive mode, role="related thumb right"]
+
+This lights up if the column is in exclusive mode, which means that only one slot at a time can be playing.
+
+You can also click here to toggle exclusive mode on/off.

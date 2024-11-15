@@ -1,0 +1,6 @@
+[#row-cell-label]
+=== Row label
+
+image:generated/screenshots/elements/row-cell/label.png[Row label, role="related thumb right"]
+
+Selects this row cell. This makes the inspector show settings related to this row.

@@ -1,0 +1,6 @@
+[#toolbar-pane-toggler]
+== Pane toggler
+
+image:generated/screenshots/elements/toolbar/pane-toggler.png[Pane toggler, role="related thumb right"]
+
+Shows/hides different areas of Playtime's user interface.

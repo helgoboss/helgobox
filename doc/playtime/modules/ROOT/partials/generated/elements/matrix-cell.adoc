@@ -1,0 +1,6 @@
+[#matrix-cell]
+== Matrix cell
+
+image:generated/screenshots/elements/matrix-cell.png[Matrix cell, role="related thumb right"]
+
+This cell represents the complete matrix including all columns, rows and slots.

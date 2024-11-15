@@ -1,0 +1,6 @@
+[#column-cell]
+== Column header cell
+
+image:generated/screenshots/elements/column-cell.png[Column header cell, role="related thumb right"]
+
+This cell represents the complete column, including all of its slots.

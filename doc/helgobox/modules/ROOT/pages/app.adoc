@@ -1,0 +1,6 @@
+= Helgobox App
+
+At the moment, the app primarily provides the user interface for xref:playtime::introduction.adoc[Playtime], but it will contain more stuff in the future.
+
+.App window
+image::screenshots/app-window.png[]

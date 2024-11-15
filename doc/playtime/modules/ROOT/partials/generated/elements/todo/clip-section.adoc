@@ -1,0 +1,8 @@
+[#todo-clip-section]
+== Section ⊖
+
+image:generated/screenshots/elements/todo/clip-section.png[Section ⊖, role="related thumb right"]
+
+Here you can define which part of the audio or MIDI clip you want to play.
+
+You can play with the section start position and length as part of a performance! This distinguishes it from the more permanent "Source cut" settings in the expert section.

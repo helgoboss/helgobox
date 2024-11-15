@@ -1,0 +1,6 @@
+[#track-panel-routing]
+=== Track routing
+
+image:generated/screenshots/elements/track-panel/routing.png[Track routing, role="related thumb right"]
+
+Shows the REAPER routing window of this track

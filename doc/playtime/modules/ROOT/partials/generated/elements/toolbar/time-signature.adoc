@@ -1,0 +1,6 @@
+[#toolbar-time-signature]
+=== Time signature
+
+image:generated/screenshots/elements/toolbar/time-signature.png[Time signature, role="related thumb right"]
+
+Displays the project's time signature.

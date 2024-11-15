@@ -1,0 +1,6 @@
+[#navbar-home]
+== Home
+
+image:generated/screenshots/elements/navbar/home.png[Home, role="related thumb right"]
+
+Shows the Helgobox welcome page.

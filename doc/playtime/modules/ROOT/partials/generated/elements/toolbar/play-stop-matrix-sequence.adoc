@@ -1,0 +1,6 @@
+[#toolbar-play-stop-matrix-sequence]
+=== Play/stop matrix sequence
+
+image:generated/screenshots/elements/toolbar/play-stop-matrix-sequence.png[Play/stop matrix sequence, role="related thumb right"]
+
+Plays or stops the currently active matrix sequence

@@ -1,0 +1,6 @@
+[#toolbar-transport-section]
+== Transport section
+
+image:generated/screenshots/elements/toolbar/transport-section.png[Transport section, role="related thumb right"]
+
+Provides the Playtime transport controls.

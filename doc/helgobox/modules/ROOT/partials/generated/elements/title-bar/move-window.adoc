@@ -1,0 +1,6 @@
+[#title-bar-move-window]
+== Move window
+
+image:generated/screenshots/elements/title-bar/move-window.png[Move window, role="related thumb right"]
+
+Drag this button to move the window. Useful when the window is very narrow, in which case the main drag area in the center will disappear.

@@ -1,0 +1,6 @@
+[#title-bar-save-project]
+== Save project
+
+image:generated/screenshots/elements/title-bar/save-project.png[Save project, role="related thumb right"]
+
+Saves the REAPER project

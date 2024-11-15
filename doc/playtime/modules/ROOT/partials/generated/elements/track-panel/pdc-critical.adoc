@@ -1,0 +1,8 @@
+[#track-panel-pdc-critical]
+==== Critical latency: 200ms
+
+image:generated/screenshots/elements/track-panel/pdc-critical.png[Critical latency: 200ms, role="related thumb right"]
+
+This track is affected by a very high latency, which Playtime compensates during playback. Input monitoring will be absolutely terrible because of high delays. Playback will not be optimal.
+
+Please note that Playtime is a live tool and therefore optimized for low latencies. It will do its best to deal with high latencies, but the experience might be less smooth. Consider turning off the offending FX if you want to use Playtime for jamming!

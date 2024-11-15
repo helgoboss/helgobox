@@ -1,0 +1,6 @@
+[#title-bar-theme-switcher]
+== Quick theme switcher
+
+image:generated/screenshots/elements/title-bar/theme-switcher.png[Quick theme switcher, role="related thumb right"]
+
+This switches through a few hand-picked combinations of theme-related user interface settings.

@@ -1,0 +1,8 @@
+[#toolbar-metronome]
+=== Metronome
+
+image:generated/screenshots/elements/toolbar/metronome.png[Metronome, role="related thumb right"]
+
+Toggles the metronome.
+
+Right-click to change metronome settings.

@@ -1,0 +1,6 @@
+[#track-panel-arm]
+=== Arm track
+
+image:generated/screenshots/elements/track-panel/arm.png[Arm track, role="related thumb right"]
+
+Arms this track for recording

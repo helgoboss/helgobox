@@ -1,0 +1,27 @@
+= Info panel
+
+The info panel displays context-sensitive help, statistics and warnings.
+
+== Help
+
+This tab displays helpful information about the item under the mouse.
+
+== Warnings
+
+In certain situations, you might see a warning button, that upon clicking will show you further details about the warnings.
+
+== Stats
+
+This tab displays information about the current state of the Playtime engine.
+
+include::partial$generated/elements/info-panel/stats/tempo-buffer-size.adoc[]
+
+include::partial$generated/elements/info-panel/stats/pre-buffered-blocks-playing-min.adoc[]
+
+include::partial$generated/elements/info-panel/stats/pre-buffered-blocks-playing-avg.adoc[]
+
+include::partial$generated/elements/info-panel/stats/pre-buffered-blocks-playing-max.adoc[]
+
+include::partial$generated/elements/info-panel/stats/pre-buffer-fallback-count.adoc[]
+
+include::partial$generated/elements/info-panel/stats/pre-buffer-miss-count.adoc[]

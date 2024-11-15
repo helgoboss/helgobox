@@ -1,0 +1,6 @@
+[#title-bar-dim]
+== Dim
+
+image:generated/screenshots/elements/title-bar/dim.png[Dim, role="related thumb right"]
+
+Toggles between a transparent and opaque window. Useful for quickly having a look what REAPER is doing under the hood ;)

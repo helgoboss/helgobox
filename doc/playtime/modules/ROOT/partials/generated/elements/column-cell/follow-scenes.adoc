@@ -1,0 +1,8 @@
+[#column-cell-follow-scenes]
+=== Follow scenes
+
+image:generated/screenshots/elements/column-cell/follow-scenes.png[Follow scenes, role="related thumb right"]
+
+This lights up if the column follows scenes.
+
+You can also click here to follow/unfollow.

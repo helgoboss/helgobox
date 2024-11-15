@@ -1,0 +1,6 @@
+[#row-cell-play-scene]
+=== Play scene
+
+image:generated/screenshots/elements/row-cell/play-scene.png[Play scene, role="related thumb right"]
+
+Plays all clips in this row whose column follows scenes.

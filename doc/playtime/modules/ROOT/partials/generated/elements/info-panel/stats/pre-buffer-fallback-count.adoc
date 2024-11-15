@@ -1,0 +1,8 @@
+[#info-panel-stats-pre-buffer-fallback-count]
+=== Pre-buffer fallbacks so far
+
+image:generated/screenshots/elements/info-panel/stats/pre-buffer-fallback-count.png[Pre-buffer fallbacks so far, role="related thumb right"]
+
+The number of times in which any audio clip's dynamic pre-buffer couldn't provide the desired pre-rendered audio content, but the static pre-buffer was able to provide it instead.
+
+It's normal that this rises when playing audio clips, especially when using "Immediate" start timing.

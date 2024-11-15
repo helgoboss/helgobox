@@ -1,0 +1,6 @@
+[#title-bar-settings]
+== User interface settings
+
+image:generated/screenshots/elements/title-bar/settings.png[User interface settings, role="related thumb right"]
+
+Lets you adjust various settings related to the user interface.

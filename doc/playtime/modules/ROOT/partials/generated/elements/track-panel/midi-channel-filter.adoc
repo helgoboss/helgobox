@@ -1,0 +1,6 @@
+[#track-panel-midi-channel-filter]
+=== MIDI channel filter
+
+image:generated/screenshots/elements/track-panel/midi-channel-filter.png[MIDI channel filter, role="related thumb right"]
+
+Allows to listen to a specific MIDI channel only. Messages from other MIDI channels will be ignored.

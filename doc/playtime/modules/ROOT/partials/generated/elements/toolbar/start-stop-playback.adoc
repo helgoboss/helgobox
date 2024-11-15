@@ -1,0 +1,10 @@
+[#toolbar-start-stop-playback]
+=== Start/stop playback
+
+image:generated/screenshots/elements/toolbar/start-stop-playback.png[Start/stop playback, role="related thumb right"]
+
+Pressing this button start or stops Playtime playback.
+
+Starting playback also triggers playback of all *ignited* clips in the matrix. If you want to permanently stop all ignited clips before playback, simply click the matrix stop button.
+
+Stopping playback automatically ignites all clips that have been playing. After stopping you can resume playback or use the tap button (visual metronome) to count in with a completely new tempo.

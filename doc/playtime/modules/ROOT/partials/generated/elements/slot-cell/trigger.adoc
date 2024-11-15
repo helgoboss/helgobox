@@ -1,0 +1,8 @@
+[#slot-cell-trigger]
+=== Trigger slot
+
+image:generated/screenshots/elements/slot-cell/trigger.png[Trigger slot, role="related thumb right"]
+
+Plays, retriggers or stops all clips in this slot depending on the trigger behavior configured for the matrix.
+
+**Stop:** A single click stops all contained clips according to their stop timing. A double click stops all contained clips instantly.

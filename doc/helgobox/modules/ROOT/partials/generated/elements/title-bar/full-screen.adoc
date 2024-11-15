@@ -1,0 +1,6 @@
+[#title-bar-full-screen]
+== Full screen
+
+image:generated/screenshots/elements/title-bar/full-screen.png[Full screen, role="related thumb right"]
+
+Toggles between full-screen and windowed mode.

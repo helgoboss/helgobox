@@ -1,0 +1,30 @@
+= REAPER actions
+
+== General actions
+
+Helgobox provides a few global REAPER actions.
+
+You can find those actions directly in the menu menu:Extensions[Helgobox].
+Alternatively, search for "helgobox" in REAPER's action list (menu:Actions[Show action list...]).
+
+[TIP]
+====
+On Linux, you currently need to add at least one Helgobox FX instance to make the actions available.
+
+This is likely going to change in the future.
+For the time being, it can be useful to put a Helgobox instance on REAPER's monitoring FX chain in order to have access to those actions at all times.
+====
+
+Helgobox/General: Show welcome screen::
+Shows the welcome screen that was displayed after the first installation of Helgobox.
+
+[#toggle-app-focus]
+Helgobox/General: Toggle app focus kbd:[Shift+Cmd/Ctrl+H]::
+Switches focus between REAPER and the xref:app.adoc[].
+
+== Product-specific actions
+
+The products contained in Helgobox provide additional actions:
+
+- xref:realearn::reaper-actions.adoc[ReaLearn actions]
+- xref:playtime::reaper-actions.adoc[Playtime actions]

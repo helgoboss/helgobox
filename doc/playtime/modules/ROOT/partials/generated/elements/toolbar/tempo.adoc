@@ -1,0 +1,6 @@
+[#toolbar-tempo]
+=== Tempo
+
+image:generated/screenshots/elements/toolbar/tempo.png[Tempo, role="related thumb right"]
+
+Controls the project tempo. This is possible as long as no tempo marker exists in the project.

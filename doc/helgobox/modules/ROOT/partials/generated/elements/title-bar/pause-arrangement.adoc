@@ -1,0 +1,6 @@
+[#title-bar-pause-arrangement]
+== Pause arrangement
+
+image:generated/screenshots/elements/title-bar/pause-arrangement.png[Pause arrangement, role="related thumb right"]
+
+Pauses the REAPER arrangement

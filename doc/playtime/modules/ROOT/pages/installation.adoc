@@ -1,3 +1,9 @@
 = Installation
 
-See xref:helgobox::installation.adoc[installation instructions for Helgobox], the plug-in that contains Playtime.
+At first, please follow the xref:helgobox::installation.adoc[installation instructions for Helgobox], the plug-in that contains Playtime.
+
+After installing Helgobox, the easiest way to access Playtime is by using the convenient btn:[Playtime] button in REAPER's main toolbar.
+If you don't see it, do this:
+
+. Select menu:Extensions[Helgobox > Show welcome screen]
+. Check "Add Playtime button to main toolbar"

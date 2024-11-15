@@ -1,0 +1,8 @@
+[#track-panel-input-type-indicator]
+=== Track input type indicator
+
+image:generated/screenshots/elements/track-panel/input-type-indicator.png[Track input type indicator, role="related thumb right"]
+
+This icon indicates whether the track reacts to MIDI or audio input.
+
+This should **not** be confused with a track type! Tracks in REAPER/Playtime don't have any type. A track can always **play** both audio and MIDI clips, no matter what's displayed here. The icon only refers to the current recording input!

@@ -1,0 +1,6 @@
+[#matrix-scroll-indicator]
+=== Scroll indicator
+
+image:generated/screenshots/elements/matrix/scroll-indicator.png[Scroll indicator, role="related thumb right"]
+
+This arrow tells that you are not seeing the complete matrix at once. It continues in the indicated direction.

@@ -1,0 +1,6 @@
+[#title-bar-helgobox-info]
+== Helgobox Info
+
+image:generated/screenshots/elements/title-bar/helgobox-info.png[Helgobox Info, role="related thumb right"]
+
+Shows the version number of this Helgobox installation as well as the ID of the Helgobox instance to which this App window is connected.

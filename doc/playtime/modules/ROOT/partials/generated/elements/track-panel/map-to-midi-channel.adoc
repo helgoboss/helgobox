@@ -1,0 +1,6 @@
+[#track-panel-map-to-midi-channel]
+=== Map to MIDI channel
+
+image:generated/screenshots/elements/track-panel/map-to-midi-channel.png[Map to MIDI channel, role="related thumb right"]
+
+Allows you to route all incoming MIDI events to a specific MIDI channel at record time.

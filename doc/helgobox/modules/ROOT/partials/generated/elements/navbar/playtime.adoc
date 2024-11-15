@@ -1,0 +1,6 @@
+[#navbar-playtime]
+== Playtime
+
+image:generated/screenshots/elements/navbar/playtime.png[Playtime, role="related thumb right"]
+
+Shows the Playtime Clip Matrix associated with this Helgobox instance.

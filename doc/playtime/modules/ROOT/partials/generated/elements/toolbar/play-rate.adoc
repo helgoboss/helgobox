@@ -1,0 +1,6 @@
+[#toolbar-play-rate]
+=== Play rate
+
+image:generated/screenshots/elements/toolbar/play-rate.png[Play rate, role="related thumb right"]
+
+Controls the project play rate. This is possible as long as no tempo marker exists in the project.
