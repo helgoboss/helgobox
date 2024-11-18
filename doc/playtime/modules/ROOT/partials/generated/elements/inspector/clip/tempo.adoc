@@ -1,0 +1,8 @@
+[#inspector-clip-tempo]
+== Tempo
+
+image:generated/screenshots/elements/inspector/clip/tempo.png[Tempo, role="related thumb right"]
+
+The original tempo in which the audio material has been recorded.
+
+This setting determines the time stretching factor to be applied to the clip if the global tempo changes.

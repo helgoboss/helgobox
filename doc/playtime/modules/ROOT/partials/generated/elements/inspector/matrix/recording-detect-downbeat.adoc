@@ -1,0 +1,6 @@
+[#inspector-matrix-recording-detect-downbeat]
+== Detect downbeat
+
+image:generated/screenshots/elements/inspector/matrix/recording-detect-downbeat.png[Detect downbeat, role="related thumb right"]
+
+If you enable this, Playtime will record even MIDI notes that you play *before* the scheduled recording start (e.g. before the next bar). It will interpret those notes as pickup beat and adjust the downbeat setting accordingly.

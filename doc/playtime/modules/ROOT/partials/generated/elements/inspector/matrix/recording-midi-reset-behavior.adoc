@@ -1,0 +1,6 @@
+[#inspector-matrix-recording-midi-reset-behavior]
+== MIDI reset behavior
+
+image:generated/screenshots/elements/inspector/matrix/recording-midi-reset-behavior.png[MIDI reset behavior, role="related thumb right"]
+
+MIDI reset behavior that will be assigned to new clips: Recorded clips, imported clips and empty clips created by double-clicking a slot.

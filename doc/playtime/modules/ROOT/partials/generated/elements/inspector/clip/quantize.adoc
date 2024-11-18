@@ -1,0 +1,8 @@
+[#inspector-clip-quantize]
+== Quantize
+
+image:generated/screenshots/elements/inspector/clip/quantize.png[Quantize, role="related thumb right"]
+
+Pressing this will quantize or unquantize the MIDI notes of this clip according to the matrix-wide MIDI quantization grid setting.
+
+Tip: If you need more advanced quantization settings, please use the REAPER MIDI editor instead (double-click the slot or clip).

@@ -1,0 +1,8 @@
+[#inspector-clip-time-signature]
+== Time signature
+
+image:generated/screenshots/elements/inspector/clip/time-signature.png[Time signature, role="related thumb right"]
+
+The original time signature in which the material has been recorded.
+
+This will be used for display purposes.

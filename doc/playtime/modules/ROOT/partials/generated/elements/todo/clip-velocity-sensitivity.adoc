@@ -1,6 +1,0 @@
-[#todo-clip-velocity-sensitivity]
-== Velocity sensitivity
-
-image:generated/screenshots/elements/todo/clip-velocity-sensitivity.png[Velocity sensitivity, role="related thumb right"]
-
-This overrides the velocity sensitivity defined in the column or matrix settings.

@@ -1,0 +1,8 @@
+[#inspector-matrix-start-timing]
+== Start timing
+
+image:generated/screenshots/elements/inspector/matrix/start-timing.png[Start timing, role="related thumb right"]
+
+Decides when a clip actually starts playing after you have triggered its playback.
+
+This setting applies to all clips in the matrix but it can be overridden at column and clip level.

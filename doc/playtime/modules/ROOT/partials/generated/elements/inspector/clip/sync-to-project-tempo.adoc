@@ -1,0 +1,7 @@
+[#inspector-clip-sync-to-project-tempo]
+== Sync to project tempo
+
+image:generated/screenshots/elements/inspector/clip/sync-to-project-tempo.png[Sync to project tempo, role="related thumb right"]
+
+Whether to adjust the playback tempo of the clip to the project tempo. You usually want to have this enabled for rhythmic material.
+

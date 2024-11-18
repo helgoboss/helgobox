@@ -1,0 +1,6 @@
+[#inspector-clip-overdub]
+== Overdub
+
+image:generated/screenshots/elements/inspector/clip/overdub.png[Overdub, role="related thumb right"]
+
+Starts/stops a MIDI overdub session on this clip.

@@ -1,6 +1,0 @@
-[#todo-clip-volume]
-== Volume
-
-image:generated/screenshots/elements/todo/clip-volume.png[Volume, role="related thumb right"]
-
-Allows you to set the volume of this clip. In case of MIDI, it will adjust the velocity of played MIDI notes.

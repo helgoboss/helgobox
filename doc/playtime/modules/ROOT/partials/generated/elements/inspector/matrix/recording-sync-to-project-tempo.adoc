@@ -1,0 +1,6 @@
+[#inspector-matrix-recording-sync-to-project-tempo]
+== Sync to project tempo
+
+image:generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo.png[Sync to project tempo, role="related thumb right"]
+
+Determines whether playback of the recorded clip (after its recording) should synchronize to the project tempo.

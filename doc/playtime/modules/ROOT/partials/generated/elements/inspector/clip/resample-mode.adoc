@@ -1,0 +1,6 @@
+[#inspector-clip-resample-mode]
+== Resample mode
+
+image:generated/screenshots/elements/inspector/clip/resample-mode.png[Resample mode, role="related thumb right"]
+
+This overrides the resample mode defined in the column or matrix settings.

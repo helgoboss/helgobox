@@ -1,0 +1,10 @@
+[#inspector-clip-downbeat]
+== Downbeat
+
+image:generated/screenshots/elements/inspector/clip/downbeat.png[Downbeat, role="related thumb right"]
+
+Which beat within the material can be considered the first downbeat.
+
+If you set a beat greater than 0, Playtime will shift the clip to the left accordingly so that the downbeat ends up exactly on the chosen play start timing quantization.
+
+This setting takes effect the next time you trigger this clip with a quantized start timing.

@@ -1,0 +1,8 @@
+[#inspector-matrix-trigger-mode]
+== Trigger mode
+
+image:generated/screenshots/elements/inspector/matrix/trigger-mode.png[Trigger mode, role="related thumb right"]
+
+Choose between different modes of triggering slots.
+
+This setting applies to all clips in the matrix but it can be overridden at column level.

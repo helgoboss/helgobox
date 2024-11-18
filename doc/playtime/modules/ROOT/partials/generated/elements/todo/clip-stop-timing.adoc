@@ -1,6 +1,0 @@
-[#todo-clip-stop-timing]
-== Stop timing
-
-image:generated/screenshots/elements/todo/clip-stop-timing.png[Stop timing, role="related thumb right"]
-
-This overrides the stop timing defined in the column or matrix settings.

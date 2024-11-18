@@ -1,0 +1,6 @@
+[#inspector-clip-midi-channel-original]
+== Original
+
+image:generated/screenshots/elements/inspector/clip/midi-channel-original.png[Original, role="related thumb right"]
+
+Simply keeps the original channel, doesn't apply any channel transformation.

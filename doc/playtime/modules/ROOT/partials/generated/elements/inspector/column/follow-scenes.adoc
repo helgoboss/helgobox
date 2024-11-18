@@ -1,0 +1,8 @@
+[#inspector-column-follow-scenes]
+== Follow scenes
+
+image:generated/screenshots/elements/inspector/column/follow-scenes.png[Follow scenes, role="related thumb right"]
+
+If the column follows scenes, playing a scene (= pressing the play button of the row) will trigger playback of the corresponding slot in this column. This is great for sketching out parts of a song.
+
+If the column doesn't follow scenes, it will ignore scene playback. Good for letting some clips play independently of the song structure.

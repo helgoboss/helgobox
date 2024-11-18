@@ -1,0 +1,6 @@
+[#inspector-clip-name]
+== Name
+
+image:generated/screenshots/elements/inspector/clip/name.png[Name, role="related thumb right"]
+
+Give your clip a descriptive name!

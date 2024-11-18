@@ -1,0 +1,8 @@
+[#inspector-slot-clip-picker]
+== Clip picker
+
+image:generated/screenshots/elements/inspector/slot/clip-picker.png[Clip picker, role="related thumb right"]
+
+Playtime allows you to have *multiple* clips within one slot, which is great for layering clips on top of each other.
+
+Click on one of the clips to reveal its settings! Also have a look at their right-click menus.

@@ -1,0 +1,20 @@
+= Matrix inspector
+
+include::partial$generated/elements/inspector/matrix/start-timing.adoc[]
+include::partial$generated/elements/inspector/matrix/stop-timing.adoc[]
+include::partial$generated/elements/inspector/matrix/trigger-mode.adoc[]
+include::partial$generated/elements/inspector/matrix/velocity-sensitivity.adoc[]
+include::partial$generated/elements/inspector/matrix/activate-slot-on-trigger.adoc[]
+include::partial$generated/elements/inspector/matrix/transport-sync.adoc[]
+include::partial$generated/elements/inspector/matrix/midi-quantization-grid.adoc[]
+include::partial$generated/elements/inspector/matrix/time-stretch-mode.adoc[]
+include::partial$generated/elements/inspector/matrix/resample-mode.adoc[]
+
+include::partial$generated/elements/inspector/matrix/recording-looped.adoc[]
+include::partial$generated/elements/inspector/matrix/limit-recording-length.adoc[]
+include::partial$generated/elements/inspector/matrix/recording-length.adoc[]
+include::partial$generated/elements/inspector/matrix/recording-detect-downbeat.adoc[]
+include::partial$generated/elements/inspector/matrix/recording-auto-quantize.adoc[]
+include::partial$generated/elements/inspector/matrix/recording-sync-to-project-tempo.adoc[]
+include::partial$generated/elements/inspector/matrix/recording-midi-reset-behavior.adoc[]
+include::partial$generated/elements/inspector/matrix/tempo-detection-range.adoc[]

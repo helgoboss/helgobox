@@ -1,8 +1,0 @@
-[#todo-clip-length]
-== Length
-
-image:generated/screenshots/elements/todo/clip-length.png[Length, role="related thumb right"]
-
-Crops the clip to a specific length, starting from the start position.
-
-If the length exceeds the end of the source, Playtime will insert silence.

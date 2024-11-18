@@ -1,0 +1,6 @@
+[#inspector-clip-start-position]
+== Start position
+
+image:generated/screenshots/elements/inspector/clip/start-position.png[Start position, role="related thumb right"]
+
+Sets the start position within the clip.

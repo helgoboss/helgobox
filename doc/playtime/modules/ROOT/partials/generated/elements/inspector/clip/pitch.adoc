@@ -1,0 +1,6 @@
+[#inspector-clip-pitch]
+== Pitch
+
+image:generated/screenshots/elements/inspector/clip/pitch.png[Pitch, role="related thumb right"]
+
+Allows you to adjust the pitch of this clip. In case of MIDI, only integers are supported.

@@ -1,5 +1,3 @@
 = Inspector
 
 The inspector on the right displays details about the currently selected cell.
-
-TODO

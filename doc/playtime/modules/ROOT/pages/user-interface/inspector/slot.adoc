@@ -1,0 +1,5 @@
+= Slot inspector
+
+include::partial$generated/elements/inspector/slot/clip-picker.adoc[]
+
+For details about the actual clip, see xref:user-interface/inspector/clip.adoc[].

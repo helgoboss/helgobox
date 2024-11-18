@@ -1,0 +1,6 @@
+[#inspector-matrix-recording-length]
+== Length
+
+image:generated/screenshots/elements/inspector/matrix/recording-length.png[Length, role="related thumb right"]
+
+Defines the length to be used when limiting the clip recording length.

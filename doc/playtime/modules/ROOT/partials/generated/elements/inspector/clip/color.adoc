@@ -1,0 +1,8 @@
+[#inspector-clip-color]
+== Color
+
+image:generated/screenshots/elements/inspector/clip/color.png[Color, role="related thumb right"]
+
+Lets you pick a color for this clip from the matrix color palette.
+
+If you choose the "Auto" color, the clip will be displayed using the same color as the containing track.

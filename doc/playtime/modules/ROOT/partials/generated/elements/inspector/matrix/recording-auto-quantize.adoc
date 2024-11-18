@@ -1,0 +1,6 @@
+[#inspector-matrix-recording-auto-quantize]
+== Auto-quantize
+
+image:generated/screenshots/elements/inspector/matrix/recording-auto-quantize.png[Auto-quantize, role="related thumb right"]
+
+If you enable this, Playtime will automatically quantize a newly recorded MIDI clip after it has been recorded. It will do so using the global matrix quantization grid setting.

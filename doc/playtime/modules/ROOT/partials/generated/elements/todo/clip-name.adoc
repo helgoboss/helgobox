@@ -1,6 +1,0 @@
-[#todo-clip-name]
-== Name
-
-image:generated/screenshots/elements/todo/clip-name.png[Name, role="related thumb right"]
-
-Give your clip a descriptive name!

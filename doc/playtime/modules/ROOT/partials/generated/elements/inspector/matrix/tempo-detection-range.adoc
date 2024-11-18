@@ -1,0 +1,10 @@
+[#inspector-matrix-tempo-detection-range]
+== Tempo detection range
+
+image:generated/screenshots/elements/inspector/matrix/tempo-detection-range.png[Tempo detection range, role="related thumb right"]
+
+This influences how Playtime detects tempo of imported or recorded audio material.
+
+Playtime uses tempo detection if you import an audio clip or if you record an audio or MIDI clip when playback is stopped and the metronome is disabled. It derives the tempo from the length of the material, which should always give an accurate result if the material is already cut. However, it can easily happen that Playtime detects half-time or double-time tempos. This might result in clip playback being half or twice as fast as you want. By restricting the tempo detection range, you can improve the results.
+
+Example: Playtime might detect that imported audio material has the following valid tempos: 30bpm, 60bpm, 120bpm, 240 bpm. By setting the tempo detection range from 80bpm to 180bpm, Playtime will for sure pick 120bpm.

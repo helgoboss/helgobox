@@ -1,0 +1,3 @@
+= Row inspector
+
+include::partial$generated/elements/inspector/row/name.adoc[]

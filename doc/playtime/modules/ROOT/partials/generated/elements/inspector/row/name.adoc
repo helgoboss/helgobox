@@ -1,0 +1,6 @@
+[#inspector-row-name]
+== Name
+
+image:generated/screenshots/elements/inspector/row/name.png[Name, role="related thumb right"]
+
+Name of the row.

@@ -1,6 +1,0 @@
-[#todo-clip-reset-behavior]
-== Reset behavior
-
-image:generated/screenshots/elements/todo/clip-reset-behavior.png[Reset behavior, role="related thumb right"]
-
-Determines which MIDI reset messages Playtime sends before and/or after playing the clip.

@@ -1,6 +1,0 @@
-[#todo-clip-looped]
-== Looped
-
-image:generated/screenshots/elements/todo/clip-looped.png[Looped, role="related thumb right"]
-
-If enabled, the clip will loop until you stop it. If disabled, it will become a "One shot".

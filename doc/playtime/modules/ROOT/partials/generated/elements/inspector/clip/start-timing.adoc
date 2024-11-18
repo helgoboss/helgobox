@@ -1,0 +1,6 @@
+[#inspector-clip-start-timing]
+== Start timing
+
+image:generated/screenshots/elements/inspector/clip/start-timing.png[Start timing, role="related thumb right"]
+
+This overrides the start timing defined in the column or matrix settings.
