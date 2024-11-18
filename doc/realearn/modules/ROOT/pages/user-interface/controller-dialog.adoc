@@ -1,0 +1,5 @@
+= Controller dialog
+
+include::partial$available-in-app.adoc[]
+
+image::generated/screenshots/main/controller.png[]

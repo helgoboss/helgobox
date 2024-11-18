@@ -1,0 +1,5 @@
+= Tempo settings dialog
+
+image::generated/screenshots/main/tempo-settings.png[]
+
+include::partial$generated/elements/tempo-settings/click-vo

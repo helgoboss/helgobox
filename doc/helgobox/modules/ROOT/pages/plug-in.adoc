@@ -1,1 +1,3 @@
 = Helgobox Instrument Plug-In
+
+See xref:plug-in/user-interface.adoc[]

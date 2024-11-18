@@ -1,0 +1,6 @@
+[#settings-contrast]
+=== Contrast
+
+image:generated/screenshots/elements/settings/contrast.png[Contrast, role="related thumb right"]
+
+Choose between multiple color variations that influence the perceived contrast of the app's appearance.

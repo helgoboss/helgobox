@@ -1,7 +1,7 @@
 = Basic usage
 
 This section illustrates the basics of using Helgobox.
-For more information, please refer to the link:https://docs.helgoboss.org/realearn[ReaLearn Reference] or link:https://docs.helgoboss.org/playtime[Playtime Reference].
+For product-specific information, please consult the link:https://docs.helgoboss.org/realearn[ReaLearn Reference] or link:https://docs.helgoboss.org/playtime[Playtime Reference].
 
 == Add plug-in instance
 
@@ -11,17 +11,4 @@ Helgobox is fired up just like any other VST instrument in REAPER: By adding an 
 . Select menu:Insert virtual instrument on new track...[]
 . Double-click entry "VSTi: Helgobox - ReaLearn & Playtime (Helgoboss)"
 
-Initially, you see the xref:plug-in.adoc[]:
-
-.Plug-in window
-image::screenshots/plugin-window.png[]
-
-== Show the Helgobox App
-
-Each Helgobox instance can display its own xref:app.adoc[] window, embedded into REAPER:
-
-. Open the Helgobox instrument plug-in
-. Press menu:Menu[Show App]
-
-.App window
-image::screenshots/app-window.png[]
+Initially, you see the xref:plug-in/user-interface.adoc[plug-in user interface]. From there you can open the xref:app/user-interface.adoc[Helgobox App].

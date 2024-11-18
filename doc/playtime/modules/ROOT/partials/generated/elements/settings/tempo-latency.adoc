@@ -1,0 +1,8 @@
+[#settings-tempo-latency]
+=== Tempo latency
+
+image:generated/screenshots/elements/settings/tempo-latency.png[Tempo latency, role="related thumb right"]
+
+Determines how many milliseconds of audio will be pre-buffered ahead of time.
+
+Higher latencies improve resilience against sudden CPU spikes when playing back audio clips. But they will also increase the time that Playtime needs to respond to ad-hoc tempo changes.

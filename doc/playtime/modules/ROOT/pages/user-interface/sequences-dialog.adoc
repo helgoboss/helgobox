@@ -1,0 +1,3 @@
+= Sequences dialog
+
+image::generated/screenshots/main/sequences.png[]

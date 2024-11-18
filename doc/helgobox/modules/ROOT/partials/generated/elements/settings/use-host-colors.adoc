@@ -1,0 +1,6 @@
+[#settings-use-host-colors]
+=== Use host colors (experimental)
+
+image:generated/screenshots/elements/settings/use-host-colors.png[Use host colors (experimental), role="related thumb right"]
+
+Borrows some color from the REAPER theme.

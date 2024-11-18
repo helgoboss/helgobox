@@ -20,6 +20,8 @@
 *** xref:user-interface/mapping-panel/glue-section.adoc[]
 *** xref:user-interface/mapping-panel/bottom-section.adoc[]
 *** xref:user-interface/mapping-panel/advanced-settings-dialog.adoc[]
+** xref:user-interface/settings-dialog.adoc[]
+** xref:user-interface/controller-dialog.adoc[]
 * xref:sources.adoc[]
 ** xref:sources/none.adoc[]
 ** xref:sources/midi.adoc[]

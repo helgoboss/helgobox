@@ -1,0 +1,19 @@
+= Settings dialog
+
+image::generated/screenshots/main/settings.png[]
+
+== Appearance
+
+include::partial$generated/elements/settings/show-control-unit-frames.adoc[]
+include::partial$generated/elements/settings/show-column-numbers.adoc[]
+include::partial$generated/elements/settings/show-clip-activity.adoc[]
+include::partial$generated/elements/settings/show-cell-selection-as-crosshair.adoc[]
+include::partial$generated/elements/settings/show-hypothetical-play-cursor.adoc[]
+include::partial$generated/elements/settings/cell-color-position.adoc[]
+include::partial$generated/elements/settings/cell-progress-position.adoc[]
+include::partial$generated/elements/settings/cell-width.adoc[]
+include::partial$generated/elements/settings/cell-height.adoc[]
+
+== Engine
+
+include::partial$generated/elements/settings/tempo-latency.adoc[]

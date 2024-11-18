@@ -1,0 +1,6 @@
+[#settings-use-context-coloring]
+=== Use context coloring
+
+image:generated/screenshots/elements/settings/use-context-coloring.png[Use context coloring, role="related thumb right"]
+
+If enabled, some inspector panels will get a special background color that reflects their purpose (e.g. red for recording and green for playback). This makes it easier to distinguish between the purpose of different settings but it may not go so well with the color design of your theme.

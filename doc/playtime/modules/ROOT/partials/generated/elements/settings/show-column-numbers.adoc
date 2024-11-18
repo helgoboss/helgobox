@@ -1,0 +1,6 @@
+[#settings-show-column-numbers]
+=== Show column numbers
+
+image:generated/screenshots/elements/settings/show-column-numbers.png[Show column numbers, role="related thumb right"]
+
+If enabled, a column number will appear on top of each column.

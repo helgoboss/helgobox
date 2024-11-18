@@ -1,0 +1,8 @@
+[#settings-roundness]
+=== Roundness
+
+image:generated/screenshots/elements/settings/roundness.png[Roundness, role="related thumb right"]
+
+Determines whether to round off corners of various user interface elements and how much.
+
+**Tip:** If you want slot cells with rounded corners, play with the cell color position setting!

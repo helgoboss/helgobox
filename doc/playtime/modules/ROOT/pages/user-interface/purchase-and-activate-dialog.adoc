@@ -1,0 +1,3 @@
+= Purchase & Activate dialog
+
+image::generated/screenshots/main/purchase.png[]

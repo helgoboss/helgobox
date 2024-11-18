@@ -1,0 +1,31 @@
+= Settings dialog
+
+image::generated/screenshots/main/settings.png[]
+
+For product-specific settings, see:
+
+* xref:realearn::user-interface/settings-dialog.adoc[ReaLearn settings]
+* xref:playtime::user-interface/settings-dialog.adoc[Playtime settings]
+
+== Appearance
+
+include::partial$generated/elements/settings/overall-size.adoc[]
+include::partial$generated/elements/settings/roundness.adoc[]
+include::partial$generated/elements/settings/prefer-tidy-appearance.adoc[]
+include::partial$generated/elements/settings/display-development-status-hints.adoc[]
+include::partial$generated/elements/settings/display-tooltip-if-help-panel-hidden.adoc[]
+include::partial$generated/elements/settings/display-license-info.adoc[]
+include::partial$generated/elements/settings/prefer-native-popup-menus.adoc[]
+include::partial$generated/elements/settings/theme-mode.adoc[]
+include::partial$generated/elements/settings/use-context-coloring.adoc[]
+include::partial$generated/elements/settings/use-host-colors.adoc[]
+include::partial$generated/elements/settings/contrast.adoc[]
+include::partial$generated/elements/settings/custom-color-rendering.adoc[]
+include::partial$generated/elements/settings/color-scheme.adoc[]
+
+== Title bar
+
+include::partial$generated/elements/settings/dim-opacity.adoc[]
+
+== Shortcuts
+// TODO Escape stuff

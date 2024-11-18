@@ -1,0 +1,6 @@
+[#settings-controllers-delete]
+=== Delete controller
+
+image:generated/screenshots/elements/settings/controllers/delete.png[Delete controller, role="related thumb right"]
+
+Deletes the controller. This can't be undone.

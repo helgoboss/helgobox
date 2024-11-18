@@ -1,0 +1,8 @@
+[#settings-show-hypothetical-play-cursor]
+=== Show hypothetical play cursor
+
+image:generated/screenshots/elements/settings/show-hypothetical-play-cursor.png[Show hypothetical play cursor, role="related thumb right"]
+
+If enabled, Playtime will also show an additional red cursor in the waveform view that represents the hypothetical playback position.
+
+This is an expert feature usable for timing and bug analysis and should normally be turned off.

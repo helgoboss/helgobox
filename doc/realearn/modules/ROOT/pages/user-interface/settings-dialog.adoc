@@ -1,0 +1,10 @@
+= Settings dialog
+
+include::partial$available-in-app.adoc[]
+
+image::generated/screenshots/main/settings.png[]
+
+== Controllers
+
+include::partial$generated/elements/settings/controllers/add.adoc[]
+include::partial$generated/elements/settings/controllers/delete.adoc[]

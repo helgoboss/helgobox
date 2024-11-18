@@ -1,0 +1,6 @@
+[#settings-cell-color-position]
+=== Cell color position
+
+image:generated/screenshots/elements/settings/cell-color-position.png[Cell color position, role="related thumb right"]
+
+Determines how a slot cell shows the color of its primary clip.

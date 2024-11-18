@@ -1,0 +1,6 @@
+[#settings-controllers-add]
+=== Add controller
+
+image:generated/screenshots/elements/settings/controllers/add.png[Add controller, role="related thumb right"]
+
+Adds a new controller.

@@ -1,0 +1,6 @@
+[#settings-cell-progress-position]
+=== Cell progress position
+
+image:generated/screenshots/elements/settings/cell-progress-position.png[Cell progress position, role="related thumb right"]
+
+Determines how a slot cell shows the playback progress of a clip.
