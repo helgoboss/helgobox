@@ -1,4 +1,5 @@
 = Helgobox App
 
-[quote]
+____
 include::partial$app-desc.adoc[]
+____
