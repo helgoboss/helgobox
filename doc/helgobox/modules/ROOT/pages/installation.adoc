@@ -9,7 +9,7 @@ ReaPack is a popular 3rd-party package manager for REAPER that makes installing 
 
 Please check below system requirements before attempting to install Helgobox!
 
-TIP: A more detailed compatibility table can be found link:https://www.helgoboss.org/projects/helgobox#requirements[here].
+NOTE: A more detailed compatibility table can be found link:https://www.helgoboss.org/projects/helgobox#requirements[here].
 
 [[windows]]
 === Windows

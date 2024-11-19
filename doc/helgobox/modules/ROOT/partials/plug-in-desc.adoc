@@ -1,0 +1,1 @@
+A VST instrument plug-in that deeply integrates with REAPER by using its link:https://www.reaper.fm/sdk/plugin/plugin.php[Plug-in Extensions] mechanism.

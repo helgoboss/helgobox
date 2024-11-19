@@ -1,0 +1,1 @@
+For product-specific information, please consult the link:https://docs.helgoboss.org/realearn[ReaLearn Reference] or link:https://docs.helgoboss.org/playtime[Playtime Reference].

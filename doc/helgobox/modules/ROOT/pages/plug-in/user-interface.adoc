@@ -1,6 +1,8 @@
 = User interface
 
-The Helgobox instrument plug-in's user interface primarily provides the user interface for link:https://www.helgoboss.org/projects/realearn[ReaLearn]. Refer to the xref:realearn::user-interface.adoc[] section of the ReaLearn Reference for details.
+The plug-in's native user interface features a plain and simple design.
+It is home to link:https://www.helgoboss.org/projects/realearn[ReaLearn], the controller integration tool of Helgobox.
+Refer to the xref:realearn::user-interface.adoc[ReaLearn user interface documentation] to learn more about it!
 
 .Plug-in window
 image::screenshots/plugin-window.png[]

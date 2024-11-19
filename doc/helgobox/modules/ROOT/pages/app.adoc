@@ -1,3 +1,4 @@
 = Helgobox App
 
-See xref:app/user-interface.adoc[].
+[quote]
+include::partial$app-desc.adoc[]

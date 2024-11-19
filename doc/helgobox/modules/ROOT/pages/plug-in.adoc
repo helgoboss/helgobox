@@ -1,3 +1,17 @@
-= Helgobox Instrument Plug-In
+= Helgobox Plug-In
 
-See xref:plug-in/user-interface.adoc[]
+[quote]
+include::partial$plug-in-desc.adoc[]
+
+The plug-in is fired up just like any other VST instrument in REAPER: By adding an instance of it to an FX chain:
+
+. Right-click the empty space in REAPER's track control panel
+. Select menu:Insert virtual instrument on new track...[]
+. Double-click entry "VSTi: Helgobox - ReaLearn & Playtime (Helgoboss)"
+
+Initially, you see the xref:plug-in/user-interface.adoc[plug-in window].
+From there you can open the xref:app/user-interface.adoc[Helgobox App].
+
+include::partial$product-specific-info.adoc[]
+
+It is complemented by the xref:app.adoc[].

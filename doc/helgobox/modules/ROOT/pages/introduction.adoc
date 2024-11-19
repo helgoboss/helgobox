@@ -1,8 +1,12 @@
 = Introduction
 
-link:https://www.helgoboss.org/projects/helgobox[Helgobox] is an instrument plug-in for link:https://www.reaper.fm[REAPER] that unites the products link:https://www.helgoboss.org/projects/realearn[ReaLearn] and link:https://www.helgoboss.org/projects/playtime[Playtime] under one roof.
+link:https://www.helgoboss.org/projects/helgobox[Helgobox] is an add-on for link:https://www.reaper.fm[REAPER] that unites the products link:https://www.helgoboss.org/projects/realearn[ReaLearn] and link:https://www.helgoboss.org/projects/playtime[Playtime] under one roof.
 
-In addition to the plug-in, it comes with the xref:app.adoc[], a modern user interface for the Helgobox Instrument.
-It runs embedded in REAPER and in the future also as a separate mobile app (iOS, Android).
+It consists of two components:
 
-If you want to learn more about the contained products, please refer to the link:https://docs.helgoboss.org/realearn[ReaLearn Reference] or link:https://docs.helgoboss.org/playtime[Playtime Reference].
+xref:plug-in.adoc[]::
+include::partial$plug-in-desc.adoc[]
+xref:app.adoc[]::
+include::partial$app-desc.adoc[]
+
+include::partial$product-specific-info.adoc[]
