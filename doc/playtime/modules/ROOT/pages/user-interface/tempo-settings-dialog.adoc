@@ -2,4 +2,6 @@
 
 image::generated/screenshots/main/tempo-settings.png[]
 
-include::partial$generated/elements/tempo-settings/click-vo
+include::partial$generated/elements/tempo-settings/click-volume.adoc[]
+include::partial$generated/elements/tempo-settings/tap-volume.adoc[]
+include::partial$generated/elements/tempo-settings/count-in.adoc[]

@@ -1,0 +1,6 @@
+[#area-window-title-bar]
+== Title bar
+
+image:generated/screenshots/elements/area/window-title-bar.png[Title bar, role="related thumb right"]
+
+null

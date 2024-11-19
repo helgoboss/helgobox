@@ -1,0 +1,6 @@
+[#sequences-delete]
+== Delete sequence
+
+image:generated/screenshots/elements/sequences/delete.png[Delete sequence, role="related thumb right"]
+
+Deletes the sequence.

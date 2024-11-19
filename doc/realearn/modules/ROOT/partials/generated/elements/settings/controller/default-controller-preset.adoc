@@ -1,0 +1,8 @@
+[#settings-controller-default-controller-preset]
+== Default controller preset
+
+image:generated/screenshots/elements/settings/controller/default-controller-preset.png[Default controller preset, role="related thumb right"]
+
+In general, ReaLearn will figure out the correct controller preset based on the main preset's needs and the connected controller.
+
+**Only set this if you came up with your own controller preset and want to use that instead of the auto-detected one!** Even then, ReaLearn might choose a different controller preset if your one doesn't provide at least one of the virtual control schemes required by the main preset.

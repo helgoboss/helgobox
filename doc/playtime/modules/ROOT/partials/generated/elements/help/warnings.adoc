@@ -1,0 +1,6 @@
+[#help-warnings]
+== Warnings
+
+image:generated/screenshots/elements/help/warnings.png[Warnings, role="related thumb right"]
+
+The presence of this button indicates potential issues that might or might not affect you. Click the button to learn more.

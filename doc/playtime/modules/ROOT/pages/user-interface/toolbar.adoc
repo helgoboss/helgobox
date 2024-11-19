@@ -1,5 +1,7 @@
 = Toolbar
 
+image::generated/screenshots/elements/area/toolbar-0.png[]
+
 include::partial$generated/elements/toolbar/tempo-section.adoc[]
 
 include::partial$generated/elements/toolbar/metronome.adoc[]

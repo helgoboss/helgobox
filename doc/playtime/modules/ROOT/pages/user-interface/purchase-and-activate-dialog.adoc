@@ -1,3 +1,5 @@
 = Purchase & Activate dialog
 
 image::generated/screenshots/main/purchase.png[]
+
+include::partial$generated/elements/purchase/verify-license-key.adoc[]

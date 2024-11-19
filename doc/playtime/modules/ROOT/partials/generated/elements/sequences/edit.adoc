@@ -1,0 +1,6 @@
+[#sequences-edit]
+== Edit sequence
+
+image:generated/screenshots/elements/sequences/edit.png[Edit sequence, role="related thumb right"]
+
+Edits the sequence.

@@ -1,0 +1,6 @@
+[#settings-controller-enabled]
+== Enabled
+
+image:generated/screenshots/elements/settings/controller/enabled.png[Enabled, role="related thumb right"]
+
+If disabled, the controller will not have any effect.

@@ -1,5 +1,8 @@
 = Track area
 
+image::generated/screenshots/elements/area/track-area-0.png[width=80]
+image::generated/screenshots/elements/area/track-area-1.png[]
+
 include::partial$generated/elements/track-panel/header.adoc[]
 
 include::partial$generated/elements/track-panel/input-type-indicator.adoc[]

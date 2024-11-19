@@ -1,0 +1,6 @@
+[#area-matrix-area-2]
+== Matrix area
+
+image:generated/screenshots/elements/area/matrix-area-2.png[Matrix area, role="related thumb right"]
+
+null

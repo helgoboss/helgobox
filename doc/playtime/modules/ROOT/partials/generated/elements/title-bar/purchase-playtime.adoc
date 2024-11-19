@@ -1,0 +1,6 @@
+[#title-bar-purchase-playtime]
+== 👍 Purchase & Activate
+
+image:generated/screenshots/elements/title-bar/purchase-playtime.png[👍 Purchase & Activate, role="related thumb right"]
+
+This shows further information on how you can purchase Playtime and allows you to enter the license key.

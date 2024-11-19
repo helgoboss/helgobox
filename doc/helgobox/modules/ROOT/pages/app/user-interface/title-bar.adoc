@@ -2,6 +2,8 @@
 
 The bar on the top of the app window is the _Title bar_.
 
+image::generated/screenshots/elements/area/window-title-bar-0.png[]
+
 include::partial$generated/elements/title-bar/hide-window.adoc[]
 
 include::partial$generated/elements/title-bar/full-screen.adoc[]

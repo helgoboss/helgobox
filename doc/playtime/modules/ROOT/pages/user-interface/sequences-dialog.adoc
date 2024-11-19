@@ -1,3 +1,6 @@
 = Sequences dialog
 
 image::generated/screenshots/main/sequences.png[]
+
+include::partial$generated/elements/sequences/edit.adoc[]
+include::partial$generated/elements/sequences/delete.adoc[]

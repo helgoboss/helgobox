@@ -1,0 +1,6 @@
+[#area-toolbar]
+== Toolbar
+
+image:generated/screenshots/elements/area/toolbar.png[Toolbar, role="related thumb right"]
+
+null

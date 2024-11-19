@@ -1,0 +1,6 @@
+[#area-track-area]
+== Track area
+
+image:generated/screenshots/elements/area/track-area.png[Track area, role="related thumb right"]
+
+null

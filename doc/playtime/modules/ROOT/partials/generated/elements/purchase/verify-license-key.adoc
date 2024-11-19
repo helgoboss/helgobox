@@ -1,0 +1,6 @@
+[#purchase-verify-license-key]
+== Verify license key!
+
+image:generated/screenshots/elements/purchase/verify-license-key.png[Verify license key!, role="related thumb right"]
+
+Reads the license key that you have copied to the clipboard and verifies it, unlocking Playtime's full version on success.
