@@ -1,7 +1,7 @@
 [#info-panel-stats-pre-buffer-miss-count]
 === Pre-buffer misses so far
 
-image:generated/screenshots/elements/info-panel/stats/pre-buffer-miss-count.png[Pre-buffer misses so far, role="related thumb right"]
+image::generated/screenshots/elements/info-panel/stats/pre-buffer-miss-count.png[Pre-buffer misses so far]
 
 The number of times in which any audio clip's dynamic pre-buffer couldn't provide the desired pre-rendered audio content and even the static pre-buffer failed to provide it.
 

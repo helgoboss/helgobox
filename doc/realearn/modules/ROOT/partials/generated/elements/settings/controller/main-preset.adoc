@@ -1,7 +1,7 @@
 [#settings-controller-main-preset]
 == Main preset
 
-image:generated/screenshots/elements/settings/controller/main-preset.png[Main preset, role="related thumb right"]
+image::generated/screenshots/elements/settings/controller/main-preset.png[Main preset]
 
 This preset decides how your controller will be used, i.e. what exactly it should control.
 

@@ -1,7 +1,7 @@
 [#inspector-clip-source-cut-length]
 == Source cut: Length
 
-image:generated/screenshots/elements/inspector/clip/source-cut-length.png[Source cut: Length, role="related thumb right"]
+image::generated/screenshots/elements/inspector/clip/source-cut-length.png[Source cut: Length]
 
 Crops the source material to a specific length, starting from the start position. If the length exceeds the end of the source, Playtime will insert silence.
 

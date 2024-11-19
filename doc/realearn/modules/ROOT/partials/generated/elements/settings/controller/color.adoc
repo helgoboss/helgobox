@@ -1,7 +1,7 @@
 [#settings-controller-color]
 == Color
 
-image:generated/screenshots/elements/settings/controller/color.png[Color, role="related thumb right"]
+image::generated/screenshots/elements/settings/controller/color.png[Color]
 
 Pick a color for this controller.
 

@@ -1,6 +1,0 @@
-[#area-inspector]
-== Inspector
-
-image:generated/screenshots/elements/area/inspector.png[Inspector, role="related thumb right"]
-
-null

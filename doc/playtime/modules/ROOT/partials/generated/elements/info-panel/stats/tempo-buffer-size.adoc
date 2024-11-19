@@ -1,7 +1,7 @@
 [#info-panel-stats-tempo-buffer-size]
 === Tempo buffer size (in blocks)
 
-image:generated/screenshots/elements/info-panel/stats/tempo-buffer-size.png[Tempo buffer size (in blocks), role="related thumb right"]
+image::generated/screenshots/elements/info-panel/stats/tempo-buffer-size.png[Tempo buffer size (in blocks)]
 
 The current size of the tempo buffer in blocks.
 

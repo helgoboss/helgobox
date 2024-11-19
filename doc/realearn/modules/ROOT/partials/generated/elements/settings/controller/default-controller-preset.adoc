@@ -1,7 +1,7 @@
 [#settings-controller-default-controller-preset]
 == Default controller preset
 
-image:generated/screenshots/elements/settings/controller/default-controller-preset.png[Default controller preset, role="related thumb right"]
+image::generated/screenshots/elements/settings/controller/default-controller-preset.png[Default controller preset]
 
 In general, ReaLearn will figure out the correct controller preset based on the main preset's needs and the connected controller.
 

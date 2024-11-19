@@ -1,7 +1,7 @@
 [#inspector-clip-length]
 == Length
 
-image:generated/screenshots/elements/inspector/clip/length.png[Length, role="related thumb right"]
+image::generated/screenshots/elements/inspector/clip/length.png[Length]
 
 Crops the clip to a specific length, starting from the start position.
 

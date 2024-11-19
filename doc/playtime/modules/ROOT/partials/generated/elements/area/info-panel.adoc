@@ -1,6 +1,0 @@
-[#area-info-panel]
-== Info panel
-
-image:generated/screenshots/elements/area/info-panel.png[Info panel, role="related thumb right"]
-
-null

@@ -1,6 +1,6 @@
 [#settings-controller-connection]
 == Connection
 
-image:generated/screenshots/elements/settings/controller/connection.png[Connection, role="related thumb right"]
+image::generated/screenshots/elements/settings/controller/connection.png[Connection]
 
 How the controller is connected to this machine.

@@ -1,6 +1,6 @@
 [#inspector-clip-source-info]
 == Source info
 
-image:generated/screenshots/elements/inspector/clip/source-info.png[Source info, role="related thumb right"]
+image::generated/screenshots/elements/inspector/clip/source-info.png[Source info]
 
 Displays information about the source of this clip, e.g. the audio file.

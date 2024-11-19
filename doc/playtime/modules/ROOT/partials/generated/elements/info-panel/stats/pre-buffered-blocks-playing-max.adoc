@@ -1,6 +1,6 @@
 [#info-panel-stats-pre-buffered-blocks-playing-max]
 === Pre-buffered blocks playing (max)
 
-image:generated/screenshots/elements/info-panel/stats/pre-buffered-blocks-playing-max.png[Pre-buffered blocks playing (max), role="related thumb right"]
+image::generated/screenshots/elements/info-panel/stats/pre-buffered-blocks-playing-max.png[Pre-buffered blocks playing (max)]
 
 The largest encountered number of pre-buffered blocks among currently playing audio clips.

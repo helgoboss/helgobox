@@ -1,6 +1,6 @@
 [#inspector-clip-midi-channel]
 == MIDI channel
 
-image:generated/screenshots/elements/inspector/clip/midi-channel.png[MIDI channel, role="related thumb right"]
+image::generated/screenshots/elements/inspector/clip/midi-channel.png[MIDI channel]
 
 Allows you to re-route the MIDI events in this clip to a MIDI channel of your choice.

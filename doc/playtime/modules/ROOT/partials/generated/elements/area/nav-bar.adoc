@@ -1,6 +1,0 @@
-[#area-nav-bar]
-== Navigation bar
-
-image:generated/screenshots/elements/area/nav-bar.png[Navigation bar, role="related thumb right"]
-
-null

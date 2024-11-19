@@ -1,7 +1,7 @@
 [#inspector-clip-downbeat]
 == Downbeat
 
-image:generated/screenshots/elements/inspector/clip/downbeat.png[Downbeat, role="related thumb right"]
+image::generated/screenshots/elements/inspector/clip/downbeat.png[Downbeat]
 
 Which beat within the material can be considered the first downbeat.
 

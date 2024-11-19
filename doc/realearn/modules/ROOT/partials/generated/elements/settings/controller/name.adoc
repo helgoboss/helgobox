@@ -1,7 +1,7 @@
 [#settings-controller-name]
 == Name
 
-image:generated/screenshots/elements/settings/controller/name.png[Name, role="related thumb right"]
+image::generated/screenshots/elements/settings/controller/name.png[Name]
 
 Descriptive name of the controller.
 
