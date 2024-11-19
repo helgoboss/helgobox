@@ -1,7 +1,7 @@
 [#inspector-matrix-transport-sync]
 == Transport synchronization
 
-image:generated/screenshots/elements/inspector/matrix/transport-sync.png[Transport synchronization, role="related thumb right"]
+image::generated/screenshots/elements/inspector/matrix/transport-sync.png[Transport synchronization]
 
 The default is "Partial transport synchronization", indicated by an arrow pointing to the left. It means that starting playback in Playtime (via the button on the left side or pressing space) doesn't start playback of REAPER's arrangement.
 

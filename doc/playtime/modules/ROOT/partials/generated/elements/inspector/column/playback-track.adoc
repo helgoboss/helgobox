@@ -1,7 +1,7 @@
 [#inspector-column-playback-track]
 == Playback track
 
-image:generated/screenshots/elements/inspector/column/playback-track.png[Playback track, role="related thumb right"]
+image::generated/screenshots/elements/inspector/column/playback-track.png[Playback track]
 
 Lets you choose the REAPER track on which this column plays its clips.
 

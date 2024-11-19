@@ -1,6 +1,6 @@
 [#tempo-settings-click-volume]
 == Click volume
 
-image:generated/screenshots/elements/tempo-settings/click-volume.png[Click volume, role="related thumb right"]
+image::generated/screenshots/elements/tempo-settings/click-volume.png[Click volume]
 
 Allows you to set the volume of the metronome click.

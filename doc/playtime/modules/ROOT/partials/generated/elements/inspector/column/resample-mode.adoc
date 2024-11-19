@@ -1,6 +1,6 @@
 [#inspector-column-resample-mode]
 == Resample mode
 
-image:generated/screenshots/elements/inspector/column/resample-mode.png[Resample mode, role="related thumb right"]
+image::generated/screenshots/elements/inspector/column/resample-mode.png[Resample mode]
 
 This overrides the resample mode (defined in the matrix settings) for all clips in this column.

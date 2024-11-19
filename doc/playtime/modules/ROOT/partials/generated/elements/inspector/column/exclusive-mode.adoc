@@ -1,7 +1,7 @@
 [#inspector-column-exclusive-mode]
 == Exclusive mode
 
-image:generated/screenshots/elements/inspector/column/exclusive-mode.png[Exclusive mode, role="related thumb right"]
+image::generated/screenshots/elements/inspector/column/exclusive-mode.png[Exclusive mode]
 
 If exclusive mode is enabled, only one slot at a time in this column can be playing. That's good for switching between different variations.
 

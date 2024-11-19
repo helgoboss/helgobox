@@ -1,6 +1,6 @@
 [#inspector-matrix-activate-slot-on-trigger]
 == Activate slot on trigger
 
-image:generated/screenshots/elements/inspector/matrix/activate-slot-on-trigger.png[Activate slot on trigger, role="related thumb right"]
+image::generated/screenshots/elements/inspector/matrix/activate-slot-on-trigger.png[Activate slot on trigger]
 
 When slot triggered via controller, also make it the active one.

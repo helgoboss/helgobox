@@ -1,7 +1,7 @@
 [#inspector-column-follow-scenes]
 == Follow scenes
 
-image:generated/screenshots/elements/inspector/column/follow-scenes.png[Follow scenes, role="related thumb right"]
+image::generated/screenshots/elements/inspector/column/follow-scenes.png[Follow scenes]
 
 If the column follows scenes, playing a scene (= pressing the play button of the row) will trigger playback of the corresponding slot in this column. This is great for sketching out parts of a song.
 

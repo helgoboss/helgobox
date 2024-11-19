@@ -1,6 +1,6 @@
 [#inspector-row-name]
 == Name
 
-image:generated/screenshots/elements/inspector/row/name.png[Name, role="related thumb right"]
+image::generated/screenshots/elements/inspector/row/name.png[Name]
 
 Name of the row.

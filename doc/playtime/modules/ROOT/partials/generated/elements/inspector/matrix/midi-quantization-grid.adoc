@@ -1,7 +1,7 @@
 [#inspector-matrix-midi-quantization-grid]
 == MIDI quantization grid
 
-image:generated/screenshots/elements/inspector/matrix/midi-quantization-grid.png[MIDI quantization grid, role="related thumb right"]
+image::generated/screenshots/elements/inspector/matrix/midi-quantization-grid.png[MIDI quantization grid]
 
 Which grid to use when quantizing MIDI clips using the "Quantize" button.
 

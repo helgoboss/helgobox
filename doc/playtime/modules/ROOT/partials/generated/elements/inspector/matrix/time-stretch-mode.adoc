@@ -1,7 +1,7 @@
 [#inspector-matrix-time-stretch-mode]
 == Time stretch mode
 
-image:generated/screenshots/elements/inspector/matrix/time-stretch-mode.png[Time stretch mode, role="related thumb right"]
+image::generated/screenshots/elements/inspector/matrix/time-stretch-mode.png[Time stretch mode]
 
 Defines which kind of time stretching algorithm to use on audio clips.
 

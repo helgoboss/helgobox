@@ -1,7 +1,7 @@
 [#inspector-matrix-resample-mode]
 == Resample mode
 
-image:generated/screenshots/elements/inspector/matrix/resample-mode.png[Resample mode, role="related thumb right"]
+image::generated/screenshots/elements/inspector/matrix/resample-mode.png[Resample mode]
 
 Defines which kind of resampling algorithm to use on audio clips.
 

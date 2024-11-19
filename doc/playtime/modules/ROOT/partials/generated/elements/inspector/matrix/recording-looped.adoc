@@ -1,7 +1,7 @@
 [#inspector-matrix-recording-looped]
 == Looped
 
-image:generated/screenshots/elements/inspector/matrix/recording-looped.png[Looped, role="related thumb right"]
+image::generated/screenshots/elements/inspector/matrix/recording-looped.png[Looped]
 
 If this is enabled, a clip will immediately start playing after it has been recorded and it will be looped.
 

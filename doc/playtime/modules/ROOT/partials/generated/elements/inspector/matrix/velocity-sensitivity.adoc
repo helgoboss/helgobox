@@ -1,7 +1,7 @@
 [#inspector-matrix-velocity-sensitivity]
 == Velocity sensitivity
 
-image:generated/screenshots/elements/inspector/matrix/velocity-sensitivity.png[Velocity sensitivity, role="related thumb right"]
+image::generated/screenshots/elements/inspector/matrix/velocity-sensitivity.png[Velocity sensitivity]
 
 Adjusts how much the velocity affects the clip volume when triggering a slot.
 

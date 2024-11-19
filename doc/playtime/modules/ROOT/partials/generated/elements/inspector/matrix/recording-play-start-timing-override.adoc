@@ -1,6 +1,6 @@
 [#inspector-matrix-recording-play-start-timing-override]
 == Play start timing override
 
-image:generated/screenshots/elements/inspector/matrix/recording-play-start-timing-override.png[Play start timing override, role="related thumb right"]
+image::generated/screenshots/elements/inspector/matrix/recording-play-start-timing-override.png[Play start timing override]
 
 null

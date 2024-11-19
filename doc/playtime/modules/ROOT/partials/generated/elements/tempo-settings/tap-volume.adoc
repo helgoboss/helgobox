@@ -1,6 +1,6 @@
 [#tempo-settings-tap-volume]
 == Tap volume
 
-image:generated/screenshots/elements/tempo-settings/tap-volume.png[Tap volume, role="related thumb right"]
+image::generated/screenshots/elements/tempo-settings/tap-volume.png[Tap volume]
 
 Allows you to set the volume of the tempo tap sound.
