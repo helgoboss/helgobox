@@ -1,6 +1,6 @@
-= Products
+= Contained products
 
-Helgobox currently provides the framework for the following products.
+Helgobox provides the framework for the following products.
 
 [[realearn]]
 == ReaLearn
@@ -8,15 +8,15 @@ Helgobox currently provides the framework for the following products.
 link:https://www.helgoboss.org/projects/realearn[ReaLearn] is a versatile controller integration tool for REAPER.
 It lies at the very core of Helgobox, as controller integration is a key aspect of all the other products it contains.
 
-→ Read more about ReaLearn xref:realearn::introduction.adoc[here].
+xref:realearn::introduction.adoc[→ Read more about ReaLearn]
 
 [[playtime]]
 == Playtime
 
 link:https://www.helgoboss.org/projects/playtime[Playtime] is a modern session view / clip launcher for REAPER, built straight into Helgobox.
-Each xref:helgobox::plug-in/key-concepts.adoc#instance[Helgobox Instance] may contain one _Playtime Matrix_ (by default not loaded).
+Each xref:helgobox::plug-in/key-concepts.adoc#instance[Helgobox Instance] may contain one xref:playtime::key-concepts.adoc#matrix[] (by default not loaded).
 
-→ Read more about Playtime xref:playtime::introduction.adoc[here].
+xref:playtime::introduction.adoc[→ Read more about Playtime]
 
 [[pot-browser]]
 == Pot Browser

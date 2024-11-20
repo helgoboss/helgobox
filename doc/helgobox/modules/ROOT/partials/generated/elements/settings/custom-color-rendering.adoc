@@ -1,6 +1,6 @@
 [#settings-custom-color-rendering]
 === Custom color rendering
 
-image:generated/screenshots/elements/settings/custom-color-rendering.png[Custom color rendering, role="related thumb right"]
+image::generated/screenshots/elements/settings/custom-color-rendering.png[Custom color rendering]
 
 Determines how user-defined colors (e.g. for tracks and clips) will be rendered.

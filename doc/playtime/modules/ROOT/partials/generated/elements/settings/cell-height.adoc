@@ -1,6 +1,6 @@
 [#settings-cell-height]
 === Cell height
 
-image:generated/screenshots/elements/settings/cell-height.png[Cell height, role="related thumb right"]
+image::generated/screenshots/elements/settings/cell-height.png[Cell height]
 
 Sets the height of all cells.

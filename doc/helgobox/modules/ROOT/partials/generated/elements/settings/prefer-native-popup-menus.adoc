@@ -1,6 +1,6 @@
 [#settings-prefer-native-popup-menus]
 === Prefer native popup menus (experimental)
 
-image:generated/screenshots/elements/settings/prefer-native-popup-menus.png[Prefer native popup menus (experimental), role="related thumb right"]
+image::generated/screenshots/elements/settings/prefer-native-popup-menus.png[Prefer native popup menus (experimental)]
 
 If enabled, dropdown and right-click menus will be rendered using your system's native user interface component.

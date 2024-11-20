@@ -1,7 +1,7 @@
 [#settings-prefer-tidy-appearance]
 === Prefer tidy appearance
 
-image:generated/screenshots/elements/settings/prefer-tidy-appearance.png[Prefer tidy appearance, role="related thumb right"]
+image::generated/screenshots/elements/settings/prefer-tidy-appearance.png[Prefer tidy appearance]
 
 If enabled, the inspector will show dropdown menus even if if they present just a handful of options. This looks more tidy but you will need 2 mouse clicks to choose an option.
 

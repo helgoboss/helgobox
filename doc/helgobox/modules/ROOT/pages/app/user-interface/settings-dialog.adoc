@@ -1,8 +1,13 @@
 = Settings dialog
 
+The dialog allows you to adjust the majority of global settings for Helgobox and its contained products.
+You can open it by pressing the xref:app/user-interface/title-bar.adoc#title-bar-settings[
+image:generated/screenshots/elements/title-bar/settings.png[]] button in the xref:app/user-interface/title-bar.adoc[].
+
+
 image::generated/screenshots/main/settings.png[]
 
-For product-specific settings, see:
+For a description of the product-specific settings, see:
 
 * xref:realearn::user-interface/settings-dialog.adoc[ReaLearn settings]
 * xref:playtime::user-interface/settings-dialog.adoc[Playtime settings]

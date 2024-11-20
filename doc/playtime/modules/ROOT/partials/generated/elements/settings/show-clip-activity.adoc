@@ -1,7 +1,7 @@
 [#settings-show-clip-activity]
 === Show clip activity
 
-image:generated/screenshots/elements/settings/show-clip-activity.png[Show clip activity, role="related thumb right"]
+image::generated/screenshots/elements/settings/show-clip-activity.png[Show clip activity]
 
 Makes a slot cell light up according to the activity of its clips (e.g. when the clip plays a note).
 

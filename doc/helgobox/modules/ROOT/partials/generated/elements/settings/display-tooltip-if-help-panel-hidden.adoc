@@ -1,6 +1,6 @@
 [#settings-display-tooltip-if-help-panel-hidden]
 === Display tooltip if help panel hidden
 
-image:generated/screenshots/elements/settings/display-tooltip-if-help-panel-hidden.png[Display tooltip if help panel hidden, role="related thumb right"]
+image::generated/screenshots/elements/settings/display-tooltip-if-help-panel-hidden.png[Display tooltip if help panel hidden]
 
 If enabled and the help panel in the bottom right corner is not visible, a tooltip will be showed instead.

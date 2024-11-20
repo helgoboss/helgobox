@@ -1,6 +1,6 @@
 [#settings-cell-width]
 === Cell width
 
-image:generated/screenshots/elements/settings/cell-width.png[Cell width, role="related thumb right"]
+image::generated/screenshots/elements/settings/cell-width.png[Cell width]
 
 Sets the width of all cells relative to their height.

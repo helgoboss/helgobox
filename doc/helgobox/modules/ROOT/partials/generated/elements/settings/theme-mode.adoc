@@ -1,6 +1,6 @@
 [#settings-theme-mode]
 === Theme mode
 
-image:generated/screenshots/elements/settings/theme-mode.png[Theme mode, role="related thumb right"]
+image::generated/screenshots/elements/settings/theme-mode.png[Theme mode]
 
 Switches between dark, light, and automatic theme modes. In automatic mode, the app will follow your system's theme settings.

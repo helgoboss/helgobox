@@ -9,7 +9,10 @@ Within the app, you can use the following keyboard shortcuts.
 |Hides the app window.
 
 |kbd:[F]
-|Toggles full-screen mode
+|Toggles full-screen mode.
+
+|kbd:[F1]
+|Opens online help for the element that is currently under the mouse cursor.
 
 |kbd:[Shift+Cmd/Ctrl+H]
 |Executes the REAPER action xref:helgobox::reaper-actions.adoc#toggle-app-focus[].

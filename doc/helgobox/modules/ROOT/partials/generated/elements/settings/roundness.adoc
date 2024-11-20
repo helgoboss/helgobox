@@ -1,7 +1,7 @@
 [#settings-roundness]
 === Roundness
 
-image:generated/screenshots/elements/settings/roundness.png[Roundness, role="related thumb right"]
+image::generated/screenshots/elements/settings/roundness.png[Roundness]
 
 Determines whether to round off corners of various user interface elements and how much.
 

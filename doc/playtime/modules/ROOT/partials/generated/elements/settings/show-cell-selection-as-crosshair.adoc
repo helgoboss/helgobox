@@ -1,6 +1,6 @@
 [#settings-show-cell-selection-as-crosshair]
 === Show cell selection as cross hair
 
-image:generated/screenshots/elements/settings/show-cell-selection-as-crosshair.png[Show cell selection as cross hair, role="related thumb right"]
+image::generated/screenshots/elements/settings/show-cell-selection-as-crosshair.png[Show cell selection as cross hair]
 
 If enabled, Playtime will not just highlight the currently selected cells but also all other cells which are in the same row and column. Makes it easier to spot the selected cell.

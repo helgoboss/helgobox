@@ -1,6 +1,6 @@
 [#settings-show-control-unit-frames]
 === Show control unit frames
 
-image:generated/screenshots/elements/settings/show-control-unit-frames.png[Show control unit frames, role="related thumb right"]
+image::generated/screenshots/elements/settings/show-control-unit-frames.png[Show control unit frames]
 
 If supported grid controllers are connected, Playtime usually shows which part of the matrix they are currently controlling by showing a colored frame. You can disable that.

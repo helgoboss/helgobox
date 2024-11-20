@@ -1,6 +1,6 @@
 [#settings-display-license-info]
 === Display license info
 
-image:generated/screenshots/elements/settings/display-license-info.png[Display license info, role="related thumb right"]
+image::generated/screenshots/elements/settings/display-license-info.png[Display license info]
 
 If enabled, the licensee name will be displayed in the window title bar (only when using a commercial component such as Playtime).
