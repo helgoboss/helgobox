@@ -1,3 +1,5 @@
 = Row inspector
 
+You will see this when selecting a xref:user-interface/matrix-area.adoc#row-cell[].
+
 include::partial$generated/elements/inspector/row/name.adoc[]

@@ -8,10 +8,8 @@ Within the app, you can use the following keyboard shortcuts.
 |kbd:[Esc]
 |Hides the app window.
 
-By default, you can quickly bring it back by pressing kbd:[Shift+Cmd/Ctrl+P].
-
 |kbd:[F]
-|Toggle full-screen mode
+|Toggles full-screen mode
 
 |kbd:[Shift+Cmd/Ctrl+H]
 |Executes the REAPER action xref:helgobox::reaper-actions.adoc#toggle-app-focus[].

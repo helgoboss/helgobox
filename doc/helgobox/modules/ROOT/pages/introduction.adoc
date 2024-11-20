@@ -1,8 +1,8 @@
 = Introduction
 
-link:https://www.helgoboss.org/projects/helgobox[Helgobox] is an add-on for link:https://www.reaper.fm[REAPER] that unites the products link:https://www.helgoboss.org/projects/realearn[ReaLearn] and link:https://www.helgoboss.org/projects/playtime[Playtime] under one roof.
+link:https://www.helgoboss.org/projects/helgobox[Helgobox] is an add-on for link:https://www.reaper.fm[REAPER] that unites xref:products.adoc[a few creative tools] under one roof, most importantly link:https://www.helgoboss.org/projects/realearn[ReaLearn] and link:https://www.helgoboss.org/projects/playtime[Playtime].
 
-It consists of two components:
+It consists of two technical components:
 
 xref:plug-in.adoc[]::
 include::partial$plug-in-desc.adoc[]

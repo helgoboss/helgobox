@@ -1,0 +1,2 @@
+The vertical bar on the left is the _Navigation bar_.
+Its primary function is to navigate between different Helgobox user interface pages.

@@ -3,4 +3,4 @@
 
 image:generated/screenshots/elements/toolbar/pane-toggler.png[Pane toggler, role="related thumb right"]
 
-Shows/hides different areas of Playtime's user interface.
+Shows or hides different areas of Playtime's user interface.

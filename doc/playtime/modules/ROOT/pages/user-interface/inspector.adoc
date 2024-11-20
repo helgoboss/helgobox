@@ -1,3 +1,11 @@
 = Inspector
 
-The inspector on the right displays details about the currently selected cell.
+include::partial$user-interface/inspector-desc.adoc[]
+
+What exactly the inspector shows, depends on the current selection:
+
+* xref:user-interface/inspector/matrix.adoc[]
+* xref:user-interface/inspector/column.adoc[]
+* xref:user-interface/inspector/row.adoc[]
+* xref:user-interface/inspector/slot.adoc[]
+* xref:user-interface/inspector/track.adoc[]

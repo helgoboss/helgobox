@@ -260,7 +260,7 @@ IMPORTANT: **This selector is deprecated!** You shouldn't use it anymore.
 
 ==== <This> selector
 
-Always points to the own ReaLearn FX xref:key-concepts.adoc#instance[].
+Always points to the own ReaLearn FX xref:helgobox::plug-in/key-concepts.adoc#instance[].
 Perfect for changing own parameters, e.g. for usage of the conditional activation or <<dynamic-selector>> features (especially important if you want to create reusable presets that make use of these features).
 
 [[fx-focused-selector]]

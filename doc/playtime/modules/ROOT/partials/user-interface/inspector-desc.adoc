@@ -1,0 +1,3 @@
+The vertical panel on the right side is the _inspector_.
+It displays detail settings for the currently selected element in the xref:user-interface/matrix-area.adoc[] or
+xref:user-interface/track-area.adoc[].

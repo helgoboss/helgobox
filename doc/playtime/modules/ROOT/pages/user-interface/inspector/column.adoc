@@ -1,5 +1,7 @@
 = Column inspector
 
+You will see this when selecting a xref:user-interface/matrix-area.adoc#column-cell[].
+
 include::partial$generated/elements/inspector/column/playback-track.adoc[]
 include::partial$generated/elements/inspector/column/custom-name.adoc[]
 include::partial$generated/elements/inspector/column/exclusive-mode.adoc[]

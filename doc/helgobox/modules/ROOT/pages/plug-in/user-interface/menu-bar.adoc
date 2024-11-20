@@ -1,0 +1,49 @@
+= Menu bar
+
+include::partial$realearn-specific-ui-elements.adoc[]
+
+== Menu button
+
+This opens the main menu of Helgobox/ReaLearn.
+The same menu opens when you right-click an empty area.
+
+It provides the following general entries.
+
+[[open-pot-browser]] Open Pot Browser::
+This will open Pot Browser.
+See xref:products.adoc#pot-browser[] for details.
+
+[[show-app]]
+Show App::
+Shows the Helgobox App associated with this Helgobox instance.
+
+[[close-app]]
+Close App::
+Closes the Helgobox App associated with this Helgobox instance.
+
+[[server]]
+Server::
+Helgobox features a built-in server which allows the old ReaLearn Companion App (and in the future also the Helgobox App) to connect to Helgobox.
+The server runs globally, not per instance!
+
+Enable and start!::: This starts the server and makes sure it will automatically be started next time you use Helgobox.
+Disable and stop!::: This stops the server and makes sure it will not be started next time you use Helgobox.
+Add firewall rule::: Attempts to add a firewall rule for making the server accessible from other devices or displays instructions how to do it.
+
+== Export to clipboard button
+
+Pressing the export button allows you to copy Helgobox settings to the clipboard so you can import them in another instance or edit them in a text editor.
+
+Export instance as JSON::
+Copies a _complete_ dump of this xref:helgobox::plug-in/key-concepts.adoc#instance[] to the clipboard in JSON format.
+
+[[import-from-clipboard]]
+== Import from clipboard button
+
+Pressing the import button does the opposite: It restores whatever Helgobox dump is currently in the clipboard.
+It supports JSON or Luau.
+
+[[help]]
+== Help button (?)
+
+Provides links to the reference and other documentation.

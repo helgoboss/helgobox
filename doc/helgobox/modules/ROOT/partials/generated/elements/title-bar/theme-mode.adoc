@@ -3,4 +3,4 @@
 
 image:generated/screenshots/elements/title-bar/theme-mode.png[Theme mode, role="related thumb right"]
 
-Switches between dark, light and automatic theme mode. In automatic theme mode, the app will adopt your system settings.
+Switches between dark, light, and automatic theme modes. In automatic mode, the app will follow your system's theme settings.

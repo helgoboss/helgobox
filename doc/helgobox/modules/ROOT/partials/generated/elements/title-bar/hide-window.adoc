@@ -5,4 +5,3 @@ image:generated/screenshots/elements/title-bar/hide-window.png[Hide window, role
 
 Hides the app window.
 
-You can show it again by pressing Shift+Cmd+P (customizable in REAPER action window, see action "Show/hide Playtime") or the Playtime button in the REAPER toolbar.

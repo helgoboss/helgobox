@@ -1,0 +1,3 @@
+The area at the bottom is the _track area_.
+It displays the xref:key-concepts.adoc#column-track[REAPER tracks] associated with each column, along with the master output track.
+The tracks are arranged horizontally, mirroring the layout of REAPER's mixer control panel.

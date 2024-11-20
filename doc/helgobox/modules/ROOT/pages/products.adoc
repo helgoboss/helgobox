@@ -1,0 +1,39 @@
+= Products
+
+Helgobox currently provides the framework for the following products.
+
+[[realearn]]
+== ReaLearn
+
+link:https://www.helgoboss.org/projects/realearn[ReaLearn] is a versatile controller integration tool for REAPER.
+It lies at the very core of Helgobox, as controller integration is a key aspect of all the other products it contains.
+
+→ Read more about ReaLearn xref:realearn::introduction.adoc[here].
+
+[[playtime]]
+== Playtime
+
+link:https://www.helgoboss.org/projects/playtime[Playtime] is a modern session view / clip launcher for REAPER, built straight into Helgobox.
+Each xref:helgobox::plug-in/key-concepts.adoc#instance[Helgobox Instance] may contain one _Playtime Matrix_ (by default not loaded).
+
+→ Read more about Playtime xref:playtime::introduction.adoc[here].
+
+[[pot-browser]]
+== Pot Browser
+
+Pot Browser is an experimental modern preset browser built straight into Helgobox.
+It's just a prototype so far.
+It will probably look quite different in the future.
+You can open it via menu action xref:plug-in/user-interface/menu-bar.adoc#open-pot-browser[].
+
+It's recommended to use Pot Browser from a ReaLearn instance on the monitoring FX chain, that way you have the browser accessible from any project.
+
+TIP: Add a toolbar button which triggers the REAPER action "ReaLearn: Open first Pot Browser" to get quick and convenient access to the browser.
+
+Remarks:
+
+- Pot Browser is in an experimental stage, it doesn't save any of your settings!
+- Each Helgobox instance can have one _Pot Unit_ (by default not loaded).
+Each Pot Unit has its own filter and preset state.
+When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
+- ReaLearn's "Pot" targets such as xref:realearn::targets/pot/browse-presets.adoc[] can be used to control the Pot Unit from any controller.

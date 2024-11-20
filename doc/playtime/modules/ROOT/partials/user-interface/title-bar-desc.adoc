@@ -1,0 +1,2 @@
+The bar at the top of the app window is the _Title bar_.
+It primarily provides general Helgobox functions that are not specific to Playtime, such as window controls, access to settings, and quick access to the REAPER transport.

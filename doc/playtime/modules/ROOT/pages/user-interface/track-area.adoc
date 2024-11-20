@@ -1,6 +1,11 @@
 = Track area
 
+include::partial$user-interface/track-area-desc.adoc[]
+
+.Master track panel
 image::generated/screenshots/elements/area/track-area-0.png[width=80]
+
+.Column track panels
 image::generated/screenshots/elements/area/track-area-1.png[]
 
 include::partial$generated/elements/track-panel/header.adoc[]

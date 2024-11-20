@@ -1,0 +1,2 @@
+NOTE: This section only describes the few general user interface elements that are _not_ specific to ReaLearn.
+Refer to the xref:realearn::user-interface.adoc[ReaLearn user interface documentation] to learn more about all the other elements!

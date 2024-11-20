@@ -1,0 +1,6 @@
+[#inspector-track-color]
+== Color
+
+image::generated/screenshots/elements/inspector/track/color.png[Color]
+
+Lets you change the color of the REAPER track.

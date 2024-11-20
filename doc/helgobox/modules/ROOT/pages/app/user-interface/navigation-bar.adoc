@@ -3,6 +3,7 @@
 The bar on the left is the _Navigation bar_.
 
 Its main purpose is to switch between different user interface pages.
+You can show or hide it using the xref:app/user-interface/title-bar.adoc#title-bar-toggle-nav-bar[image:generated/screenshots/elements/title-bar/toggle-nav-bar.png[Toggle navigation bar] button] in the xref:app/user-interface/title-bar.adoc[].
 
 include::partial$generated/elements/navbar/home.adoc[]
 
@@ -11,5 +12,11 @@ include::partial$generated/elements/navbar/projection.adoc[]
 include::partial$generated/elements/navbar/playtime.adoc[]
 
 include::partial$generated/elements/navbar/enable-disable-global-control.adoc[]
+
+If enabled, all connected controllers that you have equipped will load their corresponding main preset.
+You can configure controllers using the settings button in the window title bar.
+
+If disabled, global controllers will be ignored in this instance.
+You still have the freedom to create a custom control experience using ReaLearn.
 
 include::partial$generated/elements/navbar/show-helgobox-plugin.adoc[]

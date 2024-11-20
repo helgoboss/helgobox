@@ -1,0 +1,14 @@
+= Key concepts
+
+[[instance]]
+== Instance
+
+Helgobox is an instrument plug-in.
+That means you can add multiple instances of it, just as you would add multiple instances of a synth or effect.
+For example, you could place one instance on the monitoring FX chain and two instances somewhere in your project.
+
+[[instance-id]]
+== Instance ID
+
+A randomly assigned ID that uniquely identifies a particular <<instance>>.
+Will most likely change after a restart of REAPER!

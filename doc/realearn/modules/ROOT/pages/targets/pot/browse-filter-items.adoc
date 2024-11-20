@@ -6,7 +6,7 @@ The idea is to map this target to an endless rotary encoder or previous/next but
 == Kind menu
 
 Choose the kind of filter items that you want to browse.
-They correspond to the filters available in xref:further-concepts/instance.adoc#pot-browser[].
+They correspond to the filters available in xref:helgobox::products.adoc#pot-browser[].
 
 == Target-specific properties
 

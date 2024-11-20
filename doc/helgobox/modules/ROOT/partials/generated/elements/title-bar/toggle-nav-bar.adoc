@@ -3,4 +3,4 @@
 
 image:generated/screenshots/elements/title-bar/toggle-nav-bar.png[Toggle navigation bar, role="related thumb right"]
 
-Shows/hides the navigation bar on the left.
+Shows or hides the navigation bar on the left.

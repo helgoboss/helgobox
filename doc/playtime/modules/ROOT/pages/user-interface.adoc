@@ -1,7 +1,38 @@
 = User interface
 
+This section provides a detailed overview of all elements in Playtime's user interface.
+
+== Main screen
+
+Playtime's design centers around a single, large _main screen_, offering streamlined access to its most essential features.
+
 .Main screen
 image::generated/screenshots/main/main-screen.png[]
 
+== Main screen areas
+
+The main screen is divided into distinct areas, each serving a specific purpose.
+
 .Areas of the main screen
 image::generated/screenshots/main/main-screen-areas.png[]
+
+xref:user-interface/title-bar.adoc[]::
+include::partial$user-interface/title-bar-desc.adoc[]
+
+xref:user-interface/navigation-bar.adoc[]::
+include::partial$user-interface/nav-bar-desc.adoc[]
+
+xref:user-interface/toolbar.adoc[]::
+include::partial$user-interface/toolbar-desc.adoc[]
+
+xref:user-interface/matrix-area.adoc[]::
+include::partial$user-interface/matrix-area-desc.adoc[]
+
+xref:user-interface/track-area.adoc[]::
+include::partial$user-interface/track-area-desc.adoc[]
+
+xref:user-interface/inspector.adoc[]::
+include::partial$user-interface/inspector-desc.adoc[]
+
+xref:user-interface/info-panel.adoc[]::
+include::partial$user-interface/info-panel-desc.adoc[]

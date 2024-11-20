@@ -1,0 +1,2 @@
+The area at the bottom right is the _info panel_.
+It offers context-sensitive help and displays engine statistics.

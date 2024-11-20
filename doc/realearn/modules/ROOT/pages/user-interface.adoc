@@ -1,20 +1,7 @@
 = User interface
 
-This section provides describes the user interface elements in Helgobox relevant to ReaLearn.
+This section describes all user interface elements in Helgobox that are relevant to ReaLearn.
+
+The majority of this section focuses on the xref:helgobox::plug-in/user-interface.adoc[native plug-in user interface], as this is where the majority of ReaLearn's functionality is located.
+
 For details on source- or target-specific elements, refer to xref:sources.adoc[] and xref:targets.adoc[].
-
-== Helgobox Components
-
-Helgobox consists of two main components, each with its own user interface:
-
-Helgobox Instrument Plug-In::
-This interface appears when you open the plug-in window and represents the core of ReaLearn's user interface.
-Most of the information in this section focuses on the instrument plug-in.
-
-Helgobox App::
-This interface is accessible via menu:Menu[Show app] in the plug-in.
-In the future, the app will also be available for mobile devices and offer remote connections to REAPER.
-Currently, the app only provides the interface for Playtime with the following exceptions:
-+
-* ReaLearn's xref:further-concepts/unit.adoc#projection[] feature
-* ReaLearn's global controller settings

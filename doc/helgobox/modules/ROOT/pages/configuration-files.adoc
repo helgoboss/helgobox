@@ -1,0 +1,32 @@
+= Configuration files
+
+Helgobox creates and/or reads a few files in REAPER's resource directory.
+
+For product-specific configuration files, please refer to:
+
+* xref:realearn::configuration-files.adoc[ReaLearn configuration files]
+* xref:playtime::configuration-files.adoc[Playtime configuration files]
+
+Helgobox itself maintains the following files:
+
+`Data/helgoboss`:: Directory which contains data such as presets or resources that need to be distributed via ReaPack
+
+`Data/helgoboss/archives`:: Directory which contains archives e.g. the compressed app, distributed via ReaPack
+
+`Data/helgoboss/doc`:: Contains offline documentation as PDFs
+
+`Helgoboss`:: Directory which contains user-specific or device-specific data, not touched via ReaPack
+
+`licensing.json`:: Contains license keys
+
+`Helgoboss/App`:: Contains the uncompressed App, if installed
+
+`Helgoboss/Pot/previews`:: Directory which contains previews recorded by xref:products.adoc#pot-browser[Pot Browser]
+
+`Helgoboss/Server/certificates`:: Contains a list of certificates and corresponding private keys in order to allow encrypted communication with ReaLearn Companion and App.
+
+`Helgoboss/ReaLearn/realearn.ini`:: Very basic global configuration.
+The reference to ReaLearn is there just for historical reasons.
+Most properties in here affect Helgobox as a whole.
++
+Currently supported properties: `server_enabled`, `server_http_port`, `server_https_port`, `server_grpc_port`, `companion_web_app_url`, `showed_welcome_screen`, `background_colors_enabled`

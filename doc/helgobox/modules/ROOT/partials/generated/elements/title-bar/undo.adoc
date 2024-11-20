@@ -3,4 +3,4 @@
 
 image:generated/screenshots/elements/title-bar/undo.png[Undo, role="related thumb right"]
 
-
+Undoes the most recent operation performed within this Playtime matrix.

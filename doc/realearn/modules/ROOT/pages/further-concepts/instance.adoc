@@ -1,15 +1,9 @@
 = Instance concepts
 
-[[instance-id]]
-== Instance ID
-
-A randomly assigned ID that uniquely identifies a particular xref:key-concepts.adoc#instance[].
-Will most likely change after a restart of REAPER!
-
 [[auto-units]]
 == Auto units
 
-Each xref:key-concepts.adoc#instance[] optionally supports the automatic addition and configuration of a xref:key-concepts.adoc#unit[] with a user-defined main preset if a certain type of controller is connected and automatic removal if it is disconnected.
+Each xref:helgobox::plug-in/key-concepts.adoc#instance[] optionally supports the automatic addition and configuration of a xref:key-concepts.adoc#unit[] with a user-defined main preset if a certain type of controller is connected and automatic removal if it is disconnected.
 
 The general procedure is:
 
@@ -24,30 +18,3 @@ And now the nice part: If you decide to use a specific device for something else
 If you do that, the project-specific instance "wins" over the monitoring FX instance.
 You got a project-specific override.
 If you close the project, the monitoring FX instance takes over again.
-
-[[playtime]]
-== Playtime
-
-link:https://www.helgoboss.org/projects/playtime[Playtime] is a modern session view / clip launcher for REAPER, built straight into Helgobox.
-
-Each Helgobox xref:key-concepts.adoc#instance[] may contain one _Playtime Matrix_ (by default not loaded)
-
-[[pot-browser]]
-== Pot Browser
-
-Pot Browser is an experimental modern preset browser built straight into Helgobox.
-It's just a prototype so far.
-It will probably look quite different in the future.
-You can open it via menu action xref:user-interface/main-panel/menu-bar.adoc#open-pot-browser[].
-
-It's recommended to use Pot Browser from a ReaLearn instance on the monitoring FX chain, that way you have the browser accessible from any project.
-
-TIP: Add a toolbar button which triggers the REAPER action "ReaLearn: Open first Pot Browser" to get quick and convenient access to the browser.
-
-Remarks:
-
-- Pot Browser is in an experimental stage, it doesn't save any of your settings!
-- Each ReaLearn instance can have one _Pot Unit_ (by default not loaded).
-Each Pot Unit has its own filter and preset state.
-When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
-- ReaLearn's "Pot" targets such as xref:targets/pot/browse-presets.adoc[] can be used to control the Pot Unit from any controller.

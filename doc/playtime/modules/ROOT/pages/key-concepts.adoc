@@ -1,7 +1,7 @@
 = Key concepts
 
 This section offers brief descriptions of Playtime's key concepts.
-A solid understanding of these concepts is essential for effectively using Playtime, regardless of which features you plan to utilize.
+An understanding of these concepts is beneficial for effectively using Playtime, regardless of which features you plan to utilize.
 
 == Linear vs. non-linear music production
 
@@ -32,7 +32,7 @@ In Playtime, a _matrix_ is the top-level structure.
 It is fundamentally a two-dimensional grid of <<slot,slots>> that hold <<clip,clips>>, arranged in <<column,columns>> and <<row,rows>>.
 On a broader level, the matrix functions as a container, comparable to a project in REAPER, and includes various settings.
 
-Each xref:realearn::key-concepts.adoc#instance[instance of Helgobox] can load a single Playtime matrix.
+Each xref:helgobox::plug-in/key-concepts.adoc#instance[instance of Helgobox] can load a single Playtime matrix.
 By default, it contains no matrix, so it must be created explicitly.
 This approach ensures that Helgobox instances dedicated solely to xref:realearn::introduction.adoc[ReaLearn] don't consume any Playtime-related CPU or memory resources - you only "pay for what you use".
 

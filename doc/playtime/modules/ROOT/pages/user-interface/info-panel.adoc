@@ -1,6 +1,6 @@
 = Info panel
 
-The info panel displays context-sensitive help, statistics and warnings.
+include::partial$user-interface/info-panel-desc.adoc[]
 
 == Help
 

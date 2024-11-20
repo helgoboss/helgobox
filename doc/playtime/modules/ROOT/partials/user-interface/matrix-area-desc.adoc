@@ -1,0 +1,1 @@
+The large central area is the _matrix area_, showcasing the core of Playtime: Its matrix, which contains the xref:key-concepts.adoc#clip[clips].

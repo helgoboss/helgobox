@@ -3,4 +3,4 @@
 
 image:generated/screenshots/elements/title-bar/theme-switcher.png[Quick theme switcher, role="related thumb right"]
 
-This switches through a few hand-picked combinations of theme-related user interface settings.
+Allows you to cycle through all available themes.

@@ -3,4 +3,4 @@
 
 image:generated/screenshots/elements/title-bar/panic-midi.png[Panic, role="related thumb right"]
 
-Attempts to stop any playing or even hanging MIDI notes.
+Attempts to stops all currently playing MIDI notes. Whenever you experience hanging notes, press this button.

@@ -1,4 +1,15 @@
-= Matrix
+= Matrix area
+
+include::partial$user-interface/matrix-area-desc.adoc[]
+
+.Column header cells of the matrix area
+image::generated/screenshots/elements/area/matrix-area-1.png[]
+
+.Scene header cells of the matrix area
+image::generated/screenshots/elements/area/matrix-area-2.png[width=100]
+
+.Slot cells of the matrix area
+image::generated/screenshots/elements/area/matrix-area-3.png[]
 
 == General
 

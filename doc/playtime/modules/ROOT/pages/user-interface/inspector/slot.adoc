@@ -1,5 +1,7 @@
 = Slot inspector
 
+You will see this when selecting a xref:user-interface/matrix-area.adoc#slot-cell[].
+
 include::partial$generated/elements/inspector/slot/clip-picker.adoc[]
 
 For details about the actual clip, see xref:user-interface/inspector/clip.adoc[].

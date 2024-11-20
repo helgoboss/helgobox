@@ -1,0 +1,5 @@
+= Configuration files
+
+In addition to the xref:helgobox::configuration-files.adoc[general configuration files], Playtime maintains the following ones:
+
+`Helgoboss/Playtime/settings.json`:: Contains global configuration that affects all Playtime instances.

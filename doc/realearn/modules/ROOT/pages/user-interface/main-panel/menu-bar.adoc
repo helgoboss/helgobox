@@ -107,7 +107,8 @@ This takes a toolbar of your choice and converts it to a list of mappings that w
 This feature is experimental and subject to improvement.
 +
 NOTE: It will work best with custom toolbars that use non-default icons.
-Many of the default toolbar icons are not in the `Data/toolbar_icons` folder and therefore can't yet be loaded by ReaLearn. However, in this case, you will see a descriptive text instead.
+Many of the default toolbar icons are not in the `Data/toolbar_icons` folder and therefore can't yet be loaded by ReaLearn.
+However, in this case, you will see a descriptive text instead.
 
 
 [[edit-compartment-wide-lua-code]] Edit compartment-wide Lua code::
@@ -204,14 +205,13 @@ If you enable this option, this Helgobox instance will start to automatically ad
 See xref:further-concepts/instance.adoc#auto-units[].
 
 [[open-pot-browser]] Open Pot Browser::
-This will open Pot Browser.
-See xref:further-concepts/instance.adoc#pot-browser[] for details.
+See xref:helgobox::plug-in/user-interface/menu-bar.adoc#open-pot-browser[].
 
 Show App::
-Shows the Helgobox App associated with this Helgobox instance.
+See xref:helgobox::plug-in/user-interface/menu-bar.adoc#show-app[].
 
 Close App::
-Closes the Helgobox App associated with this Helgobox instance.
+See xref:helgobox::plug-in/user-interface/menu-bar.adoc#close-app[].
 
 User interface::
 
@@ -219,12 +219,7 @@ Background colors:::
 Enables/disables the usage of background colors in the ReaLearn user interface (enabled by default).
 
 Server::
-ReaLearn features a built-in server which allows the Companion App (and in future also the Helgobox App) to connect to ReaLearn.
-The server runs globally, not per instance!
-
-Enable and start!::: This starts the server and makes sure it will automatically be started next time you use ReaLearn.
-Disable and stop!::: This stops the server and makes sure it will not be started next time you use ReaLearn.
-Add firewall rule::: Attempts to add a firewall rule for making the server accessible from other devices or displays instructions how to do it.
+See xref:helgobox::plug-in/user-interface/menu-bar.adoc#server[].
 
 [[global-fx-to-preset-links]] Global FX-to-preset links::
 Allows you to manage xref:further-concepts/unit.adoc#global-fx-to-preset-link[global FX-to-preset links].
@@ -266,7 +261,7 @@ Pressing the export button allows you to copy ReaLearn's settings to the clipboa
 See xref:further-concepts/general.adoc#import-export[].
 
 Export instance as JSON::
-Copies a _complete_ dump of this xref:key-concepts.adoc#instance[] to the clipboard in JSON format.
+Copies a _complete_ dump of this xref:helgobox::plug-in/key-concepts.adoc#instance[] to the clipboard in JSON format.
 
 Export main/controller compartment as JSON::
 Copies a dump of the currently visible compartment to the clipboard.
@@ -297,4 +292,4 @@ Hopefully, the transition to the Helgobox App, including mobile versions of that
 
 == Help button (?)
 
-Provides links to the reference and other documentation.
+See xref:helgobox::plug-in/user-interface/menu-bar.adoc#help[].

@@ -1,10 +1,14 @@
 = Title bar
 
 The bar on the top of the app window is the _Title bar_.
+It primarily provides general functions, such as window controls, access to settings, and quick access to the REAPER transport.
 
 image::generated/screenshots/elements/area/window-title-bar-0.png[]
 
 include::partial$generated/elements/title-bar/hide-window.adoc[]
+
+Hiding the window doesn't completely unload the app, it really just hides it.
+In order to close it for good, use xref:helgobox::plug-in/user-interface/menu-bar.adoc#close-app[].
 
 include::partial$generated/elements/title-bar/full-screen.adoc[]
 
@@ -16,6 +20,8 @@ include::partial$generated/elements/title-bar/theme-mode.adoc[]
 
 include::partial$generated/elements/title-bar/dim.adoc[]
 
+The opacity of the opaque window can be adjusted via xref:app/user-interface/settings-dialog.adoc#settings-dim-opacity[].
+
 include::partial$generated/elements/title-bar/settings.adoc[]
 
 include::partial$generated/elements/title-bar/refresh.adoc[]
@@ -25,6 +31,9 @@ include::partial$generated/elements/title-bar/undo.adoc[]
 include::partial$generated/elements/title-bar/redo.adoc[]
 
 include::partial$generated/elements/title-bar/theme-switcher.adoc[]
+
+Themes are simply pre-selected combinations of various appearance settings.
+Once you’ve selected a theme, you can further customize it by adjusting the settings.
 
 include::partial$generated/elements/title-bar/panic-midi.adoc[]
 
@@ -39,3 +48,5 @@ include::partial$generated/elements/title-bar/pause-arrangement.adoc[]
 include::partial$generated/elements/title-bar/help.adoc[]
 
 include::partial$generated/elements/title-bar/helgobox-info.adoc[]
+
+See xref:plug-in/key-concepts.adoc#instance-id[].
