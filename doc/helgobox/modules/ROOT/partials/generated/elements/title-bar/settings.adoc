@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/title-bar/settings.png[Settings, role="related thumb right"]
 
 Opens the central settings dialog.
+

@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/inspector/column/start-timing.png[Start timing]
 
 This overrides the start timing (defined in the matrix settings) for all clips in this column.
+

@@ -6,3 +6,4 @@ image::generated/screenshots/elements/inspector/clip/time-signature.png[Time sig
 The original time signature in which the material has been recorded.
 
 This will be used for display purposes.
+

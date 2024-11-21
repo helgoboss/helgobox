@@ -6,3 +6,4 @@ image:generated/screenshots/elements/inspector/clip/section.png[Section ⊖, rol
 Here you can define which part of the audio or MIDI clip you want to play.
 
 You can play with the section start position and length as part of a performance! This distinguishes it from the more permanent "Source cut" settings in the expert section.
+

@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/track-panel/pdc-significant.png[Significant latency: 20ms, role="related thumb right"]
 
 This track is affected by a significant latency, which Playtime compensates during playback. Input monitoring will probably not be too much fun because of the introduced delay.
+

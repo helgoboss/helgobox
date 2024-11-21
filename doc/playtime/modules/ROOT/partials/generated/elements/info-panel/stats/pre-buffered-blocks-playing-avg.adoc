@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/info-panel/stats/pre-buffered-blocks-playing-avg.png[Pre-buffered blocks playing (avg)]
 
 The average number of pre-buffered blocks among currently playing audio clips.
+

@@ -4,3 +4,9 @@
 image:generated/screenshots/elements/toolbar/time-signature.png[Time signature, role="related thumb right"]
 
 Displays the project's time signature.
+[NOTE]
+.Development status: To be improved
+====
+Changing the time signature from here is planned. For the time being, you can do it within REAPER itself.
+====      
+

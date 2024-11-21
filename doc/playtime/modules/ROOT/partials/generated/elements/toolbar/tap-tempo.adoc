@@ -3,4 +3,5 @@
 
 image:generated/screenshots/elements/toolbar/tap-tempo.png[Tap tempo, role="related thumb right"]
 
-Click here repeatedly in order to tap the tempo. This is especially useful when playback is stopped, in which case it allows you to conduct a count-in.
+Click here repeatedly in order to tap the tempo. This is especially useful when playback is stopped, in which case it lets you conduct a count-in.
+

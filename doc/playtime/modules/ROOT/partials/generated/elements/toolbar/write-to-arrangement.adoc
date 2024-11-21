@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/toolbar/write-to-arrangement.png[Write to arrangement, role="related thumb right"]
 
 Writes the currently active matrix sequence to REAPER's tracks
+

@@ -1,6 +1,7 @@
 [#track-panel-volume]
 === Track volume
 
-image:generated/screenshots/elements/track-panel/volume.png[Track volume, role="related thumb right"]
+image::generated/screenshots/elements/track-panel/volume.png[Track volume]
 
-Shows the track peaks and allows you to control the track volume.
+Shows the track peaks and lets you control the track volume.
+

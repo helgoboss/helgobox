@@ -3,6 +3,7 @@
 
 image::generated/screenshots/elements/inspector/column/playback-track.png[Playback track]
 
-Lets you choose the REAPER track on which this column plays its clips.
+Choose the REAPER track on which this column plays its clips.
 
 It's even possible to associate multiple columns with the same playback track!
+

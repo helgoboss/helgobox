@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/toolbar/open-ended-recording.png[Open-ended recording, role="related thumb right"]
 
 Clips recordings are not limited in length.
+

@@ -4,14 +4,11 @@ link:https://www.helgoboss.org/projects/playtime[Playtime] is a modern session v
 It is part of the link:https://www.helgoboss.org/projects/helgobox[Helgobox] plug-in.
 
 This reference offers a comprehensive guide to Playtime's concepts and features.
-Use it to dive deep into specific functionalities or to better understand how Playtime enhances your workflow.
 
 [IMPORTANT]
 ====
 
-**If you are a beginner, please use the link:https://github.com/helgoboss/helgobox/wiki/Playtime-Home[Playtime Wiki] instead!**
+**If you are a beginner, you also might want to check out the link:https://github.com/helgoboss/helgobox/wiki/Playtime-Home[Playtime Wiki]!**
 
-This reference is targeted at users who are already familiar with the Playtime basics and want to look up specific information.
-The Wiki is perfect if you are just starting off.
 It guides you through the very basics and contains links to easily digestible video tutorials.
 ====

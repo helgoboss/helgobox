@@ -6,3 +6,4 @@ image:generated/screenshots/elements/matrix-cell/stop.png[Stop matrix, role="rel
 A single click stops all playing clips according to their stop timing.
 
 A double click stops all playing clips instantly.
+

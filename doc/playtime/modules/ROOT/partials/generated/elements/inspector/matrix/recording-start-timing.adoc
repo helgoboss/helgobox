@@ -4,3 +4,9 @@
 image::generated/screenshots/elements/inspector/matrix/recording-start-timing.png[Start timing]
 
 null
+[NOTE]
+.Development status: Planned!
+====
+The record start timing determines when to start recording after a recording start has been triggered.
+====      
+

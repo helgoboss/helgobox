@@ -3,4 +3,12 @@
 
 image:generated/screenshots/elements/toolbar/tempo.png[Tempo, role="related thumb right"]
 
-Controls the project tempo. This is possible as long as no tempo marker exists in the project.
+Controls the project tempo. This is only possible as long as REAPER playback is stopped and no tempo marker exists in the project.
+[NOTE]
+.Development status: To be improved
+====
+The ability to follow the REAPER tempo envelope might come in a future update.
+
+Tempo adjustment during REAPER playback is disabled because of potential timing issues. It might be possible to fix this, but it needs a new feature on REAPER side. **Please note**: Using REAPER's own tempo control during project playback is *not* a workaround! It will potentially cause the mentioned timing issues.
+====      
+

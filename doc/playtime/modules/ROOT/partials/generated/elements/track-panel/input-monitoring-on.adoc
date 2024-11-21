@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/track-panel/input-monitoring-on.png[Input monitoring on, role="related thumb right"]
 
 Switches input monitoring for this track on. That means you will hear what you play.
+

@@ -1,0 +1,7 @@
+[#arrangement-writing-mode-replace]
+== Replace
+
+image:generated/screenshots/elements/arrangement-writing-mode/replace.png[Replace, role="related thumb right"]
+
+Replaces the existing arrangement and places the new one at the start of the project.
+

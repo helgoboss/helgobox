@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/inspector/column/velocity-sensitivity.png[Velocity sensitivity]
 
 This overrides the velocity sensitivity (defined in the matrix settings) for all clips in this column.
+

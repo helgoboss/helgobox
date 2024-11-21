@@ -3,4 +3,5 @@
 
 image::generated/screenshots/elements/inspector/clip/pitch.png[Pitch]
 
-Allows you to adjust the pitch of this clip. In case of MIDI, only integers are supported.
+Adjust the pitch of this clip. In case of MIDI, only integers are supported.
+

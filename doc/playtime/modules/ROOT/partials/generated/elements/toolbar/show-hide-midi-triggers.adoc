@@ -5,6 +5,3 @@ image:generated/screenshots/elements/toolbar/show-hide-midi-triggers.png[Show/hi
 
 Shows or hides MIDI triggers assigned to cells.
 
-The purpose of this feature is to quickly create simple mappings of MIDI keys/pads/buttons to cells. If you want to configure full-featured grid controllers instead (e.g. Launchpad), check out the buttons at the bottom of the navigation bar on the left.
-
-The MIDI triggers configured here are specific to this particular Playtime instance, not global!

@@ -5,3 +5,4 @@ image::generated/screenshots/elements/inspector/clip/sync-to-project-tempo.png[S
 
 Whether to adjust the playback tempo of the clip to the project tempo. You usually want to have this enabled for rhythmic material.
 
+

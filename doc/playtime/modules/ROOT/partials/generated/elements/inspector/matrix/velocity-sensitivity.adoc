@@ -6,3 +6,4 @@ image::generated/screenshots/elements/inspector/matrix/velocity-sensitivity.png[
 Adjusts how much the velocity affects the clip volume when triggering a slot.
 
 This setting applies to all clips in the matrix but it can be overridden at column and clip level.
+

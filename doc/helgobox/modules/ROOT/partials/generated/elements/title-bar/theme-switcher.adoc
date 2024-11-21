@@ -3,4 +3,5 @@
 
 image:generated/screenshots/elements/title-bar/theme-switcher.png[Quick theme switcher, role="related thumb right"]
 
-Allows you to cycle through all available themes.
+Cycle through all available themes.
+

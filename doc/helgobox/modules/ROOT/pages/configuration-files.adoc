@@ -19,7 +19,9 @@ Helgobox itself maintains the following files:
 
 `licensing.json`:: Contains license keys
 
-`Helgoboss/App`:: Contains the uncompressed App, if installed
+`Helgoboss/App/bin`:: Contains the uncompressed xref:app.adoc[], if installed
+
+`Helgoboss/App/etc/settings.json`:: Contains the global settings for Helgobox and all of its contained products
 
 `Helgoboss/Pot/previews`:: Directory which contains previews recorded by xref:products.adoc#pot-browser[Pot Browser]
 

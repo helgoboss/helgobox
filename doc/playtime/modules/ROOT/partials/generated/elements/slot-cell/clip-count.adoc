@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/slot-cell/clip-count.png[Number of clips, role="related thumb right"]
 
 Shows the number of clips contained in this slot if there's more than one.
+

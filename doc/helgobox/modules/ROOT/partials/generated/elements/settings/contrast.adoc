@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/settings/contrast.png[Contrast]
 
 Choose between multiple color variations that influence the perceived contrast of the app's appearance.
+

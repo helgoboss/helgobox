@@ -1,0 +1,7 @@
+= Arrangement writing mode dialog
+
+image::generated/screenshots/main/arrangement-writing-mode.png[]
+
+include::partial$generated/elements/arrangement-writing-mode/replace.adoc[]
+include::partial$generated/elements/arrangement-writing-mode/merge-at-cursor.adoc[]
+include::partial$generated/elements/arrangement-writing-mode/append.adoc[]

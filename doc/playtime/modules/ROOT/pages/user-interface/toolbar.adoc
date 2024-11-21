@@ -5,9 +5,13 @@ include::partial$user-interface/toolbar-desc.adoc[]
 .Toolbar
 image::generated/screenshots/elements/area/toolbar-0.png[]
 
+// Tempo section
+
 include::partial$generated/elements/toolbar/tempo-section.adoc[]
 
 include::partial$generated/elements/toolbar/metronome.adoc[]
+
+See xref:user-interface/tempo-settings-dialog.adoc[].
 
 include::partial$generated/elements/toolbar/tempo.adoc[]
 
@@ -17,24 +21,60 @@ include::partial$generated/elements/toolbar/time-signature.adoc[]
 
 include::partial$generated/elements/toolbar/play-rate.adoc[]
 
+// Transport section
+
 include::partial$generated/elements/toolbar/transport-section.adoc[]
+
+Those are different from the REAPER transport controls, as Playtime is capable of playing and recording while REAPER is stopped.
 
 include::partial$generated/elements/toolbar/smart-record.adoc[]
 
 include::partial$generated/elements/toolbar/start-stop-playback.adoc[]
 
+If you want to start REAPER playback together with Playtime, you have two options:
+
+[loweralpha]
+. Start playback within REAPER itself (which automatically starts Playtime playback)
+. Switch xref:user-interface/inspector/matrix.adoc#inspector-matrix-transport-sync[] to **Full**
+
+// Visual metronome
+
+include::partial$generated/elements/toolbar/visual-metronome.adoc[]
+
+// Start timing
+
 include::partial$generated/elements/toolbar/matrix-start-timing.adoc[]
+
+See xref:key-concepts.adoc#clip-start-timing[].
+
+// Matrix sequencer
 
 include::partial$generated/elements/toolbar/matrix-sequencer.adoc[]
 
+See xref:key-concepts.adoc#matrix-sequence[].
+
 include::partial$generated/elements/toolbar/record-matrix-sequence.adoc[]
 
+This will always create a new sequence.
+Old sequences are retained, so you can press this anytime without worrying to overwrite old sequences.
+
+Even though the button turns red right after clicking it, you don't need to rush with your performance.
+After recording, Playtime will automatically remove silence at the beginning of the sequence.
+
 include::partial$generated/elements/toolbar/matrix-sequence-picker.adoc[]
+
+See xref:user-interface/sequences-dialog.adoc[].
 
 include::partial$generated/elements/toolbar/play-stop-matrix-sequence.adoc[]
 
 include::partial$generated/elements/toolbar/write-to-arrangement.adoc[]
 
+If the Playtime column tracks already contain items, pressing this button will show the xref:user-interface/arrangement-writing-mode-dialog.adoc[].
+
 include::partial$generated/elements/toolbar/show-hide-midi-triggers.adoc[]
+
+The purpose of this feature is to quickly create simple mappings of MIDI keys/pads/buttons to cells. If you want to use full-featured grid controllers, such as the Launchpad, see xref:realearn::user-interface/settings-dialog.adoc#controllers[].
+
+The MIDI triggers configured here are specific to this particular xref:helgobox::plug-in/key-concepts.adoc#instance[], not global.
 
 include::partial$generated/elements/toolbar/pane-toggler.adoc[]

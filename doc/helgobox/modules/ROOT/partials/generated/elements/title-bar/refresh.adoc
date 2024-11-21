@@ -6,3 +6,4 @@ image:generated/screenshots/elements/title-bar/refresh.png[Refresh, role="relate
 Refreshes the displayed information.
 
 Pressing this button is typically not required during normal operation. However, if there are any issues preventing Helgobox from displaying the latest information automatically, this button can help resolve the problem.
+

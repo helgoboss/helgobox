@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/track-panel/input-monitoring-off.png[Input monitoring off, role="related thumb right"]
 
 Switches input monitoring for this track off. That means you will not hear what your play.
+

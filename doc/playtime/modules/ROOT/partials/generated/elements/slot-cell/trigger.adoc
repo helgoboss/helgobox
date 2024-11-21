@@ -6,3 +6,4 @@ image:generated/screenshots/elements/slot-cell/trigger.png[Trigger slot, role="r
 Plays, retriggers or stops all clips in this slot depending on the trigger behavior configured for the matrix.
 
 **Stop:** A single click stops all contained clips according to their stop timing. A double click stops all contained clips instantly.
+

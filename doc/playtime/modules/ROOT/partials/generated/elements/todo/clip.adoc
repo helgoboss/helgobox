@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/todo/clip.png[Clip, role="related thumb right"]
 
 This is one of the clips in this slot. Clicking on it will reveal its settings in the area below. Double-clicking on it opens the clip in the waveform view or MIDI editor.
+

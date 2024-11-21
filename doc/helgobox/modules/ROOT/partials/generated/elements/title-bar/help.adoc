@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/title-bar/help.png[Help, role="related thumb right"]
 
 Shows a help menu
+

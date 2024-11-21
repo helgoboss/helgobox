@@ -6,3 +6,4 @@ image::generated/screenshots/elements/inspector/matrix/midi-quantization-grid.pn
 Which grid to use when quantizing MIDI clips using the "Quantize" button.
 
 Tip: If you want more advanced quantization options, use REAPER's MIDI editor instead.
+

@@ -3,4 +3,5 @@
 
 image::generated/screenshots/elements/settings/overall-size.png[Overall size]
 
-Allows you to adjust the overall size of the user interface, including the font size.
+Adjust the overall size of the user interface, including the font size.
+

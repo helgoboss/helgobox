@@ -5,3 +5,4 @@ image:generated/screenshots/elements/title-bar/hide-window.png[Hide window, role
 
 Hides the app window.
 
+

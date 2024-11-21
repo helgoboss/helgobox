@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/slot-cell.png[Slot cell, role="related thumb right"]
 
 This cell represents a slot in the matrix.
+

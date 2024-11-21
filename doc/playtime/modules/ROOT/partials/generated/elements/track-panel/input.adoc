@@ -3,4 +3,5 @@
 
 image:generated/screenshots/elements/track-panel/input.png[Track input, role="related thumb right"]
 
-Lets you pick the hardware input of this track used for recording and input monitoring. This can be a MIDI or audio input.
+Pick the hardware input of this track used for recording and input monitoring. This can be a MIDI or audio input.
+

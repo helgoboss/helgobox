@@ -8,4 +8,4 @@ If you don't see it, do this:
 . Select menu:Extensions[Helgobox > Show welcome screen]
 . Check "Add Playtime button to main toolbar"
 
-image::screenshots/helgobox-welcome-screen.png[]
+image::screenshots/helgobox-welcome-screen.png[width=500]

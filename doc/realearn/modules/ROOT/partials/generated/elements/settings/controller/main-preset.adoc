@@ -6,3 +6,4 @@ image::generated/screenshots/elements/settings/controller/main-preset.png[Main p
 This preset decides how your controller will be used, i.e. what exactly it should control.
 
 If you don't choose any main preset or if the main preset is not compatible with your controller, the controller will not be used at all.
+

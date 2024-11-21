@@ -3,4 +3,5 @@
 
 image::generated/screenshots/elements/inspector/clip/volume.png[Volume]
 
-Allows you to set the volume of this clip. In case of MIDI, it will adjust the velocity of played MIDI notes.
+Set the volume of this clip. In case of MIDI, it will adjust the velocity of played MIDI notes.
+

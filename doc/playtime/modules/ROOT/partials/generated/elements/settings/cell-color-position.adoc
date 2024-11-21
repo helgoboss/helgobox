@@ -3,4 +3,5 @@
 
 image::generated/screenshots/elements/settings/cell-color-position.png[Cell color position]
 
-Determines how a slot cell shows the color of its primary clip.
+Choose how a slot cell shows the color of its primary clip.
+

@@ -6,3 +6,4 @@ image::generated/screenshots/elements/inspector/matrix/trigger-mode.png[Trigger 
 Choose between different modes of triggering slots.
 
 This setting applies to all clips in the matrix but it can be overridden at column level.
+

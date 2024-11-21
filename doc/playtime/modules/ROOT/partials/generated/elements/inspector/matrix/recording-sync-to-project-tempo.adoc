@@ -3,4 +3,5 @@
 
 image::generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo.png[Sync to project tempo]
 
-Determines whether playback of the recorded clip (after its recording) should synchronize to the project tempo.
+Set whether playback of the recorded clip (after its recording) should synchronize to the project tempo.
+

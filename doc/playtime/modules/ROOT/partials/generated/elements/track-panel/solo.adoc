@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/track-panel/solo.png[Solo track, role="related thumb right"]
 
 Soloes this track
+

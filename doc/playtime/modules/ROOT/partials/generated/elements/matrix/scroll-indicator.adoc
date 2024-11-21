@@ -3,4 +3,5 @@
 
 image:generated/screenshots/elements/matrix/scroll-indicator.png[Scroll indicator, role="related thumb right"]
 
-This arrow tells that you are not seeing the complete matrix at once. It continues in the indicated direction.
+This arrow tells that you are seeing only a part of the matrix and that you can scroll in the indicated direction to see more of it!
+

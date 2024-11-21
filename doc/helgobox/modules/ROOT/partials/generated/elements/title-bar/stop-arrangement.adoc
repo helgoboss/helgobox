@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/title-bar/stop-arrangement.png[Stop arrangement, role="related thumb right"]
 
 Stops the REAPER arrangement
+

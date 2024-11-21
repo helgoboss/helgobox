@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/inspector/column/stop-timing.png[Stop timing]
 
 This overrides the stop timing (defined in the matrix settings) for all clips in this column.
+

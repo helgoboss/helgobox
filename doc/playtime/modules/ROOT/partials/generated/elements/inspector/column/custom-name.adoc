@@ -6,3 +6,4 @@ image::generated/screenshots/elements/inspector/column/custom-name.png[Custom na
 Makes it possible to assign the column a custom name.
 
 By default, a column inherits the name of its playback track (which you can change by clicking on the track panel header at the bottom). But if you have multiple columns associated with the same track, assigning custom names can help distinguishing them from each other.
+

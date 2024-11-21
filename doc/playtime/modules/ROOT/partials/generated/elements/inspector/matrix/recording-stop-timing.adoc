@@ -4,3 +4,9 @@
 image::generated/screenshots/elements/inspector/matrix/recording-stop-timing.png[Stop timing]
 
 null
+[NOTE]
+.Development status: Interested?
+====
+The record stop timing determines when to stop recording after a recording stop has been triggered. In my opinion, this doesn't justify a separate setting and it should just use the global stop timing from the playback settings.
+====      
+

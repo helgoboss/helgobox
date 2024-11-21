@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/area/track-area-1.png[Track area, role="related thumb right"]
 
 null
+

@@ -4,3 +4,9 @@
 image::generated/screenshots/elements/inspector/matrix/recording-play-stop-timing-override.png[Play stop timing override]
 
 null
+[NOTE]
+.Development status: Interested?
+====
+With this feature, one could explicitly set the stop timing of the resulting clip instead of deriving it from the record stop timing. I can't think of any situation where this is practical. Can you?
+====      
+

@@ -7,14 +7,25 @@ Each xref:helgobox::plug-in/key-concepts.adoc#instance[] optionally supports the
 
 The general procedure is:
 
-. Globally define once what controllers you have at your disposal and choose which main preset you want to use for which controller (in the Helgobox App)
+. Globally define once what controllers you have at your disposal and choose which main preset you want to use for which controller (in the xref:user-interface/settings-dialog.adoc[] of the app)
 . Enable global control for one Helgobox instance using xref:user-interface/main-panel/menu-bar.adoc#enable-global-control[].
 
-It's a good idea to enable global control for a Helgobox instance on the monitoring FX chain.
+=== Global control
+
+If global control is enabled for an instance, all connected controllers that are configured in the xref:realearn::user-interface/settings-dialog.adoc[ReaLearn settings dialog] will load their corresponding main preset.
+You can configure controllers using the settings button in the window title bar.
+
+If global control is disabled for an instance, global controllers will be ignored in this instance.
+This gives you the freedom to create a custom control experience using ReaLearn.
+
+
+TIP: It's a good idea to enable global control for a Helgobox instance on the monitoring FX chain.
 Such an instance will be around permanently as long as REAPER is running, even if you open and close different projects.
 Perfect for project-spanning control scenarios!
 
-And now the nice part: If you decide to use a specific device for something else in a certain project, all you need to do is to set use the device as input and/or output in a project-specific ReaLearn unit!
+=== Overrides
+
+If you decide to use a specific device for something else in a certain project, all you need to do is to set use the device as input and/or output in a project-specific ReaLearn unit!
 If you do that, the project-specific instance "wins" over the monitoring FX instance.
 You got a project-specific override.
 If you close the project, the monitoring FX instance takes over again.

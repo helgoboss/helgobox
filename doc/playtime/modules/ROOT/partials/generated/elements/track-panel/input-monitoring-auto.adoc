@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/track-panel/input-monitoring-auto.png[Input monitoring auto, role="related thumb right"]
 
 Switches input monitoring to automatic mode. That means it will be on if the track is armed for recording and off if not.
+

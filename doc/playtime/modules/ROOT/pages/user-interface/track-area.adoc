@@ -2,13 +2,23 @@
 
 include::partial$user-interface/track-area-desc.adoc[]
 
+NOTE: Since multiple columns can have the same playback track, it's possible that you see one track panel multiple times!
+
 .Master track panel
 image::generated/screenshots/elements/area/track-area-0.png[width=80]
 
 .Column track panels
 image::generated/screenshots/elements/area/track-area-1.png[]
 
-include::partial$generated/elements/track-panel/header.adoc[]
+== Track panel header
+
+The top of the track panel is the _track panel header_.
+
+.Drag-and-drop support
+****
+Reorder column::
+Drag the header left or right to change the position of the corresponding column.
+****
 
 include::partial$generated/elements/track-panel/input-type-indicator.adoc[]
 
@@ -18,9 +28,23 @@ include::partial$generated/elements/track-panel/label.adoc[]
 
 include::partial$generated/elements/track-panel/input.adoc[]
 
+WARNING: Playtime captures audio or MIDI input more or less directly from the hardware.
+That also means that the track's _input_ FX chain will not have any effect on the recording!
+You can work around this limitation by using *Loopback* channels instead of input FX.
+
+TIP: Selecting one of the *Loopback* channels as audio input doesn't automatically enable it!
+Make sure that the REAPER setting *Virtual loopback audio hardware channels* in menu:Options[Settings... > Audio] is high enough!
+
+NOTE: This directly sets the input of the corresponding REAPER track.
+Although technically not necessary for recording because Playtime doesn't use REAPER's track recording facility, it is important for input monitoring.
+
 include::partial$generated/elements/track-panel/midi-channel-filter.adoc[]
 
+NOTE: This directly sets the input MIDI channel of the corresponding REAPER track.
+
 include::partial$generated/elements/track-panel/map-to-midi-channel.adoc[]
+
+NOTE: This directly sets the "Map input to channel" value of the corresponding REAPER track.
 
 include::partial$generated/elements/track-panel/input-monitoring.adoc[]
 
@@ -29,6 +53,55 @@ include::partial$generated/elements/track-panel/input-monitoring-off.adoc[]
 include::partial$generated/elements/track-panel/input-monitoring-auto.adoc[]
 
 include::partial$generated/elements/track-panel/input-monitoring-on.adoc[]
+
+[[input-monitoring-explained]]
+[NOTE]
+.Playtime input monitoring explained
+====
+Playtime input monitoring options are slightly different from REAPER's input monitoring options.
+Each input monitoring option mode translates to a certain combination of REAPER track properties:
+
+[cols="s,s,1,1,1"]
+|===
+|Track input monitoring in Playtime | Track armed in Playtime | Track monitoring in REAPER | Track record input in REAPER | Track armed in REAPER
+
+|Off
+|No
+|Off
+|Record: input (audio or MIDI)
+|No
+
+|Off
+|Yes
+|Off
+|Record: input (audio or MIDI)
+|Yes
+
+|Auto
+|No
+|On (Monitor Input)
+|Record: input (audio or MIDI)
+|No
+
+|Auto
+|Yes
+|On (Monitor Input)
+|Record: input (audio or MIDI)
+|Yes
+
+|On
+|No
+|On (Monitor Input)
+|Record: disable (input monitoring only)
+|Yes
+
+|On
+|Yes
+|On (Monitor Input)
+|Record: input (audio or MIDI)
+|Yes
+|===
+====
 
 == Track output section
 
@@ -42,16 +115,34 @@ include::partial$generated/elements/track-panel/pdc-critical.adoc[]
 
 include::partial$generated/elements/track-panel/pan.adoc[]
 
+NOTE: This directly sets the pan value of the corresponding REAPER track.
+
 include::partial$generated/elements/track-panel/volume.adoc[]
+
+When not enough vertical space is available, this turns into a drag field, visualizing the peaks as color changes.
+
+NOTE: This directly sets the volume of the corresponding REAPER track.
 
 include::partial$generated/elements/track-panel/instrument-fx.adoc[]
 
+This icon is only visible if there's at least one instrument in the FX chain.
+
 include::partial$generated/elements/track-panel/fx-chain.adoc[]
+
+The button is displayed in bold font if there's at least one FX in the chain.
 
 include::partial$generated/elements/track-panel/routing.adoc[]
 
 include::partial$generated/elements/track-panel/arm.adoc[]
 
+NOTE: See <<input-monitoring-explained>> to learn how this is translated to REAPER track properties.
+
+
 include::partial$generated/elements/track-panel/mute.adoc[]
 
+NOTE: This directly sets the mute state of the corresponding REAPER track.
+
 include::partial$generated/elements/track-panel/solo.adoc[]
+
+NOTE: This directly sets the solo state of the corresponding REAPER track.
+

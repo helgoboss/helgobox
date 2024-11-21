@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/track-panel/input-monitoring.png[Input monitoring, role="related thumb right"]
 
 Controls if and when the track input signal will be audible.
+

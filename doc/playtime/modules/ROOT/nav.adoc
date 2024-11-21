@@ -18,6 +18,7 @@
 ** xref:user-interface/purchase-and-activate-dialog.adoc[]
 ** xref:user-interface/settings-dialog.adoc[]
 ** xref:user-interface/sequences-dialog.adoc[]
+** xref:user-interface/arrangement-writing-mode-dialog.adoc[]
 ** xref:user-interface/tempo-settings-dialog.adoc[]
 ** xref:user-interface/keyboard-shortcuts.adoc[]
 * xref:further-concepts.adoc[]

@@ -15,10 +15,14 @@ image::generated/screenshots/elements/area/matrix-area-3.png[]
 
 include::partial$generated/elements/matrix/add-column.adoc[]
 
+Adding a new column automatically creates a corresponding REAPER track, on which clips in this column will be played back.
+See xref:key-concepts.adoc#column-track[].
+
 include::partial$generated/elements/matrix/add-row.adoc[]
 
 include::partial$generated/elements/matrix/scroll-indicator.adoc[]
 
+// Matrix cell
 
 include::partial$generated/elements/matrix-cell.adoc[]
 
@@ -26,12 +30,27 @@ include::partial$generated/elements/matrix-cell/stop.adoc[]
 
 include::partial$generated/elements/matrix-cell/settings.adoc[]
 
+See xref:user-interface/inspector/matrix.adoc[].
+
+// Column header cell
 
 include::partial$generated/elements/column-cell.adoc[]
 
+If you don't see the upper part, check xref:user-interface/settings-dialog.adoc#settings-show-column-numbers[].
+
+.Drag-and-drop support
+****
+Reorder column::
+Drag the cell left or right to change the position of the column.
+****
+
 include::partial$generated/elements/column-cell/exclusive-mode.adoc[]
 
+This is a shortcut for xref:user-interface/inspector/column.adoc#inspector-column-exclusive-mode[].
+
 include::partial$generated/elements/column-cell/follow-scenes.adoc[]
+
+This is a shortcut for xref:user-interface/inspector/column.adoc#inspector-column-follow-scenes[].
 
 include::partial$generated/elements/column-cell/has-overrides.adoc[]
 
@@ -39,12 +58,27 @@ include::partial$generated/elements/column-cell/stop.adoc[]
 
 include::partial$generated/elements/column-cell/label.adoc[]
 
+See xref:user-interface/inspector/column.adoc[].
+
+// Row cell
 
 include::partial$generated/elements/row-cell.adoc[]
 
+.Drag-and-drop support
+****
+Reorder row::
+Drag the cell up or down to change the position of the row.
+****
+
 include::partial$generated/elements/row-cell/play-scene.adoc[]
 
+See xref:key-concepts.adoc#scene[].
+
 include::partial$generated/elements/row-cell/label.adoc[]
+
+See xref:user-interface/inspector/row.adoc[].
+
+// Slot cell
 
 include::partial$generated/elements/slot-cell.adoc[]
 
@@ -52,6 +86,22 @@ include::partial$generated/elements/slot-cell/trigger.adoc[]
 
 include::partial$generated/elements/slot-cell/record.adoc[]
 
+This is only available if the corresponding xref:key-concepts.adoc#column-track[] is armed.
+
 include::partial$generated/elements/slot-cell/content.adoc[]
 
+See xref:user-interface/inspector/slot.adoc[].
+
+.Drag-and-drop support
+****
+Move slot contents::
+Drag this area onto another slot in order to move all clips within this slot to the other slot.
+
+Copy slot contents::
+Drag this area onto another slot while holding kbd:[Cmd/Ctrl] in order to copy all clips within this slot to the other slot.
+****
+
 include::partial$generated/elements/slot-cell/clip-count.adoc[]
+
+If there's more than one clip in the slot, all will be triggered at the same time.
+However, each one will start according to its individual start timing.

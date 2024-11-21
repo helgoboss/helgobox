@@ -4,6 +4,7 @@ include::partial$available-in-app.adoc[]
 
 image::generated/screenshots/main/settings.png[]
 
+[#controllers]
 == Controllers
 
 include::partial$generated/elements/settings/controllers/add.adoc[]

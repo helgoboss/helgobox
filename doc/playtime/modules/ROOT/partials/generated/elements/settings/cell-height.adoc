@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/settings/cell-height.png[Cell height]
 
 Sets the height of all cells.
+

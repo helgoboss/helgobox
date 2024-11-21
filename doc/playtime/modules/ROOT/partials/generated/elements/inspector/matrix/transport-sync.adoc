@@ -6,3 +6,4 @@ image::generated/screenshots/elements/inspector/matrix/transport-sync.png[Transp
 The default is "Partial transport synchronization", indicated by an arrow pointing to the left. It means that starting playback in Playtime (via the button on the left side or pressing space) doesn't start playback of REAPER's arrangement.
 
 You can click this button to switch to "Full transport synchronization", indicated by two arrows pointing in opposite directions. Then starting playback in Playtime will start REAPER playback as well.
+

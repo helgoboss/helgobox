@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/track-panel/pan.png[Pan, role="related thumb right"]
 
 Changes the track panning.
+

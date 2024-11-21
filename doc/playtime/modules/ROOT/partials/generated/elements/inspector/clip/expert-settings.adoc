@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/inspector/clip/expert-settings.png[Expert settings ⊖, role="related thumb right"]
 
 It's usually not necessary to touch the settings in this section.
+

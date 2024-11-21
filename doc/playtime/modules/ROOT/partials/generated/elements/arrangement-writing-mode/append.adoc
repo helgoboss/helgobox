@@ -1,0 +1,7 @@
+[#arrangement-writing-mode-append]
+== Append
+
+image:generated/screenshots/elements/arrangement-writing-mode/append.png[Append, role="related thumb right"]
+
+Appends the new arrangement to the existing one.
+

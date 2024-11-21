@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/navbar/enable-disable-global-control.png[Enable/disable global control, role="related thumb right"]
 
 Enables or disables the usage of global controllers for this Helgobox instance.
+

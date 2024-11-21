@@ -3,4 +3,5 @@
 
 image::generated/screenshots/elements/settings/custom-color-rendering.png[Custom color rendering]
 
-Determines how user-defined colors (e.g. for tracks and clips) will be rendered.
+Choose how to render user-defined colors, such as for tracks and clips.
+

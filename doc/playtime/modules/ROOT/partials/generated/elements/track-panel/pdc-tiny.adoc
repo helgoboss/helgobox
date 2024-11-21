@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/track-panel/pdc-tiny.png[Tiny latency: 5ms, role="related thumb right"]
 
 This track is affected by a tiny latency, which Playtime compensates during playback. Input monitoring should be fine.
+

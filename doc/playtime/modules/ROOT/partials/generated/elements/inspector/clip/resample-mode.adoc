@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/inspector/clip/resample-mode.png[Resample mode]
 
 This overrides the resample mode defined in the column or matrix settings.
+

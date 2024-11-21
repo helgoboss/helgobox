@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/row-cell.png[Row header cell, role="related thumb right"]
 
 This cell represents the complete row, including all of its slots.
+

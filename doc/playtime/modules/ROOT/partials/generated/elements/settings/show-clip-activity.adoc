@@ -6,3 +6,4 @@ image::generated/screenshots/elements/settings/show-clip-activity.png[Show clip 
 Makes a slot cell light up according to the activity of its clips (e.g. when the clip plays a note).
 
 Depending on color settings, this will be more or less visible. If the cell background is used for displaying the clip progress, it's not going to make a difference at all.
+

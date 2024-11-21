@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/slot-cell/record.png[Record clip, role="related thumb right"]
 
 Starts recording a new clip into this slot.
+

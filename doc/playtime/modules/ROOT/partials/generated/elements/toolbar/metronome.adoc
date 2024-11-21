@@ -5,4 +5,5 @@ image:generated/screenshots/elements/toolbar/metronome.png[Metronome, role="rela
 
 Toggles the metronome.
 
-Right-click to change metronome settings.
+Right-click to open the tempo settings dialog.
+

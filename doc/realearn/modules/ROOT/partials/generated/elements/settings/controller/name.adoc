@@ -6,3 +6,4 @@ image::generated/screenshots/elements/settings/controller/name.png[Name]
 Descriptive name of the controller.
 
 If you use multiple controllers of the same kind, the name should make clear which particular controller instance we are talking about.
+

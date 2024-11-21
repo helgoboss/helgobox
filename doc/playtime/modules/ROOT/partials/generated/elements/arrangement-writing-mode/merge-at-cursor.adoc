@@ -1,0 +1,7 @@
+[#arrangement-writing-mode-merge-at-cursor]
+== Merge at cursor
+
+image:generated/screenshots/elements/arrangement-writing-mode/merge-at-cursor.png[Merge at cursor, role="related thumb right"]
+
+Merges the new arrangement into the existing one, starting at the current cursor position.
+

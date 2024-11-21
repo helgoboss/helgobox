@@ -3,4 +3,5 @@
 
 image:generated/screenshots/elements/settings/dim-opacity.png[Dim opacity, role="related thumb right"]
 
-Determines how much to dim the Helgobox app window when pressing the dim button.
+Adjust how much to dim the Helgobox app window when pressing the dim button.
+

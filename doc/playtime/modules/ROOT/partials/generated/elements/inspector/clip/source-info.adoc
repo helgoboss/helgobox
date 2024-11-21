@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/inspector/clip/source-info.png[Source info]
 
 Displays information about the source of this clip, e.g. the audio file.
+

@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/toolbar/visual-metronome.png[Visual metronome, role="related thumb right"]
 
 Shows the current position within the bar in beats. Can also be used for tempo tapping.
+

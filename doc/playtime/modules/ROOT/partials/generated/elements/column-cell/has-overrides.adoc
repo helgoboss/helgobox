@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/column-cell/has-overrides.png[Has overrides, role="related thumb right"]
 
 This lights up if the column overrides at least one matrix setting.
+

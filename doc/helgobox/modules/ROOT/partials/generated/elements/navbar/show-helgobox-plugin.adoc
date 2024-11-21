@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/navbar/show-helgobox-plugin.png[Show Helgobox plug-in, role="related thumb right"]
 
 Opens the Helgobox plug-in which is controlled by this app.
+

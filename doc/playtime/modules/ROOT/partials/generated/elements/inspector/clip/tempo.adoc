@@ -6,3 +6,4 @@ image::generated/screenshots/elements/inspector/clip/tempo.png[Tempo]
 The original tempo in which the audio material has been recorded.
 
 This setting determines the time stretching factor to be applied to the clip if the global tempo changes.
+

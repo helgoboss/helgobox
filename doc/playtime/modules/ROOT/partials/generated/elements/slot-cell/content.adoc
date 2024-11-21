@@ -6,3 +6,4 @@ image:generated/screenshots/elements/slot-cell/content.png[Slot content, role="r
 Selects this slot cell. This makes the inspector show settings for each clip in this slot.
 
 A double click on a filled slot cell opens the waveform view or the MIDI editor of the primary clip in this slot. A double click on an empty slot cell creates an empty MIDI clip.
+

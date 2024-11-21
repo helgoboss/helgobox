@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/settings/use-host-colors.png[Use host colors (experimental)]
 
 Borrows some color from the REAPER theme.
+

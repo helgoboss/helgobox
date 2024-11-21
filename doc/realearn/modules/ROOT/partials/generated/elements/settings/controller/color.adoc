@@ -6,3 +6,4 @@ image::generated/screenshots/elements/settings/controller/color.png[Color]
 Pick a color for this controller.
 
 This will be used e.g. for the control unit rectangle in Playtime.
+

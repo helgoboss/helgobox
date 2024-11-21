@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/inspector/clip/looped.png[Looped]
 
 If enabled, the clip will loop until you stop it. If disabled, it will become a "One shot".
+

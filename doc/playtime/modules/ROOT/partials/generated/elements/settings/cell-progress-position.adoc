@@ -3,4 +3,5 @@
 
 image::generated/screenshots/elements/settings/cell-progress-position.png[Cell progress position]
 
-Determines how a slot cell shows the playback progress of a clip.
+Choose how a slot cell shows the playback progress of a clip.
+

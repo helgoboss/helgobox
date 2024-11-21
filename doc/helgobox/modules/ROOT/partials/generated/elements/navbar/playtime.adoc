@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/navbar/playtime.png[Playtime, role="related thumb right"]
 
 Shows the Playtime Matrix associated with this Helgobox instance.
+

@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/track-panel/label.png[Track label, role="related thumb right"]
 
 Displays the name of the column playback track.
+

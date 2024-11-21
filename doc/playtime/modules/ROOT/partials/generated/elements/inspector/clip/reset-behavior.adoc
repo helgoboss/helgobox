@@ -3,4 +3,5 @@
 
 image::generated/screenshots/elements/inspector/clip/reset-behavior.png[Reset behavior]
 
-Determines which MIDI reset messages Playtime sends before and/or after playing the clip.
+Choose which MIDI reset messages Playtime should send before and/or after playing the clip.
+

@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/matrix-cell/settings.png[Matrix settings, role="related thumb right"]
 
 Selects the matrix settings cell. This makes the inspector show settings related to the complete matrix.
+

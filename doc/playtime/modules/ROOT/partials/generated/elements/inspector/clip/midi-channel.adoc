@@ -3,4 +3,5 @@
 
 image::generated/screenshots/elements/inspector/clip/midi-channel.png[MIDI channel]
 
-Allows you to re-route the MIDI events in this clip to a MIDI channel of your choice.
+Re-route the MIDI events in this clip to a MIDI channel of your choice.
+

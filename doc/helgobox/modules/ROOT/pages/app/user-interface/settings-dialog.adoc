@@ -4,7 +4,6 @@ The dialog allows you to adjust the majority of global settings for Helgobox and
 You can open it by pressing the xref:app/user-interface/title-bar.adoc#title-bar-settings[
 image:generated/screenshots/elements/title-bar/settings.png[]] button in the xref:app/user-interface/title-bar.adoc[].
 
-
 image::generated/screenshots/main/settings.png[]
 
 For a description of the product-specific settings, see:
@@ -15,17 +14,32 @@ For a description of the product-specific settings, see:
 == Appearance
 
 include::partial$generated/elements/settings/overall-size.adoc[]
+
 include::partial$generated/elements/settings/roundness.adoc[]
+
+.For Playtime users
+TIP: If you want slot cells with rounded corners, play with the xref:playtime::user-interface/settings-dialog.adoc#settings-cell-color-position[] setting!
+
 include::partial$generated/elements/settings/prefer-tidy-appearance.adoc[]
+
 include::partial$generated/elements/settings/display-development-status-hints.adoc[]
+
 include::partial$generated/elements/settings/display-tooltip-if-help-panel-hidden.adoc[]
+
 include::partial$generated/elements/settings/display-license-info.adoc[]
+
 include::partial$generated/elements/settings/prefer-native-popup-menus.adoc[]
+
 include::partial$generated/elements/settings/theme-mode.adoc[]
+
 include::partial$generated/elements/settings/use-context-coloring.adoc[]
+
 include::partial$generated/elements/settings/use-host-colors.adoc[]
+
 include::partial$generated/elements/settings/contrast.adoc[]
+
 include::partial$generated/elements/settings/custom-color-rendering.adoc[]
+
 include::partial$generated/elements/settings/color-scheme.adoc[]
 
 == Title bar
@@ -33,4 +47,5 @@ include::partial$generated/elements/settings/color-scheme.adoc[]
 include::partial$generated/elements/settings/dim-opacity.adoc[]
 
 == Shortcuts
-// TODO Escape stuff
+
+include::partial$generated/elements/settings/hide-window-when-escape-pressed.adoc[]

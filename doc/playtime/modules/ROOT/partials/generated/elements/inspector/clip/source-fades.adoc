@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/inspector/clip/source-fades.png[Source fades]
 
 By default, Playtime adds a fade-in/fade-out of just a few milliseconds at the start and the end of an audio clip. It does this in order to make loops sound smooth (= no clicks at the loop bounds). However, sometimes you deal with pre-produced samples that are *already* cut into perfect loops. In that case, you can disable this option to preserve the transients of the original audio material.
+

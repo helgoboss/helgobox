@@ -1,6 +1,7 @@
 [#settings-color-scheme]
 === Color scheme
 
-image:generated/screenshots/elements/settings/color-scheme.png[Color scheme, role="related thumb right"]
+image::generated/screenshots/elements/settings/color-scheme.png[Color scheme]
 
 Choose the prominent color for the user interface.
+

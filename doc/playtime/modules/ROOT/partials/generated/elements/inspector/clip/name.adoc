@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/inspector/clip/name.png[Name]
 
 Give your clip a descriptive name!
+

@@ -1,0 +1,9 @@
+[#settings-hide-window-when-escape-pressed]
+=== Hide window when escape pressed
+
+image::generated/screenshots/elements/settings/hide-window-when-escape-pressed.png[Hide window when escape pressed]
+
+If enabled, pressing escape if no dialog is open will hide the window.
+
+This will only have an effect when running embedded within REAPER.
+

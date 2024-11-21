@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/inspector/column/trigger-mode.png[Trigger mode]
 
 This overrides the trigger mode defined in the matrix settings for all clips in this column.
+

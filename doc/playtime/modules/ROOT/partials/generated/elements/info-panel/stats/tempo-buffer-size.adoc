@@ -6,3 +6,4 @@ image::generated/screenshots/elements/info-panel/stats/tempo-buffer-size.png[Tem
 The current size of the tempo buffer in blocks.
 
 The tempo buffer size determines how many audio blocks Playtime may look ahead in order to pre-render audio clips with the correct tempo and sample rate. It is influenced by the "Tempo latency" setting.
+

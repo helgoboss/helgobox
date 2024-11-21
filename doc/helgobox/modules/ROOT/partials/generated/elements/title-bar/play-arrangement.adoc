@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/title-bar/play-arrangement.png[Play arrangement, role="related thumb right"]
 
 Starts playing the REAPER arrangement
+

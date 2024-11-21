@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/track-panel/fx-chain.png[FX chain, role="related thumb right"]
 
 Shows the REAPER FX chain of this track
+

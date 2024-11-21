@@ -4,3 +4,4 @@
 image:generated/screenshots/elements/navbar/projection.png[ReaLearn Projection, role="related thumb right"]
 
 Shows the ReaLearn Projection page for this Helgobox instance.
+

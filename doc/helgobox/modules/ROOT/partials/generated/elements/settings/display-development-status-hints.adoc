@@ -4,3 +4,4 @@
 image::generated/screenshots/elements/settings/display-development-status-hints.png[Display development status hints]
 
 If enabled, the inspector will display even settings that are not available yet and it will show small annotations about the development state of a feature.
+

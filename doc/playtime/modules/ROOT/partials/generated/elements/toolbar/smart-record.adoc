@@ -3,12 +3,13 @@
 
 image:generated/screenshots/elements/toolbar/smart-record.png[Smart record, role="related thumb right"]
 
-This is a convenience button for recording stuff without having to choose a particular matrix slot first.
+This is a convenience button for recording clips without first having to choose a particular matrix slot.
 
-If nothing is recording yet, it will start recording into the next free slot of the first column whose track is armed.
+If nothing is recording yet, this will start recording into the next free slot of the first column whose track is armed.
 
 If there is an ongoing recording, it will be stopped.
 
-If playback is stopped, this button is displayed with a pulse animation. This indicates that pressing this button will trigger a pre-roll recording (if metronome enabled) or that the length of the first recorded clip will dictate the new tempo (if metronome disabled).
+If playback is stopped, this button is displayed with a pulse animation. This indicates that pressing the button will trigger a count-in recording (if metronome enabled) or tempo detection recording (if metronome disabled).
 
-Right-clicking the button allows you to change settings related to recording clips.
+Right-clicking the button lets you change various settings related to recording clips.
+

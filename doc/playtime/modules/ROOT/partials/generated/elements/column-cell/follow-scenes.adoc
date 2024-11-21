@@ -3,6 +3,5 @@
 
 image:generated/screenshots/elements/column-cell/follow-scenes.png[Follow scenes, role="related thumb right"]
 
-This lights up if the column follows scenes.
+This lights up if the column follows scenes. You can also click this button to follow/unfollow.
 
-You can also click here to follow/unfollow.
