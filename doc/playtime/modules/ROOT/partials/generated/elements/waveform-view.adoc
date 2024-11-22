@@ -1,0 +1,12 @@
+[#waveform-view]
+== Waveform view
+
+image:generated/screenshots/elements/waveform-view.png[Waveform view, role="related thumb right"]
+
+Shows the waveform and the section bounds of a clip.
+[NOTE]
+.Development status: To be improved
+====
+In the future, this will probably be enhanced with features such as zooming and editing section bounds.
+====      
+

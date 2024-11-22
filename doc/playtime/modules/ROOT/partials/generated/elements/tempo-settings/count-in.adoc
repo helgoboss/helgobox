@@ -3,5 +3,5 @@
 
 image::generated/screenshots/elements/tempo-settings/count-in.png[Count-in]
 
-Set the number of count-in bars used when doing pre-roll recording from stopped state.
+Set the number of count-in bars used when doing count-in recording from stopped state.
 

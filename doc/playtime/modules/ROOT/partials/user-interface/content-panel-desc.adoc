@@ -1,0 +1,1 @@
+This area appears when you double-click an audio clip. At the moment, it only contains a waveform view.

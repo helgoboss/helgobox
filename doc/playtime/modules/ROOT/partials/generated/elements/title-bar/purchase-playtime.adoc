@@ -3,4 +3,5 @@
 
 image:generated/screenshots/elements/title-bar/purchase-playtime.png[👍 Purchase & Activate, role="related thumb right"]
 
-This shows further information on how you can purchase Playtime and lets you enter the license key. See xref:user-interface/purchase-and-activate-dialog.adoc[].
+This shows further information on how you can purchase Playtime and lets you enter the license key.
+

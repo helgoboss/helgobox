@@ -1,0 +1,7 @@
+[#area-waveform-viewer-0]
+== Waveform viewer
+
+image:generated/screenshots/elements/area/waveform-viewer-0.png[Waveform viewer, role="related thumb right"]
+
+null
+

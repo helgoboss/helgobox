@@ -1,0 +1,12 @@
+= Content panel
+
+include::partial$user-interface/content-panel-desc.adoc[]
+
+You can close the content panel by pressing the icon:close[] button on the left side, which appears as soon as your mouse hovers over the area.
+
+include::partial$generated/elements/waveform-view.adoc[]
+
+The waveform view shows only the relevant section of the actual audio file.
+Which part is relevant, is dictated by the clip properties xref:user-interface/inspector/clip.adoc#inspector-clip-source-cut-start[] and xref:user-interface/inspector/clip.adoc#inspector-clip-source-cut-length[].
+
+If you set the clip properties xref:user-interface/inspector/clip.adoc#inspector-clip-start-position[] or xref:user-interface/inspector/clip.adoc#inspector-clip-length[], you will see start and end markers.

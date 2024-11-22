@@ -25,6 +25,9 @@ include::partial$user-interface/nav-bar-desc.adoc[]
 xref:user-interface/toolbar.adoc[]::
 include::partial$user-interface/toolbar-desc.adoc[]
 
+xref:user-interface/content-panel.adoc[]::
+include::partial$user-interface/content-panel-desc.adoc[]
+
 xref:user-interface/matrix-area.adoc[]::
 include::partial$user-interface/matrix-area-desc.adoc[]
 

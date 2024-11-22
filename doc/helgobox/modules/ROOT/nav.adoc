@@ -7,6 +7,7 @@
 *** xref:plug-in/user-interface/menu-bar.adoc[]
 * xref:app.adoc[]
 ** xref:app/user-interface.adoc[]
+*** xref:app/user-interface/general.adoc[]
 *** xref:app/user-interface/title-bar.adoc[]
 *** xref:app/user-interface/navigation-bar.adoc[]
 *** xref:app/user-interface/settings-dialog.adoc[]
