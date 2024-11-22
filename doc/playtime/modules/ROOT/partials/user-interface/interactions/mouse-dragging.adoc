@@ -1,0 +1,4 @@
+icon:mouse-pointer[] Mouse dragging::
+Click and hold the left mouse button, then drag the mouse up or down to increase or decrease the value.
+Release the button when finished.
+Most elements update the value in real-time as you drag, while others apply the change only after you release the mouse button.

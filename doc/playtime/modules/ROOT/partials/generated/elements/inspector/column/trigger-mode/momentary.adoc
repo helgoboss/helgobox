@@ -1,0 +1,8 @@
+[#inspector-column-trigger-mode-momentary]
+=== Momentary
+
+image:generated/screenshots/elements/inspector/column/trigger-mode/momentary.png[Momentary, role="related thumb right"]
+
+Press to play, release to stop. Goes well with immediate start/stop timing, feels weird otherwise.
+
+

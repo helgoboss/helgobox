@@ -1,0 +1,7 @@
+[#inspector-clip-time-stretch-mode-vari-speed]
+=== Vari-speed
+
+image:generated/screenshots/elements/inspector/clip/time-stretch-mode/vari-speed.png[Vari-speed, role="related thumb right"]
+
+Changes tempo and pitch together. This uses resampling under the hood (uses much less CPU than real time stretching).
+

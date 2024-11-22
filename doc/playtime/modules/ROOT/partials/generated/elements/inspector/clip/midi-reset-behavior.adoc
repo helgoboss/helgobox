@@ -1,0 +1,7 @@
+[#inspector-clip-midi-reset-behavior]
+== Reset behavior
+
+
+
+Choose which MIDI reset messages Playtime should send before and/or after playing the clip.
+

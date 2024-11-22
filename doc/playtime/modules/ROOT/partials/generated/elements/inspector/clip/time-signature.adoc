@@ -1,5 +1,5 @@
 [#inspector-clip-time-signature]
-== Time signature
+=== Time signature
 
 image::generated/screenshots/elements/inspector/clip/time-signature.png[Time signature]
 

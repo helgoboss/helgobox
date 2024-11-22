@@ -1,7 +1,9 @@
 [#inspector-column-time-stretch-mode]
 == Time stretch mode
 
-image::generated/screenshots/elements/inspector/column/time-stretch-mode.png[Time stretch mode]
+
+
+Defines which kind of time stretching / pitch shifting algorithm to use on audio clips.
 
 This overrides the time stretch mode (defined in the matrix settings) for all clips in this column.
 

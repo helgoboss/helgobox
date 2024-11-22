@@ -1,0 +1,3 @@
+icon:keyboard-o[] Enter text::
+Right-click the element and enter the value via keyboard.
+Press kbd:[Enter] or click somewhere else to apply the value.

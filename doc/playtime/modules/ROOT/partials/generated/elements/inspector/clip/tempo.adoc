@@ -1,9 +1,9 @@
 [#inspector-clip-tempo]
-== Tempo
+=== Tempo
 
 image::generated/screenshots/elements/inspector/clip/tempo.png[Tempo]
 
 The original tempo in which the audio material has been recorded.
 
-This setting determines the time stretching factor to be applied to the clip if the global tempo changes.
+This setting influences the time stretching factor which Playtime applies to the clip in order to sync it to the project tempo.
 

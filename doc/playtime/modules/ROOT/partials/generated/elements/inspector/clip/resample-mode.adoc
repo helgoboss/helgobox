@@ -1,7 +1,9 @@
 [#inspector-clip-resample-mode]
 == Resample mode
 
-image::generated/screenshots/elements/inspector/clip/resample-mode.png[Resample mode]
+
+
+Defines which kind of resampling algorithm to use on audio clips.
 
 This overrides the resample mode defined in the column or matrix settings.
 

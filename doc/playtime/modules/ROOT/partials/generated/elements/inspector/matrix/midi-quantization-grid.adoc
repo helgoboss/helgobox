@@ -3,7 +3,5 @@
 
 image::generated/screenshots/elements/inspector/matrix/midi-quantization-grid.png[MIDI quantization grid]
 
-Which grid to use when quantizing MIDI clips using the "Quantize" button.
-
-Tip: If you want more advanced quantization options, use REAPER's MIDI editor instead.
+Which grid to use when quantizing MIDI clips within Playtime.
 

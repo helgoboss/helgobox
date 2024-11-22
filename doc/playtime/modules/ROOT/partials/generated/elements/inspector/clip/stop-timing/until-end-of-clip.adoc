@@ -1,0 +1,7 @@
+[#inspector-clip-stop-timing-until-end-of-clip]
+=== Until end of clip
+
+image:generated/screenshots/elements/inspector/clip/stop-timing/until-end-of-clip.png[Until end of clip, role="related thumb right"]
+
+Stops after playing until the end of this clip.
+

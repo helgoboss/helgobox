@@ -1,0 +1,7 @@
+[#inspector-clip-stop-timing-like-start-timing]
+=== Like start timing
+
+image:generated/screenshots/elements/inspector/clip/stop-timing/like-start-timing.png[Like start timing, role="related thumb right"]
+
+Derives the stop timing from the start timing. E.g. if the start timing is "1 bar", the stop timing will also be "1 bar".
+

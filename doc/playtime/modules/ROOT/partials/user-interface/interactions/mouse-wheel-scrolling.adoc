@@ -1,0 +1,3 @@
+↕ Mouse wheel scrolling::
+Move the mouse wheel up or down to increase or decrease the value. footnote:wheel-direction[Depending on your operating system settings, the mouse wheel directions might be reversed.]
+The new value will be applied immediately.

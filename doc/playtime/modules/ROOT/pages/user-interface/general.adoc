@@ -1,0 +1,58 @@
+= General usage
+
+This page describes the basic usage of common user interface elements in Playtime.
+
+== Drag fields
+
+image::generated/screenshots/elements/toolbar/tempo.png[]
+
+A drag field allows you to adjust numeric values in various ways.
+
+include::partial$user-interface/interactions/mouse-dragging.adoc[]
+include::partial$user-interface/interactions/mouse-wheel-scrolling.adoc[]
+include::partial$user-interface/interactions/touchpad-panning.adoc[]
+include::partial$user-interface/interactions/text-entry.adoc[]
+include::partial$user-interface/interactions/reset-to-default.adoc[]
+include::partial$user-interface/interactions/fine-adjustment.adoc[]
+
+== Knobs
+
+image::generated/screenshots/elements/toolbar/play-rate.png[]
+
+A knob allows you to adjust numeric values in various ways.
+
+include::partial$user-interface/interactions/mouse-dragging.adoc[]
+include::partial$user-interface/interactions/mouse-wheel-scrolling.adoc[]
+include::partial$user-interface/interactions/touchpad-panning.adoc[]
+include::partial$user-interface/interactions/text-entry.adoc[]
+include::partial$user-interface/interactions/reset-to-default.adoc[]
+include::partial$user-interface/interactions/fine-adjustment.adoc[]
+
+== Sliders
+
+image::generated/screenshots/elements/track-panel/volume.png[]
+
+A slider allows you to adjust numeric values in various ways.
+
+include::partial$user-interface/interactions/mouse-dragging.adoc[]
+include::partial$user-interface/interactions/mouse-wheel-scrolling.adoc[]
+include::partial$user-interface/interactions/touchpad-panning.adoc[]
+include::partial$user-interface/interactions/reset-to-default.adoc[]
+
+== Search lists
+
+image::generated/screenshots/main/sequences.png[]
+
+Search lists allow you to pick an item from a potentially large list.
+
+icon:search[] Search::
+Simply enter text to drill the list down to items matching your search text.
+
+icon:keyboard-o[] Navigate::
+Press kbd:[↑] or kbd:[↓] to navigate within the list of items.
+
+↕ Scroll::
+Scroll within the list using the scrollbar on the right or using the mousewheel.
+
+icon:mouse-pointer[] Select::
+Click the item or press kbd:[Enter] to select it.

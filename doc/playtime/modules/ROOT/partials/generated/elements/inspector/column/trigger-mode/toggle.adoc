@@ -1,0 +1,7 @@
+[#inspector-column-trigger-mode-toggle]
+=== Toggle
+
+image:generated/screenshots/elements/inspector/column/trigger-mode/toggle.png[Toggle, role="related thumb right"]
+
+Press once to play, press again to stop.
+

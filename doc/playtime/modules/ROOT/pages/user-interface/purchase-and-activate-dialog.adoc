@@ -1,5 +1,17 @@
 = Purchase & Activate dialog
 
+This dialog opens when clicking the button xref:user-interface/title-bar.adoc#title-bar-purchase-playtime[].
+
 image::generated/screenshots/main/purchase.png[]
 
 include::partial$generated/elements/purchase/verify-license-key.adoc[]
+
+If unlocking Playtime doesn't work, please write an email to info@helgoboss.org!
+
+[NOTE]
+====
+The copy protection mechanism of Playtime is as unobtrusive as the one used in REAPER: No iLok, no online verification.
+Just a regular license key that is checked offline.
+
+No need to worry that you run in demo mode when your gig comes up!
+====

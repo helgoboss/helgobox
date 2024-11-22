@@ -1,6 +1,15 @@
 = Sequences dialog
 
+This dialog opens when pressing the xref:user-interface/toolbar.adoc#toolbar-matrix-sequence-picker[image:generated/screenshots/elements/toolbar/matrix-sequence-picker.png[]] button in the title bar.
+
 image::generated/screenshots/main/sequences.png[]
 
+Clicking on a sequence makes it the active sequence.
+
 include::partial$generated/elements/sequences/edit.adoc[]
+
+At the moment, all you can do here is to adjust its name.
+
 include::partial$generated/elements/sequences/delete.adoc[]
+
+You can undo this operation using Playtime's built-in undo function.

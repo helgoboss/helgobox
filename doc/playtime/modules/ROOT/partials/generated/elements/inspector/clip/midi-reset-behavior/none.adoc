@@ -1,0 +1,9 @@
+[#inspector-clip-midi-reset-behavior-none]
+=== None
+
+image:generated/screenshots/elements/inspector/clip/midi-reset-behavior/none.png[None, role="related thumb right"]
+
+No reset messages at all. Say hello to hanging notes :D
+
+Usually not recommended.
+

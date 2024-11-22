@@ -1,0 +1,9 @@
+[#inspector-clip-start-timing-custom]
+=== Custom
+
+image:generated/screenshots/elements/inspector/clip/start-timing/custom.png[Custom, role="related thumb right"]
+
+Use a custom quantization for starting the clip.
+
+This can only be set in the matrix settings inspector.
+

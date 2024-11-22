@@ -3,5 +3,7 @@
 
 image::generated/screenshots/elements/inspector/matrix/limit-recording-length.png[Limit recording length]
 
-If enabled, recording a clip will automatically end after a certain amount of time. This is great if you know in advance that you want to record, let's say, 2 bars only at a maximum. Then you don't have to reach for the stop button manually.
+If enabled, recording a clip will automatically stop after a certain amount of time.
+
+This is useful if you know in advance that you want to record, let's say, 2 bars only. Then you don't have to reach for the stop button manually.
 

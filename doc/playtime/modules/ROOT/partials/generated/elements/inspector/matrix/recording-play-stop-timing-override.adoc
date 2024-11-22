@@ -1,7 +1,7 @@
 [#inspector-matrix-recording-play-stop-timing-override]
 == Play stop timing override
 
-image::generated/screenshots/elements/inspector/matrix/recording-play-stop-timing-override.png[Play stop timing override]
+
 
 null
 [NOTE]

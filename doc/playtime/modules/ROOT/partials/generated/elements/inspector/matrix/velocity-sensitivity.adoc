@@ -3,7 +3,7 @@
 
 image::generated/screenshots/elements/inspector/matrix/velocity-sensitivity.png[Velocity sensitivity]
 
-Adjusts how much the velocity affects the clip volume when triggering a slot.
+Adjusts how much the velocity of an incoming control message (e.g. MIDI note) affects the clip volume when triggering a slot.
 
 This setting applies to all clips in the matrix but it can be overridden at column and clip level.
 

@@ -1,7 +1,7 @@
 [#inspector-matrix-stop-timing]
 == Stop timing
 
-image::generated/screenshots/elements/inspector/matrix/stop-timing.png[Stop timing]
+
 
 Decides when a clip actually stops playing after you have triggered its stop.
 

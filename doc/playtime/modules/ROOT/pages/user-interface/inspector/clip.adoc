@@ -1,23 +1,152 @@
 = Clip inspector
 
 include::partial$generated/elements/inspector/clip/overdub.adoc[]
+
 include::partial$generated/elements/inspector/clip/quantize.adoc[]
+
+See xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-midi-quantization-grid[].
+
+[NOTE]
+====
+Playtime uses its own quantization algorithm, but it remembers the original event positions in a way that is compatible with REAPER.
+
+If you open a MIDI clip quantized by Playtime in REAPER's MIDI editor, you will see that the MIDI events are quantized there as well, and you have the possibility to unquantize directly in the MIDI editor.
+
+Vice versa, Playtime detects correctly if a clip has been quantized in REAPER's MIDI editor.
+That means you can use both quantization methods interchangeably!
+====
+
 include::partial$generated/elements/inspector/clip/name.adoc[]
+
+TIP: Another way to change the sanem is to press kbd:[F2] when the slot is selected.
+
 include::partial$generated/elements/inspector/clip/looped.adoc[]
+
+See xref:key-concepts.adoc#loop[] and xref:key-concepts.adoc#one-shot[].
+
 include::partial$generated/elements/inspector/clip/volume.adoc[]
+
 include::partial$generated/elements/inspector/clip/pitch.adoc[]
+
+For audio, pitch shifting is done using REAPER's pitch-shifting/time-stretching engine with the clip's xref:user-interface/inspector/clip.adoc#inspector-clip-time-stretch-mode[].
+
+include::partial$clip-prop-applied-quantized.adoc[]
+
 include::partial$generated/elements/inspector/clip/velocity-sensitivity.adoc[]
+
 include::partial$generated/elements/inspector/clip/source-info.adoc[]
+
+See xref:key-concepts.adoc#source[].
+
 include::partial$generated/elements/inspector/clip/color.adoc[]
+
 include::partial$generated/elements/inspector/clip/start-timing.adoc[]
+
+See xref:key-concepts.adoc#clip-start-timing[].
+
+include::partial$generated/elements/inspector/clip/start-timing/immediately.adoc[]
+
+include::partial$generated/elements/inspector/clip/start-timing/custom.adoc[]
+
+TIP: In most cases, picking one of the pre-defined quantizations (e.g. **1 bar**) should be sufficient.
+
 include::partial$generated/elements/inspector/clip/stop-timing.adoc[]
+include::partial$generated/elements/inspector/clip/stop-timing/like-start-timing.adoc[]
+include::partial$generated/elements/inspector/clip/stop-timing/until-end-of-clip.adoc[]
+
+CAUTION: This can easily lead to unintentional concurrent playback of clips when using xref:user-interface/inspector/column/playback.adoc#inspector-column-exclusive-mode[].
+
+include::partial$generated/elements/inspector/clip/stop-timing/immediately.adoc[]
+include::partial$generated/elements/inspector/clip/stop-timing/custom.adoc[]
+
+
 include::partial$generated/elements/inspector/clip/sync-to-project-tempo.adoc[]
+
+TIP: This alone doesn't guarantee yet that your clip will be played in time.
+It's just one of multiple ingredients for in-sync playback.
+See xref:key-concepts.adoc#in-sync[].
+
+NOTE: This is comparable to REAPER's item time base setting.
+In fact, this will be translated to different item time base settings when xref:user-interface/toolbar.adoc#toolbar-write-to-arrangement[writing to the arrangement].
+
 include::partial$generated/elements/inspector/clip/tempo.adoc[]
+
+TIP: This is available for audio clips only.
+MIDI clips are by its very nature tempo-agnostic.
+
+include::partial$clip-prop-applied-quantized.adoc[]
+
 include::partial$generated/elements/inspector/clip/time-signature.adoc[]
+
 include::partial$generated/elements/inspector/clip/downbeat.adoc[]
+
+TIP: This can be used to realize an link:https://en.wikipedia.org/wiki/Anacrusis[Anacrusis] (or pick-up beat).
+See xref:user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-detect-downbeat[].
+
 include::partial$generated/elements/inspector/clip/start-position.adoc[]
+
+TIP: This setting works for both audio and MIDI clips.
+When using it on MIDI clips, be aware that the REAPER MIDI editor doesn't indicate the start position in any way, which can be confusing.
+If you want to permanently change the start position permanently, it's usually better to adjust the underlying MIDI data.
+
+include::partial$user-interface/clip-prop-adjust-in-beats.adoc[]
+
+include::partial$clip-prop-applied-quantized.adoc[]
+
 include::partial$generated/elements/inspector/clip/length.adoc[]
-include::partial$generated/elements/inspector/clip/reset-behavior.adoc[]
+
+The value **Original** means that the source will end at the original end of the source material.
+
+Use the ÷2 and ×2 buttons to halve or double the current length.
+
+TIP: This setting works for both audio and MIDI clips.
+When using it on MIDI clips, be aware that the REAPER MIDI editor doesn't indicate the length in any way, which can be confusing.
+If you want to permanently change the start position permanently, it's usually better to adjust the underlying MIDI data.
+
+include::partial$user-interface/clip-prop-adjust-in-beats.adoc[]
+
+include::partial$clip-prop-applied-quantized.adoc[]
+
+include::partial$generated/elements/inspector/clip/midi-reset-behavior.adoc[]
+
+include::partial$generated/elements/inspector/clip/midi-reset-behavior/none.adoc[]
+include::partial$generated/elements/inspector/clip/midi-reset-behavior/light-left.adoc[]
+include::partial$generated/elements/inspector/clip/midi-reset-behavior/extreme-left.adoc[]
+include::partial$generated/elements/inspector/clip/midi-reset-behavior/light-right.adoc[]
+include::partial$generated/elements/inspector/clip/midi-reset-behavior/extreme-right.adoc[]
+
 include::partial$generated/elements/inspector/clip/midi-channel.adoc[]
+
+include::partial$generated/elements/inspector/clip/source-fades.adoc[]
+
+include::partial$generated/elements/inspector/clip/time-stretch-mode.adoc[]
+
+Playtime uses this algorithm whenever it needs to adjust beat-based audio clips to the current tempo while keeping the original pitch, but also when xref:user-interface/inspector/clip.adoc#inspector-clip-pitch[adjusting the pitch] of audio clips.
+
+include::partial$clip-prop-applied-quantized.adoc[]
+
+include::partial$generated/elements/inspector/clip/time-stretch-mode/vari-speed.adoc[]
+include::partial$generated/elements/inspector/clip/time-stretch-mode/keeping-pitch.adoc[]
+
+When selecting this option, you can choose between all pitch shifting modes and corresponding sub modes that are supported by REAPER.
+
+include::partial$generated/elements/inspector/clip/resample-mode.adoc[]
+
+Playtime uses resampling in the following cases:
+
+. Vari-speed time stretching
+. Adjusting to play rate changes
+. Adjusting clips that have a sample rate other than the project/hardware sample rate
+
+You can choose between all resample modes that are supported by REAPER.
+
+include::partial$clip-prop-applied-quantized.adoc[]
+
 include::partial$generated/elements/inspector/clip/source-cut-start.adoc[]
+
+include::partial$clip-prop-applied-quantized.adoc[]
+
+
 include::partial$generated/elements/inspector/clip/source-cut-length.adoc[]
+
+include::partial$clip-prop-applied-quantized.adoc[]

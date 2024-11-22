@@ -1,0 +1,7 @@
+[#inspector-matrix-recording-sync-to-project-tempo-no]
+=== No
+
+image:generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo/no.png[No, role="related thumb right"]
+
+Doesn't sync to project tempo.
+

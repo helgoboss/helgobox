@@ -1,0 +1,7 @@
+[#inspector-clip-stop-timing-immediately]
+=== Immediately
+
+image:generated/screenshots/elements/inspector/clip/stop-timing/immediately.png[Immediately, role="related thumb right"]
+
+Stops the clip instantly.
+

@@ -2,21 +2,10 @@
 
 You will see this when selecting the xref:user-interface/matrix-area.adoc#matrix-cell[].
 
-include::partial$generated/elements/inspector/matrix/start-timing.adoc[]
-include::partial$generated/elements/inspector/matrix/stop-timing.adoc[]
-include::partial$generated/elements/inspector/matrix/trigger-mode.adoc[]
-include::partial$generated/elements/inspector/matrix/velocity-sensitivity.adoc[]
-include::partial$generated/elements/inspector/matrix/activate-slot-on-trigger.adoc[]
-include::partial$generated/elements/inspector/matrix/transport-sync.adoc[]
-include::partial$generated/elements/inspector/matrix/midi-quantization-grid.adoc[]
-include::partial$generated/elements/inspector/matrix/time-stretch-mode.adoc[]
-include::partial$generated/elements/inspector/matrix/resample-mode.adoc[]
+This inspector is divided into two areas:
 
-include::partial$generated/elements/inspector/matrix/recording-looped.adoc[]
-include::partial$generated/elements/inspector/matrix/limit-recording-length.adoc[]
-include::partial$generated/elements/inspector/matrix/recording-length.adoc[]
-include::partial$generated/elements/inspector/matrix/recording-detect-downbeat.adoc[]
-include::partial$generated/elements/inspector/matrix/recording-auto-quantize.adoc[]
-include::partial$generated/elements/inspector/matrix/recording-sync-to-project-tempo.adoc[]
-include::partial$generated/elements/inspector/matrix/recording-midi-reset-behavior.adoc[]
-include::partial$generated/elements/inspector/matrix/tempo-detection-range.adoc[]
+xref:user-interface/inspector/matrix/playback.adoc[]::
+Settings that are mainly about playing clips
+
+xref:user-interface/inspector/matrix/recording.adoc[]::
+Settings that are mainly about recording clips

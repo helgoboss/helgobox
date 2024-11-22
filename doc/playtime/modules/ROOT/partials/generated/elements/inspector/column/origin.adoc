@@ -1,7 +1,7 @@
 [#inspector-column-origin]
 == Origin
 
-image::generated/screenshots/elements/inspector/column/origin.png[Origin]
+
 
 This decides from where to capture audio input during recording.
 

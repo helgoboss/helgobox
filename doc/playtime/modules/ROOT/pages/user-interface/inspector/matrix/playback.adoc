@@ -1,0 +1,35 @@
+= Matrix playback settings
+
+include::partial$generated/elements/inspector/matrix/start-timing.adoc[]
+
+See xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing[].
+
+include::partial$generated/elements/inspector/matrix/stop-timing.adoc[]
+
+See xref:user-interface/inspector/clip.adoc#inspector-clip-stop-timing[].
+
+include::partial$generated/elements/inspector/matrix/trigger-mode.adoc[]
+
+See xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode[].
+
+include::partial$generated/elements/inspector/matrix/velocity-sensitivity.adoc[]
+
+See xref:user-interface/inspector/clip.adoc#inspector-clip-velocity-sensitivity[].
+
+include::partial$generated/elements/inspector/matrix/activate-slot-on-trigger.adoc[]
+
+include::partial$generated/elements/inspector/matrix/transport-sync.adoc[]
+
+include::partial$generated/elements/inspector/matrix/midi-quantization-grid.adoc[]
+
+See xref:user-interface/inspector/clip.adoc#inspector-clip-quantize[].
+
+TIP: If you want more advanced quantization options, do quantization in REAPER's MIDI editor instead.
+
+include::partial$generated/elements/inspector/matrix/time-stretch-mode.adoc[]
+
+See xref:user-interface/inspector/clip.adoc#inspector-clip-time-stretch-mode[].
+
+include::partial$generated/elements/inspector/matrix/resample-mode.adoc[]
+
+See xref:user-interface/inspector/clip.adoc#inspector-clip-resample-mode[].

@@ -1,0 +1,7 @@
+[#inspector-column-trigger-mode-inherit]
+=== Inherit
+
+image:generated/screenshots/elements/inspector/column/trigger-mode/inherit.png[Inherit, role="related thumb right"]
+
+Inherits the parent setting. No override.
+

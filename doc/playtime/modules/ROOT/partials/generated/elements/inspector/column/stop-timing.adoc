@@ -1,7 +1,9 @@
 [#inspector-column-stop-timing]
 == Stop timing
 
-image::generated/screenshots/elements/inspector/column/stop-timing.png[Stop timing]
+
+
+Decides when a clip actually stops playing after you have triggered its stop.
 
 This overrides the stop timing (defined in the matrix settings) for all clips in this column.
 

@@ -1,0 +1,2 @@
+Fine adjustments::
+Hold the kbd:[Cmd/Ctrl] key while dragging, scrolling or panning in order to do fine adjustments.

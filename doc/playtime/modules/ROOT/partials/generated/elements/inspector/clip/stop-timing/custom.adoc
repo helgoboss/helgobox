@@ -1,0 +1,7 @@
+[#inspector-clip-stop-timing-custom]
+=== Custom
+
+image:generated/screenshots/elements/inspector/clip/stop-timing/custom.png[Custom, role="related thumb right"]
+
+Use a custom quantization for stopping the clip.
+

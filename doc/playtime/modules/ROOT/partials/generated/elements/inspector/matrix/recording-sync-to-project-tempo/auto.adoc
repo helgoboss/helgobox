@@ -1,0 +1,9 @@
+[#inspector-matrix-recording-sync-to-project-tempo-auto]
+=== Auto
+
+image:generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo/auto.png[Auto, role="related thumb right"]
+
+Derives this option automatically from the start timing.
+
+Example: If the recording start timing was quantized, it will choose to synchronize to the project tempo. If it was "Immediately", it will not.
+

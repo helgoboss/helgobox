@@ -1,11 +1,9 @@
 [#inspector-matrix-time-stretch-mode]
 == Time stretch mode
 
-image::generated/screenshots/elements/inspector/matrix/time-stretch-mode.png[Time stretch mode]
 
-Defines which kind of time stretching algorithm to use on audio clips.
 
-Playtime uses time stretching whenever it needs to adjust beat-based clips to the current tempo.
+Defines which kind of time stretching / pitch shifting algorithm to use on audio clips.
 
 This setting applies to all clips in the matrix but it can be overridden at column and clip level.
 

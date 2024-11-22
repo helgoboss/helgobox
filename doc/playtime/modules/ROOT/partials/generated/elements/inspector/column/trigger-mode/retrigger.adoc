@@ -1,0 +1,8 @@
+[#inspector-column-trigger-mode-retrigger]
+=== Retrigger
+
+image:generated/screenshots/elements/inspector/column/trigger-mode/retrigger.png[Retrigger, role="related thumb right"]
+
+Press once to play, press again to play from start.
+
+

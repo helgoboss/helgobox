@@ -1,0 +1,1 @@
+NOTE: If the clip is configured to xref:user-interface/inspector/clip.adoc#inspector-clip-sync-to-project-tempo[sync to the project tempo], this value is adjusted in beats instead of seconds.

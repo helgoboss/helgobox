@@ -1,7 +1,7 @@
 [#inspector-matrix-recording-start-timing]
 == Start timing
 
-image::generated/screenshots/elements/inspector/matrix/recording-start-timing.png[Start timing]
+
 
 null
 [NOTE]

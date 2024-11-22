@@ -1,7 +1,7 @@
 [#inspector-matrix-trigger-mode]
 == Trigger mode
 
-image::generated/screenshots/elements/inspector/matrix/trigger-mode.png[Trigger mode]
+
 
 Choose between different modes of triggering slots.
 

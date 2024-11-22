@@ -3,7 +3,7 @@
 
 image::generated/screenshots/elements/inspector/column/exclusive-mode.png[Exclusive mode]
 
-If exclusive mode is enabled, only one slot at a time in this column will usually be playing. That's good for switching between different variations.
+If exclusive mode is enabled, in this column only one slot at a time will usually be playing. That's good for switching between different variations.
 
-If it's disabled, multiple slots can be playing at the same time. That's great for ad-hoc layering of multiple clips. Please note that the *Trigger mode* is always *Toggle* if exclusive mode is disabled.
+If it's disabled, multiple slots can be playing at the same time. That's great for ad-hoc layering of multiple clips.
 

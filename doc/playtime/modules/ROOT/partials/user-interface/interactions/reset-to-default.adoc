@@ -1,0 +1,2 @@
+Reset to default::
+Double-click the element to restore the default value.

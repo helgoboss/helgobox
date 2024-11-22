@@ -1,0 +1,2 @@
+icon:hand-peace-o[] Touchpad panning::
+If you have a touchpad, place the cursor over the element and slide up or down with two fingers to increase or decrease the value.

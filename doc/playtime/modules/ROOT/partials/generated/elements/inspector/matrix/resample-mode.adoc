@@ -5,11 +5,5 @@ image::generated/screenshots/elements/inspector/matrix/resample-mode.png[Resampl
 
 Defines which kind of resampling algorithm to use on audio clips.
 
-Playtime uses resampling in the following cases:
-
-1. Vari-speed time stretching.
-2. Adjusting to play rate changes.
-3. Adjusting clips that have a sample rate other than the project/hardware sample rate.
-
 This setting applies to all clips in the matrix but it can be overridden at column and clip level.
 

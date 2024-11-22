@@ -1,7 +1,9 @@
 [#inspector-clip-start-timing]
 == Start timing
 
-image::generated/screenshots/elements/inspector/clip/start-timing.png[Start timing]
+
+
+Decides when a clip actually starts playing after you have triggered its playback.
 
 This overrides the start timing defined in the column or matrix settings.
 

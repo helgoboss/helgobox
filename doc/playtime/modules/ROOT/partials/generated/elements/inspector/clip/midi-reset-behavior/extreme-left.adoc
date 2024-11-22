@@ -1,0 +1,9 @@
+[#inspector-clip-midi-reset-behavior-extreme-left]
+=== Extreme left
+
+image:generated/screenshots/elements/inspector/clip/midi-reset-behavior/extreme-left.png[Extreme left, role="related thumb right"]
+
+Resets whatever it can when the clip starts, often leading to a hard mute of the complete instrument.
+
+This setting is very likely to interfere with other clips playing the instrument at the same time.
+

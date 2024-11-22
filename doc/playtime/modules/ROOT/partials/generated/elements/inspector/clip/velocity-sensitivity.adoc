@@ -3,5 +3,7 @@
 
 image::generated/screenshots/elements/inspector/clip/velocity-sensitivity.png[Velocity sensitivity]
 
+Adjusts how much the velocity of an incoming control message (e.g. MIDI note) affects the clip volume when triggering a slot.
+
 This overrides the velocity sensitivity defined in the column or matrix settings.
 

@@ -1,0 +1,37 @@
+= Column playback settings
+
+include::partial$generated/elements/inspector/column/playback-track.adoc[]
+
+See xref:key-concepts.adoc#column-track[].
+
+include::partial$generated/elements/inspector/column/custom-name.adoc[]
+
+include::partial$generated/elements/inspector/column/exclusive-mode.adoc[]
+
+include::partial$generated/elements/inspector/column/follow-scenes.adoc[]
+
+include::partial$generated/elements/inspector/column/start-timing.adoc[]
+
+See xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing[].
+
+include::partial$generated/elements/inspector/column/stop-timing.adoc[]
+
+See xref:user-interface/inspector/clip.adoc#inspector-clip-stop-timing[].
+
+include::partial$generated/elements/inspector/column/trigger-mode.adoc[]
+include::partial$generated/elements/inspector/column/trigger-mode/toggle.adoc[]
+include::partial$generated/elements/inspector/column/trigger-mode/momentary.adoc[]
+include::partial$generated/elements/inspector/column/trigger-mode/retrigger.adoc[]
+
+
+include::partial$generated/elements/inspector/column/velocity-sensitivity.adoc[]
+
+See xref:user-interface/inspector/clip.adoc#inspector-clip-velocity-sensitivity[].
+
+include::partial$generated/elements/inspector/column/time-stretch-mode.adoc[]
+
+See xref:user-interface/inspector/clip.adoc#inspector-clip-time-stretch-mode[].
+
+include::partial$generated/elements/inspector/column/resample-mode.adoc[]
+
+See xref:user-interface/inspector/clip.adoc#inspector-clip-resample-mode[].

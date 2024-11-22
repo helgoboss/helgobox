@@ -12,6 +12,8 @@ This tab displays information about the current state of the Playtime engine.
 
 include::partial$generated/elements/info-panel/stats/tempo-buffer-size.adoc[]
 
+See xref:user-interface/settings-dialog.adoc#settings-tempo-latency[].
+
 include::partial$generated/elements/info-panel/stats/pre-buffered-blocks-playing-min.adoc[]
 
 include::partial$generated/elements/info-panel/stats/pre-buffered-blocks-playing-avg.adoc[]
@@ -23,5 +25,3 @@ include::partial$generated/elements/info-panel/stats/pre-buffer-fallback-count.a
 include::partial$generated/elements/info-panel/stats/pre-buffer-miss-count.adoc[]
 
 include::partial$generated/elements/info-panel/warnings.adoc[]
-
-In certain situations, you might see a warning button, that upon clicking will show you further details about the warnings.

@@ -2,13 +2,10 @@
 
 You will see this when selecting a xref:user-interface/matrix-area.adoc#column-cell[].
 
-include::partial$generated/elements/inspector/column/playback-track.adoc[]
-include::partial$generated/elements/inspector/column/custom-name.adoc[]
-include::partial$generated/elements/inspector/column/exclusive-mode.adoc[]
-include::partial$generated/elements/inspector/column/follow-scenes.adoc[]
-include::partial$generated/elements/inspector/column/start-timing.adoc[]
-include::partial$generated/elements/inspector/column/stop-timing.adoc[]
-include::partial$generated/elements/inspector/column/trigger-mode.adoc[]
-include::partial$generated/elements/inspector/column/velocity-sensitivity.adoc[]
-include::partial$generated/elements/inspector/column/time-stretch-mode.adoc[]
-include::partial$generated/elements/inspector/column/resample-mode.adoc[]
+This inspector is divided into two areas:
+
+xref:user-interface/inspector/column/playback.adoc[]::
+Settings that are mainly about playing clips
+
+xref:user-interface/inspector/column/recording.adoc[]::
+Settings that are mainly about recording clips

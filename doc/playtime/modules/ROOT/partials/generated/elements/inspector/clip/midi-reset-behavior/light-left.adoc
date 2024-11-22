@@ -1,0 +1,7 @@
+[#inspector-clip-midi-reset-behavior-light-left]
+=== Light left
+
+image:generated/screenshots/elements/inspector/clip/midi-reset-behavior/light-left.png[Light left, role="related thumb right"]
+
+Ends all playing notes and lifts the sustain pedal when the clip starts. Maybe useful for ambient music.
+

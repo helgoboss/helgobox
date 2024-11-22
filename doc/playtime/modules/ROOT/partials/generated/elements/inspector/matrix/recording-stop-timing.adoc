@@ -1,7 +1,7 @@
 [#inspector-matrix-recording-stop-timing]
 == Stop timing
 
-image::generated/screenshots/elements/inspector/matrix/recording-stop-timing.png[Stop timing]
+
 
 null
 [NOTE]
