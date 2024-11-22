@@ -35,7 +35,7 @@ If you want to start REAPER playback together with Playtime, you have two option
 
 [loweralpha]
 . Start playback within REAPER itself (which automatically starts Playtime playback)
-. Switch xref:user-interface/inspector/matrix.adoc#inspector-matrix-transport-sync[] to **Full**
+. Switch xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-transport-sync[] to **Full**
 
 // Visual metronome
 
@@ -73,7 +73,8 @@ If the Playtime column tracks already contain items, pressing this button will s
 
 include::partial$generated/elements/toolbar/show-hide-midi-triggers.adoc[]
 
-The purpose of this feature is to quickly create simple mappings of MIDI keys/pads/buttons to cells. If you want to use full-featured grid controllers, such as the Launchpad, see xref:realearn::user-interface/settings-dialog.adoc#controllers[].
+The purpose of this feature is to quickly create simple mappings of MIDI keys/pads/buttons to cells.
+If you want to use full-featured grid controllers, such as the Launchpad, see xref:realearn::user-interface/settings-dialog.adoc#controllers[].
 
 The MIDI triggers configured here are specific to this particular xref:helgobox::plug-in/key-concepts.adoc#instance[], not global.
 

@@ -46,11 +46,11 @@ Drag the cell left or right to change the position of the column.
 
 include::partial$generated/elements/column-cell/exclusive-mode.adoc[]
 
-This is a shortcut for xref:user-interface/inspector/column.adoc#inspector-column-exclusive-mode[].
+This is a shortcut for xref:user-interface/inspector/column/playback.adoc#inspector-column-exclusive-mode[].
 
 include::partial$generated/elements/column-cell/follow-scenes.adoc[]
 
-This is a shortcut for xref:user-interface/inspector/column.adoc#inspector-column-follow-scenes[].
+This is a shortcut for xref:user-interface/inspector/column/playback.adoc#inspector-column-follow-scenes[].
 
 include::partial$generated/elements/column-cell/has-overrides.adoc[]
 
