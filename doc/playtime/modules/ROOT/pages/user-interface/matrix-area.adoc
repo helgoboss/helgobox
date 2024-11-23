@@ -32,6 +32,8 @@ include::partial$generated/elements/matrix-cell/settings.adoc[]
 
 See xref:user-interface/inspector/matrix.adoc[].
 
+TIP: Right-clicking this area opens the xref:user-interface/matrix-menu.adoc[].
+
 // Column header cell
 
 include::partial$generated/elements/column-cell.adoc[]
@@ -60,6 +62,8 @@ include::partial$generated/elements/column-cell/label.adoc[]
 
 See xref:user-interface/inspector/column.adoc[].
 
+TIP: Right-clicking this area opens the xref:user-interface/column-menu.adoc[].
+
 // Row cell
 
 include::partial$generated/elements/row-cell.adoc[]
@@ -78,6 +82,8 @@ include::partial$generated/elements/row-cell/label.adoc[]
 
 See xref:user-interface/inspector/row.adoc[].
 
+TIP: Right-clicking this area opens the xref:user-interface/row-menu.adoc[].
+
 // Slot cell
 
 include::partial$generated/elements/slot-cell.adoc[]
@@ -91,6 +97,8 @@ This is only available if the corresponding xref:key-concepts.adoc#column-track[
 include::partial$generated/elements/slot-cell/content.adoc[]
 
 See xref:user-interface/inspector/slot.adoc[].
+
+TIP: Right-clicking this area opens the xref:user-interface/slot-menu.adoc[].
 
 .Drag-and-drop support
 ****

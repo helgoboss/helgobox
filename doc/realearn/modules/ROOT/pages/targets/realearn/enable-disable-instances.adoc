@@ -26,7 +26,7 @@ If _this_ ReaLearn instance is on the monitoring FX chain, it only affects other
 
 TIP: This target is great for switching between completely different controller setups!
 
-CAUTION: You enter xref:further-concepts/unit.adoc#unit-tag[unit tags] here, but it will enable/disable whole xref:helgobox::plug-in/key-concepts.adoc#instance[instances]!
+CAUTION: You enter xref:further-concepts/unit.adoc#unit-tag[unit tags] here, but it will enable/disable whole xref:helgobox:ROOT:key-concepts.adoc#instance[instances]!
 I know, this is counter-intuitive.
 In some cases, it would be good to have a way to enable/disable units.
 However, that doesn't exist yet.

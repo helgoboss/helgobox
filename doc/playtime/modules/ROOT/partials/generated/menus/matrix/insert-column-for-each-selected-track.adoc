@@ -1,0 +1,7 @@
+[#matrix-insert-column-for-each-selected-track]
+== Insert column for each selected track
+
+
+
+Inserts new columns to the right, one for each selected REAPER track.
+

@@ -1,0 +1,13 @@
+= Column menu
+
+Right-clicking xref:user-interface/matrix-area.adoc#column-cell-label[] opens this context menu.
+
+include::partial$generated/menus/column/rename-column-or-track.adoc[]
+include::partial$generated/menus/column/duplicate.adoc[]
+include::partial$generated/menus/column/insert-column-left.adoc[]
+include::partial$generated/menus/column/insert-column-right.adoc[]
+include::partial$generated/menus/column/insert-column-for-each-selected-track.adoc[]
+include::partial$generated/menus/column/remove.adoc[]
+include::partial$generated/menus/column/remove-keep-track.adoc[]
+include::partial$generated/menus/column/export-to-arrangement.adoc[]
+include::partial$generated/menus/column/export-to-clipboard-as-lua.adoc[]

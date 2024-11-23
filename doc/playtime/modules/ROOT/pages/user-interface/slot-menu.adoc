@@ -1,0 +1,13 @@
+= Slot menu
+
+Right-clicking xref:user-interface/matrix-area.adoc#slot-cell-content[] opens this context menu.
+
+include::partial$generated/menus/slot/rename-primary-clip.adoc[]
+include::partial$generated/menus/slot/copy.adoc[]
+include::partial$generated/menus/slot/cut.adoc[]
+include::partial$generated/menus/slot/paste.adoc[]
+include::partial$generated/menus/slot/clear.adoc[]
+include::partial$generated/menus/slot/import-selected-item.adoc[]
+include::partial$generated/menus/slot/import-files.adoc[]
+include::partial$generated/menus/slot/export-primary-clip-to-arrangement.adoc[]
+include::partial$generated/menus/slot/export-primary-clip-to-clipboard-as-lua.adoc[]

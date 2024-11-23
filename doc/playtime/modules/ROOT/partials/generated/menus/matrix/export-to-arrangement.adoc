@@ -1,0 +1,7 @@
+[#matrix-export-to-arrangement]
+== Export matrix to arrangement
+
+
+
+Exports all clips in this matrix to the REAPER arrangement.
+

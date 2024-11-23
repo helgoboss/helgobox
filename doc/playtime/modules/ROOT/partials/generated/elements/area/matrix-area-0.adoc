@@ -3,5 +3,5 @@
 
 image:generated/screenshots/elements/area/matrix-area-0.png[Matrix area, role="related thumb right"]
 
-null
+
 

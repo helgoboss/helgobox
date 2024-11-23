@@ -1,0 +1,7 @@
+[#row-remove]
+== Remove row
+
+
+
+Removes this row.
+

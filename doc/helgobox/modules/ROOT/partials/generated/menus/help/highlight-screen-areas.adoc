@@ -1,0 +1,7 @@
+[#title-bar-highlight-screen-areas]
+== Highlight screen areas
+
+
+
+Highlights the most important areas of the main screen.
+

@@ -1,0 +1,7 @@
+[#inspector-clip-promote-to-top]
+== Promote clip to top
+
+
+
+Makes this clip the primary clip of the slot. That means you will see this one in the matrix.
+

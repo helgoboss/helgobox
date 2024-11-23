@@ -3,5 +3,5 @@
 
 image:generated/screenshots/elements/matrix/add-column.png[Add column, role="related thumb right"]
 
-Adds a new column to the matrix
+Adds a new column to the matrix and associates it with a newly created REAPER track.
 

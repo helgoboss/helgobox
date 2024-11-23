@@ -1,0 +1,7 @@
+[#title-bar-open-helgobox-reference]
+== Open Helgobox reference
+
+
+
+Opens the Helgobox Reference online.
+

@@ -1,0 +1,36 @@
+= Basic usage
+
+Let's get familiar with the basics!
+
+A typical usage scenario of Playtime looks like this:
+
+. <<record>>
+. <<import>>
+. <<play>>
+. <<adjust>>
+. <<structure>>
+. <<arrangement>>
+. <<render>>
+
+In the following sections, we will learn step by step how to do this.
+
+[[record]]
+== Record clips
+
+[[import]]
+== Import existing clips
+
+[[play]]
+== Play clips
+
+[[adjust]]
+== Adjust clips
+
+[[structure]]
+== Structure the song
+
+[[arrangement]]
+== Create an arrangement
+
+[[render]]
+== Render

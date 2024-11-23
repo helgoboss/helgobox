@@ -1,0 +1,7 @@
+[#slot-cut]
+== Cut slot
+
+
+
+Cuts the contents of this slot for later pasting.
+

@@ -1,0 +1,7 @@
+[#column-export-to-clipboard-as-lua]
+== Export column to clipboard as Lua
+
+
+
+Exports the column to the clipboard as Lua code.
+

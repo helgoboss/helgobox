@@ -1,0 +1,7 @@
+[#column-duplicate]
+== Duplicate column
+
+
+
+Creates a copy of this column and its associated track and inserts it to the right.
+

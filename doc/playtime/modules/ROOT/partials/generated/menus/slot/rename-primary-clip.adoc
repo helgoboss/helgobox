@@ -1,0 +1,7 @@
+[#slot-rename-primary-clip]
+== Rename primary clip...
+
+
+
+Renames the primary clip in this slot.
+

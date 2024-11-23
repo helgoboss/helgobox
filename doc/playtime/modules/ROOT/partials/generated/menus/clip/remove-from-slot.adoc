@@ -1,0 +1,7 @@
+[#inspector-clip-remove-from-slot]
+== Remove clip from slot
+
+
+
+Removes the clip from this slot.
+

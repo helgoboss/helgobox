@@ -1,0 +1,15 @@
+= Row menu
+
+Right-clicking xref:user-interface/matrix-area.adoc#row-cell-label[] opens this context menu.
+
+include::partial$generated/menus/row/rename.adoc[]
+include::partial$generated/menus/row/build-scene-from-currently-playing-clips.adoc[]
+include::partial$generated/menus/row/copy.adoc[]
+include::partial$generated/menus/row/cut.adoc[]
+include::partial$generated/menus/row/paste.adoc[]
+include::partial$generated/menus/row/clear.adoc[]
+include::partial$generated/menus/row/duplicate.adoc[]
+include::partial$generated/menus/row/insert-row-above.adoc[]
+include::partial$generated/menus/row/insert-row-below.adoc[]
+include::partial$generated/menus/row/remove.adoc[]
+include::partial$generated/menus/row/export-to-arrangement.adoc[]

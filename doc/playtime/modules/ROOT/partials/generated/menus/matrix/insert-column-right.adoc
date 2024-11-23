@@ -1,0 +1,7 @@
+[#matrix-insert-column-right]
+== Insert column right
+
+
+
+Inserts a new column to the right and associates it with a newly created REAPER track.
+

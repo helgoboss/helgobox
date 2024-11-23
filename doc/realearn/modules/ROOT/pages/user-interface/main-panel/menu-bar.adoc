@@ -261,7 +261,7 @@ Pressing the export button allows you to copy ReaLearn's settings to the clipboa
 See xref:further-concepts/general.adoc#import-export[].
 
 Export instance as JSON::
-Copies a _complete_ dump of this xref:helgobox::plug-in/key-concepts.adoc#instance[] to the clipboard in JSON format.
+Copies a _complete_ dump of this xref:helgobox:ROOT:key-concepts.adoc#instance[] to the clipboard in JSON format.
 
 Export main/controller compartment as JSON::
 Copies a dump of the currently visible compartment to the clipboard.

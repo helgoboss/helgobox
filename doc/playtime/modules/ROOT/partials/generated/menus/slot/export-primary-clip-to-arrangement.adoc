@@ -1,0 +1,7 @@
+[#slot-export-primary-clip-to-arrangement]
+== Export primary clip to arrangement
+
+
+
+Exports the primary clip of this slot to the REAPER arrangement.
+

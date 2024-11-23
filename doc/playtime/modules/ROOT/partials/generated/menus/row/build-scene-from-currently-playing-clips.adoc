@@ -1,0 +1,7 @@
+[#row-build-scene-from-currently-playing-clips]
+== Build scene from currently playing clips
+
+
+
+Takes all clips that are currently playing in scene-following columns and copies them to this row. In other words, it takes a snapshot of what is currently playing and pastes it into this row.
+

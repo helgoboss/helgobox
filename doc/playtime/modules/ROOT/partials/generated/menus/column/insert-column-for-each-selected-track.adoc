@@ -1,0 +1,7 @@
+[#column-insert-column-for-each-selected-track]
+== Insert column for each selected track
+
+
+
+Inserts new empty columns to the right, one for each selected REAPER track.
+

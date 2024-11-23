@@ -19,7 +19,7 @@ In the center you can see the info area, made up of 3 rows:
 
 Row 1::
 * The current scroll position.
-* The xref:helgobox::plug-in/key-concepts.adoc#instance-id[] of this Helgobox xref:helgobox::plug-in/key-concepts.adoc#instance[].
+* The xref:helgobox:ROOT:key-concepts.adoc#instance-id[] of this Helgobox xref:helgobox:ROOT:key-concepts.adoc#instance[].
 * The xref:further-concepts/unit.adoc#unit-key[] of the currently visible ReaLearn xref:key-concepts.adoc#unit[].
 * xref:further-concepts/unit.adoc#unit-tag[] assigned to this ReaLearn xref:key-concepts.adoc#unit[].
 

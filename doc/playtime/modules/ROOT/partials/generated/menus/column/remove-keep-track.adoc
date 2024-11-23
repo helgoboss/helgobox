@@ -1,0 +1,7 @@
+[#column-remove-keep-track]
+== Remove column (keep track)
+
+
+
+Removes this column but keeps the associated REAPER track.
+

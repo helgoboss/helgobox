@@ -1,0 +1,7 @@
+[#slot-import-selected-item]
+== Import selected item into slot
+
+
+
+Creates a clip that resembles the currently selected REAPER item and adds it to this slot.
+

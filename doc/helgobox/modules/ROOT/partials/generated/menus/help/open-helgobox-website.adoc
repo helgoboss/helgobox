@@ -1,0 +1,7 @@
+[#title-bar-open-helgobox-website]
+== Open Helgobox website
+
+
+
+Opens the Helgobox product page.
+

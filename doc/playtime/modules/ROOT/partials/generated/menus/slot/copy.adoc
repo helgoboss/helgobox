@@ -1,0 +1,7 @@
+[#slot-copy]
+== Copy slot
+
+
+
+Copies the contents of this slot for later pasting.
+

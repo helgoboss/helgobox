@@ -1,0 +1,7 @@
+[#row-clear]
+== Clear row
+
+
+
+Clears all slots in this row.
+

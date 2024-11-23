@@ -1,0 +1,7 @@
+[#slot-import-files]
+== Import file(s)...
+
+
+
+Lets you pick a file and adds it to this slot as a clip. If you pick more than one file, they will end up in the slots below.
+

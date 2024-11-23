@@ -1,0 +1,7 @@
+[#inspector-clip-source-open-in-media-explorer]
+== Open in media explorer
+
+
+
+Opens the source file of this clip in the REAPER media explorer.
+

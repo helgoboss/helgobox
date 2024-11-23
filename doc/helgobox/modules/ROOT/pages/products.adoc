@@ -14,7 +14,7 @@ xref:realearn::introduction.adoc[→ Read more about ReaLearn]
 == Playtime
 
 link:https://www.helgoboss.org/projects/playtime[Playtime] is a modern session view / clip launcher for REAPER, built straight into Helgobox.
-Each xref:helgobox::plug-in/key-concepts.adoc#instance[Helgobox Instance] may contain one xref:playtime::key-concepts.adoc#matrix[] (by default not loaded).
+Each xref:key-concepts.adoc#instance[Helgobox Instance] may contain one xref:playtime::key-concepts.adoc#matrix[] (by default not loaded).
 
 xref:playtime::introduction.adoc[→ Read more about Playtime]
 

@@ -1,0 +1,7 @@
+[#slot-export-primary-clip-to-clipboard-as-lua]
+== Export primary clip to clipboard as Lua
+
+
+
+Exports the primary clip of this slot to the clipboard as Lua code.
+

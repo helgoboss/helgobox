@@ -1,0 +1,7 @@
+= Smart-record menu
+
+Right-clicking xref:user-interface/toolbar.adoc#toolbar-smart-record[] opens this menu.
+
+include::partial$generated/menus/smart-record/limit-recording-length.adoc[]
+
+This is a shortcut for xref:user-interface/inspector/matrix/recording.adoc#inspector-matrix-limit-recording-length[].

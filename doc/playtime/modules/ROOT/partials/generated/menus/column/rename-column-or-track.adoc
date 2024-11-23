@@ -1,0 +1,9 @@
+[#column-rename-column-or-track]
+== Rename column or track...
+
+
+
+Renames this column of the associated track.
+
+If the track associated with this column is not associated with any other column, the track will be renamed. In all other cases, the column itself.
+

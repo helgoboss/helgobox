@@ -3,5 +3,5 @@
 
 image:generated/screenshots/elements/area/info-panel-0.png[Info panel, role="related thumb right"]
 
-null
+
 

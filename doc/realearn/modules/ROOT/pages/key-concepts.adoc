@@ -78,7 +78,7 @@ You can change the output port using the xref:user-interface/main-panel/input-ou
 [[instance]]
 == Instance
 
-A ReaLearn instance is the same as a xref:helgobox::plug-in/key-concepts.adoc#instance[Helgobox instance].
+A ReaLearn instance is the same as a xref:helgobox:ROOT:key-concepts.adoc#instance[Helgobox instance].
 
 [[unit]]
 == Unit

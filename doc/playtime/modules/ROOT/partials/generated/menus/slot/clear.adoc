@@ -1,0 +1,7 @@
+[#slot-clear]
+== Clear slot
+
+
+
+Removes all clips from this slot.
+

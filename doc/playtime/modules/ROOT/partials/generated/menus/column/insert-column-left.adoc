@@ -1,0 +1,7 @@
+[#column-insert-column-left]
+== Insert column left
+
+
+
+Inserts a new empty column to the left and associates it with a newly created REAPER track.
+

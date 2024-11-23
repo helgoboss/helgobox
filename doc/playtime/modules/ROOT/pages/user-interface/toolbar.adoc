@@ -29,6 +29,8 @@ Those are different from the REAPER transport controls, as Playtime is capable o
 
 include::partial$generated/elements/toolbar/smart-record.adoc[]
 
+TIP: Right-clicking the smart-record button opens the xref:user-interface/smart-record-menu.adoc[].
+
 include::partial$generated/elements/toolbar/start-stop-playback.adoc[]
 
 If you want to start REAPER playback together with Playtime, you have two options:
@@ -76,6 +78,6 @@ include::partial$generated/elements/toolbar/show-hide-midi-triggers.adoc[]
 The purpose of this feature is to quickly create simple mappings of MIDI keys/pads/buttons to cells.
 If you want to use full-featured grid controllers, such as the Launchpad, see xref:realearn::user-interface/settings-dialog.adoc#controllers[].
 
-The MIDI triggers configured here are specific to this particular xref:helgobox::plug-in/key-concepts.adoc#instance[], not global.
+The MIDI triggers configured here are specific to this particular xref:helgobox:ROOT:key-concepts.adoc#instance[], not global.
 
 include::partial$generated/elements/toolbar/pane-toggler.adoc[]

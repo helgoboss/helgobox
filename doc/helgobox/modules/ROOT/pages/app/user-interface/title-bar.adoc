@@ -47,6 +47,12 @@ include::partial$generated/elements/title-bar/pause-arrangement.adoc[]
 
 include::partial$generated/elements/title-bar/help.adoc[]
 
+=== Menu entries
+
+include::partial$generated/menus/help/open-helgobox-reference.adoc[]
+include::partial$generated/menus/help/open-helgobox-website.adoc[]
+include::partial$generated/menus/help/highlight-screen-areas.adoc[]
+
 include::partial$generated/elements/title-bar/helgobox-info.adoc[]
 
-See xref:plug-in/key-concepts.adoc#instance-id[].
+See xref:key-concepts.adoc#instance-id[].

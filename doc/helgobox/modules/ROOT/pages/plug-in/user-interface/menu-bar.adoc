@@ -35,7 +35,7 @@ Add firewall rule::: Attempts to add a firewall rule for making the server acces
 Pressing the export button allows you to copy Helgobox settings to the clipboard so you can import them in another instance or edit them in a text editor.
 
 Export instance as JSON::
-Copies a _complete_ dump of this xref:helgobox::plug-in/key-concepts.adoc#instance[] to the clipboard in JSON format.
+Copies a _complete_ dump of this xref:key-concepts.adoc#instance[] to the clipboard in JSON format.
 
 [[import-from-clipboard]]
 == Import from clipboard button

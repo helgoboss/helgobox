@@ -128,7 +128,7 @@ Logging can be enabled or disabled via xref:user-interface/main-panel/menu-bar.a
 Each log entry contains the following information:
 
 * Timestamp in seconds
-* Helgobox xref:helgobox::plug-in/key-concepts.adoc#instance-id[]
+* Helgobox xref:helgobox:ROOT:key-concepts.adoc#instance-id[]
 * Message purpose
 ** *Real control:* A message used for controlling targets.
 ** *Real learn:* A message used for learning a source.

@@ -1,0 +1,7 @@
+[#slot-paste]
+== Paste slot
+
+
+
+Pastes previously copied or cut slot contents into this slot, replacing what is already there.
+

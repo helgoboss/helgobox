@@ -1,0 +1,7 @@
+[#toolbar-smart-record-limit-recording-length]
+== Limit recording length
+
+
+
+If enabled, recording a clip will automatically stop after a certain amount of time.
+
