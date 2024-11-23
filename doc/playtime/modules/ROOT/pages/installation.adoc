@@ -1,11 +1,37 @@
 = Installation
 
-At first, please follow the xref:helgobox::installation.adoc[installation instructions for Helgobox], the plug-in that contains Playtime.
+At first, please follow the xref:helgobox::installation.adoc[installation instructions for Helgobox], the add-on that contains Playtime.
 
-After installing Helgobox, the easiest way to access Playtime is by using the convenient btn:[Playtime] button in REAPER's main toolbar.
-If you don't see it, do this:
+== Playtime main toolbar button
+
+After installing Helgobox, the easiest way to access Playtime is by using the convenient image:screenshots/playtime-toolbar-icon.png[Playtime,width=50] button in REAPER's main toolbar.
+
+You can add this button very easily by doing this:
 
 . Select menu:Extensions[Helgobox > Show welcome screen]
 . Check "Add Playtime button to main toolbar"
 
 image::screenshots/helgobox-welcome-screen.png[width=500]
+
+== Alternatives
+
+If you don't like that button, here are a few alternatives.
+
+TIP: Manually removing the image:screenshots/playtime-toolbar-icon.png[Playtime,width=50] button from the main toolbar is not going to work: You will have it back the next time you start REAPER.
+In order to remove the button permanently, open above-mentioned welcome screen and disable the checkbox!
+
+=== Start directly via action
+
+Playtime provides the action xref:reaper-actions.adoc#show-hide-playtime[], which you can invoke from the REAPER action list or via menu:Extensions[Helgobox > Playtime > Show/hide Playtime].
+In the action list, you can also assign your preferred keyboard shortcut.
+The default is kbd:[Shift+Cmd/Ctrl+P].
+
+=== Add the button to another toolbar
+
+You can add the image:screenshots/playtime-toolbar-icon.png[Playtime,width=50] Playtime button to your own toolbar like this:
+
+. Right-click the toolbar and choose menu:Customize toolbar...[]
+. Click btn:[Add...] (should open the REAPER action list)
+. Search for the action xref:reaper-actions.adoc#show-hide-playtime[] and double-click it.
+
+That's it! you should now see the button in your custom toolbar.

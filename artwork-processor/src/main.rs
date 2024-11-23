@@ -12,36 +12,64 @@ fn main() -> Result<()> {
 }
 
 fn render_artwork() -> Result<()> {
-    generate_toolbar_icons("playtime-logo.svg")?;
+    let playtime_logo_file = "resources/artwork/playtime-logo.svg";
+    generate_toolbar_icons(playtime_logo_file)?;
+    generate_icon(
+        playtime_logo_file,
+        "doc/playtime/modules/ROOT/images/screenshots/playtime-toolbar-icon.png",
+        (120, 120),
+        &[ToolbarIconStatus::Normal],
+    )?;
     Ok(())
 }
 
 fn generate_toolbar_icons(src_file: &str) -> Result<()> {
-    generate_toolbar_icon(src_file, "toolbar_icons/toolbar_playtime.png", (30, 30))?;
-    generate_toolbar_icon(src_file, "toolbar_icons/150/toolbar_playtime.png", (45, 45))?;
-    generate_toolbar_icon(src_file, "toolbar_icons/200/toolbar_playtime.png", (60, 60))?;
+    use ToolbarIconStatus::*;
+    let toolbar_statuses = [Normal, Hovered, Selected];
+    generate_icon(
+        src_file,
+        "resources/artwork/toolbar_icons/toolbar_playtime.png",
+        (30, 30),
+        &toolbar_statuses,
+    )?;
+    generate_icon(
+        src_file,
+        "resources/artwork/toolbar_icons/150/toolbar_playtime.png",
+        (45, 45),
+        &toolbar_statuses,
+    )?;
+    generate_icon(
+        src_file,
+        "resources/artwork/toolbar_icons/200/toolbar_playtime.png",
+        (60, 60),
+        &toolbar_statuses,
+    )?;
     Ok(())
 }
 
-fn generate_toolbar_icon(
+fn generate_icon(
     src_file: impl AsRef<Path>,
     dst_file: impl AsRef<Path>,
     (width, height): (u32, u32),
+    statuses: &[ToolbarIconStatus],
 ) -> Result<()> {
-    let artwork_dir = Path::new("resources/artwork");
-    let svg = fs::read_to_string(artwork_dir.join(src_file))?;
-    let pixmap = render_toolbar_icon(&svg, (width, height))?;
-    let abs_dst_file = artwork_dir.join(dst_file);
-    fs::create_dir_all(abs_dst_file.parent().context("no parent file")?)?;
-    pixmap.save_png(abs_dst_file)?;
+    let dst_file = dst_file.as_ref();
+    let svg = fs::read_to_string(src_file)?;
+    let pixmap = render_toolbar_icon(&svg, (width, height), statuses)?;
+    fs::create_dir_all(dst_file.parent().context("no parent file")?)?;
+    pixmap.save_png(dst_file)?;
     Ok(())
 }
 
-fn render_toolbar_icon(svg: &str, (width, height): (u32, u32)) -> Result<Pixmap> {
-    let sprite_count = 3;
+fn render_toolbar_icon(
+    svg: &str,
+    (width, height): (u32, u32),
+    statuses: &[ToolbarIconStatus],
+) -> Result<Pixmap> {
+    let sprite_count = statuses.len() as u32;
     let mut pixmap = Pixmap::new(width * sprite_count, height).unwrap();
     use ToolbarIconStatus::*;
-    for (i, status) in [Normal, Hovered, Selected].iter().enumerate() {
+    for (i, status) in statuses.iter().enumerate() {
         let root_classes = match status {
             Normal => "toolbar-icon",
             Hovered => "toolbar-icon hovered",

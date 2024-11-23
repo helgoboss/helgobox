@@ -6,6 +6,6 @@ Each Helgobox instance can display its own xref:app.adoc[] window, embedded into
 . Press menu:Menu[Show App]
 
 .App window
-image::screenshots/app-window.png[]
+image::generated/screenshots/main/home-screen.png[]
 
 At the moment, the app primarily provides the user interface for xref:playtime::introduction.adoc[Playtime], but it will contain more stuff in the future.
