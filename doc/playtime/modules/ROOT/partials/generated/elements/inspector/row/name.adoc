@@ -1,4 +1,5 @@
-[#inspector-row-name]
+ifdef::pdf-theme[[[inspector-row-name,Name]]]
+ifndef::pdf-theme[[[inspector-row-name,Name]]]
 == Name
 
 image::generated/screenshots/elements/inspector/row/name.png[Name]

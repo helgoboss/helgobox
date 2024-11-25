@@ -1,4 +1,5 @@
-[#area-inspector-0]
+ifdef::pdf-theme[[[area-inspector-0,Inspector]]]
+ifndef::pdf-theme[[[area-inspector-0,Inspector image:generated/screenshots/elements/area/inspector-0.png[width=50]]]]
 == Inspector
 
 image:generated/screenshots/elements/area/inspector-0.png[Inspector, role="related thumb right"]

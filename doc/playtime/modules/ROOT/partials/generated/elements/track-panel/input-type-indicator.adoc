@@ -1,4 +1,5 @@
-[#track-panel-input-type-indicator]
+ifdef::pdf-theme[[[track-panel-input-type-indicator,Track input type indicator]]]
+ifndef::pdf-theme[[[track-panel-input-type-indicator,Track input type indicator image:generated/screenshots/elements/track-panel/input-type-indicator.png[width=50]]]]
 === Track input type indicator
 
 image:generated/screenshots/elements/track-panel/input-type-indicator.png[Track input type indicator, role="related thumb right"]

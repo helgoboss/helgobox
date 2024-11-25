@@ -1,4 +1,5 @@
-[#track-panel-pdc-tiny]
+ifdef::pdf-theme[[[track-panel-pdc-tiny,Tiny latency: 5ms]]]
+ifndef::pdf-theme[[[track-panel-pdc-tiny,Tiny latency: 5ms image:generated/screenshots/elements/track-panel/pdc-tiny.png[width=50]]]]
 ==== Tiny latency: 5ms
 
 image:generated/screenshots/elements/track-panel/pdc-tiny.png[Tiny latency: 5ms, role="related thumb right"]

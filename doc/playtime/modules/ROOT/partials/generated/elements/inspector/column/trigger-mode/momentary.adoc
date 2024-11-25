@@ -1,4 +1,5 @@
-[#inspector-column-trigger-mode-momentary]
+ifdef::pdf-theme[[[inspector-column-trigger-mode-momentary,Momentary]]]
+ifndef::pdf-theme[[[inspector-column-trigger-mode-momentary,Momentary image:generated/screenshots/elements/inspector/column/trigger-mode/momentary.png[width=50]]]]
 === Momentary
 
 image:generated/screenshots/elements/inspector/column/trigger-mode/momentary.png[Momentary, role="related thumb right"]

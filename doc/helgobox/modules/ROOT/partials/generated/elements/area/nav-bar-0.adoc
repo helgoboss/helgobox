@@ -1,4 +1,5 @@
-[#area-nav-bar-0]
+ifdef::pdf-theme[[[area-nav-bar-0,Navigation bar]]]
+ifndef::pdf-theme[[[area-nav-bar-0,Navigation bar image:generated/screenshots/elements/area/nav-bar-0.png[width=50]]]]
 == Navigation bar
 
 image:generated/screenshots/elements/area/nav-bar-0.png[Navigation bar, role="related thumb right"]

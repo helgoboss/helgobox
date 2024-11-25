@@ -1,4 +1,5 @@
-[#row-cell]
+ifdef::pdf-theme[[[row-cell,Row header cell]]]
+ifndef::pdf-theme[[[row-cell,Row header cell image:generated/screenshots/elements/row-cell.png[width=50]]]]
 == Row header cell
 
 image:generated/screenshots/elements/row-cell.png[Row header cell, role="related thumb right"]

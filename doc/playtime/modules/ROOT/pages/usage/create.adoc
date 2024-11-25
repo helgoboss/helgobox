@@ -1,0 +1,189 @@
+= Create clips
+
+Playtime is all about xref:key-concepts.adoc#clip[clips], small snippets of audio or MIDI that you can freely play together with other clips to compose a larger musical piece.
+
+Before we can play a clip, we need to create one. Let's do this!
+
+== 1. Create a column
+
+At first, we need to make some space for the clip within the xref:key-concepts.adoc#matrix[].
+Press the xref:user-interface/matrix-area.adoc#matrix-add-column[] button on the right of xref:user-interface/matrix-area.adoc#matrix-cell-settings[] to add a new xref:key-concepts.adoc#column[].
+
+You should then see a new column named "Column 1" with empty slots that can take our new clip.
+
+[TIP]
+.Column track
+====
+This didn't just create a new column, it also created a new REAPER track with the same name, the so-called xref:key-concepts.adoc#column-track[]. Playtime will play clips within this column through that track.
+====
+
+.Alternatives
+****
+Use matrix templates::
+Instead of creating the column manually, you could also have started with a template by pressing the xref:user-interface/matrix-area.adoc#matrix-mixed-template-button[], for example.
+
+Importing existing tracks::
+Maybe you have existing tracks already that you want to use as xref:key-concepts.adoc#column-track[column tracks]. In that case, select them, right-click xref:user-interface/matrix-area.adoc#matrix-cell-settings[] and choose xref:user-interface/matrix-menu.adoc#matrix-insert-column-for-each-selected-track[].
+****
+
+== 2. Create a clip
+
+There are many ways to create a new clip. Let's explore the most common ones.
+
+
+[[import-file]]
+=== Import an existing audio or MIDI file
+
+Maybe you have an existing audio or MIDI file somewhere on your computer. Simply drag it from your favorite file manager or from REAPER's media explorer onto one of the empty slots! See xref:user-interface/matrix-area.adoc#slot-drag-and-drop[] for details.
+
+.Alternatives
+****
+Use file picker::
+You can pick the file using Playtime's own file picker by right-clicking an empty slot and pressing  xref:user-interface/slot-menu.adoc#slot-import-files[].
+****
+
+[[import-item]]
+=== Import an existing REAPER item
+
+Maybe you have an existing item on a REAPER track that you want to turn into a Playtime clip.
+
+. Select the item
+. Right-click an empty slot and choose xref:user-interface/slot-menu.adoc#slot-import-selected-item[]
+
+This does more than just importing the audio file or MIDI data from the item! It also translates many of the item's properties, such as the item cut and pitch, to Playtime clip properties.
+
+
+[[create-empty-midi-clip]]
+=== Create an empty MIDI clip
+
+If you want to start entering MIDI notes from scratch, simply double-click the slot. This will create an empty MIDI clip with the length of 1 bar.
+
+[[record-clip]]
+=== Record a clip
+
+Playtime offers plenty of ways to record clips directly. The most common one is to record a xref:key-concepts.adoc#loop[] of rhythmic material while Playtime is playing.
+
+In this example, we are going to record an audio loop to a click:
+
+==== 1. Start playback
+
+Start playback in Playtime by pressing the xref:user-interface/toolbar.adoc#toolbar-start-stop-playback[] button in the transport section of the toolbar or simply by pressing the kbd:[Space] key. The xref:user-interface/toolbar.adoc#toolbar-visual-metronome[] in the middle of the Playtime text logo should start running.
+
+==== 2. Turn on metronome
+
+Turn on the metronome by pressing the xref:user-interface/toolbar.adoc#toolbar-metronome[] button in the tempo section of the toolbar. You should now hear the metronome clicking.
+
+[[choose-track-input]]
+==== 3. Choose track input
+
+Press xref:user-interface/track-area.adoc#track-panel-input[] in the track panel below the column in order to choose the audio input channel(s) from which you want to record.
+
+TIP: If you don't see the input section, increase the height of the track panel a bit by grabbing the resize handle above the track panels and dragging it up.
+
+==== 4. Arm track
+
+Press the round xref:user-interface/track-area.adoc#track-panel-arm[] button. It should turn red and record buttons should appear in all empty slots of that column.
+
+CAUTION: If you record from a microphone and don't wear a headphone, you probably should turn off input monitoring by pressing xref:user-interface/track-area.adoc#track-panel-input-monitoring-off[]. Otherwise, you might hear loud feedback.
+
+==== 5. Get ready
+
+At this point, you can try making some noise. Do you see something in the xref:user-interface/track-area.adoc#track-panel-volume[meter]? Good! Now, get ready for recording!
+
+==== 6. Start recording
+
+Shortly after the start of a bar, press the xref:user-interface/matrix-area.adoc#slot-cell-record[] button in an empty slot. You should see a count-down which will reach zero exactly when the next bar starts. The record button will turn red and Playtime will record whatever you play.
+
+[[stop-recording]]
+==== 7. Stop recording
+
+Press the red xref:user-interface/matrix-area.adoc#slot-cell-record[] button again to indicate that you want to stop recording. The button will start to blink and turn into a xref:user-interface/matrix-area.adoc#slot-cell-trigger[play button] as soon as the next bar starts. Playtime will play back your recording repeatedly.
+
+==== 8. Be happy
+
+Congratulations, you have recorded your first xref:key-concepts.adoc#loop[]. If you didn't get the timing right, don't worry. After some attempts, you will get the hang of it. Plus, Playtime offers quite a few ways to make recording clips less stressful.
+
+.Variations
+****
+There are many variations of above recording procedure. Let's look at a few aspects that you can do differently:
+
+Record MIDI instead of audio::
+If you want to record MIDI, choose a MIDI device in step <<choose-track-input>>. You probably also want to put an instrument on the FX chain of the xref:key-concepts.adoc#column-track[] by pressing the xref:user-interface/track-area.adoc#track-panel-fx-chain[] button, or route the track to an external MIDI synthesizer by pressing the xref:user-interface/track-area.adoc#track-panel-routing[] button.
+
+Record a one-shot instead of a loop::
+If you want to record material that should play just once without being repeated, open the xref:user-interface/inspector/matrix/recording.adoc[] and uncheck the xref:user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-looped[] checkbox. If you do that, the recorded material will *not* immediately be played back after recording.
+
+Stop recording automatically::
+Find it too stressful having to press the stop button *while* you are playing? Often we know in advance how many beats or bars we want to record. You can tell Playtime by opening the xref:user-interface/inspector/matrix/recording.adoc[], enabling xref:user-interface/inspector/matrix/recording.adoc#inspector-matrix-limit-recording-length[] and choosing the desired xref:user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-length[]. After that, Playtime will stop clip recordings automatically.
+
+Wait longer until the recording starts::
+Find it too stressful having to grab your instrument within the short time period after pressing the record button? One way to get more time is to adjust the xref:key-concepts.adoc#clip-start-timing[]. For example, you could set xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-start-timing[] to *4 bars* instead of just *1 bar*. Or you do it just for one specific column.
++
+However, this approach has downsides. It will also have an effect on playing clips. Plus, you might have to wait quite long to get your turn. The next variation might suit you better.
+
+Record in stopped state with count-in::
+There's another way to give you more time to prepare. So far we have always recorded while Playtime was already playing, but we can also start recording while it's still stopped. That gives us the possibility of an arbitrarily long count-in phase.
++
+. Make sure that playback is stopped. If Playtime is playing, press the kbd:[Space] key.
+. Make sure Playtime's metronome is turned *on*. If it's off, press the kbd:[M] key.
+. Press the xref:user-interface/matrix-area.adoc#slot-cell-record[] button in an empty slot. That should start Playtime's playback, and you should hear and see a count-in of 2 bars, during which you can prepare. When the slot count-down reaches zero, Playtime records as usual.
+
++
+--
+Here's a link:https://youtu.be/sMckj_gsqh0?si=7R9Lzod8LxN0nr9N[YouTube video] showing this way of recording.
+--
+
+[[record-via-foot-switch]] Record via foot switch::
+One more way to give you more time is to start recording with your foot instead of your hand. For this, Playtime offers the possibility to start recording clips via MIDI. In addition, it offers the convenient xref:user-interface/toolbar.adoc#toolbar-smart-record[] toolbar button, which makes it possible to use just one button - or foot switch - to record into the next non-occupied slot.
++
+. Press the xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[] button in the toolbar. This should reveal a small MIDI trigger area on the right sight of the xref:user-interface/toolbar.adoc#toolbar-smart-record[] button.
+. Press that MIDI trigger area. It should turn red.
+. Press the MIDI foot switch connected to your MIDI keyboard. Playtime should pick it up. If not, see xref:user-interface/toolbar.adoc#midi-trigger-troubleshooting[].
+. Press the MIDI foot to start recording.
+. Press it again to stop recording.
+
+Record with tempo detection and without click::
+All the approaches that we have talked about so far require a metronome or another clip to provide a rhythmical reference. However, imagine you want to do a looper-style live improvisation, without metronome. You want to use a foot switch to start recording  an initial loop and press it again to set the tempo for all remaining loops.
++
+Here's how you do that:
+
+. Make sure that playback is stopped. If Playtime is playing, press the kbd:[Space] key.
+. Make sure Playtime's metronome is turned *off*. If it's on, press the kbd:[M] key. should reveal a text in the title bar, saying:
++
+____
+If you record a clip now, its length will dictate the project tempo!
+____
++
+This tells us that _tempo detection_ will be used.
+. Press the foot switch as set up in <<record-via-foot-switch>>. That should start recording *immediately*, regardless of the currently set xref:key-concepts.adoc#clip-start-timing[].
+. Press the foot switch again. This should stop recording *immediately*. Playtime should set the project tempo based on the length of the recording and play back the recorded loop immediately.
+
++
+--
+Obviously, this needs a bit of practice to get right because you need to trigger start and end of the recording precisely.
+
+Here's a link:https://youtu.be/kRvu6IG_0rk?si=m8uSYF88x7gptIWY[YouTube video] showing this way of recording.
+--
+
+Record non-rhythmic material::
+Playtime suites itself very much for rhythmic material. But what if you want to record something that's tempo-independent? In that case, you probably want two things:
+
+* Recording should start immediately, no need to wait until the next bar.
+* Playtime shouldn't time-stretch your clip later on when changing the project playback tempo.
+
++
+--
+You can simply achieve that by setting the xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-start-timing[] in the xref:user-interface/inspector/matrix/playback.adoc[] to xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[]. If you want to use this behavior just for a specific column, use xref:user-interface/inspector/column/playback.adoc#inspector-column-start-timing[] instead!
+--
+
+
+MIDI overdub::
+Maybe you already have a MIDI clip and want to slowly add some notes by playing them on your keyboard:
++
+. Select the desired (looped) MIDI clip by clicking the xref:user-interface/matrix-area.adoc#slot-cell-content[] area.
+. In the xref:user-interface/inspector/clip.adoc[] on the right side, press the xref:user-interface/inspector/clip.adoc#inspector-clip-overdub[] button. The clip should start playing repeatedly.
+. Play some MIDI notes on your music keyboard. They will be recorded into the playing clip. You will hear them on the next repetition.
+. When you are done, press the same button again.
+
+Many of the above aspects can be combined, which gives you a maximum of flexibility.
+****

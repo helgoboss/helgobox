@@ -1,4 +1,5 @@
-[#area-matrix-area-1]
+ifdef::pdf-theme[[[area-matrix-area-1,Matrix area]]]
+ifndef::pdf-theme[[[area-matrix-area-1,Matrix area image:generated/screenshots/elements/area/matrix-area-1.png[width=50]]]]
 == Matrix area
 
 image:generated/screenshots/elements/area/matrix-area-1.png[Matrix area, role="related thumb right"]

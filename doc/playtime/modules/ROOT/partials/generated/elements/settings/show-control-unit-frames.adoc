@@ -1,4 +1,5 @@
-[#settings-show-control-unit-frames]
+ifdef::pdf-theme[[[settings-show-control-unit-frames,Show control unit frames]]]
+ifndef::pdf-theme[[[settings-show-control-unit-frames,Show control unit frames]]]
 === Show control unit frames
 
 image::generated/screenshots/elements/settings/show-control-unit-frames.png[Show control unit frames]

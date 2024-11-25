@@ -1,4 +1,5 @@
-[#row-cell-play-scene]
+ifdef::pdf-theme[[[row-cell-play-scene,Play scene]]]
+ifndef::pdf-theme[[[row-cell-play-scene,Play scene image:generated/screenshots/elements/row-cell/play-scene.png[width=50]]]]
 === Play scene
 
 image:generated/screenshots/elements/row-cell/play-scene.png[Play scene, role="related thumb right"]

@@ -11,6 +11,14 @@ image::generated/screenshots/elements/area/matrix-area-2.png[width=100]
 .Slot cells of the matrix area
 image::generated/screenshots/elements/area/matrix-area-3.png[]
 
+include::partial$generated/elements/matrix/template-panel.adoc[]
+
+This is only shown if the matrix doesn't have any columns yet.
+
+include::partial$generated/elements/matrix/audio-template-button.adoc[]
+include::partial$generated/elements/matrix/midi-template-button.adoc[]
+include::partial$generated/elements/matrix/mixed-template-button.adoc[]
+
 == General
 
 include::partial$generated/elements/matrix/add-column.adoc[]
@@ -100,6 +108,7 @@ See xref:user-interface/inspector/slot.adoc[].
 
 TIP: Right-clicking this area opens the xref:user-interface/slot-menu.adoc[].
 
+[[slot-drag-and-drop]]
 .Drag-and-drop support
 ****
 Move slot contents::
@@ -107,6 +116,11 @@ Drag this area onto another slot in order to move all clips within this slot to 
 
 Copy slot contents::
 Drag this area onto another slot while holding kbd:[Cmd/Ctrl] in order to copy all clips within this slot to the other slot.
+
+Import content::
+Drag a MIDI or audio file from outside onto this area in order to import it as a clip. This should work from the REAPER media explorer, from other plug-ins that offer dragging out content as files and from most file managers.
++
+NOTE: Dragging REAPER items onto the slot won't work, because REAPER items are not real files. Use xref:user-interface/slot-menu.adoc#slot-import-selected-item[] instead!
 ****
 
 include::partial$generated/elements/slot-cell/clip-count.adoc[]

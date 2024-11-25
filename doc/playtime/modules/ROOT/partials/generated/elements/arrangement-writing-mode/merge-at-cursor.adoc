@@ -1,4 +1,5 @@
-[#arrangement-writing-mode-merge-at-cursor]
+ifdef::pdf-theme[[[arrangement-writing-mode-merge-at-cursor,Merge at cursor]]]
+ifndef::pdf-theme[[[arrangement-writing-mode-merge-at-cursor,Merge at cursor image:generated/screenshots/elements/arrangement-writing-mode/merge-at-cursor.png[width=50]]]]
 == Merge at cursor
 
 image:generated/screenshots/elements/arrangement-writing-mode/merge-at-cursor.png[Merge at cursor, role="related thumb right"]

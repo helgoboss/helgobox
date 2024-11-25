@@ -1,4 +1,4 @@
-= Clip menu
+= Clip context menu
 
 Right-clicking one of the clips in the xref:user-interface/inspector/slot.adoc#inspector-slot-clip-picker[] opens this context menu.
 

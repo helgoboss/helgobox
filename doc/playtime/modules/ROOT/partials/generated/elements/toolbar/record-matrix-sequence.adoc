@@ -1,4 +1,5 @@
-[#toolbar-record-matrix-sequence]
+ifdef::pdf-theme[[[toolbar-record-matrix-sequence,Record matrix sequence]]]
+ifndef::pdf-theme[[[toolbar-record-matrix-sequence,Record matrix sequence image:generated/screenshots/elements/toolbar/record-matrix-sequence.png[width=50]]]]
 === Record matrix sequence
 
 image:generated/screenshots/elements/toolbar/record-matrix-sequence.png[Record matrix sequence, role="related thumb right"]

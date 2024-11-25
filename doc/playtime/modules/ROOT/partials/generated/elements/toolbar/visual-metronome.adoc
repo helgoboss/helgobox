@@ -1,4 +1,5 @@
-[#toolbar-visual-metronome]
+ifdef::pdf-theme[[[toolbar-visual-metronome,Visual metronome]]]
+ifndef::pdf-theme[[[toolbar-visual-metronome,Visual metronome image:generated/screenshots/elements/toolbar/visual-metronome.png[width=50]]]]
 == Visual metronome
 
 image:generated/screenshots/elements/toolbar/visual-metronome.png[Visual metronome, role="related thumb right"]

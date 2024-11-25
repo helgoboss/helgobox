@@ -1,4 +1,5 @@
-[#track-panel-midi-channel-filter]
+ifdef::pdf-theme[[[track-panel-midi-channel-filter,MIDI channel filter]]]
+ifndef::pdf-theme[[[track-panel-midi-channel-filter,MIDI channel filter image:generated/screenshots/elements/track-panel/midi-channel-filter.png[width=50]]]]
 === MIDI channel filter
 
 image:generated/screenshots/elements/track-panel/midi-channel-filter.png[MIDI channel filter, role="related thumb right"]

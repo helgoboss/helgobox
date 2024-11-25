@@ -1,4 +1,5 @@
-[#inspector-clip-midi-reset-behavior-none]
+ifdef::pdf-theme[[[inspector-clip-midi-reset-behavior-none,None]]]
+ifndef::pdf-theme[[[inspector-clip-midi-reset-behavior-none,None image:generated/screenshots/elements/inspector/clip/midi-reset-behavior/none.png[width=50]]]]
 === None
 
 image:generated/screenshots/elements/inspector/clip/midi-reset-behavior/none.png[None, role="related thumb right"]

@@ -1,4 +1,5 @@
-[#track-panel-instrument-fx]
+ifdef::pdf-theme[[[track-panel-instrument-fx,Instrument FX]]]
+ifndef::pdf-theme[[[track-panel-instrument-fx,Instrument FX image:generated/screenshots/elements/track-panel/instrument-fx.png[width=50]]]]
 === Instrument FX
 
 image:generated/screenshots/elements/track-panel/instrument-fx.png[Instrument FX, role="related thumb right"]

@@ -1,4 +1,5 @@
-[#title-bar-redo]
+ifdef::pdf-theme[[[title-bar-redo,Redo]]]
+ifndef::pdf-theme[[[title-bar-redo,Redo image:generated/screenshots/elements/title-bar/redo.png[width=50]]]]
 == Redo
 
 image:generated/screenshots/elements/title-bar/redo.png[Redo, role="related thumb right"]

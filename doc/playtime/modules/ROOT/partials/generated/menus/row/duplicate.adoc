@@ -1,4 +1,5 @@
-[#row-duplicate]
+ifdef::pdf-theme[[[row-duplicate,Duplicate row]]]
+ifndef::pdf-theme[[[row-duplicate,Duplicate row]]]
 == Duplicate row
 
 

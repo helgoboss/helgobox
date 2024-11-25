@@ -1,4 +1,5 @@
-[#inspector-clip-stop-timing-immediately]
+ifdef::pdf-theme[[[inspector-clip-stop-timing-immediately,Immediately]]]
+ifndef::pdf-theme[[[inspector-clip-stop-timing-immediately,Immediately image:generated/screenshots/elements/inspector/clip/stop-timing/immediately.png[width=50]]]]
 === Immediately
 
 image:generated/screenshots/elements/inspector/clip/stop-timing/immediately.png[Immediately, role="related thumb right"]

@@ -1,4 +1,5 @@
-[#row-copy]
+ifdef::pdf-theme[[[row-copy,Copy row]]]
+ifndef::pdf-theme[[[row-copy,Copy row]]]
 == Copy row
 
 

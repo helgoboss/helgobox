@@ -1,4 +1,5 @@
-[#settings-custom-color-rendering]
+ifdef::pdf-theme[[[settings-custom-color-rendering,Custom color rendering]]]
+ifndef::pdf-theme[[[settings-custom-color-rendering,Custom color rendering]]]
 === Custom color rendering
 
 image::generated/screenshots/elements/settings/custom-color-rendering.png[Custom color rendering]

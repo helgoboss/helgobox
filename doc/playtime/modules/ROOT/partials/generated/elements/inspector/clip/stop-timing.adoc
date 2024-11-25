@@ -1,4 +1,5 @@
-[#inspector-clip-stop-timing]
+ifdef::pdf-theme[[[inspector-clip-stop-timing,Stop timing]]]
+ifndef::pdf-theme[[[inspector-clip-stop-timing,Stop timing]]]
 == Stop timing
 
 

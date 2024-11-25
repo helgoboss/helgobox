@@ -1,4 +1,5 @@
-[#inspector-clip-stop-timing-like-start-timing]
+ifdef::pdf-theme[[[inspector-clip-stop-timing-like-start-timing,Like start timing]]]
+ifndef::pdf-theme[[[inspector-clip-stop-timing-like-start-timing,Like start timing image:generated/screenshots/elements/inspector/clip/stop-timing/like-start-timing.png[width=50]]]]
 === Like start timing
 
 image:generated/screenshots/elements/inspector/clip/stop-timing/like-start-timing.png[Like start timing, role="related thumb right"]

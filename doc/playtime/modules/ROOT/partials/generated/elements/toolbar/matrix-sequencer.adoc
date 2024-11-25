@@ -1,4 +1,5 @@
-[#toolbar-matrix-sequencer]
+ifdef::pdf-theme[[[toolbar-matrix-sequencer,Matrix sequencer]]]
+ifndef::pdf-theme[[[toolbar-matrix-sequencer,Matrix sequencer image:generated/screenshots/elements/toolbar/matrix-sequencer.png[width=50]]]]
 == Matrix sequencer
 
 image:generated/screenshots/elements/toolbar/matrix-sequencer.png[Matrix sequencer, role="related thumb right"]

@@ -1,4 +1,5 @@
-[#toolbar-transport-section]
+ifdef::pdf-theme[[[toolbar-transport-section,Transport section]]]
+ifndef::pdf-theme[[[toolbar-transport-section,Transport section image:generated/screenshots/elements/toolbar/transport-section.png[width=50]]]]
 == Transport section
 
 image:generated/screenshots/elements/toolbar/transport-section.png[Transport section, role="related thumb right"]

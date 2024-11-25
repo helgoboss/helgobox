@@ -1,4 +1,5 @@
-[#toolbar-matrix-sequence-picker]
+ifdef::pdf-theme[[[toolbar-matrix-sequence-picker,Matrix sequence picker]]]
+ifndef::pdf-theme[[[toolbar-matrix-sequence-picker,Matrix sequence picker image:generated/screenshots/elements/toolbar/matrix-sequence-picker.png[width=50]]]]
 === Matrix sequence picker
 
 image:generated/screenshots/elements/toolbar/matrix-sequence-picker.png[Matrix sequence picker, role="related thumb right"]

@@ -1,4 +1,5 @@
-[#inspector-matrix-recording-auto-quantize]
+ifdef::pdf-theme[[[inspector-matrix-recording-auto-quantize,Auto-quantize]]]
+ifndef::pdf-theme[[[inspector-matrix-recording-auto-quantize,Auto-quantize]]]
 == Auto-quantize
 
 image::generated/screenshots/elements/inspector/matrix/recording-auto-quantize.png[Auto-quantize]

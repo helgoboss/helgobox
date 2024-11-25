@@ -1,4 +1,5 @@
-[#settings-display-development-status-hints]
+ifdef::pdf-theme[[[settings-display-development-status-hints,Display development status hints]]]
+ifndef::pdf-theme[[[settings-display-development-status-hints,Display development status hints]]]
 === Display development status hints
 
 image::generated/screenshots/elements/settings/display-development-status-hints.png[Display development status hints]

@@ -1,0 +1,14 @@
+ifdef::pdf-theme[[[title-bar-tempo-detection-recording-hint,Tempo detection recording hint]]]
+ifndef::pdf-theme[[[title-bar-tempo-detection-recording-hint,Tempo detection recording hint image:generated/screenshots/elements/title-bar/tempo-detection-recording-hint.png[width=50]]]]
+== Tempo detection recording hint
+
+image:generated/screenshots/elements/title-bar/tempo-detection-recording-hint.png[Tempo detection recording hint, role="related thumb right"]
+
+Playtime is stopped and metronome is disabled.
+
+When you record a clip now, the project tempo will be adjusted to match the length of the recorded clip. This is useful to get started without having to use a metronome.
+
+If you would like to record with count-in instead, enable the metronome.
+
+If you would like to record accompanied by other clips, start playback again before recording clips.
+

@@ -1,4 +1,5 @@
-[#column-remove]
+ifdef::pdf-theme[[[column-remove,Remove column]]]
+ifndef::pdf-theme[[[column-remove,Remove column]]]
 == Remove column
 
 

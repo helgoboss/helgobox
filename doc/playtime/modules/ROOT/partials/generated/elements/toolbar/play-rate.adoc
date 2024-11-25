@@ -1,4 +1,5 @@
-[#toolbar-play-rate]
+ifdef::pdf-theme[[[toolbar-play-rate,Play rate]]]
+ifndef::pdf-theme[[[toolbar-play-rate,Play rate image:generated/screenshots/elements/toolbar/play-rate.png[width=50]]]]
 === Play rate
 
 image:generated/screenshots/elements/toolbar/play-rate.png[Play rate, role="related thumb right"]

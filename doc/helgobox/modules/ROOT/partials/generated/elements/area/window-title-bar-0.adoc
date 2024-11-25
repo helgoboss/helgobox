@@ -1,4 +1,5 @@
-[#area-window-title-bar-0]
+ifdef::pdf-theme[[[area-window-title-bar-0,Title bar]]]
+ifndef::pdf-theme[[[area-window-title-bar-0,Title bar image:generated/screenshots/elements/area/window-title-bar-0.png[width=50]]]]
 == Title bar
 
 image:generated/screenshots/elements/area/window-title-bar-0.png[Title bar, role="related thumb right"]

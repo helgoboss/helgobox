@@ -1,4 +1,5 @@
-[#inspector-clip-length]
+ifdef::pdf-theme[[[inspector-clip-length,Length]]]
+ifndef::pdf-theme[[[inspector-clip-length,Length]]]
 == Length
 
 image::generated/screenshots/elements/inspector/clip/length.png[Length]

@@ -1,4 +1,5 @@
-[#inspector-clip-expert-settings]
+ifdef::pdf-theme[[[inspector-clip-expert-settings,Expert settings ⊖]]]
+ifndef::pdf-theme[[[inspector-clip-expert-settings,Expert settings ⊖ image:generated/screenshots/elements/inspector/clip/expert-settings.png[width=50]]]]
 == Expert settings ⊖
 
 image:generated/screenshots/elements/inspector/clip/expert-settings.png[Expert settings ⊖, role="related thumb right"]

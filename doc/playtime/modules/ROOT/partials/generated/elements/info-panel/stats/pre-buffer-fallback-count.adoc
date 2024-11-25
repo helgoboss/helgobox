@@ -1,4 +1,5 @@
-[#info-panel-stats-pre-buffer-fallback-count]
+ifdef::pdf-theme[[[info-panel-stats-pre-buffer-fallback-count,Pre-buffer fallbacks so far]]]
+ifndef::pdf-theme[[[info-panel-stats-pre-buffer-fallback-count,Pre-buffer fallbacks so far]]]
 === Pre-buffer fallbacks so far
 
 image::generated/screenshots/elements/info-panel/stats/pre-buffer-fallback-count.png[Pre-buffer fallbacks so far]

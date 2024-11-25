@@ -1,4 +1,5 @@
-[#inspector-track-color]
+ifdef::pdf-theme[[[inspector-track-color,Color]]]
+ifndef::pdf-theme[[[inspector-track-color,Color]]]
 == Color
 
 image::generated/screenshots/elements/inspector/track/color.png[Color]

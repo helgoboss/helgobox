@@ -1,4 +1,5 @@
-[#inspector-matrix-resample-mode]
+ifdef::pdf-theme[[[inspector-matrix-resample-mode,Resample mode]]]
+ifndef::pdf-theme[[[inspector-matrix-resample-mode,Resample mode]]]
 == Resample mode
 
 image::generated/screenshots/elements/inspector/matrix/resample-mode.png[Resample mode]

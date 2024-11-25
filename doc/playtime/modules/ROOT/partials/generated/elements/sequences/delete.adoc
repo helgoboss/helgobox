@@ -1,4 +1,5 @@
-[#sequences-delete]
+ifdef::pdf-theme[[[sequences-delete,Delete sequence]]]
+ifndef::pdf-theme[[[sequences-delete,Delete sequence image:generated/screenshots/elements/sequences/delete.png[width=50]]]]
 == Delete sequence
 
 image:generated/screenshots/elements/sequences/delete.png[Delete sequence, role="related thumb right"]

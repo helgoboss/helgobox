@@ -1,4 +1,5 @@
-[#inspector-clip-remove-from-slot]
+ifdef::pdf-theme[[[inspector-clip-remove-from-slot,Remove clip from slot]]]
+ifndef::pdf-theme[[[inspector-clip-remove-from-slot,Remove clip from slot]]]
 == Remove clip from slot
 
 

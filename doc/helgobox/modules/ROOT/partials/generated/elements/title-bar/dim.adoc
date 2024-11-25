@@ -1,4 +1,5 @@
-[#title-bar-dim]
+ifdef::pdf-theme[[[title-bar-dim,Dim]]]
+ifndef::pdf-theme[[[title-bar-dim,Dim image:generated/screenshots/elements/title-bar/dim.png[width=50]]]]
 == Dim
 
 image:generated/screenshots/elements/title-bar/dim.png[Dim, role="related thumb right"]

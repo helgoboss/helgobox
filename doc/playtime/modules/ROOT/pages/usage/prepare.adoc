@@ -1,0 +1,71 @@
+= Prepare
+
+At first, we need to do some preparations.
+
+== 1. Start REAPER
+
+Playtime runs within REAPER, so at first you need to start REAPER.
+
+== 2. Set up your audio and MIDI devices
+
+If you haven't done it already, you should let REAPER know which audio and MIDI devices you are planning to use with it, because Playtime will use them as well!
+
+. Open the REAPER preferences via menu:Options[Settings...]
+. In the section menu:Audio[Device], configure your audio input and output.
+. In the section menu:Audio[MIDI Inputs], configure your MIDI input devices, such as music keyboards.
+. In the section menu:Audio[MIDI Outputs], configure your MIDI output devices, such as hardware synthesizers.
+
+If you want to know more about this process, please consult the one and only link:https://www.reaper.fm/userguide.php[REAPER user guide].
+
+== 3. Fire up Playtime
+
+Press the image:screenshots/playtime-toolbar-icon.png[Playtime,width=50] button in the main toolbar, or use any of the alternative ways to start Playtime (described in xref:installation.adoc[]).
+After pressing the button, you should see the Playtime window with an empty xref:key-concepts.adoc#matrix[]:
+
+.Playtime window with empty matrix
+image::generated/screenshots/main/main-screen-empty.png[]
+
+At this point, you could directly continue with xref:usage/create.adoc[], but I strongly recommend to read the following deep dive, as it will improve your understanding of how Playtime actually works!
+
+.Deep dive: Playtime button
+****
+Pressing the button actually does multiple things in one go!
+If you wanted, you could do all of those things also manually.
+
+[cols="1s,5,5a"]
+|===
+|Step | Description| How you could do the step manually
+
+|1
+|Create a new REAPER track named "Playtime" at the very top of the project
+.3+|
+* Right-click REAPER's track control panel and choose menu:Insert virtual instrument on new track...[]
+* Double-click instrument plug-in "VSTi: Helgobox - ReaLearn & Playtime (Helgoboss)"
+* Optionally rename the track to "Playtime"
+
+|2
+|Arm the track and set its input to "MIDI: All: All channels"
+
+|3
+|Add an xref:helgobox::key-concepts.adoc#instance[instance] of the Helgobox plug-in to the track's FX chain
+
+|4
+|Open the xref:helgobox::app.adoc[] associated with that new Helgobox instance
+|In the xref:helgobox::plug-in/user-interface.adoc[Helgobox plug-in window], press menu:Menu[Show app]
+
+|5
+|Navigate to the Playtime section of the App
+|In the xref:helgobox::app/user-interface.adoc[Helgobox app window], press the image:screenshots/playtime-toolbar-icon.png[Playtime,width=30] in the xref:helgobox::app/user-interface/navigation-bar.adoc[]
+
+|6
+|Create a xref:key-concepts.adoc#matrix[Playtime Matrix] in this Helgobox instance
+|Press the button btn:[Create a Playtime Matrix]
+|===
+
+What we learn from that:
+
+* Playtime is built into Helgobox, which is an instrument plug-in, so there needs to be an instance of it somewhere in your project. *→ This is a good thing because it means that you can xref:usage/play.adoc[play] it like an instrument!*
+* A new Helgobox instance doesn't have a xref:key-concepts.adoc#matrix[Playtime Matrix] by default.
+You first need to create one.
+*→ This means Playtime doesn't consume any CPU and memory if you don't use it!*
+****

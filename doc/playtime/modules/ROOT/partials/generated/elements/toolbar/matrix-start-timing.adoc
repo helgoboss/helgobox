@@ -1,4 +1,5 @@
-[#toolbar-matrix-start-timing]
+ifdef::pdf-theme[[[toolbar-matrix-start-timing,Matrix start timing]]]
+ifndef::pdf-theme[[[toolbar-matrix-start-timing,Matrix start timing image:generated/screenshots/elements/toolbar/matrix-start-timing.png[width=50]]]]
 == Matrix start timing
 
 image:generated/screenshots/elements/toolbar/matrix-start-timing.png[Matrix start timing, role="related thumb right"]

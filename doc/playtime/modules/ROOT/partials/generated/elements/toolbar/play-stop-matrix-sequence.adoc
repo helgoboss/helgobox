@@ -1,4 +1,5 @@
-[#toolbar-play-stop-matrix-sequence]
+ifdef::pdf-theme[[[toolbar-play-stop-matrix-sequence,Play/stop matrix sequence]]]
+ifndef::pdf-theme[[[toolbar-play-stop-matrix-sequence,Play/stop matrix sequence image:generated/screenshots/elements/toolbar/play-stop-matrix-sequence.png[width=50]]]]
 === Play/stop matrix sequence
 
 image:generated/screenshots/elements/toolbar/play-stop-matrix-sequence.png[Play/stop matrix sequence, role="related thumb right"]

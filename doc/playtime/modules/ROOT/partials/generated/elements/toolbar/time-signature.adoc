@@ -1,4 +1,5 @@
-[#toolbar-time-signature]
+ifdef::pdf-theme[[[toolbar-time-signature,Time signature]]]
+ifndef::pdf-theme[[[toolbar-time-signature,Time signature image:generated/screenshots/elements/toolbar/time-signature.png[width=50]]]]
 === Time signature
 
 image:generated/screenshots/elements/toolbar/time-signature.png[Time signature, role="related thumb right"]

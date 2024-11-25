@@ -1,4 +1,5 @@
-[#settings-cell-width]
+ifdef::pdf-theme[[[settings-cell-width,Cell width]]]
+ifndef::pdf-theme[[[settings-cell-width,Cell width]]]
 === Cell width
 
 image::generated/screenshots/elements/settings/cell-width.png[Cell width]

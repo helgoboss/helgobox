@@ -1,4 +1,5 @@
-[#matrix-export-to-clipboard-as-lua]
+ifdef::pdf-theme[[[matrix-export-to-clipboard-as-lua,Export matrix to clipboard as Lua]]]
+ifndef::pdf-theme[[[matrix-export-to-clipboard-as-lua,Export matrix to clipboard as Lua]]]
 == Export matrix to clipboard as Lua
 
 

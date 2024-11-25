@@ -1,4 +1,5 @@
-[#settings-roundness]
+ifdef::pdf-theme[[[settings-roundness,Roundness]]]
+ifndef::pdf-theme[[[settings-roundness,Roundness]]]
 === Roundness
 
 image::generated/screenshots/elements/settings/roundness.png[Roundness]

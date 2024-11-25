@@ -1,4 +1,5 @@
-[#inspector-matrix-recording-sync-to-project-tempo-auto]
+ifdef::pdf-theme[[[inspector-matrix-recording-sync-to-project-tempo-auto,Auto]]]
+ifndef::pdf-theme[[[inspector-matrix-recording-sync-to-project-tempo-auto,Auto image:generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo/auto.png[width=50]]]]
 === Auto
 
 image:generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo/auto.png[Auto, role="related thumb right"]

@@ -1,4 +1,5 @@
-[#column-export-to-clipboard-as-lua]
+ifdef::pdf-theme[[[column-export-to-clipboard-as-lua,Export column to clipboard as Lua]]]
+ifndef::pdf-theme[[[column-export-to-clipboard-as-lua,Export column to clipboard as Lua]]]
 == Export column to clipboard as Lua
 
 

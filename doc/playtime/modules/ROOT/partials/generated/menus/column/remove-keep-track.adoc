@@ -1,4 +1,5 @@
-[#column-remove-keep-track]
+ifdef::pdf-theme[[[column-remove-keep-track,Remove column (keep track)]]]
+ifndef::pdf-theme[[[column-remove-keep-track,Remove column (keep track)]]]
 == Remove column (keep track)
 
 

@@ -1,4 +1,5 @@
-[#inspector-matrix-recording-play-start-timing-override]
+ifdef::pdf-theme[[[inspector-matrix-recording-play-start-timing-override,Play start timing override]]]
+ifndef::pdf-theme[[[inspector-matrix-recording-play-start-timing-override,Play start timing override]]]
 == Play start timing override
 
 

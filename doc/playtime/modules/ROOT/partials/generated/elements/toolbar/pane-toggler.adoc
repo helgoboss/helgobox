@@ -1,4 +1,5 @@
-[#toolbar-pane-toggler]
+ifdef::pdf-theme[[[toolbar-pane-toggler,Pane toggler]]]
+ifndef::pdf-theme[[[toolbar-pane-toggler,Pane toggler image:generated/screenshots/elements/toolbar/pane-toggler.png[width=50]]]]
 == Pane toggler
 
 image:generated/screenshots/elements/toolbar/pane-toggler.png[Pane toggler, role="related thumb right"]

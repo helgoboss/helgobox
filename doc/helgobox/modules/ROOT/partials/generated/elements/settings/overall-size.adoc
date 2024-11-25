@@ -1,4 +1,5 @@
-[#settings-overall-size]
+ifdef::pdf-theme[[[settings-overall-size,Overall size]]]
+ifndef::pdf-theme[[[settings-overall-size,Overall size]]]
 === Overall size
 
 image::generated/screenshots/elements/settings/overall-size.png[Overall size]

@@ -1,4 +1,5 @@
-[#matrix-scroll-indicator]
+ifdef::pdf-theme[[[matrix-scroll-indicator,Scroll indicator]]]
+ifndef::pdf-theme[[[matrix-scroll-indicator,Scroll indicator image:generated/screenshots/elements/matrix/scroll-indicator.png[width=50]]]]
 === Scroll indicator
 
 image:generated/screenshots/elements/matrix/scroll-indicator.png[Scroll indicator, role="related thumb right"]

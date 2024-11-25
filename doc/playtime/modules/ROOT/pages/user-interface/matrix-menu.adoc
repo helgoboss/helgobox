@@ -1,4 +1,4 @@
-= Matrix menu
+= Matrix context menu
 
 Right-clicking xref:user-interface/matrix-area.adoc#matrix-cell-settings[] opens this context menu.
 

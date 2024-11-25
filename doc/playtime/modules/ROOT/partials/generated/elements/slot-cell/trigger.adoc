@@ -1,4 +1,5 @@
-[#slot-cell-trigger]
+ifdef::pdf-theme[[[slot-cell-trigger,Trigger slot]]]
+ifndef::pdf-theme[[[slot-cell-trigger,Trigger slot image:generated/screenshots/elements/slot-cell/trigger.png[width=50]]]]
 === Trigger slot
 
 image:generated/screenshots/elements/slot-cell/trigger.png[Trigger slot, role="related thumb right"]

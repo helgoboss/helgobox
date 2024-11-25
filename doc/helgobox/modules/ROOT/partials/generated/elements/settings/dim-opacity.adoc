@@ -1,4 +1,5 @@
-[#settings-dim-opacity]
+ifdef::pdf-theme[[[settings-dim-opacity,Dim opacity]]]
+ifndef::pdf-theme[[[settings-dim-opacity,Dim opacity image:generated/screenshots/elements/settings/dim-opacity.png[width=50]]]]
 === Dim opacity
 
 image:generated/screenshots/elements/settings/dim-opacity.png[Dim opacity, role="related thumb right"]

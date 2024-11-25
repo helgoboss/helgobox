@@ -1,4 +1,5 @@
-[#settings-display-license-info]
+ifdef::pdf-theme[[[settings-display-license-info,Display license info]]]
+ifndef::pdf-theme[[[settings-display-license-info,Display license info]]]
 === Display license info
 
 image::generated/screenshots/elements/settings/display-license-info.png[Display license info]

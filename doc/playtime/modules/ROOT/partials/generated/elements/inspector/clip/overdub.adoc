@@ -1,4 +1,5 @@
-[#inspector-clip-overdub]
+ifdef::pdf-theme[[[inspector-clip-overdub,Overdub]]]
+ifndef::pdf-theme[[[inspector-clip-overdub,Overdub image:generated/screenshots/elements/inspector/clip/overdub.png[width=50]]]]
 == Overdub
 
 image:generated/screenshots/elements/inspector/clip/overdub.png[Overdub, role="related thumb right"]

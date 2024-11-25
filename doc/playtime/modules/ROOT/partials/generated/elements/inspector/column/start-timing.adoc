@@ -1,4 +1,5 @@
-[#inspector-column-start-timing]
+ifdef::pdf-theme[[[inspector-column-start-timing,Start timing]]]
+ifndef::pdf-theme[[[inspector-column-start-timing,Start timing]]]
 == Start timing
 
 

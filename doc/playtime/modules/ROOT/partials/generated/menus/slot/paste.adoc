@@ -1,4 +1,5 @@
-[#slot-paste]
+ifdef::pdf-theme[[[slot-paste,Paste slot]]]
+ifndef::pdf-theme[[[slot-paste,Paste slot]]]
 == Paste slot
 
 

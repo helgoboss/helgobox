@@ -1,4 +1,5 @@
-[#row-build-scene-from-currently-playing-clips]
+ifdef::pdf-theme[[[row-build-scene-from-currently-playing-clips,Build scene from currently playing clips]]]
+ifndef::pdf-theme[[[row-build-scene-from-currently-playing-clips,Build scene from currently playing clips]]]
 == Build scene from currently playing clips
 
 

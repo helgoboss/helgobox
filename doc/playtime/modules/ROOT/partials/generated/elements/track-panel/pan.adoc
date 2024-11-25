@@ -1,4 +1,5 @@
-[#track-panel-pan]
+ifdef::pdf-theme[[[track-panel-pan,Pan]]]
+ifndef::pdf-theme[[[track-panel-pan,Pan image:generated/screenshots/elements/track-panel/pan.png[width=50]]]]
 === Pan
 
 image:generated/screenshots/elements/track-panel/pan.png[Pan, role="related thumb right"]

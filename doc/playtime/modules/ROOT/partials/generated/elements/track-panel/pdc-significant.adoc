@@ -1,4 +1,5 @@
-[#track-panel-pdc-significant]
+ifdef::pdf-theme[[[track-panel-pdc-significant,Significant latency: 20ms]]]
+ifndef::pdf-theme[[[track-panel-pdc-significant,Significant latency: 20ms image:generated/screenshots/elements/track-panel/pdc-significant.png[width=50]]]]
 ==== Significant latency: 20ms
 
 image:generated/screenshots/elements/track-panel/pdc-significant.png[Significant latency: 20ms, role="related thumb right"]

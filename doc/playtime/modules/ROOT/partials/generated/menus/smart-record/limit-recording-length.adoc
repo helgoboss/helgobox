@@ -1,4 +1,5 @@
-[#toolbar-smart-record-limit-recording-length]
+ifdef::pdf-theme[[[toolbar-smart-record-limit-recording-length,Limit recording length]]]
+ifndef::pdf-theme[[[toolbar-smart-record-limit-recording-length,Limit recording length]]]
 == Limit recording length
 
 

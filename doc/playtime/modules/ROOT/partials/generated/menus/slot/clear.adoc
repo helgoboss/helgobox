@@ -1,4 +1,5 @@
-[#slot-clear]
+ifdef::pdf-theme[[[slot-clear,Clear slot]]]
+ifndef::pdf-theme[[[slot-clear,Clear slot]]]
 == Clear slot
 
 

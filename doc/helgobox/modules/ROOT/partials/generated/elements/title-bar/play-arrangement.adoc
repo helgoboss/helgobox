@@ -1,4 +1,5 @@
-[#title-bar-play-arrangement]
+ifdef::pdf-theme[[[title-bar-play-arrangement,Play arrangement]]]
+ifndef::pdf-theme[[[title-bar-play-arrangement,Play arrangement image:generated/screenshots/elements/title-bar/play-arrangement.png[width=50]]]]
 == Play arrangement
 
 image:generated/screenshots/elements/title-bar/play-arrangement.png[Play arrangement, role="related thumb right"]

@@ -1,4 +1,5 @@
-[#navbar-enable-disable-global-control]
+ifdef::pdf-theme[[[navbar-enable-disable-global-control,Enable/disable global control]]]
+ifndef::pdf-theme[[[navbar-enable-disable-global-control,Enable/disable global control image:generated/screenshots/elements/navbar/enable-disable-global-control.png[width=50]]]]
 == Enable/disable global control
 
 image:generated/screenshots/elements/navbar/enable-disable-global-control.png[Enable/disable global control, role="related thumb right"]

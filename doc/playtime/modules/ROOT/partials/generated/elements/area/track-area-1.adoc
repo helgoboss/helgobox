@@ -1,4 +1,5 @@
-[#area-track-area-1]
+ifdef::pdf-theme[[[area-track-area-1,Track area]]]
+ifndef::pdf-theme[[[area-track-area-1,Track area image:generated/screenshots/elements/area/track-area-1.png[width=50]]]]
 == Track area
 
 image:generated/screenshots/elements/area/track-area-1.png[Track area, role="related thumb right"]

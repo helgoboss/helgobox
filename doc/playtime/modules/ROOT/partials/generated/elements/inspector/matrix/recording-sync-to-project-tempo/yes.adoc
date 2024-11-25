@@ -1,4 +1,5 @@
-[#inspector-matrix-recording-sync-to-project-tempo-yes]
+ifdef::pdf-theme[[[inspector-matrix-recording-sync-to-project-tempo-yes,Yes]]]
+ifndef::pdf-theme[[[inspector-matrix-recording-sync-to-project-tempo-yes,Yes image:generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo/yes.png[width=50]]]]
 === Yes
 
 image:generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo/yes.png[Yes, role="related thumb right"]

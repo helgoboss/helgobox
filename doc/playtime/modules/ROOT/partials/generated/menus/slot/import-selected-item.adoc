@@ -1,4 +1,5 @@
-[#slot-import-selected-item]
+ifdef::pdf-theme[[[slot-import-selected-item,Import selected item into slot]]]
+ifndef::pdf-theme[[[slot-import-selected-item,Import selected item into slot]]]
 == Import selected item into slot
 
 

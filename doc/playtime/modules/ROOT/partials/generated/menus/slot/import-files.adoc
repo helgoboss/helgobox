@@ -1,4 +1,5 @@
-[#slot-import-files]
+ifdef::pdf-theme[[[slot-import-files,Import file(s)...]]]
+ifndef::pdf-theme[[[slot-import-files,Import file(s)...]]]
 == Import file(s)...
 
 

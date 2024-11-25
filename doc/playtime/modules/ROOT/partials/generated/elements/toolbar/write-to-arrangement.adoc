@@ -1,4 +1,5 @@
-[#toolbar-write-to-arrangement]
+ifdef::pdf-theme[[[toolbar-write-to-arrangement,Write to arrangement]]]
+ifndef::pdf-theme[[[toolbar-write-to-arrangement,Write to arrangement image:generated/screenshots/elements/toolbar/write-to-arrangement.png[width=50]]]]
 === Write to arrangement
 
 image:generated/screenshots/elements/toolbar/write-to-arrangement.png[Write to arrangement, role="related thumb right"]

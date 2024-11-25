@@ -1,4 +1,5 @@
-[#slot-rename-primary-clip]
+ifdef::pdf-theme[[[slot-rename-primary-clip,Rename primary clip...]]]
+ifndef::pdf-theme[[[slot-rename-primary-clip,Rename primary clip...]]]
 == Rename primary clip...
 
 

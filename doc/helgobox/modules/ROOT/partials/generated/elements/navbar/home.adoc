@@ -1,4 +1,5 @@
-[#navbar-home]
+ifdef::pdf-theme[[[navbar-home,Home]]]
+ifndef::pdf-theme[[[navbar-home,Home image:generated/screenshots/elements/navbar/home.png[width=50]]]]
 == Home
 
 image:generated/screenshots/elements/navbar/home.png[Home, role="related thumb right"]

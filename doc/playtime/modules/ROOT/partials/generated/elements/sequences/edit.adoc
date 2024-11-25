@@ -1,4 +1,5 @@
-[#sequences-edit]
+ifdef::pdf-theme[[[sequences-edit,Edit sequence]]]
+ifndef::pdf-theme[[[sequences-edit,Edit sequence image:generated/screenshots/elements/sequences/edit.png[width=50]]]]
 == Edit sequence
 
 image:generated/screenshots/elements/sequences/edit.png[Edit sequence, role="related thumb right"]

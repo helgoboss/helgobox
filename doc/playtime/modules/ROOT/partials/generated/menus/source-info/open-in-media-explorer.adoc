@@ -1,4 +1,5 @@
-[#inspector-clip-source-open-in-media-explorer]
+ifdef::pdf-theme[[[inspector-clip-source-open-in-media-explorer,Open in media explorer]]]
+ifndef::pdf-theme[[[inspector-clip-source-open-in-media-explorer,Open in media explorer]]]
 == Open in media explorer
 
 

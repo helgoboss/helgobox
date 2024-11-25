@@ -1,4 +1,5 @@
-[#inspector-clip-section]
+ifdef::pdf-theme[[[inspector-clip-section,Section ⊖]]]
+ifndef::pdf-theme[[[inspector-clip-section,Section ⊖ image:generated/screenshots/elements/inspector/clip/section.png[width=50]]]]
 == Section ⊖
 
 image:generated/screenshots/elements/inspector/clip/section.png[Section ⊖, role="related thumb right"]

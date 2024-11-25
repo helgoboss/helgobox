@@ -1,5 +1,7 @@
 = Matrix recording settings
 
+You will see this when selecting the xref:user-interface/matrix-area.adoc#matrix-cell[].
+
 include::partial$generated/elements/inspector/matrix/recording-looped.adoc[]
 
 include::partial$generated/elements/inspector/matrix/limit-recording-length.adoc[]

@@ -13,6 +13,8 @@ include::partial$generated/elements/toolbar/metronome.adoc[]
 
 See xref:user-interface/tempo-settings-dialog.adoc[].
 
+NOTE: The Playtime metronome is only audible when REAPER is not playing. When REAPER is playing, REAPER's normal metronome takes over. This is also the reason why Playtime automatically syncs Playtime's metronome on/off status to REAPER's metronome on/off status.
+
 include::partial$generated/elements/toolbar/tempo.adoc[]
 
 include::partial$generated/elements/toolbar/tap-tempo.adoc[]
@@ -75,9 +77,45 @@ If the Playtime column tracks already contain items, pressing this button will s
 
 include::partial$generated/elements/toolbar/show-hide-midi-triggers.adoc[]
 
-The purpose of this feature is to quickly create simple mappings of MIDI keys/pads/buttons to cells.
-If you want to use full-featured grid controllers, such as the Launchpad, see xref:realearn::user-interface/settings-dialog.adoc#controllers[].
+[IMPORTANT]
+====
+The purpose of this feature is to quickly create *simple* and *xref:helgobox:ROOT:key-concepts.adoc#instance[instance-specific]* mappings of MIDI keys/pads/buttons to cells.
 
-The MIDI triggers configured here are specific to this particular xref:helgobox:ROOT:key-concepts.adoc#instance[], not global.
+* If you are looking for out-of-the-box support for full-featured grid controllers, such as the Launchpad, see xref:realearn::user-interface/settings-dialog.adoc#controllers[]. There's also a related link:https://youtu.be/tkyNCGOVumw?si=fIKvd_rogtvMzvrp[YouTube video].
+* If you are looking for advanced, highly-customizable control scenarios, you should use xref:realearn::introduction.adoc[ReaLearn] with its dedicated xref:realearn::targets/playtime.adoc[].
+====
+
+Here's how you assign a new MIDI trigger to a cell or toolbar button, after showing the MIDI triggers:
+
+. Click the MIDI trigger area in the cell or next to the toolbar button. It should turn red, which indicates that Playtime waits for you to press something.
+. Press a key or foot switch on your music keyboard. The area should now turn back to its original color and the corresponding note name or MIDI CC number should appear.
+. You can now use the note or foot switch to trigger the cell or invoke the toolbar function.
+
+.Powered by ReaLearn
+[TIP]
+====
+Playtime's MIDI triggers are powered by xref:realearn::introduction.adoc[ReaLearn], Helgobox's controller integration solution. In fact, each Playtime MIDI trigger corresponds to one xref:realearn::key-concepts.adoc#mapping[] in ReaLearn's xref:realearn::key-concepts.adoc#unit[Main unit].
+
+When you learn a MIDI trigger, you are actually learning the source of a ReaLearn mapping that Playtime automatically creates for you. The target is pre-configured by Playtime and is nothing more than one of the xref:realearn::targets/playtime.adoc[]. The beauty of this is that under the hood, you have the complete power of ReaLearn at your disposal, including its xref:realearn::key-concepts.adoc#feedback[] capabilities!
+====
+
+
+[[midi-trigger-troubleshooting]]
+.Troubleshooting
+****
+If nothing happens when you press the note or foot switch, we need to check the MIDI signal flow.
+
+. Press the xref:helgobox::app/user-interface/navigation-bar.adoc#navbar-show-helgobox-plugin[] button in the navigation bar on the left. This should open the xref:helgobox::plug-in/user-interface.adoc[plug-in window] starring ReaLearn's xref:realearn::user-interface/main-panel.adoc[].
+. Check ReaLearn's xref:realearn::user-interface/main-panel/input-output-section.adoc[input]!
+
+By default, the input should be set to xref:realearn::user-interface/main-panel/input-output-section.adoc#fx-input[]. This means that ReaLearn captures MIDI messages from the surrounding REAPER track (the one containing this xref:helgobox::key-concepts.adoc#instance[Helgobox instance]). *In this case, make ensure that the track is armed and input monitoring is switched on!*
+
+If you want, you can also set the input to a specific device instead! In that case, the Helgobox track doesn't need to be armed.
+
+After that, try again learning the MIDI trigger within Playtime!
+
+.Leveraging button LEDs using ReaLearn's feedback capabilities
+TIP: If the buttons on your device have LEDs, you might want to set ReaLearn's output to the same device. With a bit of luck, that makes the LEDs reflect the current clip playback or function state. However, depending on the specific controller, that part might need a bit more work.
+****
 
 include::partial$generated/elements/toolbar/pane-toggler.adoc[]

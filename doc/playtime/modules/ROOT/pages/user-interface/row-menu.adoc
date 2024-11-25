@@ -1,4 +1,4 @@
-= Row menu
+= Row context menu
 
 Right-clicking xref:user-interface/matrix-area.adoc#row-cell-label[] opens this context menu.
 

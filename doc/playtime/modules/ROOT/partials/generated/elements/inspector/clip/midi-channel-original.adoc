@@ -1,4 +1,5 @@
-[#inspector-clip-midi-channel-original]
+ifdef::pdf-theme[[[inspector-clip-midi-channel-original,Original]]]
+ifndef::pdf-theme[[[inspector-clip-midi-channel-original,Original image:generated/screenshots/elements/inspector/clip/midi-channel-original.png[width=50]]]]
 == Original
 
 image:generated/screenshots/elements/inspector/clip/midi-channel-original.png[Original, role="related thumb right"]

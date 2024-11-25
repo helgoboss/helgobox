@@ -1,4 +1,5 @@
-[#title-bar-help]
+ifdef::pdf-theme[[[title-bar-help,Help]]]
+ifndef::pdf-theme[[[title-bar-help,Help image:generated/screenshots/elements/title-bar/help.png[width=50]]]]
 == Help
 
 image:generated/screenshots/elements/title-bar/help.png[Help, role="related thumb right"]

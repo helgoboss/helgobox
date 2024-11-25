@@ -1,4 +1,5 @@
-[#matrix-add-row]
+ifdef::pdf-theme[[[matrix-add-row,Add row]]]
+ifndef::pdf-theme[[[matrix-add-row,Add row image:generated/screenshots/elements/matrix/add-row.png[width=50]]]]
 === Add row
 
 image:generated/screenshots/elements/matrix/add-row.png[Add row, role="related thumb right"]

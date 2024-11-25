@@ -1,4 +1,5 @@
-[#track-panel-input-monitoring-off]
+ifdef::pdf-theme[[[track-panel-input-monitoring-off,Input monitoring off]]]
+ifndef::pdf-theme[[[track-panel-input-monitoring-off,Input monitoring off image:generated/screenshots/elements/track-panel/input-monitoring-off.png[width=50]]]]
 ==== Input monitoring off
 
 image:generated/screenshots/elements/track-panel/input-monitoring-off.png[Input monitoring off, role="related thumb right"]

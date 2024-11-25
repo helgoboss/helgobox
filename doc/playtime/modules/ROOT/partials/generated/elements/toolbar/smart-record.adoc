@@ -1,4 +1,5 @@
-[#toolbar-smart-record]
+ifdef::pdf-theme[[[toolbar-smart-record,Smart record]]]
+ifndef::pdf-theme[[[toolbar-smart-record,Smart record image:generated/screenshots/elements/toolbar/smart-record.png[width=50]]]]
 === Smart record
 
 image:generated/screenshots/elements/toolbar/smart-record.png[Smart record, role="related thumb right"]

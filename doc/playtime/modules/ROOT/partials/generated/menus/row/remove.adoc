@@ -1,4 +1,5 @@
-[#row-remove]
+ifdef::pdf-theme[[[row-remove,Remove row]]]
+ifndef::pdf-theme[[[row-remove,Remove row]]]
 == Remove row
 
 

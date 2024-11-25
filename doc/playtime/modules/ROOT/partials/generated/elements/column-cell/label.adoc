@@ -1,4 +1,5 @@
-[#column-cell-label]
+ifdef::pdf-theme[[[column-cell-label,Column label]]]
+ifndef::pdf-theme[[[column-cell-label,Column label image:generated/screenshots/elements/column-cell/label.png[width=50]]]]
 === Column label
 
 image:generated/screenshots/elements/column-cell/label.png[Column label, role="related thumb right"]

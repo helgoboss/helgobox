@@ -1,4 +1,5 @@
-[#column-insert-column-left]
+ifdef::pdf-theme[[[column-insert-column-left,Insert column left]]]
+ifndef::pdf-theme[[[column-insert-column-left,Insert column left]]]
 == Insert column left
 
 

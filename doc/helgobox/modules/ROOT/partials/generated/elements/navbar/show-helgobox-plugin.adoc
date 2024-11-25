@@ -1,4 +1,5 @@
-[#navbar-show-helgobox-plugin]
+ifdef::pdf-theme[[[navbar-show-helgobox-plugin,Show Helgobox plug-in]]]
+ifndef::pdf-theme[[[navbar-show-helgobox-plugin,Show Helgobox plug-in image:generated/screenshots/elements/navbar/show-helgobox-plugin.png[width=50]]]]
 == Show Helgobox plug-in
 
 image:generated/screenshots/elements/navbar/show-helgobox-plugin.png[Show Helgobox plug-in, role="related thumb right"]

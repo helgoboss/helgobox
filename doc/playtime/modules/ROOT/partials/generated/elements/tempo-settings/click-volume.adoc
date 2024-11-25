@@ -1,4 +1,5 @@
-[#tempo-settings-click-volume]
+ifdef::pdf-theme[[[tempo-settings-click-volume,Click volume]]]
+ifndef::pdf-theme[[[tempo-settings-click-volume,Click volume]]]
 == Click volume
 
 image::generated/screenshots/elements/tempo-settings/click-volume.png[Click volume]

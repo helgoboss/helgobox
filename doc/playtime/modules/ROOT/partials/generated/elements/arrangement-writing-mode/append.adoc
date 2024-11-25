@@ -1,4 +1,5 @@
-[#arrangement-writing-mode-append]
+ifdef::pdf-theme[[[arrangement-writing-mode-append,Append]]]
+ifndef::pdf-theme[[[arrangement-writing-mode-append,Append image:generated/screenshots/elements/arrangement-writing-mode/append.png[width=50]]]]
 == Append
 
 image:generated/screenshots/elements/arrangement-writing-mode/append.png[Append, role="related thumb right"]

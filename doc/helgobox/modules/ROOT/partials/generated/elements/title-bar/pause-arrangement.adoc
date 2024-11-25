@@ -1,4 +1,5 @@
-[#title-bar-pause-arrangement]
+ifdef::pdf-theme[[[title-bar-pause-arrangement,Pause arrangement]]]
+ifndef::pdf-theme[[[title-bar-pause-arrangement,Pause arrangement image:generated/screenshots/elements/title-bar/pause-arrangement.png[width=50]]]]
 == Pause arrangement
 
 image:generated/screenshots/elements/title-bar/pause-arrangement.png[Pause arrangement, role="related thumb right"]

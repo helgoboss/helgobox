@@ -1,4 +1,5 @@
-[#settings-show-clip-activity]
+ifdef::pdf-theme[[[settings-show-clip-activity,Show clip activity]]]
+ifndef::pdf-theme[[[settings-show-clip-activity,Show clip activity]]]
 === Show clip activity
 
 image::generated/screenshots/elements/settings/show-clip-activity.png[Show clip activity]

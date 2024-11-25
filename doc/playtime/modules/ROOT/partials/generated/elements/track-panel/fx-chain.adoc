@@ -1,4 +1,5 @@
-[#track-panel-fx-chain]
+ifdef::pdf-theme[[[track-panel-fx-chain,FX chain]]]
+ifndef::pdf-theme[[[track-panel-fx-chain,FX chain image:generated/screenshots/elements/track-panel/fx-chain.png[width=50]]]]
 === FX chain
 
 image:generated/screenshots/elements/track-panel/fx-chain.png[FX chain, role="related thumb right"]

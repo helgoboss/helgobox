@@ -1,4 +1,5 @@
-[#row-clear]
+ifdef::pdf-theme[[[row-clear,Clear row]]]
+ifndef::pdf-theme[[[row-clear,Clear row]]]
 == Clear row
 
 

@@ -1,4 +1,5 @@
-[#track-panel-routing]
+ifdef::pdf-theme[[[track-panel-routing,Track routing]]]
+ifndef::pdf-theme[[[track-panel-routing,Track routing image:generated/screenshots/elements/track-panel/routing.png[width=50]]]]
 === Track routing
 
 image:generated/screenshots/elements/track-panel/routing.png[Track routing, role="related thumb right"]

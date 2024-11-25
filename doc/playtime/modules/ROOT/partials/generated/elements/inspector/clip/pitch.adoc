@@ -1,4 +1,5 @@
-[#inspector-clip-pitch]
+ifdef::pdf-theme[[[inspector-clip-pitch,Pitch]]]
+ifndef::pdf-theme[[[inspector-clip-pitch,Pitch]]]
 == Pitch
 
 image::generated/screenshots/elements/inspector/clip/pitch.png[Pitch]

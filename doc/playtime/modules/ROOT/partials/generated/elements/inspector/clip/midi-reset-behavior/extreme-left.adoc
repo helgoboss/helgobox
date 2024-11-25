@@ -1,4 +1,5 @@
-[#inspector-clip-midi-reset-behavior-extreme-left]
+ifdef::pdf-theme[[[inspector-clip-midi-reset-behavior-extreme-left,Extreme left]]]
+ifndef::pdf-theme[[[inspector-clip-midi-reset-behavior-extreme-left,Extreme left image:generated/screenshots/elements/inspector/clip/midi-reset-behavior/extreme-left.png[width=50]]]]
 === Extreme left
 
 image:generated/screenshots/elements/inspector/clip/midi-reset-behavior/extreme-left.png[Extreme left, role="related thumb right"]

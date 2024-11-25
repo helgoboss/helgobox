@@ -1,4 +1,5 @@
-[#row-rename]
+ifdef::pdf-theme[[[row-rename,Rename row...]]]
+ifndef::pdf-theme[[[row-rename,Rename row...]]]
 == Rename row...
 
 

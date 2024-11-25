@@ -1,4 +1,5 @@
-[#settings-controller-color]
+ifdef::pdf-theme[[[settings-controller-color,Color]]]
+ifndef::pdf-theme[[[settings-controller-color,Color]]]
 == Color
 
 image::generated/screenshots/elements/settings/controller/color.png[Color]

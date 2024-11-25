@@ -1,4 +1,5 @@
-[#toolbar-tap-tempo]
+ifdef::pdf-theme[[[toolbar-tap-tempo,Tap tempo]]]
+ifndef::pdf-theme[[[toolbar-tap-tempo,Tap tempo image:generated/screenshots/elements/toolbar/tap-tempo.png[width=50]]]]
 === Tap tempo
 
 image:generated/screenshots/elements/toolbar/tap-tempo.png[Tap tempo, role="related thumb right"]

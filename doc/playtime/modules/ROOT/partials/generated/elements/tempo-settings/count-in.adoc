@@ -1,4 +1,5 @@
-[#tempo-settings-count-in]
+ifdef::pdf-theme[[[tempo-settings-count-in,Count-in]]]
+ifndef::pdf-theme[[[tempo-settings-count-in,Count-in]]]
 == Count-in
 
 image::generated/screenshots/elements/tempo-settings/count-in.png[Count-in]

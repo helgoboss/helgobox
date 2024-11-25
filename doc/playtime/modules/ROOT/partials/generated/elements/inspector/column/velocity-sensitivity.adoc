@@ -1,4 +1,5 @@
-[#inspector-column-velocity-sensitivity]
+ifdef::pdf-theme[[[inspector-column-velocity-sensitivity,Velocity sensitivity]]]
+ifndef::pdf-theme[[[inspector-column-velocity-sensitivity,Velocity sensitivity]]]
 == Velocity sensitivity
 
 image::generated/screenshots/elements/inspector/column/velocity-sensitivity.png[Velocity sensitivity]

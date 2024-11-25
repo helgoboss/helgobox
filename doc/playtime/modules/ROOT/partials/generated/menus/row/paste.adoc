@@ -1,4 +1,5 @@
-[#row-paste]
+ifdef::pdf-theme[[[row-paste,Paste row]]]
+ifndef::pdf-theme[[[row-paste,Paste row]]]
 == Paste row
 
 

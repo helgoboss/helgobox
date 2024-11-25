@@ -1,4 +1,5 @@
-[#slot-export-primary-clip-to-arrangement]
+ifdef::pdf-theme[[[slot-export-primary-clip-to-arrangement,Export primary clip to arrangement]]]
+ifndef::pdf-theme[[[slot-export-primary-clip-to-arrangement,Export primary clip to arrangement]]]
 == Export primary clip to arrangement
 
 

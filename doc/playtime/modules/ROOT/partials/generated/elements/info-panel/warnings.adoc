@@ -1,4 +1,5 @@
-[#info-panel-warnings]
+ifdef::pdf-theme[[[info-panel-warnings,Warnings]]]
+ifndef::pdf-theme[[[info-panel-warnings,Warnings image:generated/screenshots/elements/info-panel/warnings.png[width=50]]]]
 == Warnings
 
 image:generated/screenshots/elements/info-panel/warnings.png[Warnings, role="related thumb right"]

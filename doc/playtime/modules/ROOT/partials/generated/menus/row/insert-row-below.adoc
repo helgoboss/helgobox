@@ -1,4 +1,5 @@
-[#row-insert-row-below]
+ifdef::pdf-theme[[[row-insert-row-below,Insert row below]]]
+ifndef::pdf-theme[[[row-insert-row-below,Insert row below]]]
 == Insert row below
 
 

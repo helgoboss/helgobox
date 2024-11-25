@@ -1,4 +1,5 @@
-[#title-bar-move-window]
+ifdef::pdf-theme[[[title-bar-move-window,Move window]]]
+ifndef::pdf-theme[[[title-bar-move-window,Move window image:generated/screenshots/elements/title-bar/move-window.png[width=50]]]]
 == Move window
 
 image:generated/screenshots/elements/title-bar/move-window.png[Move window, role="related thumb right"]

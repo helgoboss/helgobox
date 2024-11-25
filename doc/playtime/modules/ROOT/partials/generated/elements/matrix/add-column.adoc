@@ -1,4 +1,5 @@
-[#matrix-add-column]
+ifdef::pdf-theme[[[matrix-add-column,Add column]]]
+ifndef::pdf-theme[[[matrix-add-column,Add column image:generated/screenshots/elements/matrix/add-column.png[width=50]]]]
 === Add column
 
 image:generated/screenshots/elements/matrix/add-column.png[Add column, role="related thumb right"]

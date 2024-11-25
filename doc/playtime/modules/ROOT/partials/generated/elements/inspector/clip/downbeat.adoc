@@ -1,4 +1,5 @@
-[#inspector-clip-downbeat]
+ifdef::pdf-theme[[[inspector-clip-downbeat,Downbeat]]]
+ifndef::pdf-theme[[[inspector-clip-downbeat,Downbeat]]]
 === Downbeat
 
 image::generated/screenshots/elements/inspector/clip/downbeat.png[Downbeat]

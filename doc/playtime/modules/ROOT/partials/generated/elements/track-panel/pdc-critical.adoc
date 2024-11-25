@@ -1,4 +1,5 @@
-[#track-panel-pdc-critical]
+ifdef::pdf-theme[[[track-panel-pdc-critical,Critical latency: 200ms]]]
+ifndef::pdf-theme[[[track-panel-pdc-critical,Critical latency: 200ms image:generated/screenshots/elements/track-panel/pdc-critical.png[width=50]]]]
 ==== Critical latency: 200ms
 
 image:generated/screenshots/elements/track-panel/pdc-critical.png[Critical latency: 200ms, role="related thumb right"]

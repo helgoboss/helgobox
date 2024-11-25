@@ -1,4 +1,5 @@
-[#title-bar-toggle-nav-bar]
+ifdef::pdf-theme[[[title-bar-toggle-nav-bar,Toggle navigation bar]]]
+ifndef::pdf-theme[[[title-bar-toggle-nav-bar,Toggle navigation bar image:generated/screenshots/elements/title-bar/toggle-nav-bar.png[width=50]]]]
 == Toggle navigation bar
 
 image:generated/screenshots/elements/title-bar/toggle-nav-bar.png[Toggle navigation bar, role="related thumb right"]

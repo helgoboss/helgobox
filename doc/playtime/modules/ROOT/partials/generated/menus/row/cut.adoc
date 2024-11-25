@@ -1,4 +1,5 @@
-[#row-cut]
+ifdef::pdf-theme[[[row-cut,Cut row]]]
+ifndef::pdf-theme[[[row-cut,Cut row]]]
 == Cut row
 
 

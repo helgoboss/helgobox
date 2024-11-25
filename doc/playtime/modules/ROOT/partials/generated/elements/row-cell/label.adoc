@@ -1,4 +1,5 @@
-[#row-cell-label]
+ifdef::pdf-theme[[[row-cell-label,Row label]]]
+ifndef::pdf-theme[[[row-cell-label,Row label image:generated/screenshots/elements/row-cell/label.png[width=50]]]]
 === Row label
 
 image:generated/screenshots/elements/row-cell/label.png[Row label, role="related thumb right"]

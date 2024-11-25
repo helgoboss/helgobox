@@ -1,4 +1,5 @@
-[#inspector-clip-midi-reset-behavior-light-right]
+ifdef::pdf-theme[[[inspector-clip-midi-reset-behavior-light-right,Light right]]]
+ifndef::pdf-theme[[[inspector-clip-midi-reset-behavior-light-right,Light right image:generated/screenshots/elements/inspector/clip/midi-reset-behavior/light-right.png[width=50]]]]
 === Light right
 
 image:generated/screenshots/elements/inspector/clip/midi-reset-behavior/light-right.png[Light right, role="related thumb right"]

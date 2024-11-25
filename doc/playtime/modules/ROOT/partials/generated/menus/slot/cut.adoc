@@ -1,4 +1,5 @@
-[#slot-cut]
+ifdef::pdf-theme[[[slot-cut,Cut slot]]]
+ifndef::pdf-theme[[[slot-cut,Cut slot]]]
 == Cut slot
 
 

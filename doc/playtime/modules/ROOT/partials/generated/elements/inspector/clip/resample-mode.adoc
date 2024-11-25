@@ -1,4 +1,5 @@
-[#inspector-clip-resample-mode]
+ifdef::pdf-theme[[[inspector-clip-resample-mode,Resample mode]]]
+ifndef::pdf-theme[[[inspector-clip-resample-mode,Resample mode]]]
 == Resample mode
 
 

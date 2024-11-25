@@ -1,4 +1,5 @@
-[#inspector-clip-midi-reset-behavior]
+ifdef::pdf-theme[[[inspector-clip-midi-reset-behavior,Reset behavior]]]
+ifndef::pdf-theme[[[inspector-clip-midi-reset-behavior,Reset behavior]]]
 == Reset behavior
 
 

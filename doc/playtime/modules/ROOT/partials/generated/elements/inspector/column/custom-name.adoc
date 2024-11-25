@@ -1,4 +1,5 @@
-[#inspector-column-custom-name]
+ifdef::pdf-theme[[[inspector-column-custom-name,Custom name]]]
+ifndef::pdf-theme[[[inspector-column-custom-name,Custom name]]]
 == Custom name
 
 image::generated/screenshots/elements/inspector/column/custom-name.png[Custom name]

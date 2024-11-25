@@ -1,4 +1,5 @@
-[#track-panel-arm]
+ifdef::pdf-theme[[[track-panel-arm,Arm track]]]
+ifndef::pdf-theme[[[track-panel-arm,Arm track image:generated/screenshots/elements/track-panel/arm.png[width=50]]]]
 === Arm track
 
 image:generated/screenshots/elements/track-panel/arm.png[Arm track, role="related thumb right"]

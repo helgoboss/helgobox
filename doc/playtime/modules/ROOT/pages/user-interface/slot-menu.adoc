@@ -1,4 +1,4 @@
-= Slot menu
+= Slot context menu
 
 Right-clicking xref:user-interface/matrix-area.adoc#slot-cell-content[] opens this context menu.
 

@@ -1,4 +1,5 @@
-[#settings-use-context-coloring]
+ifdef::pdf-theme[[[settings-use-context-coloring,Use context coloring]]]
+ifndef::pdf-theme[[[settings-use-context-coloring,Use context coloring]]]
 === Use context coloring
 
 image::generated/screenshots/elements/settings/use-context-coloring.png[Use context coloring]

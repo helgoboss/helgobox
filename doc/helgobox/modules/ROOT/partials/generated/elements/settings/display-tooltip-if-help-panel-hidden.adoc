@@ -1,4 +1,5 @@
-[#settings-display-tooltip-if-help-panel-hidden]
+ifdef::pdf-theme[[[settings-display-tooltip-if-help-panel-hidden,Display tooltip if help panel hidden]]]
+ifndef::pdf-theme[[[settings-display-tooltip-if-help-panel-hidden,Display tooltip if help panel hidden]]]
 === Display tooltip if help panel hidden
 
 image::generated/screenshots/elements/settings/display-tooltip-if-help-panel-hidden.png[Display tooltip if help panel hidden]

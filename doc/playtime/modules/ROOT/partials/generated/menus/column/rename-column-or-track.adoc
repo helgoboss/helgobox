@@ -1,4 +1,5 @@
-[#column-rename-column-or-track]
+ifdef::pdf-theme[[[column-rename-column-or-track,Rename column or track...]]]
+ifndef::pdf-theme[[[column-rename-column-or-track,Rename column or track...]]]
 == Rename column or track...
 
 

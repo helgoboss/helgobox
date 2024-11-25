@@ -1,4 +1,5 @@
-[#settings-prefer-tidy-appearance]
+ifdef::pdf-theme[[[settings-prefer-tidy-appearance,Prefer tidy appearance]]]
+ifndef::pdf-theme[[[settings-prefer-tidy-appearance,Prefer tidy appearance]]]
 === Prefer tidy appearance
 
 image::generated/screenshots/elements/settings/prefer-tidy-appearance.png[Prefer tidy appearance]

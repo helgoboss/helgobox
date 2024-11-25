@@ -1,4 +1,5 @@
-[#column-export-to-arrangement]
+ifdef::pdf-theme[[[column-export-to-arrangement,Export column to arrangement]]]
+ifndef::pdf-theme[[[column-export-to-arrangement,Export column to arrangement]]]
 == Export column to arrangement
 
 

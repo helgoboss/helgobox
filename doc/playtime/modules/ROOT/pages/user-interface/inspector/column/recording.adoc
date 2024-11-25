@@ -1,3 +1,5 @@
 = Column recording settings
 
+You will see this when selecting a xref:user-interface/matrix-area.adoc#column-cell[].
+
 NOTE: There are no column-specific recording settings yet. This section is reserved for the future,

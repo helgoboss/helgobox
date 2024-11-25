@@ -1,4 +1,5 @@
-[#track-panel-label]
+ifdef::pdf-theme[[[track-panel-label,Track label]]]
+ifndef::pdf-theme[[[track-panel-label,Track label image:generated/screenshots/elements/track-panel/label.png[width=50]]]]
 === Track label
 
 image:generated/screenshots/elements/track-panel/label.png[Track label, role="related thumb right"]

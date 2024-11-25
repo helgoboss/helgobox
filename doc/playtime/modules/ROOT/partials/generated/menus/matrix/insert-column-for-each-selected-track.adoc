@@ -1,4 +1,5 @@
-[#matrix-insert-column-for-each-selected-track]
+ifdef::pdf-theme[[[matrix-insert-column-for-each-selected-track,Insert column for each selected track]]]
+ifndef::pdf-theme[[[matrix-insert-column-for-each-selected-track,Insert column for each selected track]]]
 == Insert column for each selected track
 
 

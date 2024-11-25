@@ -1,4 +1,5 @@
-[#info-panel-stats-tempo-buffer-size]
+ifdef::pdf-theme[[[info-panel-stats-tempo-buffer-size,Tempo buffer size (in blocks)]]]
+ifndef::pdf-theme[[[info-panel-stats-tempo-buffer-size,Tempo buffer size (in blocks)]]]
 === Tempo buffer size (in blocks)
 
 image::generated/screenshots/elements/info-panel/stats/tempo-buffer-size.png[Tempo buffer size (in blocks)]

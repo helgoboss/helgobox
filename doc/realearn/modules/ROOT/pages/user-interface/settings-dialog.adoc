@@ -9,3 +9,6 @@ image::generated/screenshots/main/settings.png[]
 
 include::partial$generated/elements/settings/controllers/add.adoc[]
 include::partial$generated/elements/settings/controllers/delete.adoc[]
+
+== Related videos
+video::tkyNCGOVumw[youtube]

@@ -1,4 +1,5 @@
-[#row-export-to-arrangement]
+ifdef::pdf-theme[[[row-export-to-arrangement,Export row to arrangement]]]
+ifndef::pdf-theme[[[row-export-to-arrangement,Export row to arrangement]]]
 == Export row to arrangement
 
 

@@ -1,4 +1,5 @@
-[#slot-cell-clip-count]
+ifdef::pdf-theme[[[slot-cell-clip-count,Number of clips]]]
+ifndef::pdf-theme[[[slot-cell-clip-count,Number of clips image:generated/screenshots/elements/slot-cell/clip-count.png[width=50]]]]
 === Number of clips
 
 image:generated/screenshots/elements/slot-cell/clip-count.png[Number of clips, role="related thumb right"]

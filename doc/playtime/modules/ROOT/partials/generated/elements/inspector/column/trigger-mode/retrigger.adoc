@@ -1,4 +1,5 @@
-[#inspector-column-trigger-mode-retrigger]
+ifdef::pdf-theme[[[inspector-column-trigger-mode-retrigger,Retrigger]]]
+ifndef::pdf-theme[[[inspector-column-trigger-mode-retrigger,Retrigger image:generated/screenshots/elements/inspector/column/trigger-mode/retrigger.png[width=50]]]]
 === Retrigger
 
 image:generated/screenshots/elements/inspector/column/trigger-mode/retrigger.png[Retrigger, role="related thumb right"]

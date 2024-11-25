@@ -1,4 +1,5 @@
-[#inspector-column-trigger-mode-toggle]
+ifdef::pdf-theme[[[inspector-column-trigger-mode-toggle,Toggle]]]
+ifndef::pdf-theme[[[inspector-column-trigger-mode-toggle,Toggle image:generated/screenshots/elements/inspector/column/trigger-mode/toggle.png[width=50]]]]
 === Toggle
 
 image:generated/screenshots/elements/inspector/column/trigger-mode/toggle.png[Toggle, role="related thumb right"]

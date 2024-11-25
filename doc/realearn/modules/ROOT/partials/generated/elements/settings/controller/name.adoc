@@ -1,4 +1,5 @@
-[#settings-controller-name]
+ifdef::pdf-theme[[[settings-controller-name,Name]]]
+ifndef::pdf-theme[[[settings-controller-name,Name]]]
 == Name
 
 image::generated/screenshots/elements/settings/controller/name.png[Name]

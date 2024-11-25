@@ -1,4 +1,5 @@
-[#track-panel-map-to-midi-channel]
+ifdef::pdf-theme[[[track-panel-map-to-midi-channel,Map to MIDI channel]]]
+ifndef::pdf-theme[[[track-panel-map-to-midi-channel,Map to MIDI channel image:generated/screenshots/elements/track-panel/map-to-midi-channel.png[width=50]]]]
 === Map to MIDI channel
 
 image:generated/screenshots/elements/track-panel/map-to-midi-channel.png[Map to MIDI channel, role="related thumb right"]

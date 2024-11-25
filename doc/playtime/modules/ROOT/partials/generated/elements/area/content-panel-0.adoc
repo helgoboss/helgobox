@@ -1,4 +1,5 @@
-[#area-content-panel-0]
+ifdef::pdf-theme[[[area-content-panel-0,Content panel]]]
+ifndef::pdf-theme[[[area-content-panel-0,Content panel image:generated/screenshots/elements/area/content-panel-0.png[width=50]]]]
 == Content panel
 
 image:generated/screenshots/elements/area/content-panel-0.png[Content panel, role="related thumb right"]

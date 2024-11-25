@@ -1,4 +1,5 @@
-[#column-cell-exclusive-mode]
+ifdef::pdf-theme[[[column-cell-exclusive-mode,Exclusive mode]]]
+ifndef::pdf-theme[[[column-cell-exclusive-mode,Exclusive mode image:generated/screenshots/elements/column-cell/exclusive-mode.png[width=50]]]]
 === Exclusive mode
 
 image:generated/screenshots/elements/column-cell/exclusive-mode.png[Exclusive mode, role="related thumb right"]

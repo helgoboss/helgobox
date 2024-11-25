@@ -1,4 +1,5 @@
-[#matrix-cell-stop]
+ifdef::pdf-theme[[[matrix-cell-stop,Stop matrix]]]
+ifndef::pdf-theme[[[matrix-cell-stop,Stop matrix image:generated/screenshots/elements/matrix-cell/stop.png[width=50]]]]
 === Stop matrix
 
 image:generated/screenshots/elements/matrix-cell/stop.png[Stop matrix, role="related thumb right"]

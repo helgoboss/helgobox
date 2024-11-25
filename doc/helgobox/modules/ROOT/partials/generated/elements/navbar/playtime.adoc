@@ -1,4 +1,5 @@
-[#navbar-playtime]
+ifdef::pdf-theme[[[navbar-playtime,Playtime]]]
+ifndef::pdf-theme[[[navbar-playtime,Playtime image:generated/screenshots/elements/navbar/playtime.png[width=50]]]]
 == Playtime
 
 image:generated/screenshots/elements/navbar/playtime.png[Playtime, role="related thumb right"]

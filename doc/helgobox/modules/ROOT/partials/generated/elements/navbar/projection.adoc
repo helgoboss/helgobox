@@ -1,4 +1,5 @@
-[#navbar-projection]
+ifdef::pdf-theme[[[navbar-projection,ReaLearn Projection]]]
+ifndef::pdf-theme[[[navbar-projection,ReaLearn Projection image:generated/screenshots/elements/navbar/projection.png[width=50]]]]
 == ReaLearn Projection
 
 image:generated/screenshots/elements/navbar/projection.png[ReaLearn Projection, role="related thumb right"]

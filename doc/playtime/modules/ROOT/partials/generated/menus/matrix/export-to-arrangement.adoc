@@ -1,4 +1,5 @@
-[#matrix-export-to-arrangement]
+ifdef::pdf-theme[[[matrix-export-to-arrangement,Export matrix to arrangement]]]
+ifndef::pdf-theme[[[matrix-export-to-arrangement,Export matrix to arrangement]]]
 == Export matrix to arrangement
 
 

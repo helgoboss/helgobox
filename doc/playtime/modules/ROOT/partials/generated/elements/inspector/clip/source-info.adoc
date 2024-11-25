@@ -1,4 +1,5 @@
-[#inspector-clip-source-info]
+ifdef::pdf-theme[[[inspector-clip-source-info,Source info]]]
+ifndef::pdf-theme[[[inspector-clip-source-info,Source info]]]
 == Source info
 
 image::generated/screenshots/elements/inspector/clip/source-info.png[Source info]

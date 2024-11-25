@@ -1,4 +1,5 @@
-[#slot-cell]
+ifdef::pdf-theme[[[slot-cell,Slot cell]]]
+ifndef::pdf-theme[[[slot-cell,Slot cell image:generated/screenshots/elements/slot-cell.png[width=50]]]]
 == Slot cell
 
 image:generated/screenshots/elements/slot-cell.png[Slot cell, role="related thumb right"]

@@ -1,4 +1,5 @@
-[#inspector-matrix-recording-length]
+ifdef::pdf-theme[[[inspector-matrix-recording-length,Length]]]
+ifndef::pdf-theme[[[inspector-matrix-recording-length,Length]]]
 == Length
 
 image::generated/screenshots/elements/inspector/matrix/recording-length.png[Length]

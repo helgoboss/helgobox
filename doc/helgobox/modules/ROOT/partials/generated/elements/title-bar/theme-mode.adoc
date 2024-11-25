@@ -1,4 +1,5 @@
-[#title-bar-theme-mode]
+ifdef::pdf-theme[[[title-bar-theme-mode,Theme mode]]]
+ifndef::pdf-theme[[[title-bar-theme-mode,Theme mode image:generated/screenshots/elements/title-bar/theme-mode.png[width=50]]]]
 == Theme mode
 
 image:generated/screenshots/elements/title-bar/theme-mode.png[Theme mode, role="related thumb right"]

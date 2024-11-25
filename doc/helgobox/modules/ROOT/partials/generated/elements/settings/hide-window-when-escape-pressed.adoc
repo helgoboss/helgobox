@@ -1,4 +1,5 @@
-[#settings-hide-window-when-escape-pressed]
+ifdef::pdf-theme[[[settings-hide-window-when-escape-pressed,Hide window when escape pressed]]]
+ifndef::pdf-theme[[[settings-hide-window-when-escape-pressed,Hide window when escape pressed]]]
 === Hide window when escape pressed
 
 image::generated/screenshots/elements/settings/hide-window-when-escape-pressed.png[Hide window when escape pressed]

@@ -1,4 +1,4 @@
-= Source menu
+= Source context menu
 
 Right-clicking xref:user-interface/inspector/clip.adoc#inspector-clip-source-info[] opens this context menu.
 

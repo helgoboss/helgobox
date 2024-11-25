@@ -1,4 +1,5 @@
-[#todo-clip]
+ifdef::pdf-theme[[[todo-clip,Clip]]]
+ifndef::pdf-theme[[[todo-clip,Clip image:generated/screenshots/elements/todo/clip.png[width=50]]]]
 == Clip
 
 image:generated/screenshots/elements/todo/clip.png[Clip, role="related thumb right"]

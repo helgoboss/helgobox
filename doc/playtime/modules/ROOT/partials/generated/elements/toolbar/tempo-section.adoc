@@ -1,4 +1,5 @@
-[#toolbar-tempo-section]
+ifdef::pdf-theme[[[toolbar-tempo-section,Tempo section]]]
+ifndef::pdf-theme[[[toolbar-tempo-section,Tempo section image:generated/screenshots/elements/toolbar/tempo-section.png[width=50]]]]
 == Tempo section
 
 image:generated/screenshots/elements/toolbar/tempo-section.png[Tempo section, role="related thumb right"]

@@ -1,4 +1,5 @@
-[#matrix-cell-settings]
+ifdef::pdf-theme[[[matrix-cell-settings,Matrix settings]]]
+ifndef::pdf-theme[[[matrix-cell-settings,Matrix settings image:generated/screenshots/elements/matrix-cell/settings.png[width=50]]]]
 === Matrix settings
 
 image:generated/screenshots/elements/matrix-cell/settings.png[Matrix settings, role="related thumb right"]

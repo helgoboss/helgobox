@@ -1,4 +1,5 @@
-[#inspector-clip-start-timing-custom]
+ifdef::pdf-theme[[[inspector-clip-start-timing-custom,Custom]]]
+ifndef::pdf-theme[[[inspector-clip-start-timing-custom,Custom image:generated/screenshots/elements/inspector/clip/start-timing/custom.png[width=50]]]]
 === Custom
 
 image:generated/screenshots/elements/inspector/clip/start-timing/custom.png[Custom, role="related thumb right"]

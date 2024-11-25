@@ -1,4 +1,5 @@
-[#inspector-clip-promote-to-top]
+ifdef::pdf-theme[[[inspector-clip-promote-to-top,Promote clip to top]]]
+ifndef::pdf-theme[[[inspector-clip-promote-to-top,Promote clip to top]]]
 == Promote clip to top
 
 

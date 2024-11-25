@@ -1,4 +1,5 @@
-[#track-panel-volume]
+ifdef::pdf-theme[[[track-panel-volume,Track volume]]]
+ifndef::pdf-theme[[[track-panel-volume,Track volume]]]
 === Track volume
 
 image::generated/screenshots/elements/track-panel/volume.png[Track volume]

@@ -1,4 +1,5 @@
-[#toolbar-start-stop-playback]
+ifdef::pdf-theme[[[toolbar-start-stop-playback,Start/stop playback]]]
+ifndef::pdf-theme[[[toolbar-start-stop-playback,Start/stop playback image:generated/screenshots/elements/toolbar/start-stop-playback.png[width=50]]]]
 === Start/stop playback
 
 image:generated/screenshots/elements/toolbar/start-stop-playback.png[Start/stop playback, role="related thumb right"]

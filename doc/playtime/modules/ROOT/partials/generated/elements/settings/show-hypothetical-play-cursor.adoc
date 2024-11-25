@@ -1,4 +1,5 @@
-[#settings-show-hypothetical-play-cursor]
+ifdef::pdf-theme[[[settings-show-hypothetical-play-cursor,Show hypothetical play cursor]]]
+ifndef::pdf-theme[[[settings-show-hypothetical-play-cursor,Show hypothetical play cursor]]]
 === Show hypothetical play cursor
 
 image::generated/screenshots/elements/settings/show-hypothetical-play-cursor.png[Show hypothetical play cursor]

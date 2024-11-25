@@ -1,4 +1,5 @@
-[#arrangement-writing-mode-replace]
+ifdef::pdf-theme[[[arrangement-writing-mode-replace,Replace]]]
+ifndef::pdf-theme[[[arrangement-writing-mode-replace,Replace image:generated/screenshots/elements/arrangement-writing-mode/replace.png[width=50]]]]
 == Replace
 
 image:generated/screenshots/elements/arrangement-writing-mode/replace.png[Replace, role="related thumb right"]

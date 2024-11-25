@@ -1,4 +1,5 @@
-[#slot-copy]
+ifdef::pdf-theme[[[slot-copy,Copy slot]]]
+ifndef::pdf-theme[[[slot-copy,Copy slot]]]
 == Copy slot
 
 

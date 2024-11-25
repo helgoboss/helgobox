@@ -54,6 +54,8 @@ include::partial$generated/elements/track-panel/input-monitoring-auto.adoc[]
 
 include::partial$generated/elements/track-panel/input-monitoring-on.adoc[]
 
+NOTE: Which input monitoring mode you choose also has an effect on how Playtime does latency compensation during recording. Read more about that in xref:further-concepts/general.adoc#latency-compensation[].
+
 [[input-monitoring-explained]]
 [NOTE]
 .Playtime input monitoring explained

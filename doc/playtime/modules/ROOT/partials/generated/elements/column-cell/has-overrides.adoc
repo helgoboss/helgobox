@@ -1,4 +1,5 @@
-[#column-cell-has-overrides]
+ifdef::pdf-theme[[[column-cell-has-overrides,Has overrides]]]
+ifndef::pdf-theme[[[column-cell-has-overrides,Has overrides image:generated/screenshots/elements/column-cell/has-overrides.png[width=50]]]]
 === Has overrides
 
 image:generated/screenshots/elements/column-cell/has-overrides.png[Has overrides, role="related thumb right"]

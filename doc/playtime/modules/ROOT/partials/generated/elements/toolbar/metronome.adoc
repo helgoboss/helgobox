@@ -1,4 +1,5 @@
-[#toolbar-metronome]
+ifdef::pdf-theme[[[toolbar-metronome,Metronome]]]
+ifndef::pdf-theme[[[toolbar-metronome,Metronome image:generated/screenshots/elements/toolbar/metronome.png[width=50]]]]
 === Metronome
 
 image:generated/screenshots/elements/toolbar/metronome.png[Metronome, role="related thumb right"]
