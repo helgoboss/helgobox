@@ -1,9 +1,0 @@
-[#track-panel-header]
-== Track panel header
-
-image:generated/screenshots/elements/track-panel/header.png[Track panel header, role="related thumb right"]
-
-Shows info and controls related to the playback track of this matrix column.
-
-Since multiple columns can have the same playback track, it's possible that you see one track panel multiple times!
-

@@ -147,9 +147,21 @@ Because of its importance, it's mentioned here already as a key concept.
 
 The _start timing_ decides when a clip actually starts to be played back, after you have triggered its playback.
 
+We distinguish between _quantized_ start timings and _immediate_ start timing.
+
+Quantized start timing::
 By default, the start timing is *1 bar*, which means that the clip will start playing at the beginning of the next bar.
-This is what makes everything in-sync You can change that to arbitrary <<quantization, quantizations>>, such as *2 quarter notes* or *3 bars*.
-Alternatively,
+This is what makes everything in-sync. You can change that to arbitrary <<quantization, quantizations>>, such as *2 quarter notes* or *3 bars*.
+
+Immediate start timing::
+Alternatively, you can use the start timing *Immediately*, which makes the clip start playing instantly when you trigger it. Of course, that means *you* are now in charge to get the timing right.
+
+You can set the start timing for xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-start-timing[the complete matrix] and override it on xref:user-interface/inspector/column/playback.adoc#inspector-column-start-timing[column] or xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing[clip] level.
+
+[[clip-stop-timing]]
+== Clip stop timing
+
+The clip _stop timing_ is  very similar to the <<clip-start-timing>> but determines when the clip actually stops after you have triggered its stop. In most cases, it makes sense to leave it at its default settings xref:user-interface/inspector/clip.adoc#inspector-clip-stop-timing-like-start-timing[].
 
 == Loop vs. one-shot
 
@@ -196,16 +208,24 @@ The bottom number is called (the *4* in 3/4), _denominator_ and shows the type o
 [[in-sync]]
 == In sync
 
-In the context of rhythmical music, _in sync_ means that everything is synchronized and the timing aligns correctly.
-
-When you play <<loop, loops>> in Playtime, you typically want them to be _in sync_ with each other and with all other rhythmical material on the <<timeline, reference timeline>>.
+In the context of rhythmical music, _in sync_ means that everything is synchronized and the timing aligns correctly. When you play <<loop, loops>> in Playtime, you typically want them to be _in sync_ with each other and with all other rhythmical material on the <<timeline, reference timeline>>.
 
 To achieve this synchronization, the following conditions must be met:
 
-. The start and end positions of the <<clip>> must align *precisely* with a musical <<beat>> in the <<source>>.
-. <<Clip>> playback must start exactly on a beat of the <<timeline>>.
+[[in-sync-correct-section]] Correct start and end position::
+The start and end positions of the <<clip>> must align *precisely* with a musical <<beat>> in the <<source>>.
 
-When using Playtime's default settings, both conditions are automatically met.
+[[in-sync-beat-aligned-playback]] Beat-aligned start of playback::
+<<clip>> playback must start exactly on a beat of the <<timeline>>.
+
+[[in-sync-playback-with-same-tempo]] Playback with the same tempo::
+The <<clip,clips>> must be played back in the same tempo (or a multiple of it).
+
+When using Playtime's default settings, all conditions are automatically met:
+
+* <<in-sync-playback-with-same-tempo>> is met because by default, Playtime starts and stops a clip _recording_ quantized to a 1-bar grid (see xref:clip-start-timing[]).
+* <<in-sync-beat-aligned-playback>> is met because by default, Playtime starts and stops clip _playback_ quantized to a 1-bar grid (see xref:clip-start-timing[]).
+* <<in-sync-playback-with-same-tempo>> is met because by default, Playtime adjusts the tempo of a clip to the current project tempo (see xref:user-interface/inspector/clip.adoc#inspector-clip-sync-to-project-tempo[]).
 
 [TIP]
 ====
@@ -215,7 +235,7 @@ Concerning the first condition:
 * If the start point is located between beats or the length falls between bars, the loop will be _out of sync_.
 * By selecting a <<quantization,quantized>> start/stop timing, such as "1 bar", Playtime ensures that your loop's start point and length are perfectly beat-aligned with sample precision!
 * If you choose immediate start/stop timing, it's your responsibility to ensure that the start point and length are musically appropriate.
-However, achieving perfect timing with a button or foot pedal press is close to impossible.
+Achieving perfect timing with a button or foot pedal press is close to impossible.
 ====
 
 [[quantization]]

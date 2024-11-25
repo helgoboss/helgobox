@@ -1,1 +1,3 @@
 = Adjust clips
+
+Now that you know how to create play clips, you might want to experiment a bit with

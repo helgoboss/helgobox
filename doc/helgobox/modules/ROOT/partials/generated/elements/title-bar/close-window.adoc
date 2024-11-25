@@ -1,0 +1,9 @@
+ifdef::pdf-theme[[[title-bar-close-window,Close window]]]
+ifndef::pdf-theme[[[title-bar-close-window,Close window image:generated/screenshots/elements/title-bar/close-window.png[width=50]]]]
+== Close window
+
+image:generated/screenshots/elements/title-bar/close-window.png[Close window, role="related thumb right"]
+
+Closes the app window.
+
+

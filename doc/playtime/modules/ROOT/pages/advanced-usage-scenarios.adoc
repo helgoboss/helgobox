@@ -1,0 +1,5 @@
+= Advanced usage scenarios
+
+In xref:usage.adoc[], we have learned how Playtime is typically used. But it doesn't end there! Playtime is designed in a quite open-ended way, which makes it versatile enough to use it in plenty of other scenarios.
+
+This section explores some of the more advanced usage scenarios.

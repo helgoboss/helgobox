@@ -43,5 +43,7 @@
 ** xref:user-interface/keyboard-shortcuts.adoc[]
 * xref:further-concepts.adoc[]
 ** xref:further-concepts/general.adoc[]
+* xref:advanced-usage-scenarios.adoc[]
+** xref:advanced-usage-scenarios/self-playing.adoc[]
 * xref:reaper-actions.adoc[]
 * xref:configuration-files.adoc[]

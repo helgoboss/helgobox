@@ -1,1 +1,124 @@
 = Play clips
+
+As soon as you have some clips in the matrix, you can play them!
+
+Unlike items on the REAPER timeline, you can start and stop clips totally freely. There are no rules, which makes Playtime very suitable for improvisation.
+
+== Playing clips using the app
+
+The obvious way to play a clip is to use your mouse: Press the xref:user-interface/matrix-area.adoc#slot-cell-trigger[] button of its containing xref:key-concepts.adoc#slot[]:
+
+* If Playtime's transport was stopped before you pressed the button (see xref:user-interface/toolbar.adoc#toolbar-start-stop-playback[] button in the toolbar), Playtime and your clip should start playing immediately.
+* If Playtime's transport was playing already, the clip should start playing according to the configured xref:key-concepts.adoc#clip-start-timing[], by default at the next bar.
+
+You can stop the clip by pressing the xref:user-interface/matrix-area.adoc#slot-cell-trigger[same button] again, which now appears as a stop icon. The clip should stop playing according to the configured xref:key-concepts.adoc#clip-stop-timing[].
+
+TIP: You can xref:helgobox::app/user-interface/keyboard-shortcuts.adoc#hide[hide] or xref:helgobox::app/user-interface/title-bar.adoc#title-bar-close-window[close] the app window at any time. This will not affect playback or recording. Playtime also works without its user interface!
+
+== Playing clips using a MIDI keyboard
+
+Playtime allows you to play your clips by pressing keys on your MIDI keyboard:
+
+. Press the xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[] button. This should reveal small MIDI trigger areas on the right side of each slot cell.
+. Press the MIDI trigger area of the slot that you want to play. It should turn red.
+. Press a key on your MIDI keyboard. Playtime should pick it up. If not, see xref:user-interface/toolbar.adoc#midi-trigger-troubleshooting[].
+. Press the key once. The clip should start playing.
+. Press the key again. The clip should stop.
+
+
+.Variations
+****
+Play as long as you press the key::
+By default, pressing the key toggles between _playing_ and _stopped_. You can change that, for example on column level, by setting xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode[] to xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode-momentary[]. Then pressing the key down will start playback and releasing it will stop playback. This goes very well with xref:key-concepts.adoc#clip-start-timing[] xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[].
+
+Restart when pressing the key again::
+Another xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode[] is xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode-retrigger[]: Tapping the key once will start playback and tapping it again will trigger a restart.
+
+Play with different velocities::
+Maybe you want to play the clip with a lower volume when hitting the key softly and with a higher volume when hitting it hard. You can achieve this and fine-tune the effect by adjusting xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-velocity-sensitivity[]. This is of course also adjustable on xref:user-interface/inspector/column/playback.adoc#inspector-column-velocity-sensitivity[column] and xref:user-interface/inspector/clip.adoc#inspector-clip-velocity-sensitivity[clip] level.
+****
+
+
+.Suitable for finger drumming!
+[NOTE]
+====
+Triggering clips via MIDI happens in real-time! As with any other instrument plug-in that you use in REAPER, the latency depends on the block size set in REAPER.
+
+So if you use xref:key-concepts.adoc#clip-start-timing[] xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[] and set the block size in REAPER menu:Options[Settings... > Device] low enough (e.g. 256 samples), you will not perceive any delay between pressing the key and hearing the sound.
+====
+
+.Is Playtime a sampler?
+[TIP]
+====
+When playing Playtime via MIDI, it helps to look at it as a kind of sampler. But instead of playing single tones, you usually trigger complete musical _phrases_, either as MIDI or audio.
+
+You are basically working on a higher level. Each of the triggered phrases in turn can trigger samplers or synthesizers ... or even xref:advanced-usage-scenarios/self-playing.adoc[Playtime itself].
+====
+
+== Playing and stopping multiple clips
+
+You can play all clips in a row at once by pressing the xref:user-interface/matrix-area.adoc#row-cell-play-scene[] button at the very left.
+
+You can permanently stop all clips in a column at once by pressing the xref:user-interface/matrix-area.adoc#column-cell-stop[] button in the xref:user-interface/matrix-area.adoc#column-cell[] at the top of the column. Double-clicking this button stops the clips abruptly.
+
+You can permanently stop all clips in the complete matrix at once by pressing the xref:user-interface/matrix-area.adoc#matrix-cell-stop[] button in the xref:user-interface/matrix-area.adoc#matrix-cell[] at the top-left of the matrix area. Double-clicking this button stops the clips abruptly.
+
+== Playing multiple clips
+
+The fun starts when playing multiple clips simultaneously.
+
+=== Columns in exclusive mode
+
+By default, playback within one column is limited to just one slot. We call this xref:user-interface/inspector/column/playback.adoc#inspector-column-exclusive-mode[], because one slot has the exclusive right of playing.
+
+.Exclusive mode
+====
+Let's say you have clip A in the first column cell 1 and clip B in the second column cell.
+
+. Trigger clip A and wait until it started playing
+. Now, trigger clip B
+
+You will see that clip A stops and clip B takes over.
+====
+
+*The consequence is:* If you want to play multiple slots simultaneously, you would need to create a new column. Musically, that makes a lot of sense. It is very common in clip launchers to have one column per instrument. And one instrument can normally only play one phrase at a time. Alternating between those phrases is often exactly what people want.
+
+=== Columns in non-exclusive mode
+
+Playtime is a quite relaxed fellow and allows you to opt out of the exclusive mode. The easiest way to do this is to press the xref:user-interface/matrix-area.adoc#column-cell-exclusive-mode[] button in the xref:user-interface/matrix-area.adoc#column-cell[].
+
+After disabling exclusive mode, you can play multiple clips within that column, as your heart desires.
+
+=== Playing in sync
+
+Usually when playing multiple clips within a clip launcher, one expects those clips to play perfectly xref:key-concepts.adoc#in-sync[in sync] with each other. This "perfectly in sync" is by default given in Playtime, but it all depends on how each of the clips is configured.
+
+If you have messed with xref:key-concepts.adoc#clip-start-timing[], xref:user-interface/inspector/clip.adoc#inspector-clip-start-position[], xref:user-interface/inspector/clip.adoc#inspector-clip-length[] or xref:user-interface/inspector/clip.adoc#inspector-clip-sync-to-project-tempo[], your clips might get out of sync. If this happens, and you don't know why, revisit xref:key-concepts.adoc#in-sync[] to deepen your understanding.
+
+== Starting and stopping Playtime playback
+
+Playtime's playback can be started and stopped xref:helgobox::key-concepts.adoc#instance[instance-wide], using either the xref:user-interface/toolbar.adoc#toolbar-start-stop-playback[] button in the xref:user-interface/toolbar.adoc#toolbar-transport-section[] or the kbd:[Space] key.
+
+Stopping Playtime playback doesn't just stop all playing clips, it also memorizes them, so that next time you start playback, they will play again. We call those memorized clips _ignited_ clips. Ignited clips have a circle around their xref:user-interface/matrix-area.adoc#slot-cell-trigger[play button].
+
+Starting Playtime playback will automatically start all _ignited_ clips. If you don't want that, press the xref:user-interface/matrix-area.adoc#matrix-cell-stop[] or xref:user-interface/matrix-area.adoc#column-cell-stop[] button to un-ignite the clips.
+
+== Playing together with the REAPER arrangement
+
+=== Starting playback within REAPER
+
+Maybe you already have some items on the REAPER timeline that you want to improvise over using Playtime. All you need to do for this is to start playback within REAPER:
+
+. Click somewhere into the REAPER main window in order to switch focus to REAPER.
+. Press kbd:[Space] to start REAPER playback.
+
+Playtime will now play synchronized to the arrangement. Changing the REAPER play cursor position will automatically retrigger Playtime's clip so that they stay in sync.
+
+=== Full transport synchronization
+
+Maybe you would like to always play together with the REAPER arrangement, even if you start playback within Playtime:
+
+. Set xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-transport-sync[] in the xref:user-interface/inspector/matrix.adoc[] to *Full*
+. Press kbd:[Space] within Playtime.
+
+REAPER should start playing as well.

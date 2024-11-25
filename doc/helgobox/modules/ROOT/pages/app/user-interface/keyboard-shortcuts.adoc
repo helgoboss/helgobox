@@ -6,7 +6,9 @@ Within the app, you can use the following keyboard shortcuts.
 |Shortcut |Purpose
 
 |kbd:[Esc]
-|Hides the app window.
+|[[hide]] Hides the app window.
+
+Hiding the window doesn't completely unload the app, it really just hides the window.
 
 |kbd:[F]
 |Toggles full-screen mode.

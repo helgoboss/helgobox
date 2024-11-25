@@ -1,7 +1,0 @@
-[#title-bar-highlight-screen-areas]
-=== Highlight screen areas
-
-
-
-
-

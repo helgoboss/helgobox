@@ -1,7 +1,0 @@
-[#area-clip-content-panel-0]
-== Clip content panel
-
-image:generated/screenshots/elements/area/clip-content-panel-0.png[Clip content panel, role="related thumb right"]
-
-null
-

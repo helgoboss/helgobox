@@ -22,7 +22,7 @@ This didn't just create a new column, it also created a new REAPER track with th
 Use matrix templates::
 Instead of creating the column manually, you could also have started with a template by pressing the xref:user-interface/matrix-area.adoc#matrix-mixed-template-button[], for example.
 
-Importing existing tracks::
+Import existing tracks::
 Maybe you have existing tracks already that you want to use as xref:key-concepts.adoc#column-track[column tracks]. In that case, select them, right-click xref:user-interface/matrix-area.adoc#matrix-cell-settings[] and choose xref:user-interface/matrix-menu.adoc#matrix-insert-column-for-each-selected-track[].
 ****
 
@@ -185,5 +185,5 @@ Maybe you already have a MIDI clip and want to slowly add some notes by playing 
 . Play some MIDI notes on your music keyboard. They will be recorded into the playing clip. You will hear them on the next repetition.
 . When you are done, press the same button again.
 
-Many of the above aspects can be combined, which gives you a maximum of flexibility.
+TIP: Many of the above aspects can be combined, which gives you a maximum of flexibility.
 ****

@@ -5,10 +5,9 @@ It primarily provides general functions, such as window controls, access to sett
 
 image::generated/screenshots/elements/area/window-title-bar-0.png[]
 
-include::partial$generated/elements/title-bar/hide-window.adoc[]
+include::partial$generated/elements/title-bar/close-window.adoc[]
 
-Hiding the window doesn't completely unload the app, it really just hides it.
-In order to close it for good, use xref:helgobox::plug-in/user-interface/menu-bar.adoc#close-app[].
+This has the same effect as pressing xref:helgobox::plug-in/user-interface/menu-bar.adoc#close-app[].
 
 include::partial$generated/elements/title-bar/full-screen.adoc[]
 

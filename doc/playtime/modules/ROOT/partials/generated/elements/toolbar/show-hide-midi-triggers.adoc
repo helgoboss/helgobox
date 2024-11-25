@@ -5,3 +5,4 @@ ifndef::pdf-theme[[[toolbar-show-hide-midi-triggers,Show/hide MIDI triggers imag
 image:generated/screenshots/elements/toolbar/show-hide-midi-triggers.png[Show/hide MIDI triggers, role="related thumb right"]
 
 Shows or hides MIDI triggers assigned to cells.
+

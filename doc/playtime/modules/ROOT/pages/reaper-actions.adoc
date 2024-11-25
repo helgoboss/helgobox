@@ -4,6 +4,7 @@ Playtime provides the following REAPER actions in addition to the xref:helgobox:
 
 [#show-hide-playtime]
 Helgobox/Playtime: Show/hide Playtime::
-If there's no Helgobox instance with a Playtime matrix in the current project, this action adds one and shows the matrix. If there is one already, it shows or hides the app.
+If there's no Helgobox instance with a Playtime matrix in the current project, this action adds one and shows the matrix. If there is one already, it shows or hides the app window. This doesn't completely unload the app, it really just hides the window.
+
 +
 The default shortcut is kbd:[Shift+Cmd/Ctrl+P].

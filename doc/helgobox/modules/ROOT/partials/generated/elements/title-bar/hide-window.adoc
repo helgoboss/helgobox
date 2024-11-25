@@ -1,9 +1,0 @@
-ifdef::pdf-theme[[[title-bar-hide-window,Hide window]]]
-ifndef::pdf-theme[[[title-bar-hide-window,Hide window image:generated/screenshots/elements/title-bar/hide-window.png[width=50]]]]
-== Hide window
-
-image:generated/screenshots/elements/title-bar/hide-window.png[Hide window, role="related thumb right"]
-
-Hides the app window.
-
-
