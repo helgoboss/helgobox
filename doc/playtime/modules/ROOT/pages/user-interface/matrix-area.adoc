@@ -48,6 +48,7 @@ include::partial$generated/elements/column-cell.adoc[]
 
 If you don't see the upper part, check xref:user-interface/settings-dialog.adoc#settings-show-column-numbers[].
 
+[[column-drag-and-drop]]
 .Drag-and-drop support
 ****
 Reorder column::
@@ -76,6 +77,7 @@ TIP: Right-clicking this area opens the xref:user-interface/column-menu.adoc[].
 
 include::partial$generated/elements/row-cell.adoc[]
 
+[[row-drag-and-drop]]
 .Drag-and-drop support
 ****
 Reorder row::

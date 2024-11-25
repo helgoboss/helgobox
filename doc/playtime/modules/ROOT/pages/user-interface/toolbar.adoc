@@ -81,7 +81,7 @@ include::partial$generated/elements/toolbar/show-hide-midi-triggers.adoc[]
 ====
 The purpose of this feature is to quickly create *simple* and *xref:helgobox:ROOT:key-concepts.adoc#instance[instance-specific]* mappings of MIDI keys/pads/buttons to cells.
 
-* If you are looking for out-of-the-box support for full-featured grid controllers, such as the Launchpad, see xref:realearn::user-interface/settings-dialog.adoc#controllers[]. There's also a related link:https://youtu.be/tkyNCGOVumw?si=fIKvd_rogtvMzvrp[YouTube video].
+* If you are looking for out-of-the-box support for full-featured grid controllers, such as the Launchpad, see xref:usage/grid-controllers.adoc[].
 * If you are looking for advanced, highly-customizable control scenarios, you should use xref:realearn::introduction.adoc[ReaLearn] with its dedicated xref:realearn::targets/playtime.adoc[].
 ====
 

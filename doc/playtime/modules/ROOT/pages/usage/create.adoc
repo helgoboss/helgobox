@@ -17,6 +17,8 @@ You should then see a new column named "Column 1" with empty slots that can take
 This didn't just create a new column, it also created a new REAPER track with the same name, the so-called xref:key-concepts.adoc#column-track[]. Playtime will play clips within this column through that track.
 ====
 
+IMPORTANT: Exactly as in REAPER, Playtime columns don't have a type. They can always play both, audio and MIDI clips. The xref:user-interface/track-area.adoc#track-panel-input-type-indicator[] looks a bit as if the column would have a special type, but it really just reflects the input currently selected for recording clips.
+
 .Alternatives
 ****
 Use matrix templates::

@@ -1,1 +1,84 @@
 = Create an arrangement
+
+Maybe you want to use Playtime for live improvisation only, in which case the basic usage guide would end here. But chances are, you want to go further than that and turn your Playtime matrix into a proper REAPER arrangement at some point.
+
+This is also important if you xref:advanced-usage-scenarios/control-with-items.adoc[control Playtime with items] and your goal is to include the output of Playtime in the final rendering. Unlike traditional instrument plug-ins, Playtime doesn't participate in rendering! footnote:foot[It's possible that this will be improved in the future by introducing a new mode of operation.] Which is why you first need to turn the output into a conventional REAPER arrangement.
+
+There are two ways of building an arrangement.
+
+== Export matrix content
+
+You can export parts of the matrix to the arrangement directly:
+
+=== 1. Make a time selection (optional)
+
+You can influence the start and length of the export on the timeline by creating a time selection on the REAPER timeline. If you don't do that, the length will correspond to the longest exported clip.
+
+=== 2. Export the desired content
+
+* If you want to export all clips in the matrix, right-click the xref:user-interface/matrix-area.adoc#matrix-cell[] and choose xref:user-interface/matrix-menu.adoc#matrix-export-to-arrangement[].
+* If you want to export all clips in a particular column, right-click the corresponding xref:user-interface/matrix-area.adoc#column-cell[] and choose xref:user-interface/column-menu.adoc#column-export-to-arrangement[].
+* If you want to export all clips in a particular row, right-click the corresponding xref:user-interface/matrix-area.adoc#row-cell[] and choose xref:user-interface/row-menu.adoc#row-export-to-arrangement[].
+* If you want to export the primary clip of a slot, right-click the corresponding xref:user-interface/matrix-area.adoc#slot-cell[] and choose xref:user-interface/slot-menu.adoc#slot-export-primary-clip-to-arrangement[].
+
+.Quickly export different parts of your song
+[TIP]
+====
+Maybe you have named the matrix rows so that they represent different parts of your song, such as _Verse_, _Chorus_, _Bridge_ and _Solo_. Now you want to export those parts like this:
+
+* 2x Verse
+* 1x Chorus
+* 1x Bridge
+* 1x Verse
+* 1x Solo
+* 2x Chorus
+
+Making such an export can be done very quickly just by using keyboard keys:
+
+. Select the _Verse_ row cell
+. Press key kbd:[A] 2 times (the shortcut for exporting the selected cell to the arrangement)
+. Select the _Chorus_ row cell
+. Press key kbd:[A] 1 time
+. ...
+
+This works nicely because after exporting a row, Playtime automatically moves the play cursor or the complete time selection to the right.
+====
+
+== Record and write a sequence
+
+Another way to export an arrangement is to record a Playtime performance and write the result to the arrangement. This is done using Playtime's built-in xref:user-interface/toolbar.adoc#toolbar-matrix-sequencer[]:
+
+=== 1. Start recording a new matrix sequence
+
+Press the xref:user-interface/toolbar.adoc#toolbar-record-matrix-sequence[] button in the xref:user-interface/toolbar.adoc#toolbar-matrix-sequencer[] of the xref:user-interface/toolbar.adoc[].
+
+This will always create a new sequence and never overwrite an existing one, so you can press this anytime.
+
+=== 2. Perform your song within Playtime
+
+Playtime will record all play and stop interactions with your matrix.
+
+=== 3. Stop recording the sequence
+
+Press the xref:user-interface/toolbar.adoc#toolbar-record-matrix-sequence[] button again to stop recording.
+
+=== 4. Play sequence (optional)
+
+If you want, you can play the sequence directly within Playtime by pressing the xref:user-interface/toolbar.adoc#toolbar-play-stop-matrix-sequence[].
+
+=== 5. Write the sequence to the arrangement
+
+If you are satisfied, you can write the sequence to the REAPER tracks by pressing xref:user-interface/toolbar.adoc#toolbar-write-to-arrangement[].
+
+== The translation from clips to items
+
+What happens in both cases it that Playtime translates its xref:key-concepts.adoc#clip[clips] into REAPER items.
+
+Ideally, the items - when played back by REAPER - should sound exactly as the clips in Playtime. If you detect deviations, please open a bug report in the link:https://github.com/helgoboss/helgobox/issues[Helgobox issue tracker].
+
+[TIP]
+====
+The resulting items are played back by REAPER alone. Those are conventional REAPER items, there is no connection to Playtime anymore!
+
+That also means that if you share the REAPER project file with other people, they won't need a Playtime installation to play back the arrangement.
+====

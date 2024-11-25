@@ -1,3 +1,31 @@
 = Adjust clips
 
-Now that you know how to create play clips, you might want to experiment a bit with
+Now that you know how to create and play clips, you might want change them a bit.
+
+== Editing the clip source
+
+If you are dealing with MIDI clips, you can easily edit the clip xref:key-concepts.adoc#source[]:
+
+. Double-click the xref:user-interface/matrix-area.adoc#slot-cell-content[] area of the desired slot. This should open the clip source in REAPER's MIDI editor.
+. Make changes in the MIDI editor. Any change should be applied right away, if the clip is currently playing.
+. Close the MIDI editor.
+
+Any change can be undone using Playtime's xref:helgobox::app/user-interface/title-bar.adoc#title-bar-undo[] function.
+
+== Adjusting clip properties
+
+Each clip has certain properties in addition to its actual source, which you can adjust.
+
+=== 1. Select the slot
+
+Select the desired slot by clicking the xref:user-interface/matrix-area.adoc#slot-cell-content[] area.
+
+This will show the properties of the clip within that slot in the xref:user-interface/inspector/clip.adoc[] on the right side.
+
+=== 2. Adjust clip properties
+
+Now go ahead and check what properties xref:user-interface/inspector/clip.adoc[are available] in the inspector.
+
+We will just take the example of the *pitch* property. Find the xref:user-interface/inspector/clip.adoc#inspector-clip-pitch[] setting, move your mouse over the number *0.00* semitones and use your mouse wheel or any other xref:helgobox::app/user-interface/general.adoc#drag-field[] interaction to change the pitch. For example, to *12.00* semitones, which corresponds to one octave.
+
+The new pitch will be applied right away or according to the xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-start-timing[matrix start timing].

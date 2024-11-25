@@ -2,7 +2,8 @@
 
 This page describes the basic usage of common user interface elements in the Helgobox app.
 
-== Drag fields
+[[drag-field]]
+== Drag field
 
 image::playtime::generated/screenshots/elements/toolbar/tempo.png[]
 
@@ -15,7 +16,7 @@ include::partial$app/user-interface/interactions/text-entry.adoc[]
 include::partial$app/user-interface/interactions/reset-to-default.adoc[]
 include::partial$app/user-interface/interactions/fine-adjustment.adoc[]
 
-== Knobs
+== Knob
 
 image::playtime::generated/screenshots/elements/toolbar/play-rate.png[]
 
@@ -28,7 +29,7 @@ include::partial$app/user-interface/interactions/text-entry.adoc[]
 include::partial$app/user-interface/interactions/reset-to-default.adoc[]
 include::partial$app/user-interface/interactions/fine-adjustment.adoc[]
 
-== Sliders
+== Slider
 
 image::playtime::generated/screenshots/elements/track-panel/volume.png[]
 
@@ -39,7 +40,7 @@ include::partial$app/user-interface/interactions/mouse-wheel-scrolling.adoc[]
 include::partial$app/user-interface/interactions/touchpad-panning.adoc[]
 include::partial$app/user-interface/interactions/reset-to-default.adoc[]
 
-== Search lists
+== Search list
 
 image::playtime::generated/screenshots/main/sequences.png[]
 

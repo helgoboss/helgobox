@@ -103,6 +103,12 @@ Stopping Playtime playback doesn't just stop all playing clips, it also memorize
 
 Starting Playtime playback will automatically start all _ignited_ clips. If you don't want that, press the xref:user-interface/matrix-area.adoc#matrix-cell-stop[] or xref:user-interface/matrix-area.adoc#column-cell-stop[] button to un-ignite the clips.
 
+.Alternatives
+****
+Conducting a count-in by tapping tempo::
+A neat way to start playback with a new tempo is to stop playback and repeatedly press the xref:user-interface/toolbar.adoc#toolbar-tap-tempo[] button in a "1, 2, 3, 4"-style count-in.
+****
+
 == Playing together with the REAPER arrangement
 
 === Starting playback within REAPER

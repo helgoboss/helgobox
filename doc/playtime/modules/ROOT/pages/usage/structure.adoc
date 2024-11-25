@@ -1,1 +1,41 @@
 = Structure the song
+
+Playtime's xref:user-interface/matrix-area.adoc[] suits itself for organizing the clips into a musical structure.
+
+== Rename slots
+
+Renaming a slot is as easy as selecting the xref:user-interface/matrix-area.adoc#slot-cell[] and pressing kbd:[F2], or right-clicking the cell and selecting xref:user-interface/slot-menu.adoc#slot-rename-primary-clip[].
+
+== Add more columns
+
+You can add more columns, for example one column per instrument.
+
+You can rename a column or its corresponding xref:key-concepts.adoc#column-track[] by selecting the xref:user-interface/matrix-area.adoc#column-cell[] and pressing kbd:[F2], or right-clicking the cell and selecting xref:user-interface/column-menu.adoc#column-rename-column-or-track[].
+
+== Drag and drop things
+
+You can freely drag and drop slot contents or other things. Check out the following links to learn more about it:
+
+* xref:user-interface/matrix-area.adoc#column-drag-and-drop[]
+* xref:user-interface/matrix-area.adoc#row-drag-and-drop[]
+* xref:user-interface/matrix-area.adoc#slot-drag-and-drop[]
+
+== Add more rows
+
+You can add more rows if you are running out of vertical space for your clips. Just press the xref:user-interface/matrix-area.adoc#matrix-add-row[] button or right-click a xref:user-interface/matrix-area.adoc#row-cell[] and choose xref:user-interface/row-menu.adoc#row-insert-row-below[].
+
+Renaming works just as with columns.
+
+== Use colors to spice things up
+
+There are two things in a xref:key-concepts.adoc#matrix[] that can get individual colors: Tracks and clips.
+
+In order to change the color of a track, click the xref:user-interface/track-area.adoc#track-panel-label[] to select the track. Then change the color in the xref:user-interface/inspector/track.adoc[] on the right. This sets the color of the REAPER track.
+
+In order to change the color of an individual clip, select the xref:user-interface/matrix-area.adoc#slot-cell[] and change the color in the xref:user-interface/inspector/clip.adoc[] on the right.
+
+== Build scenes
+
+One particular way to make use of rows of the matrix is to consider a row as a xref:key-concepts.adoc#scene[] - a part within a song. By organizing your clips into scenes, the scene column on the left of the matrix basically turns into a playlist for your song, which is very convenient if you want to xref:usage/arrangement.adoc[turn the song into an arrangement].
+
+One function which greatly helps to build scenes (apart from drag-and-drop and copy-and-paste) is xref:user-interface/row-menu.adoc#row-build-scene-from-currently-playing-clips[], which you can access by right-clicking the xref:user-interface/matrix-area.adoc#row-cell-label[] of an empty row.

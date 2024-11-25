@@ -1,1 +1,12 @@
 = Render
+
+At the end, you probably want to render/mix-down/export the arrangement xref:usage/arrangement.adoc[created in the previous step] to an audio file.
+
+
+All you need to do is to use REAPER's built-in render functionality as usual:
+
+. Open menu:File[Render...]
+. Change options if desired
+. Press the btn:[Render] button
+
+That's it! Playtime doesn't change anything about the rendering process. In fact, it's not involved anymore at this point.

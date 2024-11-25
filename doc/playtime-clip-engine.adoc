@@ -4,6 +4,14 @@
 
 == Usage
 
+[IMPORTANT]
+====
+**This document is outdated!** The Clip Engine has finally (November 2024) culminated in the final product link:https://www.helgoboss.org/projects/playtime[Playtime 2], which contains both GUI and engine.
+
+The document is kept for historical purposes. Most of the mentioned engine features made it into the final product, but not all. There are also new ones.
+====
+
+
 This section describes how to use the Clip Engine without the Playtime App.
 
 [NOTE]
@@ -17,7 +25,7 @@ For more info, watch the link:https://youtu.be/6iEMKUcwzMs[Clip Engine introduct
 
 [WARNING]
 ====
-At this point, the Clip Engine is in early alpha stage.
+At this point (May 2022), the Clip Engine is in early alpha stage.
 I can't guarantee that projects or presets that you save with the current version can be loaded in future versions of the Clip Engine!
 
 The current version is intended for alpha testing and experimentation, *not* for live usage or building your dream setup.
@@ -295,7 +303,7 @@ Not very polished yet.
 * It's possible to adjust the volume of a clip, not just the volume of column tracks.
 * Adjusting the volume of MIDI clips modifies the velocity.
 
-=== Non-exclusive columnss
+=== Non-exclusive columns
 
 * If requested, a column can play multiple clips simultaneously.
 

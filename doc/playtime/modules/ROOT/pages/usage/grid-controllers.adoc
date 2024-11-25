@@ -1,0 +1,28 @@
+= Use grid controllers
+
+== Introduction
+
+_Grid controllers_ are a unique class of hardware controller designed specifically for clip launching. A well-known example is the Novation Launchpad. These controllers feature a grid of pads with LEDs arranged in rows and columns — exactly like Playtime's xref:key-concepts.adoc#matrix[]!
+
+.Grid controllers are optional!
+TIP: You don't need a grid controller to use Playtime! However, using one adds a tactile dimension to the clip-launching experience, making Playtime feel more like a distinct musical instrument. It’s a fun way to enhance interaction and creativity.
+
+Playtime includes out-of-the-box support for many popular grid controllers. link:https://github.com/helgoboss/helgobox/wiki/Playtime-Controllers[Here] you can find the current list of supported devices.
+
+== Usage
+
+If your controller is on the link:https://github.com/helgoboss/helgobox/wiki/Playtime-Controllers[list of supported devices], here's how you set it up:
+
+. Ensure that Playtime is running and you see its xref:user-interface.adoc[].
+. If the device is already connected to the USB port, **disconnect it** and wait a few seconds!
+. **Connect** the device to the USB port.
+. After waiting for a few seconds, Playtime should show a green success notice at the bottom of the screen.
+
+After that, the device should visually reflect the contents of the Playtime xref:key-concepts.adoc#matrix[] and you should be able to control the matrix with it.
+
+In addition, the device should now appear in the xref:realearn:ROOT:user-interface/settings-dialog.adoc#controllers[ReaLearn controllers] section of the xref:helgobox::app/user-interface/settings-dialog.adoc[]. This is also the place where you can manually set up the device in case it was not auto-detected.
+
+
+== Related videos
+
+video::tkyNCGOVumw[youtube]
