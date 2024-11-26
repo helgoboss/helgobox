@@ -49,7 +49,7 @@
 * xref:advanced-usage-scenarios.adoc[]
 ** xref:advanced-usage-scenarios/record-performance-as-audio.adoc[]
 ** xref:advanced-usage-scenarios/control-with-items.adoc[]
-** xref:advanced-usage-scenarios/self-playing.adoc[]
+** xref:advanced-usage-scenarios/meta-clips.adoc[]
 ** xref:advanced-usage-scenarios/multiple-instances.adoc[]
 * xref:reaper-actions.adoc[]
 * xref:realearn-targets.adoc[]

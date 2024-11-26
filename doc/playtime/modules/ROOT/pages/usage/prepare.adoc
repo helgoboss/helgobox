@@ -52,7 +52,7 @@ If you wanted, you could do all of those things also manually.
 |In the xref:helgobox::plug-in/user-interface.adoc[Helgobox plug-in window], press menu:Menu[Show app]
 
 |5. Navigate to the Playtime section of the App
-|In the xref:helgobox::app/user-interface.adoc[Helgobox app window], press the image:screenshots/playtime-toolbar-icon.png[Playtime,width=30] in the xref:helgobox::app/user-interface/navigation-bar.adoc[]
+|In the xref:helgobox::app/user-interface.adoc[Helgobox app window], press the image:screenshots/playtime-toolbar-icon.png[Playtime,width=30] button in the xref:helgobox::app/user-interface/navigation-bar.adoc[] on the left
 
 |6. Create a xref:key-concepts.adoc#matrix[Playtime Matrix] in this Helgobox instance
 |Press the button btn:[Create a Playtime Matrix]

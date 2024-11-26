@@ -8,3 +8,5 @@ asciidoc:
   attributes:
     # For making menu and button macros work
     experimental: true
+    # YouTube playlist ID of "Playtime tutorials"
+    youtube_playtime_tutorials_list_id: PL0bFMT0iEtAgjbtAN-lp6d_-vLA_YUP8O

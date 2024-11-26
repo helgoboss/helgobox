@@ -13,8 +13,12 @@ The obvious way to play a clip is to use your mouse: Press the xref:user-interfa
 
 You can stop the clip by pressing the xref:user-interface/matrix-area.adoc#slot-cell-trigger[same button] again, which now appears as a stop icon. The clip should stop playing according to the configured xref:key-concepts.adoc#clip-stop-timing[].
 
+.Playtime pipes audio and MIDI directly to the column tracks!
+NOTE: Playtime "magically" plays the clip's MIDI or audio content directly through the xref:key-concepts.adoc#column-track[column track] of the containing column. It doesn't use any sends for this! In fact, the xref:helgobox::plug-in.adoc[] itself doesn't produce any audio or MIDI data at all. footnote:direct-output[It's possible that this will be added in the future by introducing a new mode of operation.]
+
 TIP: You can xref:helgobox::app/user-interface/keyboard-shortcuts.adoc#hide[hide] or xref:helgobox::app/user-interface/title-bar.adoc#title-bar-close-window[close] the app window at any time. This will not affect playback or recording. Playtime also works without its user interface!
 
+[[playing-clips-using-a-midi-keyboard]]
 == Playing clips using a MIDI keyboard
 
 Playtime allows you to play your clips by pressing keys on your MIDI keyboard:
@@ -52,7 +56,7 @@ So if you use xref:key-concepts.adoc#clip-start-timing[] xref:user-interface/ins
 ====
 When playing Playtime via MIDI, it helps to look at it as a kind of sampler. But instead of playing single tones, you usually trigger complete musical _phrases_, either as MIDI or audio.
 
-You are basically working on a higher level. Each of the triggered phrases in turn can trigger samplers or synthesizers ... or even xref:advanced-usage-scenarios/self-playing.adoc[Playtime itself].
+You are basically working on a higher level. Each of the triggered phrases in turn can trigger samplers or synthesizers ... or even xref:advanced-usage-scenarios/meta-clips.adoc[Playtime itself].
 ====
 
 == Playing and stopping multiple clips

@@ -2,7 +2,7 @@
 
 Maybe you want to use Playtime for live improvisation only, in which case the basic usage guide would end here. But chances are, you want to go further than that and turn your Playtime matrix into a proper REAPER arrangement at some point.
 
-This is also important if you xref:advanced-usage-scenarios/control-with-items.adoc[control Playtime with items] and your goal is to include the output of Playtime in the final rendering. Unlike traditional instrument plug-ins, Playtime doesn't participate in rendering! footnote:foot[It's possible that this will be improved in the future by introducing a new mode of operation.] Which is why you first need to turn the output into a conventional REAPER arrangement.
+This is also important if you xref:advanced-usage-scenarios/control-with-items.adoc[control Playtime with items] or xref:advanced-usage-scenarios/meta-clips.adoc[use meta clips] and your goal is to include the output of Playtime in the final rendering. Unlike traditional instrument plug-ins, Playtime doesn't participate in rendering! footnote:direct-output[It's possible that this will be added in the future by introducing a new mode of operation.] Which is why you first need to turn the output into a conventional REAPER arrangement.
 
 There are two ways of building an arrangement.
 

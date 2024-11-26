@@ -1,3 +1,117 @@
 = Control Playtime with items
 
-TODO
+Because Playtime is an instrument plug-in, it can be controlled via MIDI. Not just via external MIDI controllers, but also from within REAPER. You can just put MIDI items on the Playtime track and start REAPER playback, exactly as you would do it with a synthesizer.
+
+== 1. Set up matrix
+
+Click xref:user-interface/matrix-area.adoc#matrix-cell-settings[] to open the xref:user-interface/inspector/matrix.adoc[] and make the following settings:
+
+|===
+| Setting | Value | Reason
+
+| xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-start-timing[]
+| xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[]
+.2+| Position and length of a note in the MIDI editor should correspond exactly to the position and length of clip playback.
+
+| xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-trigger-mode[]
+| xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode-momentary[]
+
+| xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-activate-slot-on-trigger[]
+| Off
+| We don't want the Playtime selection to jump around like crazy.
+
+|===
+
+Also ensure that you haven't overridden the first two properties on column or clip level!
+
+Additionally, you might want to switch off xref:user-interface/inspector/column/playback.adoc#inspector-column-exclusive-mode[] for columns, in order to get more freedom of playing.
+
+== 2. Create MIDI triggers
+
+Before you can control Playtime with MIDI notes, you need to set up MIDI triggers.
+
+=== Option A: Learn MIDI triggers manually
+
+One way to do this is to learn the necessary MIDI triggers manually by using the xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[] feature. See xref:usage/play.adoc#playing-clips-using-a-midi-keyboard[].
+
+=== Option B: Assign MIDI triggers automatically
+
+Another way to do this is to automatically assign MIDI notes to each slot cell. We can easily do that by importing a snippet of Lua code into ReaLearn.
+
+Below code snippet by default spreads MIDI notes row by row in groups of 8, starting at the note C3. You can change that by modifying the configuration section before importing it into ReaLearn.
+
+. Copy below code to the clipboard
+. Press xref:helgobox::app/user-interface/navigation-bar.adoc#navbar-show-helgobox-plugin[] in the navigation bar on the left. This should open the xref:realearn::user-interface/main-panel.adoc[ReaLearn main panel].
+. Press the xref:realearn::user-interface/main-panel/menu-bar.adoc#import-from-clipboard[]
++
+CAUTION: This will overwrite existing MIDI mappings in the xref:realearn::key-concepts.adoc#unit[ReaLearn main unit].
+. After confirming the import, you should now see a list of mappings in ReaLearn. But also in the xref:user-interface.adoc[Playtime user interface], when pressing xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[showing the MIDI triggers].
+
+[source,lua]
+----
+-- Configuration
+
+-- The first mapped note (key 48 correponds to C3)
+local first_key = 48
+-- The first mapped column
+local first_column = 0
+-- The first mapped row
+local first_row = 0
+-- If true, assignments will be spread row by row, otherwise column by column
+local row_wise = true
+-- Make that many assignments until jumping to the next column or row
+local group_size = 8
+
+-- Build mappings
+
+local mappings = {}
+for k = first_key, 127 do
+    local i = k - first_key
+    local i1 = math.floor(i / group_size)
+    local i2 = i % group_size
+    local mapping = {
+        source = {
+            kind = "MidiNoteVelocity",
+            channel = 0,
+            key_number = k,
+        },
+        target = {
+            kind = "PlaytimeSlotTransportAction",
+            slot = {
+                address = "ByIndex",
+                column_index = first_column + if row_wise then i2 else i1,
+                row_index = first_row + if row_wise then i1 else i2,
+            },
+            action = "Trigger",
+        },
+    }
+    table.insert(mappings, mapping)
+end
+
+-- Return result
+
+return {
+    kind = "MainCompartment",
+    value = {
+        mappings = mappings,
+    },
+}
+----
+
+[[record-and-edit-midi-items]]
+== 3. Record and edit MIDI items
+
+Now we are ready to record some MIDI items that control our clips.
+
+. Ensure that the Playtime track is armed in REAPER and that all other tracks are unarmed. You should be able to trigger Playtime clips with your MIDI keyboard!
+. Start recording in REAPER
+. Play stuff on your MIDI keyboard
+. Stop recording in REAPER
+. Play back the MIDI item which you just recorded on the Playtime track
+
+REAPER should repeat what you just played, cool!
+
+Now you can edit the MIDI item as desired, using REAPER's MIDI editor. For example, you could quantize all notes.
+
+.Rendering advice
+IMPORTANT: Do you want to render your project? As Playtime will not participate in rendering, you first need to turn your performance into a regular REAPER arrangement. Please read xref:usage/arrangement.adoc[] for more information.

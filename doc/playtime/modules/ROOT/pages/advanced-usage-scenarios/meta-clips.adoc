@@ -1,0 +1,48 @@
+= Meta clips
+
+We can take the previous scenario xref:advanced-usage-scenarios/control-with-items.adoc[] a step further!
+
+== The idea
+
+If we can control Playtime with MIDI items, shouldn't it be possible to control it with MIDI xref:key-concepts.adoc#clip[_clips_] as well? The answer is yes! I call such clips _meta clips_. *Playtime can basically play itself!*
+
+Meta clips open up a whole new world of possibilities. Here are just some of the things you could do with it:
+
+* Meta clips can be used as xref:key-concepts.adoc#scene[scenes] on steroids. You can trigger many other clips at once, no matter in which row they are.
+* You can record sequences of clip invocations and play them back at the press of a button.
+
+== Basic setup
+
+. Prepare the matrix and set up MIDI triggers as explained in  xref:advanced-usage-scenarios/control-with-items.adoc[]. This should make it possible to play clips using your MIDI keyboard. Make sure that part works.
+. Select the track "Playtime" in your REAPER project (this is the track which contains the xref:helgobox::key-concepts.adoc#instance[Helgobox instance], by default the first track in the project)
+. Right-click the xref:user-interface/matrix-area.adoc#column-cell-label[] of some column, for example the last column. Choose xref:user-interface/matrix-menu.adoc#matrix-insert-column-for-each-selected-track[].
++
+This should add a new column named "Playtime" that plays back its MIDI clips on the "Playtime" track, and can therefore be used to _play other clips_.
+.
+. Now simply record a clip into the new "Playtime" column, while playing clips in other columns using your MIDI keyboard.
+. That's it! You recorded your first meta clip. When playing it back, it should trigger other clips in other columns. You can also edit that meta clip, e.g. quantize its notes.
+
+You may look at the "Playtime" column as the *leader* column (which you trigger) and the other columns as *follower* columns (which are triggered by the leader column).
+
+== Adjust the setup to your needs
+
+This was just an example setup. You can adjust it to your needs. Here are some ideas:
+
+* Introduce more leader columns
+* Move the leader column to the very left to make it obvious that it is a very important column
+* Set the xref:user-interface/inspector/column/playback.adoc#inspector-column-start-timing[] for the *Playtime* column to *1 bar*
+* Set the xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode[] to xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode-toggle[]
+
+
+IMPORTANT: Using MIDI clips to control Playtime is subject to the same considerations about _rendering_ as when using MIDI items. Read xref:usage/arrangement.adoc[] for more information.
+
+[TIP]
+.Meta clips are just the beginning
+====
+The simple fact that Playtime is a MIDI-controllable instrument opens up even more possibilities.
+
+Here are some ideas:
+
+* Use a MIDI arpeggiator to arpeggiate between different clips
+* Write a MIDI link:https://www.reaper.fm/sdk/js/js.php[JSFX] effect that controls clips
+====

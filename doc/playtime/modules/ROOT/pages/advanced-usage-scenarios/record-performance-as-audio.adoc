@@ -1,3 +1,35 @@
 = Record performance as multi-track audio
 
-TODO
+Due to the way Playtime works, it is possible to record your Playtime performance directly to the xref:key-concepts.adoc#column-track[column tracks] as audio items. This is basically a sort of multi-track online rendering approach. It can be used as an audio-only post-FX alternative to recording xref:key-concepts.adoc#matrix-sequence[matrix sequences].
+
+.Drawbacks
+[CAUTION]
+====
+Before you proceed, be aware that this technique has a few drawbacks:
+
+. Below-mentioned step 2 will change the xref:user-interface/track-area.adoc#track-panel-input-monitoring[] setting for all xref:key-concepts.adoc#column-track[column tracks], which might not be what you want! You will need to restore the old input monitoring settings afterward.
+. Step 4 obviously changes the record-arm state within Playtime, which might also not be what you want! You will need to restore the old arm states afterward.
+. Playing back the resulting multi-track audio will naturally flow through the track FX chain again. However, since the recording was done post-FX, the track FX is already part of the recorded audio. In order to avoid applying the FX twice, you would need to temporarily disable the FX of the affected xref:key-concepts.adoc#column-track[column tracks].
+====
+
+
+It goes like this:
+
+. Select all xref:key-concepts.adoc#column-track[column tracks] in the REAPER track control panel
+. Right-click the record-arm button of one track in the selection and disable menu:Monitor input[]. This is a safety measure to prevent audio feedback.
+. Right-click the record-arm button again and enable menu:Record: output[Record: output (stereo)]
++
+TIP: This step doesn't have any effect on recording within Playtime. Playtime will still record from the xref:user-interface/track-area.adoc#track-panel-input[], not from the track output. So this step shouldn't have any negative consequences.
+. Click the record-arm button. This should record-arm all column tracks.
+. Start recording in REAPER
+. Now play and stop clips in the Playtime xref:key-concepts.adoc#matrix[] as desired
+. Stop recording in REAPER when you are finished
+
+Each column track now contains a stereo recording of its audio output.
+
+
+.Feedback wanted
+[NOTE]
+====
+Recording the performance as multi-track audio is a sort of "accidental feature" that is technically possible but not "officially" supported, because Playtime has not been optimized for it! It comes with the mentioned drawbacks, but it is there when you need it. If you like this feature and wish there would be a more streamlined version of it, post your idea at link:https://github.com/helgoboss/helgobox/discussions[GitHub discussions].
+====
