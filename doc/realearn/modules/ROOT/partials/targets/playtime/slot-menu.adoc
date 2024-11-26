@@ -1,0 +1,3 @@
+== Slot menu
+
+The xref:playtime::key-concepts.adoc#slot[] on which to carry out this action. See xref:targets/playtime.adoc#slot-selector[].

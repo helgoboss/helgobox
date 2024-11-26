@@ -1,3 +1,37 @@
 = Target "Playtime: Matrix action"
 
-include::partial$under-construction.adoc[]
+Invokes a xref:playtime::key-concepts.adoc#matrix[]-related action.
+
+TODO
+
+== Action menu
+
+Stop::
+
+Undo::
+
+Redo::
+
+Build scene::
+
+Set record length mode::
+
+Set custom record length in bars::
+
+Enable/disable click::
+
+Enable/disable MIDI auto-quantize::
+
+Smart record::
+
+Play ignited or enable silence mode::
+
+Enable/disable silence mode::
+
+Panic::
+
+Enable/disable sequencer recording::
+
+Enable/disable sequencer playing::
+
+Tap tempo::

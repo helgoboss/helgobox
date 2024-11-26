@@ -1,3 +1,10 @@
 = Target "Playtime: Column action"
 
-include::partial$under-construction.adoc[]
+Invokes a xref:playtime::key-concepts.adoc#column[]-related action.
+
+TODO
+
+== Action menu
+
+== Column menu
+

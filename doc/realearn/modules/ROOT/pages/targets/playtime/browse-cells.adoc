@@ -1,3 +1,9 @@
 = Target "Playtime: Browse cells"
 
-include::partial$under-construction.adoc[]
+Changes the currently xref:playtime::further-concepts/matrix.adoc#active-cell[].
+
+Best uses with xref:further-concepts/mapping.adoc#rotary-endless-encoder[encoders] or previous/next-style buttons.
+
+== Axis
+
+Sets the direction into which to browse.

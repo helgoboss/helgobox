@@ -1,3 +1,38 @@
 = Target "Playtime: Slot management action"
 
-include::partial$under-construction.adoc[]
+Invokes a xref:playtime::key-concepts.adoc#slot[]-related action that has something to do with modifying slots.
+
+== Action menu
+
+The kind of action to be executed.
+
+Most of the actions only execute when the target is hit with an _on_ value. In all other cases, it's specifically mentioned.
+
+Clear slot::
+See xref:playtime::user-interface/slot-menu.adoc#slot-clear[].
+
+Fill slot with selected item::
+See xref:playtime::user-interface/slot-menu.adoc#slot-import-selected-item[].
+
+Edit first clip::
+When hit with an _on_ value, opens the MIDI editor for the primary clip in the slot, otherwise close its. Works for MIDI clips only.
+
+Copy or paste clip::
+If the slot contains clips, copies all clips to a matrix-internal clipboard. If the slot is empty, attempts to paste clips from the matrix-internal clipboard into that slot, replacing existing ones.
+
+Double clip section length::
+Doubles the xref:playtime::user-interface/inspector/clip.adoc#inspector-clip-length[] of each clip contained in the slot.
+
+Halve clip section length::
+Halves the xref:playtime::user-interface/inspector/clip.adoc#inspector-clip-length[] of each clip contained in the slot.
+
+Quantization on/off state::
+When hit with an _on_ value, quantizes the first MIDI clip in this slot, otherwise un-quantizes it.
+
+Duplicate::
+Duplicates the clips of this slot to the slot below. If the slot below already contains clips, they will get replaced.
+
+Activate::
+Makes this slot the xref:playtime::further-concepts/matrix.adoc#active-cell[] .
+
+include::partial$targets/playtime/slot-menu.adoc[]

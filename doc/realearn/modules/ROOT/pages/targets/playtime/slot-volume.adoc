@@ -1,3 +1,5 @@
 = Target "Playtime: Slot volume"
 
-include::partial$under-construction.adoc[]
+Sets the xref:playtime::user-interface/inspector/clip.adoc#inspector-clip-volume[volume] property of all clips in a xref:playtime::key-concepts.adoc#slot[].
+
+include::partial$targets/playtime/slot-menu.adoc[]

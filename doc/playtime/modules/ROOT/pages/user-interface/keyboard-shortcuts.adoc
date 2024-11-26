@@ -2,6 +2,7 @@
 
 Playtime provides keyboard shortcuts in addition to the xref:helgobox::app/user-interface/keyboard-shortcuts.adoc[general ones].
 
+[cols = "1,1a"]
 |===
 |Shortcut |Purpose
 
@@ -25,6 +26,15 @@ Playtime provides keyboard shortcuts in addition to the xref:helgobox::app/user-
 
 |kbd:[Space]
 |Starts or stops playback.
+
+|[[enter]] kbd:[Enter]
+|
+Carries out an action depending on the current selection:
+
+* When the xref:user-interface/matrix-area.adoc#matrix-cell[] is selected, stops all clips in the xref:key-concepts.adoc#matrix[].
+* When a xref:user-interface/matrix-area.adoc#column-cell[] is selected, stops all clips in the xref:key-concepts.adoc#column[].
+* When a xref:user-interface/matrix-area.adoc#row-cell[] is selected, plays all clips in the xref:key-concepts.adoc#row[] whose column follows scenes.
+* When a xref:user-interface/matrix-area.adoc#slot-cell[] is selected, xref:further-concepts/matrix.adoc#trigger-slot[triggers] the xref:key-concepts.adoc#slot[].
 
 |kbd:[F2]
 |Renames the currently selected column, row, clip or track.

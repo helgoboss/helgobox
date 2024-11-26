@@ -1,0 +1,7 @@
+== Feedback menu
+
+Determines how frequently ReaLearn captures feedback and sends it to your feedback output.
+
+Beat:: Roughly every beat.
+
+Fast:: As fast as possible, thereby giving the satisfying feeling of continuity.

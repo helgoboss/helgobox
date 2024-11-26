@@ -2,13 +2,7 @@
 
 Allows you to use faders, knobs, encoders or incremental buttons to seek within portions of your project … with feedback that indicates the current position!
 
-== Feedback menu
-
-Determines how frequently ReaLearn captures feedback and sends it to your feedback output.
-
-Beat:: Roughly every beat.
-
-Fast:: As fast as possible, thereby giving the satisfying feeling of continuity.
+include::partial$targets/feedback-frequency-menu.adoc[]
 
 == Behavior menu
 

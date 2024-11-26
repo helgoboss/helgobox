@@ -1,2 +1,53 @@
-
 = Playtime targets
+
+The targets in this section are made for controlling xref:playtime::introduction.adoc[Playtime], the clip launcher contained in Helgobox.
+
+[[column-selector]]
+== Column selector
+
+Column-related targets use a _column selector_ to define what xref:playtime::key-concepts.adoc#column[] the target should be applied to.
+
+The following kinds of column selectors are available:
+
+Active::
+The xref:playtime::further-concepts/matrix.adoc#active-cell[currently active] column.
+
+At position::
+Here you can refer to a fixed column by entering the column number, e.g. 2.
+
+Dynamic::
+Allows you to dynamically refer to a certain column. See <<dynamic-selector-variables>>.
+
+[[slot-selector]]
+== Slot selector
+
+Slot-related targets use a _slot selector_ to define what xref:playtime::key-concepts.adoc#slot[] the target should be applied to.
+
+The following kinds of slot selectors are available:
+
+Active::
+The xref:playtime::further-concepts/matrix.adoc#active-cell[currently active] slot.
+
+At coordinates::
+Here you can refer to a fixed slot by entering the slot address, e.g. 2 and 4. The first number is the number of the xref:playtime::key-concepts.adoc#column[], the second one the number of the xref:playtime::key-concepts.adoc#row[].
+
+Dynamic::
+Allows you to dynamically refer to a certain slot. There are two expressions, the first one should evaluate to the column index and the second one to the row index. As always, expressions must evaluate to zero-based indexes! See TODO <<dynamic-selector-variables>>.
+
+[[dynamic-selector-variables]]
+== Dynamic selector variables
+
+In addition to the general variables described in xref:further-concepts/target.adoc#dynamic-selector[], the dynamic selectors mentioned above grants access to the following variables:
+
+[cols="m,1,3"]
+|===
+| Variable | Type | Description
+
+| control_unit_column_index
+| Integer >= 0
+| Column index of the current top-left scroll position within the xref:playtime::further-concepts/matrix.adoc#control-unit[Playtime control unit] represented by this xref:key-concepts.adoc#unit[ReaLearn unit].
+
+| control_unit_row_index
+| Integer >= 0
+| Row index of the current top-left scroll position within the xref:playtime::further-concepts/matrix.adoc#control-unit[Playtime control unit] represented by this xref:key-concepts.adoc#unit[ReaLearn unit].
+|===

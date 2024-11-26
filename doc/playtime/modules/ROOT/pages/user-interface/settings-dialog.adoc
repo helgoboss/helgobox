@@ -8,6 +8,8 @@ image::generated/screenshots/main/settings.png[]
 
 include::partial$generated/elements/settings/show-control-unit-frames.adoc[]
 
+See xref:further-concepts/matrix.adoc#control-unit-frame[].
+
 include::partial$generated/elements/settings/show-column-numbers.adoc[]
 
 Disabling this will give you more vertical space, but also hides the shortcut buttons such as xref:user-interface/matrix-area.adoc#column-cell-exclusive-mode[]. In that case, you can still change those things in the xref:user-interface/inspector/column.adoc[].

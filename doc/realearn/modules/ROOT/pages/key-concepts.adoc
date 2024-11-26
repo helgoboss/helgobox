@@ -13,11 +13,22 @@ In ReaLearn, the term _control_ typically refers to the process of triggering or
 
 In ReaLearn, the term _feedback_ refers to controlling LEDs, motorized faders, or displays on your device in response to events in REAPER, such as a track volume change.
 
-[[controller]]
 == Controller
 
-A _controller_ is the device you use to control REAPER.
+Most of the time, when talking about _controllers_ in the documentation, we are talking about controllers in the _general_ sense.
+
+[[controller,Controller]]
+=== Controller in the general sense
+
+A _controller_ in the general sense is the device you use to control REAPER.
 It is usually a hardware device, such as a MIDI keyboard or control surface, but it can also be software, like an OSC app.
+
+Controllers are normally not specifically managed within ReaLearn, because you just need to set an <<input-port>> and and <<output-port>>, and that's all ReaLearn needs to know. An exception are <<managed-controller,managed controllers>>.
+
+[[managed-controller]]
+=== Managed controller
+
+Only recently, ReaLearn introduced the concept of xref:further-concepts/instance.adoc#auto-units[], in which controllers can actually be managed in a xref:user-interface/settings-dialog.adoc#controllers[list]. ReaLearn then automatically creates <<unit,units>> depending on which of these controllers are connected. Such controllers are called _managed controllers_.
 
 [[control-element]]
 == Control element

@@ -1,3 +1,50 @@
 = Target "Playtime: Slot transport action"
 
-include::partial$under-construction.adoc[]
+Invokes a xref:playtime::key-concepts.adoc#slot[]-related action that has something to do with transport.
+
+All actions that are about starting and stopping slots are real-time capable, which means they can be executed in real-time when controlled via xref:sources/midi.adoc[].
+
+== Action menu
+
+The kind of action to be executed.
+
+Trigger::
+xref:playtime::further-concepts/matrix.adoc#trigger-slot[Triggers] the slot.
+
+Play/stop::
+When hit with an _on_ value, starts slot playback, otherwise stops it.
+
+Play/pause::
+When hit with an _on_ value, starts slot playback, otherwise pauses it.
++
+CAUTION: Pausing slots is experimental.
+
+Stop::
+When hit with an _on_ value, stops the slot.
+
+Pause::
+When hit with an _on_ value, pauses the slot.
++
+CAUTION: Pausing slots is experimental.
+
+Record/stop::
+When hit with an _on_ value, starts slot recording, otherwise stops it.
+
+Record/play/stop::
+* When hit with an _on_ value and the slot is empty, starts slot recording.
+* When hit with an _on_ value and the slot contains clips, starts playback.
+* When hit with an _off_ value, stops the slot.
+
+Overdub/play::
+When hit with an _on_ value, starts MIDI-overdubbing the slot, otherwise stops it.
+
+Looped::
+Controls the xref:playtime::user-interface/inspector/clip.adoc#inspector-clip-looped[] setting of the clip.
+
+include::partial$targets/playtime/slot-menu.adoc[]
+
+== Stop if empty
+
+If this is checked, and you play or trigger empty slots, all slots in that column will be stopped.
+
+In other words, this makes empty slots act as stop button.

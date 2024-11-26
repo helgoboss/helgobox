@@ -39,8 +39,7 @@ They are JSON files and very similar to what you get when you press
 _Export to clipboard_.
 * They can even be in a subdirectory.
 Please note that the subdirectory name becomes a part of the preset ID, so better don't move existing presets around if you want preset references of existing ReaLearn units to stay intact.
-* JSON files can also contain custom data sections.
-For example, the ReaLearn Companion app adds a custom data section to controller presets in order to memorize the positions and shapes of all control elements.
+* JSON files can also contain <<custom-data>>.
 
 [#writing-presets-with-luau]
 === Writing presets with Luau
@@ -405,6 +404,18 @@ For controls divided into rows and column, as for example found on the Novation 
 
 Numbered (`numbered`)::
 Simply lets you pick among any number between 1 and 100.
+
+[[custom-data]]
+== Custom compartment data
+
+Each xref:key-concepts.adoc#compartment[] in ReaLearn can carry _custom data_. That is arbitrary structured (JSON-like) data which can be used in certain ways.
+
+I know that's a quite generic description. It's best to give some examples:
+
+* ReaLearn's xref:further-concepts/unit.adoc#projection[projection feature] uses custom compartment data within the xref:key-concepts.adoc#controller-compartment[] in order to memorize the positions and shapes of all control elements.
+* Playtime's xref:playtime::further-concepts/matrix.adoc#control-unit[] feature reads custom compartment data within the xref:key-concepts.adoc#main-compartment[] in order to know the size of the connected xref:playtime::key-concepts.adoc#grid-controller[].
+
+Such custom data can't directly be edited in ReaLearn's xref:user-interface.adoc[]. But you can read it when dealing with JSON or Lua chunks, e.g. when <<writing-presets-with-luau>>.
 
 == Order in which mappings are processed
 

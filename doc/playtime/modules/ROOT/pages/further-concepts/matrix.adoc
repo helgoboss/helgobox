@@ -1,0 +1,92 @@
+= Matrix concepts
+
+[[cell]]
+== Cell
+
+A _cell_ is a broad term that can refer to a xref:key-concepts.adoc#slot[], a xref:key-concepts.adoc#column[], a xref:key-concepts.adoc#row[], or the entire xref:key-concepts.adoc#matrix[].
+
+While it may seem like a concept exclusive to Playtime's xref:user-interface.adoc[], it is not limited to that context.
+
+[[active-cell]]
+== Active cell
+
+In a xref:key-concepts.adoc#matrix[], there's always exactly one <<cell>> that is considered the currently _active_ one. It is then possible to carry out certain actions on this cell, for example using the xref:realearn-targets.adoc[].
+
+One way to _activate_ a cell is to select it in the xref:user-interface.adoc[]. Vice versa, the selection in the user interface usually follows the currently active cell.
+
+By default, a _slot cell_ is also _activated_ just by <<trigger-slot,triggering>> it. This can be changed by setting the matrix property xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-activate-slot-on-trigger[].
+
+[[trigger-slot]]
+== Trigger a slot
+
+_Triggering a slot_ is an action carried out on a xref:key-concepts.adoc#slot[] that can have one of the following results, depending on the current slot contents and play state:
+
+* Start slot playback
+* Stop slot playback
+* Start slot recording
+* Stop slot recording
+
+Triggering a slot can be achieved either by using the xref:user-interface/keyboard-shortcuts.adoc#enter[] shortcut in the xref:user-interface.adoc[] or by using the ReaLearn xref:realearn::targets/playtime/slot-transport-action.adoc[].
+
+Triggering also takes the xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode[] and xref:user-interface/inspector/clip.adoc#inspector-clip-velocity-sensitivity[] into account.
+
+[[control-unit]]
+== Control unit
+
+A _control unit_ represents a xref:realearn::key-concepts.adoc#controller[] connected to a certain xref:key-concepts.adoc#matrix[Playtime matrix]. The concept is most important for xref:key-concepts.adoc#grid-controller[grid controllers] because they have special features within Playtime, most importantly <<control-unit-scrolling,scrolling>> through the matrix and displaying a corresponding <<control-unit-frame>> in the xref:user-interface.adoc[].
+
+One control unit always corresponds to a one xref:realearn::key-concepts.adoc#unit[ReaLearn unit] within the same xref:helgobox::key-concepts.adoc#instance[] as the xref:key-concepts.adoc#matrix[Playtime matrix].
+
+A control unit has the following properties:
+
+Name::
+Usually corresponds to the name of the connected xref:realearn::key-concepts.adoc#managed-controller[], e.g. "Launchpad". The name is currently not visible in Playtime, but might be displayed as part of the <<control-unit-frame>> in the future.
+
+Color::
+The color of the control unit is derived from the color of the xref:realearn::key-concepts.adoc#managed-controller[]. You can see the color "in action" by looking at the <<control-unit-frame>>.
+
+Size::
+The number of columns and rows available on the controller. For example, in case of Launchpads, it's usually 8 columns and 8 rows.
++
+The size of the control unit is provided by xref:realearn::further-concepts/compartment.adoc#custom-data[] of the xref:realearn::key-concepts.adoc#main-compartment[] within the xref:realearn::key-concepts.adoc#unit[ReaLearn unit] representing this control unit:
++
+[cols="m,1,1"]
+|===
+| Variable | Type | Description
+
+| playtime.control_unit.column_count
+| Integer
+| Number of available columns
+
+| playtime.control_unit.row_count
+| Integer
+| Number of available rows
+|===
++
+[source,lua]
+.Example in Lua
+----
+custom_data = {
+    playtime = {
+        control_unit = {
+            column_count = 8,
+            row_count = 8,
+        },
+    },
+},
+----
+
+[[control-unit-scroll-position]] Current scroll position::
+The address of the top-left visible slot. See <<control-unit-scrolling>>.
+
+[[control-unit-scrolling]]
+== Control unit scrolling
+
+When connecting a xref:key-concepts.adoc#grid-controller[] to Playtime, it reflects the contents of the xref:key-concepts.adoc#matrix[]. It often happens that the matrix is larger than the size of the controller grid. In that case, it's important to be able to scroll.
+
+[[control-unit-frame]]
+== Control unit frame
+
+The _control unit frame_ is a rectangle in the xref:user-interface/matrix-area.adoc[] that shows which portion of the matrix is currently shown on a certain grid controller, according to the current <<control-unit-scrolling,scroll position>>.
+
+The display of control unit frames can be switched off using xref:user-interface/settings-dialog.adoc#settings-show-control-unit-frames[].
