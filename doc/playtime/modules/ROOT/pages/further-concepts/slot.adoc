@@ -1,0 +1,6 @@
+= Slot concepts
+
+[[ignited-slot]]
+== Ignited slot
+
+Stopping Playtime playback doesn't just stop all playing slots, it also memorizes them, so that next time you start playback, they will play again. We call those memorized slots _ignited_. Ignited clips have a circle around their xref:user-interface/matrix-area.adoc#slot-cell-trigger[play button].

@@ -2,36 +2,51 @@
 
 Invokes a xref:playtime::key-concepts.adoc#matrix[]-related action.
 
-TODO
-
 == Action menu
 
+The kind of action to be executed.
+
 Stop::
+Stops all clips in the matrix. See xref:playtime::user-interface/matrix-area.adoc#column-cell-stop[]. Supports real-time operation.
 
 Undo::
+When hit with an _on_ value, undoes the last matrix operation. See xref:helgobox::app/user-interface/title-bar.adoc#title-bar-undo[].
 
 Redo::
+When hit with an _on_ value, redoes the last matrix operation. See xref:helgobox::app/user-interface/title-bar.adoc#title-bar-redo[].
 
 Build scene::
+When hit with an _on_ value, builds a xref:playtime::key-concepts.adoc#scene[] of all currently playing xref:playtime::key-concepts.adoc#clip[clips] in the first empty xref:playtime::key-concepts.adoc#row[].
 
 Set record length mode::
+Switches to a specific record-length mode. At the moment, only two possible modes exist: *Open end* and *Custom length* are supported. They correspond to the off and on state of xref:playtime::user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-length[].
 
 Set custom record length in bars::
+Sets the xref:playtime::user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-length[] to the desired number of bars.
 
 Enable/disable click::
+When hit with an _on_ value, enables the xref:playtime::user-interface/toolbar.adoc#toolbar-metronome[], otherwise disables it.
 
 Enable/disable MIDI auto-quantize::
+When hit with an _on_ value, enables xref:playtime::user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-auto-quantize[], otherwise disables it.
 
 Smart record::
+When hit with an _on_ value, triggers the xref:playtime::user-interface/toolbar.adoc#toolbar-smart-record[] function. If this leads to the stop of a xref:playtime::further-concepts/matrix.adoc#tempo-detection-recording[], the operation can be carried out in real-time.
 
 Play ignited or enable silence mode::
+When hit with an _on_ value, this starts Playtime playback and plays all xref:playtime::further-concepts/slot.adoc#ignited-slot[ignited] slots. Otherwise, this stops Playtime playback. This basically resembles the xref:playtime::user-interface/toolbar.adoc#toolbar-start-stop-playback[] button. This action supports real-time invocation.
 
 Enable/disable silence mode::
+When hit with an _on_ value, this stops Playtime playback. Otherwise, it starts playback _without_ playing xref:playtime::further-concepts/slot.adoc#ignited-slot[ignited] slots. This action supports real-time invocation.
 
 Panic::
+This abruptly stops all clips in the matrix. This resembles a double click on the xref:playtime::user-interface/matrix-area.adoc#matrix-cell-stop[] button. This action supports real-time invocation.
 
 Enable/disable sequencer recording::
+When hit with an _on_ value, this starts recording a new xref:playtime::key-concepts.adoc#matrix-sequence[], otherwise it stops recording.
 
 Enable/disable sequencer playing::
+When hit with an _on_ value, this starts playting the currently active xref:playtime::key-concepts.adoc#matrix-sequence[], otherwise it stops playing.
 
 Tap tempo::
+Invokes the tap-tempo function. This action supports real-time invocation. See xref:playtime::user-interface/toolbar.adoc#toolbar-tap-tempo[].

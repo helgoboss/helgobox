@@ -31,9 +31,11 @@ Record/stop::
 When hit with an _on_ value, starts slot recording, otherwise stops it.
 
 Record/play/stop::
-* When hit with an _on_ value and the slot is empty, starts slot recording.
-* When hit with an _on_ value and the slot contains clips, starts playback.
-* When hit with an _off_ value, stops the slot.
+When hit with an _on_ value and the slot is empty, starts slot recording.
++
+When hit with an _on_ value and the slot contains clips, starts playback.
++
+When hit with an _off_ value, stops the slot.
 
 Overdub/play::
 When hit with an _on_ value, starts MIDI-overdubbing the slot, otherwise stops it.

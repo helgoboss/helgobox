@@ -2,9 +2,22 @@
 
 Invokes a xref:playtime::key-concepts.adoc#column[]-related action.
 
-TODO
-
 == Action menu
+
+The kind of action to be executed.
+
+Stop::
+Stops all slots in this column.
+
+Arm/disarm::
+When hit with an _on_ value, arms the associated xref:playtime::key-concepts.adoc#column-track[], otherwise disarms it.
+
+Arm/disarm () exclusive::
+When hit with an _on_ value, arms the associated xref:playtime::key-concepts.adoc#column-track[] and disarms all other column tracks, otherwise disarms it.
+
+Activate::
+Makes this column the xref:playtime::further-concepts/matrix.adoc#active-cell[] .
 
 == Column menu
 
+The xref:playtime::key-concepts.adoc#column[] on which to carry out this action. See xref:targets/playtime.adoc#column-selector[].

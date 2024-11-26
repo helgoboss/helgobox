@@ -18,6 +18,22 @@ Here you can refer to a fixed column by entering the column number, e.g. 2.
 Dynamic::
 Allows you to dynamically refer to a certain column. See <<dynamic-selector-variables>>.
 
+[[row-selector]]
+== Row selector
+
+Row-related targets use a _row selector_ to define what xref:playtime::key-concepts.adoc#row[] the target should be applied to.
+
+The following kinds of row selectors are available:
+
+Active::
+The xref:playtime::further-concepts/matrix.adoc#active-cell[currently active] row.
+
+At position::
+Here you can refer to a fixed column by entering the row number, e.g. 2.
+
+Dynamic::
+Allows you to dynamically refer to a certain row. See <<dynamic-selector-variables>>.
+
 [[slot-selector]]
 == Slot selector
 
@@ -32,7 +48,7 @@ At coordinates::
 Here you can refer to a fixed slot by entering the slot address, e.g. 2 and 4. The first number is the number of the xref:playtime::key-concepts.adoc#column[], the second one the number of the xref:playtime::key-concepts.adoc#row[].
 
 Dynamic::
-Allows you to dynamically refer to a certain slot. There are two expressions, the first one should evaluate to the column index and the second one to the row index. As always, expressions must evaluate to zero-based indexes! See TODO <<dynamic-selector-variables>>.
+Allows you to dynamically refer to a certain slot. There are two expressions, the first one should evaluate to the column index and the second one to the row index. As always, expressions must evaluate to zero-based indexes! See <<dynamic-selector-variables>>.
 
 [[dynamic-selector-variables]]
 == Dynamic selector variables

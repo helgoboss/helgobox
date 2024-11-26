@@ -99,9 +99,9 @@ If you have messed with xref:key-concepts.adoc#clip-start-timing[], xref:user-in
 
 Playtime's playback can be started and stopped xref:helgobox::key-concepts.adoc#instance[instance-wide], using either the xref:user-interface/toolbar.adoc#toolbar-start-stop-playback[] button in the xref:user-interface/toolbar.adoc#toolbar-transport-section[] or the kbd:[Space] key.
 
-Stopping Playtime playback doesn't just stop all playing clips, it also memorizes them, so that next time you start playback, they will play again. We call those memorized clips _ignited_ clips. Ignited clips have a circle around their xref:user-interface/matrix-area.adoc#slot-cell-trigger[play button].
+Stopping Playtime playback doesn't just stop all playing slots, it also memorizes which ones it stopped, so that next time you start playback, they will play again. We call those memorized slots xref:further-concepts/slot.adoc#ignited-slot[ignited slots]. Ignited slots have a circle around their xref:user-interface/matrix-area.adoc#slot-cell-trigger[play button].
 
-Starting Playtime playback will automatically start all _ignited_ clips. If you don't want that, press the xref:user-interface/matrix-area.adoc#matrix-cell-stop[] or xref:user-interface/matrix-area.adoc#column-cell-stop[] button to un-ignite the clips.
+Starting Playtime playback will automatically start all ignited slots. If you don't want that, press the xref:user-interface/matrix-area.adoc#matrix-cell-stop[] or xref:user-interface/matrix-area.adoc#column-cell-stop[] button to un-ignite the slots.
 
 .Alternatives
 ****

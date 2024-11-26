@@ -124,16 +124,7 @@ Find it too stressful having to grab your instrument within the short time perio
 However, this approach has downsides. It will also have an effect on playing clips. Plus, you might have to wait quite long to get your turn. The next variation might suit you better.
 
 Record in stopped state with count-in::
-There's another way to give you more time to prepare. So far we have always recorded while Playtime was already playing, but we can also start recording while it's still stopped. That gives us the possibility of an arbitrarily long count-in phase.
-+
-. Make sure that playback is stopped. If Playtime is playing, press the kbd:[Space] key.
-. Make sure Playtime's metronome is turned *on*. If it's off, press the kbd:[M] key.
-. Press the xref:user-interface/matrix-area.adoc#slot-cell-record[] button in an empty slot. That should start Playtime's playback, and you should hear and see a count-in of 2 bars, during which you can prepare. When the slot count-down reaches zero, Playtime records as usual.
-
-+
---
-Here's a link:https://youtu.be/sMckj_gsqh0?si=7R9Lzod8LxN0nr9N[YouTube video] showing this way of recording.
---
+There's another way to give you more time to prepare. So far we have always recorded while Playtime was already playing, but we can also start recording while it's still stopped. That gives us the possibility of an arbitrarily long count-in phase. See xref:further-concepts/matrix.adoc#count-in-recording[].
 
 [[record-via-foot-switch]] Record via foot switch::
 One more way to give you more time is to start recording with your foot instead of your hand. For this, Playtime offers the possibility to start recording clips via MIDI. In addition, it offers the convenient xref:user-interface/toolbar.adoc#toolbar-smart-record[] toolbar button, which makes it possible to use just one button - or foot switch - to record into the next non-occupied slot.
@@ -145,27 +136,7 @@ One more way to give you more time is to start recording with your foot instead 
 . Press it again to stop recording.
 
 Record with tempo detection and without click::
-All the approaches that we have talked about so far require a metronome or another clip to provide a rhythmical reference. However, imagine you want to do a looper-style live improvisation, without metronome. You want to use a foot switch to start recording  an initial loop and press it again to set the tempo for all remaining loops.
-+
-Here's how you do that:
-
-. Make sure that playback is stopped. If Playtime is playing, press the kbd:[Space] key.
-. Make sure Playtime's metronome is turned *off*. If it's on, press the kbd:[M] key. should reveal a text in the title bar, saying:
-+
-____
-If you record a clip now, its length will dictate the project tempo!
-____
-+
-This tells us that _tempo detection_ will be used.
-. Press the foot switch as set up in <<record-via-foot-switch>>. That should start recording *immediately*, regardless of the currently set xref:key-concepts.adoc#clip-start-timing[].
-. Press the foot switch again. This should stop recording *immediately*. Playtime should set the project tempo based on the length of the recording and play back the recorded loop immediately.
-
-+
---
-Obviously, this needs a bit of practice to get right because you need to trigger start and end of the recording precisely.
-
-Here's a link:https://youtu.be/kRvu6IG_0rk?si=m8uSYF88x7gptIWY[YouTube video] showing this way of recording.
---
+All the approaches that we have talked about so far require a metronome or another clip to provide a rhythmical reference. However, imagine you want to do a looper-style live improvisation, without metronome. In that case, you can do a xref:further-concepts/matrix.adoc#tempo-detection-recording[].
 
 Record non-rhythmic material::
 Playtime suites itself very much for rhythmic material. But what if you want to record something that's tempo-independent? In that case, you probably want two things:

@@ -90,3 +90,46 @@ When connecting a xref:key-concepts.adoc#grid-controller[] to Playtime, it refle
 The _control unit frame_ is a rectangle in the xref:user-interface/matrix-area.adoc[] that shows which portion of the matrix is currently shown on a certain grid controller, according to the current <<control-unit-scrolling,scroll position>>.
 
 The display of control unit frames can be switched off using xref:user-interface/settings-dialog.adoc#settings-show-control-unit-frames[].
+
+[[count-in-recording]]
+== Count-in recording
+
+A _count-in recording_ is a special recording method initiated while Playtime playback is stopped. The metronome starts clicking during the count-in phase, which gives you enough time to prepare for the recording.
+
+It goes like this:
+
+. Make sure that playback is stopped. If Playtime is playing, press the kbd:[Space] key.
+. Make sure Playtime's metronome is turned *on*. If it's off, press the kbd:[M] key.
+. Press the xref:user-interface/matrix-area.adoc#slot-cell-record[] button in an empty slot. That should start Playtime's playback, and you should hear and see a count-in of 2 bars, during which you can prepare. When the slot count-down reaches zero, Playtime records as usual.
+
+
+Here's a video showing this way of recording:
+
+video::sMckj_gsqh0[youtube]
+
+[[tempo-detection-recording]]
+== Tempo detection recording
+
+A _tempo detection recording_ is a special recording method tailored to looper-style live improvisation without metronome.
+
+Let's say you want to use a foot switch to start recording  an initial loop and press it again to set the tempo for all remaining loops.
+
+Here's how you do that:
+
+. Make sure that playback is stopped. If Playtime is playing, press the kbd:[Space] key.
+. Make sure Playtime's metronome is turned *off*. If it's on, press the kbd:[M] key. should reveal a text in the title bar, saying:
++
+____
+If you record a clip now, its length will dictate the project tempo!
+____
++
+This tells us that _tempo detection_ will be used.
+. Press the MIDI foot switch mapped to the xref:user-interface/toolbar.adoc#toolbar-smart-record[] button. That should start recording *immediately*, regardless of the currently set xref:key-concepts.adoc#clip-start-timing[].
+. Press the foot switch again. This should stop recording *immediately*. Playtime should set the project tempo based on the length of the recording and play back the recorded loop immediately.
+
+
+Obviously, this needs a bit of practice to get right because you need to trigger start and end of the recording precisely.
+
+Here's a video showing this way of recording:
+
+video::kRvu6IG_0rk[youtube]

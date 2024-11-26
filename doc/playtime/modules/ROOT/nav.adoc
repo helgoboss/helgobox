@@ -45,6 +45,7 @@
 * xref:further-concepts.adoc[]
 ** xref:further-concepts/general.adoc[]
 ** xref:further-concepts/matrix.adoc[]
+** xref:further-concepts/slot.adoc[]
 * xref:advanced-usage-scenarios.adoc[]
 ** xref:advanced-usage-scenarios/record-performance-as-audio.adoc[]
 ** xref:advanced-usage-scenarios/control-with-items.adoc[]

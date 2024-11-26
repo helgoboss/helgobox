@@ -1,3 +1,26 @@
 = Target "Playtime: Row action"
 
-include::partial$under-construction.adoc[]
+== Action menu
+
+The kind of action to be executed.
+
+Most of the actions only execute when the target is hit with an _on_ value. In all other cases, it's specifically mentioned.
+
+Play::
+Acts like the xref:playtime::user-interface/matrix-area.adoc#row-cell-play-scene[] button. This action supports real-time invocation.
+
+Build scene::
+Acts like the xref:playtime::user-interface/row-menu.adoc#row-build-scene-from-currently-playing-clips[] function.
+
+Clear::
+Acts like the xref:playtime::user-interface/row-menu.adoc#row-clear[] function.
+
+Copy or paste::
+If the row contains clips, copies them to a matrix-internal clipboard. If the row is empty, attempts to paste clips from the matrix-internal clipboard into that row, replacing existing ones.
+
+Activate::
+Makes this row the xref:playtime::further-concepts/matrix.adoc#active-cell[].
+
+== Row menu
+
+The xref:playtime::key-concepts.adoc#row[] on which to carry out this action. See xref:targets/playtime.adoc#row-selector[].
