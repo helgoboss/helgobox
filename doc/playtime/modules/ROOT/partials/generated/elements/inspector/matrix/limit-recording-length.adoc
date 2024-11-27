@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-matrix-limit-recording-length,Limit recording length]]]
 ifndef::pdf-theme[[[inspector-matrix-limit-recording-length,Limit recording length]]]
-== Limit recording length
+=== Limit recording length
 
 image::playtime::generated/screenshots/elements/inspector/matrix/limit-recording-length.png[Limit recording length]
 

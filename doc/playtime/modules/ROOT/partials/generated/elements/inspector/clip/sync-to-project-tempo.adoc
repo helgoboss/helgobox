@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-sync-to-project-tempo,Sync to project tempo]]]
 ifndef::pdf-theme[[[inspector-clip-sync-to-project-tempo,Sync to project tempo]]]
-== Sync to project tempo
+=== Sync to project tempo
 
 image::playtime::generated/screenshots/elements/inspector/clip/sync-to-project-tempo.png[Sync to project tempo]
 

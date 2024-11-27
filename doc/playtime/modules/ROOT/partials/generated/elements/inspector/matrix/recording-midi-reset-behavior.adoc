@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-matrix-recording-midi-reset-behavior,MIDI reset behavior]]]
 ifndef::pdf-theme[[[inspector-matrix-recording-midi-reset-behavior,MIDI reset behavior]]]
-== MIDI reset behavior
+=== MIDI reset behavior
 
 
 

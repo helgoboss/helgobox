@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[settings-controller-default-controller-preset,Default controller preset]]]
 ifndef::pdf-theme[[[settings-controller-default-controller-preset,Default controller preset]]]
-== Default controller preset
+=== Default controller preset
 
 image::realearn::generated/screenshots/elements/settings/controller/default-controller-preset.png[Default controller preset]
 

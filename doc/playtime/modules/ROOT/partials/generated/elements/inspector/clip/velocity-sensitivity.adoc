@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-velocity-sensitivity,Velocity sensitivity]]]
 ifndef::pdf-theme[[[inspector-clip-velocity-sensitivity,Velocity sensitivity]]]
-== Velocity sensitivity
+=== Velocity sensitivity
 
 image::playtime::generated/screenshots/elements/inspector/clip/velocity-sensitivity.png[Velocity sensitivity]
 

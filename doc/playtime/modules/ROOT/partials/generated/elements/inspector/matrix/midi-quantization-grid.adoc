@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-matrix-midi-quantization-grid,MIDI quantization grid]]]
 ifndef::pdf-theme[[[inspector-matrix-midi-quantization-grid,MIDI quantization grid]]]
-== MIDI quantization grid
+=== MIDI quantization grid
 
 image::playtime::generated/screenshots/elements/inspector/matrix/midi-quantization-grid.png[MIDI quantization grid]
 

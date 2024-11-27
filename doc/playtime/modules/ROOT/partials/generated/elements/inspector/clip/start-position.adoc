@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-start-position,Start position]]]
 ifndef::pdf-theme[[[inspector-clip-start-position,Start position]]]
-== Start position
+=== Start position
 
 image::playtime::generated/screenshots/elements/inspector/clip/start-position.png[Start position]
 

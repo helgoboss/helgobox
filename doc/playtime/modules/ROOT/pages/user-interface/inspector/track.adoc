@@ -2,6 +2,8 @@
 
 You will see this when selecting a xref:user-interface/track-area.adoc[track panel].
 
+include::partial$generated/elements/inspector/track/basics.adoc[]
+
 include::partial$generated/elements/inspector/track/name.adoc[]
 
 include::partial$generated/elements/inspector/track/color.adoc[]

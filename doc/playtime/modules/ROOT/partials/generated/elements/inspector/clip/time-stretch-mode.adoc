@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-time-stretch-mode,Time stretch mode]]]
 ifndef::pdf-theme[[[inspector-clip-time-stretch-mode,Time stretch mode]]]
-== Time stretch mode
+=== Time stretch mode
 
 
 

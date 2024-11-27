@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-midi-channel,MIDI channel]]]
 ifndef::pdf-theme[[[inspector-clip-midi-channel,MIDI channel]]]
-== MIDI channel
+=== MIDI channel
 
 image::playtime::generated/screenshots/elements/inspector/clip/midi-channel.png[MIDI channel]
 

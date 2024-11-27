@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-row-name,Name]]]
 ifndef::pdf-theme[[[inspector-row-name,Name]]]
-== Name
+=== Name
 
 image::playtime::generated/screenshots/elements/inspector/row/name.png[Name]
 

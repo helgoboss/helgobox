@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-column-exclusive-mode,Exclusive mode]]]
 ifndef::pdf-theme[[[inspector-column-exclusive-mode,Exclusive mode]]]
-== Exclusive mode
+=== Exclusive mode
 
 image::playtime::generated/screenshots/elements/inspector/column/exclusive-mode.png[Exclusive mode]
 

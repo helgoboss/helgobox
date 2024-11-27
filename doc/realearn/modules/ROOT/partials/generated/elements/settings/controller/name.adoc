@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[settings-controller-name,Name]]]
 ifndef::pdf-theme[[[settings-controller-name,Name]]]
-== Name
+=== Name
 
 image::realearn::generated/screenshots/elements/settings/controller/name.png[Name]
 

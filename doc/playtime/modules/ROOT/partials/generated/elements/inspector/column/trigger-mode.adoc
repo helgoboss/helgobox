@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-column-trigger-mode,Trigger mode]]]
 ifndef::pdf-theme[[[inspector-column-trigger-mode,Trigger mode]]]
-== Trigger mode
+=== Trigger mode
 
 
 

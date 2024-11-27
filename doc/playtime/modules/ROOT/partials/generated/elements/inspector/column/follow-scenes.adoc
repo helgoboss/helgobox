@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-column-follow-scenes,Follow scenes]]]
 ifndef::pdf-theme[[[inspector-column-follow-scenes,Follow scenes]]]
-== Follow scenes
+=== Follow scenes
 
 image::playtime::generated/screenshots/elements/inspector/column/follow-scenes.png[Follow scenes]
 

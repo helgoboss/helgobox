@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-column-playback-track,Playback track]]]
 ifndef::pdf-theme[[[inspector-column-playback-track,Playback track]]]
-== Playback track
+=== Playback track
 
 image::playtime::generated/screenshots/elements/inspector/column/playback-track.png[Playback track]
 

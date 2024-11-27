@@ -1,5 +1,7 @@
 = Clip inspector
 
+include::partial$generated/elements/inspector/clip/quick-actions.adoc[]
+
 include::partial$generated/elements/inspector/clip/overdub.adoc[]
 
 include::partial$generated/elements/inspector/clip/quantize.adoc[]
@@ -15,6 +17,8 @@ If you open a MIDI clip quantized by Playtime in REAPER's MIDI editor, you will 
 Vice versa, Playtime detects correctly if a clip has been quantized in REAPER's MIDI editor.
 That means you can use both quantization methods interchangeably!
 ====
+
+include::partial$generated/elements/inspector/clip/basics.adoc[]
 
 include::partial$generated/elements/inspector/clip/name.adoc[]
 
@@ -42,6 +46,8 @@ TIP: Right-clicking this area opens the xref:user-interface/menus/source-menu.ad
 
 include::partial$generated/elements/inspector/clip/color.adoc[]
 
+include::partial$generated/elements/inspector/clip/triggering.adoc[]
+
 include::partial$generated/elements/inspector/clip/start-timing.adoc[]
 
 See xref:key-concepts.adoc#clip-start-timing[].
@@ -61,6 +67,8 @@ CAUTION: This can easily lead to unintentional concurrent playback of clips when
 include::partial$generated/elements/inspector/clip/stop-timing/immediately.adoc[]
 include::partial$generated/elements/inspector/clip/stop-timing/custom.adoc[]
 
+
+include::partial$generated/elements/inspector/clip/synchronization.adoc[]
 
 include::partial$generated/elements/inspector/clip/sync-to-project-tempo.adoc[]
 
@@ -85,11 +93,14 @@ include::partial$generated/elements/inspector/clip/downbeat.adoc[]
 TIP: This can be used to realize an link:https://en.wikipedia.org/wiki/Anacrusis[Anacrusis] (or pick-up beat).
 See xref:user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-detect-downbeat[].
 
-include::partial$generated/elements/inspector/clip/start-position.adoc[]
+include::partial$generated/elements/inspector/clip/section.adoc[]
 
-TIP: This setting works for both audio and MIDI clips.
-When using it on MIDI clips, be aware that the REAPER MIDI editor doesn't indicate the start position in any way, which can be confusing.
-If you want to permanently change the start position permanently, it's usually better to adjust the underlying MIDI data.
+.Usage with MIDI clips
+CAUTION: These properties work for both audio and MIDI clips.
+When using it on MIDI clips, be aware that the REAPER MIDI editor doesn't indicate the start position or length in any way, which can be confusing.
+If you want to change the start position and length permanently, it's usually better to adjust the underlying MIDI data.
+
+include::partial$generated/elements/inspector/clip/start-position.adoc[]
 
 include::partial$user-interface/clip-prop-adjust-in-beats.adoc[]
 
@@ -101,13 +112,11 @@ The value **Original** means that the source will end at the original end of the
 
 Use the ÷2 and ×2 buttons to halve or double the current length.
 
-TIP: This setting works for both audio and MIDI clips.
-When using it on MIDI clips, be aware that the REAPER MIDI editor doesn't indicate the length in any way, which can be confusing.
-If you want to permanently change the start position permanently, it's usually better to adjust the underlying MIDI data.
-
 include::partial$user-interface/clip-prop-adjust-in-beats.adoc[]
 
 include::partial$clip-prop-applied-quantized.adoc[]
+
+include::partial$generated/elements/inspector/clip/midi.adoc[]
 
 include::partial$generated/elements/inspector/clip/midi-reset-behavior.adoc[]
 
@@ -118,6 +127,8 @@ include::partial$generated/elements/inspector/clip/midi-reset-behavior/light-rig
 include::partial$generated/elements/inspector/clip/midi-reset-behavior/extreme-right.adoc[]
 
 include::partial$generated/elements/inspector/clip/midi-channel.adoc[]
+
+include::partial$generated/elements/inspector/clip/audio.adoc[]
 
 include::partial$generated/elements/inspector/clip/source-fades.adoc[]
 
@@ -143,6 +154,8 @@ Playtime uses resampling in the following cases:
 You can choose between all resample modes that are supported by REAPER.
 
 include::partial$clip-prop-applied-quantized.adoc[]
+
+include::partial$generated/elements/inspector/clip/expert-settings.adoc[]
 
 include::partial$generated/elements/inspector/clip/source-cut-start.adoc[]
 

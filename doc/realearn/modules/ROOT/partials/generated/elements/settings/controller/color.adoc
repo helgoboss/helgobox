@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[settings-controller-color,Color]]]
 ifndef::pdf-theme[[[settings-controller-color,Color]]]
-== Color
+=== Color
 
 image::realearn::generated/screenshots/elements/settings/controller/color.png[Color]
 

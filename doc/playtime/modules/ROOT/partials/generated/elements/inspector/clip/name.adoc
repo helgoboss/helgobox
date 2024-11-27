@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-name,Name]]]
 ifndef::pdf-theme[[[inspector-clip-name,Name]]]
-== Name
+=== Name
 
 image::playtime::generated/screenshots/elements/inspector/clip/name.png[Name]
 

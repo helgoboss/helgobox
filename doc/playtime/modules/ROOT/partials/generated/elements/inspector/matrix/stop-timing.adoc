@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-matrix-stop-timing,Stop timing]]]
 ifndef::pdf-theme[[[inspector-matrix-stop-timing,Stop timing]]]
-== Stop timing
+=== Stop timing
 
 
 

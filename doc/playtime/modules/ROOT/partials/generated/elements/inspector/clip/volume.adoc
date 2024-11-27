@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-volume,Volume]]]
 ifndef::pdf-theme[[[inspector-clip-volume,Volume]]]
-== Volume
+=== Volume
 
 image::playtime::generated/screenshots/elements/inspector/clip/volume.png[Volume]
 

@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[settings-controller-enabled,Enabled]]]
 ifndef::pdf-theme[[[settings-controller-enabled,Enabled]]]
-== Enabled
+=== Enabled
 
 image::realearn::generated/screenshots/elements/settings/controller/enabled.png[Enabled]
 

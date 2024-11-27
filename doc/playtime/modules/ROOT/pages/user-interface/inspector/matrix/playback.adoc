@@ -2,6 +2,8 @@
 
 You will see this when selecting the xref:user-interface/matrix-area.adoc#matrix-cell[].
 
+include::partial$generated/elements/inspector/matrix/playback-basics.adoc[]
+
 include::partial$generated/elements/inspector/matrix/start-timing.adoc[]
 
 See xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing[].
@@ -27,6 +29,8 @@ include::partial$generated/elements/inspector/matrix/midi-quantization-grid.adoc
 See xref:user-interface/inspector/clip.adoc#inspector-clip-quantize[].
 
 TIP: If you want more advanced quantization options, do quantization in REAPER's MIDI editor instead.
+
+include::partial$generated/elements/inspector/matrix/playback-more.adoc[]
 
 include::partial$generated/elements/inspector/matrix/time-stretch-mode.adoc[]
 

@@ -2,12 +2,16 @@
 
 You will see this when selecting the xref:user-interface/matrix-area.adoc#matrix-cell[].
 
+include::partial$generated/elements/inspector/matrix/recording-basics.adoc[]
+
 include::partial$generated/elements/inspector/matrix/recording-looped.adoc[]
 
 include::partial$generated/elements/inspector/matrix/limit-recording-length.adoc[]
 
 
 include::partial$generated/elements/inspector/matrix/recording-length.adoc[]
+
+include::partial$generated/elements/inspector/matrix/recording-midi.adoc[]
 
 include::partial$generated/elements/inspector/matrix/recording-detect-downbeat.adoc[]
 
@@ -16,6 +20,8 @@ See xref:user-interface/inspector/clip.adoc#inspector-clip-downbeat[].
 include::partial$generated/elements/inspector/matrix/recording-auto-quantize.adoc[]
 
 See xref:user-interface/inspector/clip.adoc#inspector-clip-quantize[] and xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-midi-quantization-grid[].
+
+include::partial$generated/elements/inspector/matrix/recording-settings-for-new-clips.adoc[]
 
 include::partial$generated/elements/inspector/matrix/recording-sync-to-project-tempo.adoc[]
 

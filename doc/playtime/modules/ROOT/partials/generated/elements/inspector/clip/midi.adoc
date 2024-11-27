@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-clip-midi,MIDI ⊖]]]
+ifndef::pdf-theme[[[inspector-clip-midi,MIDI ⊖]]]
+== MIDI ⊖
+
+
+
+
+

@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-looped,Looped]]]
 ifndef::pdf-theme[[[inspector-clip-looped,Looped]]]
-== Looped
+=== Looped
 
 image::playtime::generated/screenshots/elements/inspector/clip/looped.png[Looped]
 

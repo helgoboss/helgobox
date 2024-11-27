@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-source-fades,Source fades]]]
 ifndef::pdf-theme[[[inspector-clip-source-fades,Source fades]]]
-== Source fades
+=== Source fades
 
 image::playtime::generated/screenshots/elements/inspector/clip/source-fades.png[Source fades]
 

@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-matrix-recording-detect-downbeat,Detect downbeat]]]
 ifndef::pdf-theme[[[inspector-matrix-recording-detect-downbeat,Detect downbeat]]]
-== Detect downbeat
+=== Detect downbeat
 
 image::playtime::generated/screenshots/elements/inspector/matrix/recording-detect-downbeat.png[Detect downbeat]
 

@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-matrix-trigger-mode,Trigger mode]]]
 ifndef::pdf-theme[[[inspector-matrix-trigger-mode,Trigger mode]]]
-== Trigger mode
+=== Trigger mode
 
 
 

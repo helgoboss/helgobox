@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-clip-basics,Basics ⊖]]]
+ifndef::pdf-theme[[[inspector-clip-basics,Basics ⊖]]]
+== Basics ⊖
+
+
+
+
+

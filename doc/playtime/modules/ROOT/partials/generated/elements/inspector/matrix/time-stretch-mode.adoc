@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-matrix-time-stretch-mode,Time stretch mode]]]
 ifndef::pdf-theme[[[inspector-matrix-time-stretch-mode,Time stretch mode]]]
-== Time stretch mode
+=== Time stretch mode
 
 
 

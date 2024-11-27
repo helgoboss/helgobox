@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-slot-clip,Clip]]]
+ifndef::pdf-theme[[[inspector-slot-clip,Clip image:playtime::generated/screenshots/elements/inspector/slot/clip.png[width=50, pdfwidth=8mm]]]]
+=== Clip
+
+image::playtime::generated/screenshots/elements/inspector/slot/clip.png[Clip, role="related thumb right", float=right]
+
+This is one of the clips in this slot. Clicking on it will reveal its settings in the area below. Double-clicking on it opens the clip in the waveform view or MIDI editor.
+

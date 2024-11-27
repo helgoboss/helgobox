@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-matrix-tempo-detection-range,Tempo detection range]]]
 ifndef::pdf-theme[[[inspector-matrix-tempo-detection-range,Tempo detection range]]]
-== Tempo detection range
+=== Tempo detection range
 
 image::playtime::generated/screenshots/elements/inspector/matrix/tempo-detection-range.png[Tempo detection range]
 

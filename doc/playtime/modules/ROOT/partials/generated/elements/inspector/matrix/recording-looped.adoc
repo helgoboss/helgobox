@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-matrix-recording-looped,Looped]]]
 ifndef::pdf-theme[[[inspector-matrix-recording-looped,Looped]]]
-== Looped
+=== Looped
 
 image::playtime::generated/screenshots/elements/inspector/matrix/recording-looped.png[Looped]
 

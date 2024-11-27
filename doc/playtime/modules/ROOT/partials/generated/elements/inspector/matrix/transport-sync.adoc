@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-matrix-transport-sync,Transport synchronization]]]
 ifndef::pdf-theme[[[inspector-matrix-transport-sync,Transport synchronization]]]
-== Transport synchronization
+=== Transport synchronization
 
 image::playtime::generated/screenshots/elements/inspector/matrix/transport-sync.png[Transport synchronization]
 

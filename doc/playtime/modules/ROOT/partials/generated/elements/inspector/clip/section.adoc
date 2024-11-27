@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-clip-section,Section ⊖]]]
-ifndef::pdf-theme[[[inspector-clip-section,Section ⊖ image:playtime::generated/screenshots/elements/inspector/clip/section.png[width=50, pdfwidth=8mm]]]]
+ifndef::pdf-theme[[[inspector-clip-section,Section ⊖]]]
 == Section ⊖
 
-image::playtime::generated/screenshots/elements/inspector/clip/section.png[Section ⊖, role="related thumb right", float=right]
+
 
 Here you can define which part of the audio or MIDI clip you want to play.
 

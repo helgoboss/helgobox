@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[settings-controller-connection,Connection]]]
 ifndef::pdf-theme[[[settings-controller-connection,Connection]]]
-== Connection
+=== Connection
 
 
 

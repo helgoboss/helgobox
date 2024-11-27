@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-source-info,Source info]]]
 ifndef::pdf-theme[[[inspector-clip-source-info,Source info]]]
-== Source info
+=== Source info
 
 image::playtime::generated/screenshots/elements/inspector/clip/source-info.png[Source info]
 

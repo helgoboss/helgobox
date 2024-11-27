@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-matrix-recording-settings-for-new-clips,Settings for new clips ⊖]]]
+ifndef::pdf-theme[[[inspector-matrix-recording-settings-for-new-clips,Settings for new clips ⊖]]]
+== Settings for new clips ⊖
+
+
+
+
+

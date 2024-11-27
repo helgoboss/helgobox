@@ -2,6 +2,8 @@
 
 You will see this when selecting a xref:user-interface/matrix-area.adoc#column-cell[].
 
+include::partial$generated/elements/inspector/column/basics.adoc[]
+
 include::partial$generated/elements/inspector/column/playback-track.adoc[]
 
 See xref:key-concepts.adoc#column-track[].
@@ -11,6 +13,8 @@ include::partial$generated/elements/inspector/column/custom-name.adoc[]
 include::partial$generated/elements/inspector/column/exclusive-mode.adoc[]
 
 include::partial$generated/elements/inspector/column/follow-scenes.adoc[]
+
+include::partial$generated/elements/inspector/column/more.adoc[]
 
 include::partial$generated/elements/inspector/column/start-timing.adoc[]
 

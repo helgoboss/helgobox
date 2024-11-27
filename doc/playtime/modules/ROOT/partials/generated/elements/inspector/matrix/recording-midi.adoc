@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-matrix-recording-midi,MIDI ⊖]]]
+ifndef::pdf-theme[[[inspector-matrix-recording-midi,MIDI ⊖]]]
+== MIDI ⊖
+
+
+
+
+

@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-quantize,Quantize]]]
 ifndef::pdf-theme[[[inspector-clip-quantize,Quantize image:playtime::generated/screenshots/elements/inspector/clip/quantize.png[width=50, pdfwidth=8mm]]]]
-== Quantize
+=== Quantize
 
 image::playtime::generated/screenshots/elements/inspector/clip/quantize.png[Quantize, role="related thumb right", float=right]
 

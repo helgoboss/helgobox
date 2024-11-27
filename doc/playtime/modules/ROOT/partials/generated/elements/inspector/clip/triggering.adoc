@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-clip-triggering,Triggering ⊖]]]
+ifndef::pdf-theme[[[inspector-clip-triggering,Triggering ⊖]]]
+== Triggering ⊖
+
+
+
+
+

@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-matrix-activate-slot-on-trigger,Activate slot on trigger]]]
 ifndef::pdf-theme[[[inspector-matrix-activate-slot-on-trigger,Activate slot on trigger]]]
-== Activate slot on trigger
+=== Activate slot on trigger
 
 image::playtime::generated/screenshots/elements/inspector/matrix/activate-slot-on-trigger.png[Activate slot on trigger]
 

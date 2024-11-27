@@ -6,5 +6,5 @@ image::playtime::generated/screenshots/elements/inspector/slot/clip-picker.png[C
 
 Playtime lets you have *multiple* clips within one slot, which is great for layering clips on top of each other.
 
-Click on one of the clips to reveal its settings! Also have a look at their right-click menus.
+Click on one of the clips to reveal its settings!
 

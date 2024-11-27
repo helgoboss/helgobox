@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-clip-quick-actions,Quick actions]]]
+ifndef::pdf-theme[[[inspector-clip-quick-actions,Quick actions]]]
+== Quick actions
+
+
+
+Provides quick access to popular clip actions.
+
