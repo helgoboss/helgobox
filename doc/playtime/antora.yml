@@ -1,5 +1,5 @@
 name: playtime
-title: Playtime Reference [DRAFT]
+title: Playtime Reference
 version: ~
 nav:
   - modules/ROOT/nav.adoc
@@ -8,5 +8,3 @@ asciidoc:
   attributes:
     # For making menu and button macros work
     experimental: true
-    # YouTube playlist ID of "Playtime tutorials"
-    blafoo: "PL0bFMT0iEtAgjbtAN-lp6d_-vLA_YUP8O"
