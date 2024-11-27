@@ -56,3 +56,4 @@
 * xref:reaper-actions.adoc[]
 * xref:realearn-targets.adoc[]
 * xref:configuration-files.adoc[]
+* xref:supported-controllers.adoc[]

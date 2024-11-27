@@ -3,7 +3,7 @@
 .Grid controllers are optional!
 TIP: You don't need a xref:key-concepts.adoc#grid-controller[] to use Playtime! However, using one adds a tactile dimension to the clip-launching experience, making Playtime feel more like a distinct musical instrument. It’s a fun way to enhance interaction and creativity.
 
-If your xref:key-concepts.adoc#grid-controller[] is on the link:https://github.com/helgoboss/helgobox/wiki/Playtime-Controllers[list of supported devices], here's how you set it up:
+If your xref:key-concepts.adoc#grid-controller[] is on the xref:supported-controllers.adoc[list of supported devices], here's how you set it up:
 
 . Ensure that Playtime is running and you see its xref:user-interface.adoc[].
 . If the device is already connected to the USB port, **disconnect it** and wait a few seconds!

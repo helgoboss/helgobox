@@ -279,4 +279,4 @@ When the REAPER project is stopped, Playtime uses its own timeline as reference,
 
 A _grid controller_ is a unique class of hardware controller designed specifically for clip launching. A well-known example is the Novation Launchpad. A grid controller feature a grid of pads with LEDs arranged in rows and columns — exactly like Playtime's xref:key-concepts.adoc#matrix[]!
 
-Playtime includes out-of-the-box support for many popular grid controllers. link:https://github.com/helgoboss/helgobox/wiki/Playtime-Controllers[Here] you can find the current list of supported devices.
+Playtime includes out-of-the-box support for many popular grid controllers. xref:supported-controllers.adoc[Here] you can find the current list of supported devices.

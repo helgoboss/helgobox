@@ -1,0 +1,19 @@
+= Supported controllers
+
+At the moment, Playtime has built-in support for the following controllers. More controllers will follow over time. If your controller is not supported yet, feel free to create a new discussion in link:https://github.com/helgoboss/helgobox/discussions/categories/ideas?discussions_q=category%3AIdeas+label%3Aplaytime+is%3Aopen+sort%3Adate_created[Playtime's idea tracker].
+
+== Akai APC Key 25
+
+== Akai APC Key 25 mk2
+
+== Akai APC mini mk2
+
+== Novation Launchpad Mini mk3
+
+== Novation Launchpad Pro mk2
+
+== Novation Launchpad Pro mk3
+
+== Novation Launchpad X
+
+== Novation Launchpad mk1
