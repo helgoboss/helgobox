@@ -16,7 +16,7 @@ You can stop the clip by pressing the xref:user-interface/matrix-area.adoc#slot-
 .Playtime pipes audio and MIDI directly to the column tracks!
 NOTE: Playtime "magically" plays the clip's MIDI or audio content directly through the xref:key-concepts.adoc#column-track[column track] of the containing column. It doesn't use any sends for this! In fact, the xref:helgobox::plug-in.adoc[] itself doesn't produce any audio or MIDI data at all. footnote:direct-output[It's possible that this will be added in the future by introducing a new mode of operation.]
 
-TIP: You can xref:helgobox::app/user-interface/keyboard-shortcuts.adoc#hide[hide] or xref:helgobox::app/user-interface/title-bar.adoc#title-bar-close-window[close] the app window at any time. This will not affect playback or recording. Playtime also works without its user interface!
+TIP: You can xref:helgobox::app/user-interface/keyboard-shortcuts.adoc#esc[hide] or xref:helgobox::app/user-interface/title-bar.adoc#title-bar-close-window[close] the app window at any time. This will not affect playback or recording. Playtime also works without its user interface!
 
 [[playing-clips-using-a-midi-keyboard]]
 == Playing clips using a MIDI keyboard

@@ -27,7 +27,7 @@ Playtime provides keyboard shortcuts in addition to the xref:helgobox::app/user-
 |kbd:[Space]
 |Starts or stops playback.
 
-|[[enter]] kbd:[Enter]
+|[[enter,Enter]] kbd:[Enter]
 |
 Carries out an action depending on the current selection:
 

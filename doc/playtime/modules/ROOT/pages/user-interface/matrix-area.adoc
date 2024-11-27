@@ -2,10 +2,10 @@
 
 include::partial$user-interface/matrix-area-desc.adoc[]
 
-.Column header cells of the matrix area
+.Column cells of the matrix area
 image::generated/screenshots/elements/area/matrix-area-1.png[]
 
-.Scene header cells of the matrix area
+.Row cells of the matrix area
 image::generated/screenshots/elements/area/matrix-area-2.png[width=100]
 
 .Slot cells of the matrix area
@@ -42,14 +42,14 @@ See xref:user-interface/inspector/matrix.adoc[].
 
 TIP: Right-clicking this area opens the xref:user-interface/matrix-menu.adoc[].
 
-// Column header cell
+// Column cell
 
 include::partial$generated/elements/column-cell.adoc[]
 
 If you don't see the upper part, check xref:user-interface/settings-dialog.adoc#settings-show-column-numbers[].
 
 [[column-drag-and-drop]]
-.Drag-and-drop support
+.Column drag-and-drop support
 ****
 Reorder column::
 Drag the cell left or right to change the position of the column.
@@ -78,7 +78,7 @@ TIP: Right-clicking this area opens the xref:user-interface/column-menu.adoc[].
 include::partial$generated/elements/row-cell.adoc[]
 
 [[row-drag-and-drop]]
-.Drag-and-drop support
+.Row drag-and-drop support
 ****
 Reorder row::
 Drag the cell up or down to change the position of the row.
@@ -111,7 +111,7 @@ See xref:user-interface/inspector/slot.adoc[].
 TIP: Right-clicking this area opens the xref:user-interface/slot-menu.adoc[].
 
 [[slot-drag-and-drop]]
-.Drag-and-drop support
+.Slot drag-and-drop support
 ****
 Move slot contents::
 Drag this area onto another slot in order to move all clips within this slot to the other slot.

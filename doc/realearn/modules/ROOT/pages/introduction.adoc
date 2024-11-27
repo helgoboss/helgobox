@@ -1,7 +1,9 @@
 = Introduction
 
+include::helgobox::partial$intro-header.adoc[]
+
 |===
-|Last update of text: |`2024-11-06 (v2.16.14)`
+|Last update of text: |`2024-11-27 (v2.16.14)`
 |Last update of screenshots: |`2024-10-20 (v2.16.10)`
 |===
 

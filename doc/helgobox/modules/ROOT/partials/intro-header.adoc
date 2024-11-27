@@ -1,0 +1,6 @@
+ifdef::pdf-theme[]
+[TIP]
+====
+You are viewing the printable PDF version of the {page-component-title}. For a better and more interactive reading experience, visit the link:https://docs.helgoboss.org/{page-component-name}[online version]!
+====
+endif::[]
