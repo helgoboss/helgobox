@@ -6,5 +6,5 @@ image::playtime::generated/screenshots/elements/inspector/matrix/recording-loope
 
 If this is enabled, a clip will immediately start playing after it has been recorded, and it will be looped.
 
-If disabled, the clip will be stopped after its recording and it will be a **One shot**.
+If disabled, the clip will be stopped after its recording, and it will be a **One shot**.
 

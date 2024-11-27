@@ -6,7 +6,7 @@ image::playtime::generated/screenshots/elements/inspector/clip/source-cut-length
 
 Crops the source material to a specific length, starting from the start position. If the length exceeds the end of the source, Playtime will insert silence.
 
-This is usually set by Playtime itself only, right after recording an audio clip, in order to obtain a perfectly cut loop that is independent from the actual length of the audio file.
+This is usually set by Playtime itself only, right after recording an audio clip, in order to obtain a perfectly cut loop that is independent of the actual length of the audio file.
 
 You may set this yourself, but you should be careful with it as it can easily destroy timing. Using this with MIDI clips is not recommended.
 

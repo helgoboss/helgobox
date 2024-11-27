@@ -6,5 +6,5 @@ ifndef::pdf-theme[[[inspector-matrix-trigger-mode,Trigger mode]]]
 
 Choose between different modes of triggering slots.
 
-This setting applies to all clips in the matrix but it can be overridden at column level.
+This setting applies to all clips in the matrix, but it can be overridden at column level.
 

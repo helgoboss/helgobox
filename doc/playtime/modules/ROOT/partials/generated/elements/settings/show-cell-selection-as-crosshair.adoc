@@ -1,8 +1,8 @@
-ifdef::pdf-theme[[[settings-show-cell-selection-as-crosshair,Show cell selection as cross hair]]]
-ifndef::pdf-theme[[[settings-show-cell-selection-as-crosshair,Show cell selection as cross hair]]]
-=== Show cell selection as cross hair
+ifdef::pdf-theme[[[settings-show-cell-selection-as-crosshair,Show cell selection as crosshair]]]
+ifndef::pdf-theme[[[settings-show-cell-selection-as-crosshair,Show cell selection as crosshair]]]
+=== Show cell selection as crosshair
 
-image::playtime::generated/screenshots/elements/settings/show-cell-selection-as-crosshair.png[Show cell selection as cross hair]
+image::playtime::generated/screenshots/elements/settings/show-cell-selection-as-crosshair.png[Show cell selection as crosshair]
 
 If enabled, Playtime will not just highlight the currently selected cells but also all other cells which are in the same row and column. Makes it easier to spot the selected cell.
 

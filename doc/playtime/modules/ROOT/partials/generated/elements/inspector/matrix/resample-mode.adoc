@@ -6,5 +6,5 @@ image::playtime::generated/screenshots/elements/inspector/matrix/resample-mode.p
 
 Defines which kind of resampling algorithm to use on audio clips.
 
-This setting applies to all clips in the matrix but it can be overridden at column and clip level.
+This setting applies to all clips in the matrix, but it can be overridden at column and clip level.
 
