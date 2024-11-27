@@ -1,6 +1,6 @@
 = Settings dialog
 
-This dialog opens when pressing the xref:helgobox::app/user-interface/title-bar.adoc#title-bar-settings[image:helgobox::generated/screenshots/elements/title-bar/settings.png[]] button in the title bar and navigating to the Playtime section.
+This dialog opens when pressing the xref:helgobox::app/user-interface/title-bar.adoc#title-bar-settings[] button in the title bar and navigating to the Playtime section.
 
 image::generated/screenshots/main/settings.png[]
 

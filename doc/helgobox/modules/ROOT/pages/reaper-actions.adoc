@@ -18,8 +18,7 @@ For the time being, it can be useful to put a Helgobox instance on REAPER's moni
 Helgobox/General: Show welcome screen::
 Shows the welcome screen that was displayed after the first installation of Helgobox.
 
-[#toggle-app-focus]
-Helgobox/General: Toggle app focus::
+[[toggle-app-focus]] Helgobox/General: Toggle app focus::
 Switches focus between REAPER and the xref:app.adoc[].
 +
 The default shortcut is kbd:[Shift+Cmd/Ctrl+H].

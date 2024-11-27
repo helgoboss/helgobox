@@ -13,16 +13,13 @@ It provides the following general entries.
 This will open Pot Browser.
 See xref:products.adoc#pot-browser[] for details.
 
-[[show-app]]
-Show App::
+[[show-app]] Show App::
 Shows the Helgobox App associated with this Helgobox instance.
 
-[[close-app]]
-Close App::
+[[close-app]] Close App::
 Closes the Helgobox App associated with this Helgobox instance.
 
-[[server]]
-Server::
+[[server]] Server::
 Helgobox features a built-in server which allows the old ReaLearn Companion App (and in the future also the Helgobox App) to connect to Helgobox.
 The server runs globally, not per instance!
 

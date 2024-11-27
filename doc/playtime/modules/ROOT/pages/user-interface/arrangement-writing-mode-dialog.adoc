@@ -1,6 +1,6 @@
 = Arrangement writing mode dialog
 
-This dialog opens when pressing the xref:user-interface/toolbar.adoc#toolbar-write-to-arrangement[image:generated/screenshots/elements/toolbar/write-to-arrangement.png[]] button in the title bar and the current arrangement is dirty. It gives you multiple options how to deal with the fact that there are already items in the arrangement.
+This dialog opens when pressing the xref:user-interface/toolbar.adoc#toolbar-write-to-arrangement[] button in the title bar and the current arrangement is dirty. It gives you multiple options how to deal with the fact that there are already items in the arrangement.
 
 image::generated/screenshots/main/arrangement-writing-mode.png[]
 

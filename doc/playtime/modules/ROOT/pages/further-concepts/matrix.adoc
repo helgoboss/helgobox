@@ -105,7 +105,7 @@ It goes like this:
 
 Here's a video showing this way of recording:
 
-video::sMckj_gsqh0[youtube, list={youtube_playtime_tutorials_list_id}]
+video::sMckj_gsqh0[youtube, list=PL0bFMT0iEtAgjbtAN-lp6d_-vLA_YUP8O]
 
 [[tempo-detection-recording]]
 == Tempo detection recording
@@ -132,4 +132,4 @@ Obviously, this needs a bit of practice to get right because you need to trigger
 
 Here's a video showing this way of recording:
 
-video::kRvu6IG_0rk[youtube, list={youtube_playtime_tutorials_list_id}]
+video::kRvu6IG_0rk[youtube, list=PL0bFMT0iEtAgjbtAN-lp6d_-vLA_YUP8O]

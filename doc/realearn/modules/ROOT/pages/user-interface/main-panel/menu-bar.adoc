@@ -117,8 +117,7 @@ See section xref:further-concepts/compartment.adoc#compartment-wide-lua-code[].
 
 [[unit-options]] Unit options::
 
-[[send-feedback-only-if-track-armed]]
-Send feedback only if track armed:::
+[[send-feedback-only-if-track-armed]] Send feedback only if track armed:::
 Here you can tell ReaLearn to only send feedback when the track is armed.
 +
 At the moment, this can only be unchecked if ReaLearn is on the normal FX chain.

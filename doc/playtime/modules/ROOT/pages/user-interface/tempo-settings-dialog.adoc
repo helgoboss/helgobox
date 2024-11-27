@@ -1,6 +1,6 @@
 = Tempo settings dialog
 
-This dialog opens when right-clicking the xref:user-interface/toolbar.adoc#toolbar-metronome[image:generated/screenshots/elements/toolbar/metronome.png[]] button in the title bar.
+This dialog opens when right-clicking the xref:user-interface/toolbar.adoc#toolbar-metronome[] button in the title bar.
 It lets you adjust various tempo-related settings.
 
 NOTE: The settings in here are not global!

@@ -1,6 +1,6 @@
 = Sequences dialog
 
-This dialog opens when pressing the xref:user-interface/toolbar.adoc#toolbar-matrix-sequence-picker[image:generated/screenshots/elements/toolbar/matrix-sequence-picker.png[]] button in the title bar.
+This dialog opens when pressing the xref:user-interface/toolbar.adoc#toolbar-matrix-sequence-picker[] button in the title bar.
 
 image::generated/screenshots/main/sequences.png[]
 
