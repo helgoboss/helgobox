@@ -10,12 +10,12 @@ include::helgobox::partial$intro-header.adoc[]
 link:https://www.helgoboss.org/projects/playtime[Playtime] is a modern session view, also known as clip launcher, for link:https://www.reaper.fm[REAPER].
 It is part of the link:https://www.helgoboss.org/projects/helgobox[Helgobox] plug-in.
 
-This reference offers a comprehensive guide to Playtime's concepts and features.
+This reference provides a detailed guide to Playtime's usage, concepts and features.
 
-[IMPORTANT]
+[TIP]
 ====
 
-**If you are a beginner, you also might want to check out the link:https://github.com/helgoboss/helgobox/wiki/Playtime-Home[Playtime Wiki]!**
+**You also might want to check out the link:https://github.com/helgoboss/helgobox/wiki/Playtime-Home[Playtime Wiki]!**
 
-It guides you through the very basics and contains links to easily digestible video tutorials.
+It is the place for user-contributed content and contains links to other related content, such as tutorials and guides.
 ====
