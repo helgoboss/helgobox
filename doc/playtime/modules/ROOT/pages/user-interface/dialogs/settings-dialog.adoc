@@ -19,8 +19,12 @@ include::partial$generated/elements/settings/show-cell-selection-as-crosshair.ad
 include::partial$generated/elements/settings/show-hypothetical-play-cursor.adoc[]
 include::partial$generated/elements/settings/cell-color-position.adoc[]
 include::partial$generated/elements/settings/cell-progress-position.adoc[]
+
 include::partial$generated/elements/settings/cell-width.adoc[]
+
 include::partial$generated/elements/settings/cell-height.adoc[]
+
+In addition, you might be interested in the xref:helgobox::app/user-interface/settings-dialog.adoc#settings-overall-size[] setting, located in the general appearance section.
 
 == Engine
 

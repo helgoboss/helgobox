@@ -31,7 +31,7 @@ Enable/disable MIDI auto-quantize::
 When hit with an _on_ value, enables xref:playtime::user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-auto-quantize[], otherwise disables it.
 
 Smart record::
-When hit with an _on_ value, triggers the xref:playtime::user-interface/toolbar.adoc#toolbar-smart-record[] function. If this leads to the stop of a xref:playtime::further-concepts/matrix.adoc#tempo-detection-recording[], the operation can be carried out in real-time.
+When hit with an _on_ value, triggers the xref:playtime::user-interface/toolbar.adoc#toolbar-smart-record[] function. If this leads to the stop of a xref:playtime::further-concepts/matrix.adoc#feature-tempo-detection[], the operation can be carried out in real-time.
 
 Play ignited or enable silence mode::
 When hit with an _on_ value, this starts Playtime playback and plays all xref:playtime::further-concepts/slot.adoc#ignited-slot[ignited] slots. Otherwise, this stops Playtime playback. This basically resembles the xref:playtime::user-interface/toolbar.adoc#toolbar-start-stop-playback[] button. This action supports real-time invocation.

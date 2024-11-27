@@ -6,6 +6,7 @@ This is also important if you xref:advanced-usage-scenarios/control-with-items.a
 
 There are two ways of building an arrangement.
 
+[[feature-export-to-arrangement]]
 == Export matrix content
 
 You can export parts of the matrix to the arrangement directly:

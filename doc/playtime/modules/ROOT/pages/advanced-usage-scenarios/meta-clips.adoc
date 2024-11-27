@@ -1,3 +1,4 @@
+[[feature-meta-clips]]
 = Meta clips
 
 We can take the previous scenario xref:advanced-usage-scenarios/control-with-items.adoc[] a step further!

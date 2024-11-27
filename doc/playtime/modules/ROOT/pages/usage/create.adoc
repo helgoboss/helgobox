@@ -135,7 +135,7 @@ One more way to give you more time is to start recording with your foot instead 
 . Press it again to stop recording.
 
 Record with tempo detection and without click::
-All the approaches that we have talked about so far require a metronome or another clip to provide a rhythmical reference. However, imagine you want to do a looper-style live improvisation, without metronome. In that case, you can do a xref:further-concepts/matrix.adoc#tempo-detection-recording[].
+All the approaches that we have talked about so far require a metronome or another clip to provide a rhythmical reference. However, imagine you want to do a looper-style live improvisation, without metronome. In that case, you can do a xref:further-concepts/matrix.adoc#feature-tempo-detection[].
 
 Record non-rhythmic material::
 Playtime suites itself very much for rhythmic material. But what if you want to record something that's tempo-independent? In that case, you probably want two things:

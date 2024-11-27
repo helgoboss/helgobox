@@ -34,6 +34,7 @@ Before you can control Playtime with MIDI notes, you need to set up MIDI trigger
 
 One way to do this is to learn the necessary MIDI triggers manually by using the xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[] feature. See xref:usage/play.adoc#feature-keys[].
 
+[[assign-midi-triggers-automatically]]
 === Option B: Assign MIDI triggers automatically
 
 Another way to do this is to automatically assign MIDI notes to each slot cell. We can easily do that by importing a snippet of Lua code into ReaLearn.

@@ -53,6 +53,7 @@
 ** xref:advanced-usage-scenarios/control-with-items.adoc[]
 ** xref:advanced-usage-scenarios/meta-clips.adoc[]
 ** xref:advanced-usage-scenarios/multiple-instances.adoc[]
+** xref:advanced-usage-scenarios/generate-matrix.adoc[]
 * xref:reaper-actions.adoc[]
 * xref:realearn-targets.adoc[]
 * xref:configuration-files.adoc[]

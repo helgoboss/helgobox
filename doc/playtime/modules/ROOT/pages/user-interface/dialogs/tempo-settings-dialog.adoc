@@ -8,6 +8,7 @@ They are saved as part of the matrix and therefore together with the REAPER proj
 
 image::generated/screenshots/main/tempo-settings.png[]
 
+include::partial$generated/elements/tempo-settings/click-and-tap.adoc[]
 include::partial$generated/elements/tempo-settings/click-volume.adoc[]
 include::partial$generated/elements/tempo-settings/tap-volume.adoc[]
 include::partial$generated/elements/tempo-settings/count-in.adoc[]

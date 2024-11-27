@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[tempo-settings-click-and-tap,Click and tap]]]
+ifndef::pdf-theme[[[tempo-settings-click-and-tap,Click and tap]]]
+== Click and tap
+
+
+
+
+

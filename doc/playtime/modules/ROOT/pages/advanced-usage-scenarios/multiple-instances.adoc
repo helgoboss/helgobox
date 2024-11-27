@@ -1,3 +1,4 @@
+[[feature-multiple-instances]]
 = Multiple instances
 
 Because Helgobox is implemented as an xref:helgobox::plug-in.adoc[instrument plug-in], you can add multiple xref:helgobox::key-concepts.adoc#instance[instances] of it. That also means you can have multiple xref:key-concepts.adoc#matrix[Playtime matrices] in the same project.

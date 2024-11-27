@@ -88,6 +88,7 @@ You will see that clip A stops and clip B takes over.
 
 *The consequence is:* If you want to play multiple slots simultaneously, you would need to create a new column. Musically, that makes a lot of sense. It is very common in clip launchers to have one column per instrument. And one instrument can normally only play one phrase at a time. Alternating between those phrases is often exactly what people want.
 
+[[feature-non-exclusive-columns]]
 === Columns in non-exclusive mode
 
 Playtime is a quite relaxed fellow and allows you to opt out of the exclusive mode. The easiest way to do this is to press the xref:user-interface/matrix-area.adoc#column-cell-exclusive-mode[] button in the xref:user-interface/matrix-area.adoc#column-cell[].
