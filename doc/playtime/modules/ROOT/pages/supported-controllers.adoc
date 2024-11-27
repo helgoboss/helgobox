@@ -1,19 +1,66 @@
 = Supported controllers
 
+:primary-functions-supported: Primary functions are supported icon:star-half-o[]
+:support-mostly-complete: Support is mostly complete icon:star[]
+:non-assigned-buttons: Notable functions which are currently not supported
+
 At the moment, Playtime has built-in support for the following controllers. More controllers will follow over time. If your controller is not supported yet, feel free to create a new discussion in link:https://github.com/helgoboss/helgobox/discussions/categories/ideas?discussions_q=category%3AIdeas+label%3Aplaytime+is%3Aopen+sort%3Adate_created[Playtime's idea tracker].
 
 == Akai APC Key 25
 
+{support-mostly-complete}
+
+.{non-assigned-buttons}
+NOTE: Device
+
 == Akai APC Key 25 mk2
+
+{support-mostly-complete}
+
+.{non-assigned-buttons}
+NOTE: Device
+
 
 == Akai APC mini mk2
 
+{support-mostly-complete}
+
+.{non-assigned-buttons}
+NOTE: Device
+
 == Novation Launchpad Mini mk3
+
+{support-mostly-complete}
+
+.{non-assigned-buttons}
+NOTE: Drums, Keys, User
 
 == Novation Launchpad Pro mk2
 
+{primary-functions-supported}
+
+.{non-assigned-buttons}
+NOTE: Note, Device, User, Volume, Pan, Sends
+
 == Novation Launchpad Pro mk3
+
+{primary-functions-supported}
+
+.{non-assigned-buttons}
+NOTE: Note, Chord, Custom, Sequencer, Projects, Volume, Pan, Sends, Device,
+Swing, Tempo, Capture MIDI, Patterns, Steps, Pattern Settings, Velocity, Probability,
+Mutation, Micro Step, Print to Clip
 
 == Novation Launchpad X
 
+{primary-functions-supported}
+
+.{non-assigned-buttons}
+NOTE: Note, Custom, Volume, Pan, Send A, Send B, Capture MIDI
+
 == Novation Launchpad mk1
+
+{primary-functions-supported}
+
+.{non-assigned-buttons}
+NOTE: vol, pan, snd A, snd B
