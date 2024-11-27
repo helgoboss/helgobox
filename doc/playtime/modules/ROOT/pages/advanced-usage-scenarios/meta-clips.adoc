@@ -1,8 +1,8 @@
-[[feature-meta-clips]]
 = Meta clips
 
 We can take the previous scenario xref:advanced-usage-scenarios/control-with-items.adoc[] a step further!
 
+[[feature-meta-clips]]
 == The idea
 
 If we can control Playtime with MIDI items, shouldn't it be possible to control it with MIDI xref:key-concepts.adoc#clip[_clips_] as well? The answer is yes! I call such clips _meta clips_. *Playtime can basically play itself!*

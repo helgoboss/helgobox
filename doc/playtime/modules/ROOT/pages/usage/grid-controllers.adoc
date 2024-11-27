@@ -1,6 +1,6 @@
-[[feature-grid]]
 = Use grid controllers
 
+[[feature-grid]]
 .Grid controllers are optional!
 TIP: You don't need a xref:key-concepts.adoc#grid-controller[] to use Playtime! However, using one adds a tactile dimension to the clip-launching experience, making Playtime feel more like a distinct musical instrument. It’s a fun way to enhance interaction and creativity.
 

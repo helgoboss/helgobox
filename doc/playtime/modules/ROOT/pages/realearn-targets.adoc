@@ -1,6 +1,6 @@
-[[feature-realearn]]
 = ReaLearn targets
 
+[[feature-realearn]]
 xref:realearn::introduction.adoc[ReaLearn] offers a bunch of xref:realearn::key-concepts.adoc#target[targets] specific to Playtime. Most of them even support xref:realearn::key-concepts.adoc#feedback[], to power LEDs or displays. That gives you the power to create highly customized controller integrations for Playtime!
 
 To get an impression of that power, you just need to look at Playtime's xref:usage/grid-controllers.adoc[support for grid controllers]. This support is not hard-coded into Playtime. It is implemented solely in the form of xref:realearn::further-concepts/compartment.adoc#compartment-preset[ReaLearn compartment presets].

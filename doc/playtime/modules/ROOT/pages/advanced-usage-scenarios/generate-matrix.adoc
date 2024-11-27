@@ -1,6 +1,6 @@
-[[feature-import-export-lua]]
 = Generate a matrix using code
 
+[[feature-import-export-lua]]
 Just as it is possible to xref:advanced-usage-scenarios/control-with-items.adoc#assign-midi-triggers-automatically[generate ReaLearn mappings via Luau], you can also generate a Playtime xref:key-concepts.adoc#matrix[] via Luau.
 
 .This guide is a work in progress
