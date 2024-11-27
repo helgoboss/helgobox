@@ -1,0 +1,3 @@
+= Menus
+
+Most of the menus in Playtime are context menus that you can open by right-clicking certain areas.

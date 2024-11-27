@@ -25,7 +25,7 @@ Use matrix templates::
 Instead of creating the column manually, you could also have started with a template by pressing the xref:user-interface/matrix-area.adoc#matrix-mixed-template-button[], for example.
 
 Import existing tracks::
-Maybe you have existing tracks already that you want to use as xref:key-concepts.adoc#column-track[column tracks]. In that case, select them, right-click xref:user-interface/matrix-area.adoc#matrix-cell-settings[] and choose xref:user-interface/matrix-menu.adoc#matrix-insert-column-for-each-selected-track[].
+Maybe you have existing tracks already that you want to use as xref:key-concepts.adoc#column-track[column tracks]. In that case, select them, right-click xref:user-interface/matrix-area.adoc#matrix-cell-settings[] and choose xref:user-interface/menus/matrix-menu.adoc#matrix-insert-column-for-each-selected-track[].
 ****
 
 == 2. Create a clip
@@ -41,7 +41,7 @@ Maybe you have an existing audio or MIDI file somewhere on your computer. Simply
 .Alternatives
 ****
 Use file picker::
-You can pick the file using Playtime's own file picker by right-clicking an empty slot and pressing  xref:user-interface/slot-menu.adoc#slot-import-files[].
+You can pick the file using Playtime's own file picker by right-clicking an empty slot and pressing  xref:user-interface/menus/slot-menu.adoc#slot-import-files[].
 ****
 
 [[import-item]]
@@ -50,7 +50,7 @@ You can pick the file using Playtime's own file picker by right-clicking an empt
 Maybe you have an existing item on a REAPER track that you want to turn into a Playtime clip.
 
 . Select the item
-. Right-click an empty slot and choose xref:user-interface/slot-menu.adoc#slot-import-selected-item[]
+. Right-click an empty slot and choose xref:user-interface/menus/slot-menu.adoc#slot-import-selected-item[]
 
 This does more than just importing the audio file or MIDI data from the item! It also translates many of the item's properties, such as the item cut and pitch, to Playtime clip properties.
 

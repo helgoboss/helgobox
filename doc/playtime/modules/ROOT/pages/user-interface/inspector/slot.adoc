@@ -6,7 +6,7 @@ include::partial$generated/elements/inspector/slot/clip-picker.adoc[]
 
 For details about the actual clip, see xref:user-interface/inspector/clip.adoc[].
 
-TIP: Right-clicking one of the clips opens the xref:user-interface/clip-menu.adoc[].
+TIP: Right-clicking one of the clips opens the xref:user-interface/menus/clip-menu.adoc[].
 
 [[clip-drag-and-drop]]
 .Drag-and-drop support

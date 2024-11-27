@@ -9,4 +9,4 @@ include::partial$generated/elements/title-bar/purchase-playtime.adoc[]
 
 This button is displayed only if your copy of Playtime has not been activated yet.
 
-See xref:user-interface/purchase-and-activate-dialog.adoc[].
+See xref:user-interface/dialogs/purchase-and-activate-dialog.adoc[].

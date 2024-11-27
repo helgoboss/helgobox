@@ -15,7 +15,7 @@ Meta clips open up a whole new world of possibilities. Here are just some of the
 
 . Prepare the matrix and set up MIDI triggers as explained in  xref:advanced-usage-scenarios/control-with-items.adoc[]. This should make it possible to play clips using your MIDI keyboard. Make sure that part works.
 . Select the track "Playtime" in your REAPER project (this is the track which contains the xref:helgobox::key-concepts.adoc#instance[Helgobox instance], by default the first track in the project)
-. Right-click the xref:user-interface/matrix-area.adoc#column-cell-label[] of some column, for example the last column. Choose xref:user-interface/matrix-menu.adoc#matrix-insert-column-for-each-selected-track[].
+. Right-click the xref:user-interface/matrix-area.adoc#column-cell-label[] of some column, for example the last column. Choose xref:user-interface/menus/matrix-menu.adoc#matrix-insert-column-for-each-selected-track[].
 +
 This should add a new column named "Playtime" that plays back its MIDI clips on the "Playtime" track, and can therefore be used to _play other clips_.
 .

@@ -10,10 +10,10 @@ Play::
 Acts like the xref:playtime::user-interface/matrix-area.adoc#row-cell-play-scene[] button. This action supports real-time invocation.
 
 Build scene::
-Acts like the xref:playtime::user-interface/row-menu.adoc#row-build-scene-from-currently-playing-clips[] function.
+Acts like the xref:playtime:ROOT:user-interface/menus/row-menu.adoc#row-build-scene-from-currently-playing-clips[] function.
 
 Clear::
-Acts like the xref:playtime::user-interface/row-menu.adoc#row-clear[] function.
+Acts like the xref:playtime:ROOT:user-interface/menus/row-menu.adoc#row-clear[] function.
 
 Copy or paste::
 If the row contains clips, copies them to a matrix-internal clipboard. If the row is empty, attempts to paste clips from the matrix-internal clipboard into that row, replacing existing ones.

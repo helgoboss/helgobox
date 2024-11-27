@@ -12,7 +12,7 @@ This tab displays information about the current state of the Playtime engine.
 
 include::partial$generated/elements/info-panel/stats/tempo-buffer-size.adoc[]
 
-See xref:user-interface/settings-dialog.adoc#settings-tempo-latency[].
+See xref:user-interface/dialogs/settings-dialog.adoc#settings-tempo-latency[].
 
 include::partial$generated/elements/info-panel/stats/pre-buffered-blocks-playing-min.adoc[]
 

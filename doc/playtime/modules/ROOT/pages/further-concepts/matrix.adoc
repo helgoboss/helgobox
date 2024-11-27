@@ -89,7 +89,7 @@ When connecting a xref:key-concepts.adoc#grid-controller[] to Playtime, it refle
 
 The _control unit frame_ is a rectangle in the xref:user-interface/matrix-area.adoc[] that shows which portion of the matrix is currently shown on a certain grid controller, according to the current <<control-unit-scrolling,scroll position>>.
 
-The display of control unit frames can be switched off using xref:user-interface/settings-dialog.adoc#settings-show-control-unit-frames[].
+The display of control unit frames can be switched off using xref:user-interface/dialogs/settings-dialog.adoc#settings-show-control-unit-frames[].
 
 [[count-in-recording]]
 == Count-in recording

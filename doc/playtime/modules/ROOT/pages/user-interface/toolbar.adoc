@@ -11,7 +11,7 @@ include::partial$generated/elements/toolbar/tempo-section.adoc[]
 
 include::partial$generated/elements/toolbar/metronome.adoc[]
 
-See xref:user-interface/tempo-settings-dialog.adoc[].
+See xref:user-interface/dialogs/tempo-settings-dialog.adoc[].
 
 NOTE: The Playtime metronome is only audible when REAPER is not playing. When REAPER is playing, REAPER's normal metronome takes over. This is also the reason why Playtime automatically syncs Playtime's metronome on/off status to REAPER's metronome on/off status.
 
@@ -67,13 +67,13 @@ After recording, Playtime will automatically remove silence at the beginning of 
 
 include::partial$generated/elements/toolbar/matrix-sequence-picker.adoc[]
 
-See xref:user-interface/sequences-dialog.adoc[].
+See xref:user-interface/dialogs/sequences-dialog.adoc[].
 
 include::partial$generated/elements/toolbar/play-stop-matrix-sequence.adoc[]
 
 include::partial$generated/elements/toolbar/write-to-arrangement.adoc[]
 
-If the Playtime column tracks already contain items, pressing this button will show the xref:user-interface/arrangement-writing-mode-dialog.adoc[].
+If the Playtime column tracks already contain items, pressing this button will show the xref:user-interface/dialogs/arrangement-writing-mode-dialog.adoc[].
 
 include::partial$generated/elements/toolbar/show-hide-midi-triggers.adoc[]
 

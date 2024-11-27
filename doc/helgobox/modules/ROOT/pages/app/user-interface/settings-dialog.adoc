@@ -8,7 +8,7 @@ image::generated/screenshots/main/settings.png[]
 For a description of the product-specific settings, see:
 
 * xref:realearn::user-interface/settings-dialog.adoc[ReaLearn settings]
-* xref:playtime::user-interface/settings-dialog.adoc[Playtime settings]
+* xref:playtime:ROOT:user-interface/dialogs/settings-dialog.adoc[Playtime settings]
 
 == Appearance
 
@@ -17,7 +17,7 @@ include::partial$generated/elements/settings/overall-size.adoc[]
 include::partial$generated/elements/settings/roundness.adoc[]
 
 .For Playtime users
-TIP: If you want slot cells with rounded corners, play with the xref:playtime::user-interface/settings-dialog.adoc#settings-cell-color-position[] setting!
+TIP: If you want slot cells with rounded corners, play with the xref:playtime:ROOT:user-interface/dialogs/settings-dialog.adoc#settings-cell-color-position[] setting!
 
 include::partial$generated/elements/settings/prefer-tidy-appearance.adoc[]
 

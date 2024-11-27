@@ -38,7 +38,7 @@ include::partial$generated/elements/inspector/clip/source-info.adoc[]
 
 See xref:key-concepts.adoc#source[].
 
-TIP: Right-clicking this area opens the xref:user-interface/source-menu.adoc[].
+TIP: Right-clicking this area opens the xref:user-interface/menus/source-menu.adoc[].
 
 include::partial$generated/elements/inspector/clip/color.adoc[]
 

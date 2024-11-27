@@ -16,10 +16,10 @@ You can influence the start and length of the export on the timeline by creating
 
 === 2. Export the desired content
 
-* If you want to export all clips in the matrix, right-click the xref:user-interface/matrix-area.adoc#matrix-cell[] and choose xref:user-interface/matrix-menu.adoc#matrix-export-to-arrangement[].
-* If you want to export all clips in a particular column, right-click the corresponding xref:user-interface/matrix-area.adoc#column-cell[] and choose xref:user-interface/column-menu.adoc#column-export-to-arrangement[].
-* If you want to export all clips in a particular row, right-click the corresponding xref:user-interface/matrix-area.adoc#row-cell[] and choose xref:user-interface/row-menu.adoc#row-export-to-arrangement[].
-* If you want to export the primary clip of a slot, right-click the corresponding xref:user-interface/matrix-area.adoc#slot-cell[] and choose xref:user-interface/slot-menu.adoc#slot-export-primary-clip-to-arrangement[].
+* If you want to export all clips in the matrix, right-click the xref:user-interface/matrix-area.adoc#matrix-cell[] and choose xref:user-interface/menus/matrix-menu.adoc#matrix-export-to-arrangement[].
+* If you want to export all clips in a particular column, right-click the corresponding xref:user-interface/matrix-area.adoc#column-cell[] and choose xref:user-interface/menus/column-menu.adoc#column-export-to-arrangement[].
+* If you want to export all clips in a particular row, right-click the corresponding xref:user-interface/matrix-area.adoc#row-cell[] and choose xref:user-interface/menus/row-menu.adoc#row-export-to-arrangement[].
+* If you want to export the primary clip of a slot, right-click the corresponding xref:user-interface/matrix-area.adoc#slot-cell[] and choose xref:user-interface/menus/slot-menu.adoc#slot-export-primary-clip-to-arrangement[].
 
 .Quickly export different parts of your song
 [TIP]

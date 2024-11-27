@@ -9,10 +9,10 @@ The kind of action to be executed.
 Most of the actions only execute when the target is hit with an _on_ value. In all other cases, it's specifically mentioned.
 
 Clear slot::
-See xref:playtime::user-interface/slot-menu.adoc#slot-clear[].
+See xref:playtime:ROOT:user-interface/menus/slot-menu.adoc#slot-clear[].
 
 Fill slot with selected item::
-See xref:playtime::user-interface/slot-menu.adoc#slot-import-selected-item[].
+See xref:playtime:ROOT:user-interface/menus/slot-menu.adoc#slot-import-selected-item[].
 
 Edit first clip::
 When hit with an _on_ value, opens the MIDI editor for the primary clip in the slot, otherwise close its. Works for MIDI clips only.

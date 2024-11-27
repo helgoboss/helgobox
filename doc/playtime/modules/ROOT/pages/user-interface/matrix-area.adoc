@@ -40,13 +40,13 @@ include::partial$generated/elements/matrix-cell/settings.adoc[]
 
 See xref:user-interface/inspector/matrix.adoc[].
 
-TIP: Right-clicking this area opens the xref:user-interface/matrix-menu.adoc[].
+TIP: Right-clicking this area opens the xref:user-interface/menus/matrix-menu.adoc[].
 
 // Column cell
 
 include::partial$generated/elements/column-cell.adoc[]
 
-If you don't see the upper part, check xref:user-interface/settings-dialog.adoc#settings-show-column-numbers[].
+If you don't see the upper part, check xref:user-interface/dialogs/settings-dialog.adoc#settings-show-column-numbers[].
 
 [[column-drag-and-drop]]
 .Column drag-and-drop support
@@ -71,7 +71,7 @@ include::partial$generated/elements/column-cell/label.adoc[]
 
 See xref:user-interface/inspector/column.adoc[].
 
-TIP: Right-clicking this area opens the xref:user-interface/column-menu.adoc[].
+TIP: Right-clicking this area opens the xref:user-interface/menus/column-menu.adoc[].
 
 // Row cell
 
@@ -92,7 +92,7 @@ include::partial$generated/elements/row-cell/label.adoc[]
 
 See xref:user-interface/inspector/row.adoc[].
 
-TIP: Right-clicking this area opens the xref:user-interface/row-menu.adoc[].
+TIP: Right-clicking this area opens the xref:user-interface/menus/row-menu.adoc[].
 
 // Slot cell
 
@@ -108,7 +108,7 @@ include::partial$generated/elements/slot-cell/content.adoc[]
 
 See xref:user-interface/inspector/slot.adoc[].
 
-TIP: Right-clicking this area opens the xref:user-interface/slot-menu.adoc[].
+TIP: Right-clicking this area opens the xref:user-interface/menus/slot-menu.adoc[].
 
 [[slot-drag-and-drop]]
 .Slot drag-and-drop support
@@ -122,7 +122,7 @@ Drag this area onto another slot while holding kbd:[Cmd/Ctrl] in order to copy a
 Import content::
 Drag a MIDI or audio file from outside onto this area in order to import it as a clip. This should work from the REAPER media explorer, from other plug-ins that offer dragging out content as files and from most file managers.
 +
-NOTE: Dragging REAPER items onto the slot won't work, because REAPER items are not real files. Use xref:user-interface/slot-menu.adoc#slot-import-selected-item[] instead!
+NOTE: Dragging REAPER items onto the slot won't work, because REAPER items are not real files. Use xref:user-interface/menus/slot-menu.adoc#slot-import-selected-item[] instead!
 ****
 
 include::partial$generated/elements/slot-cell/clip-count.adoc[]

@@ -1,0 +1,3 @@
+= Dialogs
+
+Dialogs are small windows that are opened on demand.
