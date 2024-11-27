@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-clip-source-cut-start,Source cut: Start]]]
 ifndef::pdf-theme[[[inspector-clip-source-cut-start,Source cut: Start]]]
 == Source cut: Start
 
-image::generated/screenshots/elements/inspector/clip/source-cut-start.png[Source cut: Start]
+image::playtime::generated/screenshots/elements/inspector/clip/source-cut-start.png[Source cut: Start]
 
 Sets the start position within the source material.
 

@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-theme-mode,Theme mode]]]
 ifndef::pdf-theme[[[settings-theme-mode,Theme mode]]]
 === Theme mode
 
-image::generated/screenshots/elements/settings/theme-mode.png[Theme mode]
+image::helgobox::generated/screenshots/elements/settings/theme-mode.png[Theme mode]
 
 Switches between dark, light, and automatic theme modes. In automatic mode, the app will follow your system's theme settings.
 

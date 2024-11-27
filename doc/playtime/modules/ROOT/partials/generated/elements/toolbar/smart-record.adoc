@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-smart-record,Smart record]]]
-ifndef::pdf-theme[[[toolbar-smart-record,Smart record image:generated/screenshots/elements/toolbar/smart-record.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-smart-record,Smart record image:playtime::generated/screenshots/elements/toolbar/smart-record.png[width=50]]]]
 === Smart record
 
-image:generated/screenshots/elements/toolbar/smart-record.png[Smart record, role="related thumb right"]
+image:playtime::generated/screenshots/elements/toolbar/smart-record.png[Smart record, role="related thumb right"]
 
 This is a convenience button for recording clips without first having to choose a particular matrix slot.
 

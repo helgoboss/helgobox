@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[title-bar-refresh,Refresh]]]
-ifndef::pdf-theme[[[title-bar-refresh,Refresh image:generated/screenshots/elements/title-bar/refresh.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-refresh,Refresh image:helgobox::generated/screenshots/elements/title-bar/refresh.png[width=50]]]]
 == Refresh
 
-image:generated/screenshots/elements/title-bar/refresh.png[Refresh, role="related thumb right"]
+image:helgobox::generated/screenshots/elements/title-bar/refresh.png[Refresh, role="related thumb right"]
 
 Refreshes the displayed information.
 

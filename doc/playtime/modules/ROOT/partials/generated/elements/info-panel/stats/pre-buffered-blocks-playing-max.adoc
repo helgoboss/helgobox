@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[info-panel-stats-pre-buffered-blocks-playing-max,Pre-buffered
 ifndef::pdf-theme[[[info-panel-stats-pre-buffered-blocks-playing-max,Pre-buffered blocks playing (max)]]]
 === Pre-buffered blocks playing (max)
 
-image::generated/screenshots/elements/info-panel/stats/pre-buffered-blocks-playing-max.png[Pre-buffered blocks playing (max)]
+image::playtime::generated/screenshots/elements/info-panel/stats/pre-buffered-blocks-playing-max.png[Pre-buffered blocks playing (max)]
 
 The largest encountered number of pre-buffered blocks among currently playing audio clips.
 

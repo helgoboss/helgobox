@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-clip-pitch,Pitch]]]
 ifndef::pdf-theme[[[inspector-clip-pitch,Pitch]]]
 == Pitch
 
-image::generated/screenshots/elements/inspector/clip/pitch.png[Pitch]
+image::playtime::generated/screenshots/elements/inspector/clip/pitch.png[Pitch]
 
 Adjust the pitch of this clip. In case of MIDI, only integers are supported.
 

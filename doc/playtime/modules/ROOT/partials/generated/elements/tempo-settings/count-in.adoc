@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[tempo-settings-count-in,Count-in]]]
 ifndef::pdf-theme[[[tempo-settings-count-in,Count-in]]]
 == Count-in
 
-image::generated/screenshots/elements/tempo-settings/count-in.png[Count-in]
+image::playtime::generated/screenshots/elements/tempo-settings/count-in.png[Count-in]
 
 Set the number of count-in bars used when doing count-in recording from stopped state.
 

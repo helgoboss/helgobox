@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-controller-enabled,Enabled]]]
 ifndef::pdf-theme[[[settings-controller-enabled,Enabled]]]
 == Enabled
 
-image::generated/screenshots/elements/settings/controller/enabled.png[Enabled]
+image::realearn::generated/screenshots/elements/settings/controller/enabled.png[Enabled]
 
 If disabled, the controller will not have any effect.
 

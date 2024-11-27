@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-prefer-tidy-appearance,Prefer tidy appearance]]]
 ifndef::pdf-theme[[[settings-prefer-tidy-appearance,Prefer tidy appearance]]]
 === Prefer tidy appearance
 
-image::generated/screenshots/elements/settings/prefer-tidy-appearance.png[Prefer tidy appearance]
+image::helgobox::generated/screenshots/elements/settings/prefer-tidy-appearance.png[Prefer tidy appearance]
 
 If enabled, the inspector will show dropdown menus even if if they present just a handful of options. This looks more tidy but you will need two mouse clicks to choose an option.
 

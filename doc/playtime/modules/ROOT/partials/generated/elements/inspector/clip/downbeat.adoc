@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-clip-downbeat,Downbeat]]]
 ifndef::pdf-theme[[[inspector-clip-downbeat,Downbeat]]]
 === Downbeat
 
-image::generated/screenshots/elements/inspector/clip/downbeat.png[Downbeat]
+image::playtime::generated/screenshots/elements/inspector/clip/downbeat.png[Downbeat]
 
 Defines which beat in the material is considered the first downbeat.
 

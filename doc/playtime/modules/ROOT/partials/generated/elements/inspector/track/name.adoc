@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-track-name,Name]]]
 ifndef::pdf-theme[[[inspector-track-name,Name]]]
 == Name
 
-image::generated/screenshots/elements/inspector/track/name.png[Name]
+image::playtime::generated/screenshots/elements/inspector/track/name.png[Name]
 
 Lets you change the name of the REAPER track.
 

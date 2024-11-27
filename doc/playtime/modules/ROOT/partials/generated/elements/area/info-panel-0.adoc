@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[area-info-panel-0,Info panel]]]
-ifndef::pdf-theme[[[area-info-panel-0,Info panel image:generated/screenshots/elements/area/info-panel-0.png[width=50]]]]
+ifndef::pdf-theme[[[area-info-panel-0,Info panel image:playtime::generated/screenshots/elements/area/info-panel-0.png[width=50]]]]
 == Info panel
 
-image:generated/screenshots/elements/area/info-panel-0.png[Info panel, role="related thumb right"]
+image:playtime::generated/screenshots/elements/area/info-panel-0.png[Info panel, role="related thumb right"]
 
 
 

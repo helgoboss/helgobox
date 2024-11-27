@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-show-clip-activity,Show clip activity]]]
 ifndef::pdf-theme[[[settings-show-clip-activity,Show clip activity]]]
 === Show clip activity
 
-image::generated/screenshots/elements/settings/show-clip-activity.png[Show clip activity]
+image::playtime::generated/screenshots/elements/settings/show-clip-activity.png[Show clip activity]
 
 Makes a slot cell light up according to the activity of its clips (e.g. when the clip plays a note).
 

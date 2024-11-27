@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-tap-tempo,Tap tempo]]]
-ifndef::pdf-theme[[[toolbar-tap-tempo,Tap tempo image:generated/screenshots/elements/toolbar/tap-tempo.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-tap-tempo,Tap tempo image:playtime::generated/screenshots/elements/toolbar/tap-tempo.png[width=50]]]]
 === Tap tempo
 
-image:generated/screenshots/elements/toolbar/tap-tempo.png[Tap tempo, role="related thumb right"]
+image:playtime::generated/screenshots/elements/toolbar/tap-tempo.png[Tap tempo, role="related thumb right"]
 
 Click here repeatedly in order to tap the tempo. This is especially useful when playback is stopped, in which case it lets you conduct a count-in.
 

@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-matrix-recording-length,Length]]]
 ifndef::pdf-theme[[[inspector-matrix-recording-length,Length]]]
 == Length
 
-image::generated/screenshots/elements/inspector/matrix/recording-length.png[Length]
+image::playtime::generated/screenshots/elements/inspector/matrix/recording-length.png[Length]
 
 Defines the length to be used when limiting the clip recording length.
 

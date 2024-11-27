@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[purchase-verify-license-key,Verify license key!]]]
-ifndef::pdf-theme[[[purchase-verify-license-key,Verify license key! image:generated/screenshots/elements/purchase/verify-license-key.png[width=50]]]]
+ifndef::pdf-theme[[[purchase-verify-license-key,Verify license key! image:playtime::generated/screenshots/elements/purchase/verify-license-key.png[width=50]]]]
 == Verify license key!
 
-image:generated/screenshots/elements/purchase/verify-license-key.png[Verify license key!, role="related thumb right"]
+image:playtime::generated/screenshots/elements/purchase/verify-license-key.png[Verify license key!, role="related thumb right"]
 
 Reads the license key that you have copied to the clipboard and verifies it, unlocking Playtime's full version on success.
 

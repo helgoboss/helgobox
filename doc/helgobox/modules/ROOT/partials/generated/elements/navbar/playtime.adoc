@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[navbar-playtime,Playtime]]]
-ifndef::pdf-theme[[[navbar-playtime,Playtime image:generated/screenshots/elements/navbar/playtime.png[width=50]]]]
+ifndef::pdf-theme[[[navbar-playtime,Playtime image:helgobox::generated/screenshots/elements/navbar/playtime.png[width=50]]]]
 == Playtime
 
-image:generated/screenshots/elements/navbar/playtime.png[Playtime, role="related thumb right"]
+image:helgobox::generated/screenshots/elements/navbar/playtime.png[Playtime, role="related thumb right"]
 
 Shows the Playtime Matrix associated with this Helgobox instance.
 

@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[column-cell,Column header cell]]]
-ifndef::pdf-theme[[[column-cell,Column header cell image:generated/screenshots/elements/column-cell.png[width=50]]]]
+ifndef::pdf-theme[[[column-cell,Column header cell image:playtime::generated/screenshots/elements/column-cell.png[width=50]]]]
 == Column header cell
 
-image:generated/screenshots/elements/column-cell.png[Column header cell, role="related thumb right"]
+image:playtime::generated/screenshots/elements/column-cell.png[Column header cell, role="related thumb right"]
 
 This cell represents the complete column, including all of its slots.
 

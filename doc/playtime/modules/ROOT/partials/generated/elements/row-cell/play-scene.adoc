@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[row-cell-play-scene,Play scene]]]
-ifndef::pdf-theme[[[row-cell-play-scene,Play scene image:generated/screenshots/elements/row-cell/play-scene.png[width=50]]]]
+ifndef::pdf-theme[[[row-cell-play-scene,Play scene image:playtime::generated/screenshots/elements/row-cell/play-scene.png[width=50]]]]
 === Play scene
 
-image:generated/screenshots/elements/row-cell/play-scene.png[Play scene, role="related thumb right"]
+image:playtime::generated/screenshots/elements/row-cell/play-scene.png[Play scene, role="related thumb right"]
 
 Plays all clips in this row whose column follows scenes.
 

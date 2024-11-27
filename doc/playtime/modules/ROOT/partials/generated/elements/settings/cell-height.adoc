@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-cell-height,Cell height]]]
 ifndef::pdf-theme[[[settings-cell-height,Cell height]]]
 === Cell height
 
-image::generated/screenshots/elements/settings/cell-height.png[Cell height]
+image::playtime::generated/screenshots/elements/settings/cell-height.png[Cell height]
 
 Sets the height of all cells.
 

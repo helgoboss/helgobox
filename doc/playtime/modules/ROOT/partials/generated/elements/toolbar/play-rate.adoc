@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-play-rate,Play rate]]]
-ifndef::pdf-theme[[[toolbar-play-rate,Play rate image:generated/screenshots/elements/toolbar/play-rate.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-play-rate,Play rate image:playtime::generated/screenshots/elements/toolbar/play-rate.png[width=50]]]]
 === Play rate
 
-image:generated/screenshots/elements/toolbar/play-rate.png[Play rate, role="related thumb right"]
+image:playtime::generated/screenshots/elements/toolbar/play-rate.png[Play rate, role="related thumb right"]
 
 Controls the project play rate. This is only possible as long as REAPER playback is stopped and no tempo marker exists in the project.
 

@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-clip-name,Name]]]
 ifndef::pdf-theme[[[inspector-clip-name,Name]]]
 == Name
 
-image::generated/screenshots/elements/inspector/clip/name.png[Name]
+image::playtime::generated/screenshots/elements/inspector/clip/name.png[Name]
 
 Give your clip a descriptive name!
 

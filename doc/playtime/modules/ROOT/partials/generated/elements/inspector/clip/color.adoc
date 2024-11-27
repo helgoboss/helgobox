@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-clip-color,Color]]]
 ifndef::pdf-theme[[[inspector-clip-color,Color]]]
 == Color
 
-image::generated/screenshots/elements/inspector/clip/color.png[Color]
+image::playtime::generated/screenshots/elements/inspector/clip/color.png[Color]
 
 Pick a color for this clip from the matrix color palette.
 

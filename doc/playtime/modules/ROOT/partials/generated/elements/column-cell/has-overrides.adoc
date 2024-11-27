@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[column-cell-has-overrides,Has overrides]]]
-ifndef::pdf-theme[[[column-cell-has-overrides,Has overrides image:generated/screenshots/elements/column-cell/has-overrides.png[width=50]]]]
+ifndef::pdf-theme[[[column-cell-has-overrides,Has overrides image:playtime::generated/screenshots/elements/column-cell/has-overrides.png[width=50]]]]
 === Has overrides
 
-image:generated/screenshots/elements/column-cell/has-overrides.png[Has overrides, role="related thumb right"]
+image:playtime::generated/screenshots/elements/column-cell/has-overrides.png[Has overrides, role="related thumb right"]
 
 This lights up if the column overrides at least one matrix setting.
 

@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-track-color,Color]]]
 ifndef::pdf-theme[[[inspector-track-color,Color]]]
 == Color
 
-image::generated/screenshots/elements/inspector/track/color.png[Color]
+image::playtime::generated/screenshots/elements/inspector/track/color.png[Color]
 
 Change the color of the REAPER track.
 

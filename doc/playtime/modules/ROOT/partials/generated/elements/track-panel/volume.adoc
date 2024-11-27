@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[track-panel-volume,Track volume]]]
 ifndef::pdf-theme[[[track-panel-volume,Track volume]]]
 === Track volume
 
-image::generated/screenshots/elements/track-panel/volume.png[Track volume]
+image::playtime::generated/screenshots/elements/track-panel/volume.png[Track volume]
 
 Shows the track peaks and lets you control the track volume.
 

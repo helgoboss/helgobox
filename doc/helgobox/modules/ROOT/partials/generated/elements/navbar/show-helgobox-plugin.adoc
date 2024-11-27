@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[navbar-show-helgobox-plugin,Show Helgobox plug-in]]]
-ifndef::pdf-theme[[[navbar-show-helgobox-plugin,Show Helgobox plug-in image:generated/screenshots/elements/navbar/show-helgobox-plugin.png[width=50]]]]
+ifndef::pdf-theme[[[navbar-show-helgobox-plugin,Show Helgobox plug-in image:helgobox::generated/screenshots/elements/navbar/show-helgobox-plugin.png[width=50]]]]
 == Show Helgobox plug-in
 
-image:generated/screenshots/elements/navbar/show-helgobox-plugin.png[Show Helgobox plug-in, role="related thumb right"]
+image:helgobox::generated/screenshots/elements/navbar/show-helgobox-plugin.png[Show Helgobox plug-in, role="related thumb right"]
 
 Opens the Helgobox plug-in which is controlled by this app.
 

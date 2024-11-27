@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-controller-main-preset,Main preset]]]
 ifndef::pdf-theme[[[settings-controller-main-preset,Main preset]]]
 == Main preset
 
-image::generated/screenshots/elements/settings/controller/main-preset.png[Main preset]
+image::realearn::generated/screenshots/elements/settings/controller/main-preset.png[Main preset]
 
 This preset decides how your controller will be used, i.e. what exactly it should control.
 

@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-open-ended-recording,Open-ended recording]]]
-ifndef::pdf-theme[[[toolbar-open-ended-recording,Open-ended recording image:generated/screenshots/elements/toolbar/open-ended-recording.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-open-ended-recording,Open-ended recording image:playtime::generated/screenshots/elements/toolbar/open-ended-recording.png[width=50]]]]
 == Open-ended recording
 
-image:generated/screenshots/elements/toolbar/open-ended-recording.png[Open-ended recording, role="related thumb right"]
+image:playtime::generated/screenshots/elements/toolbar/open-ended-recording.png[Open-ended recording, role="related thumb right"]
 
 Clips recordings are not limited in length.
 

@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-cell-progress-position,Cell progress position]]]
 ifndef::pdf-theme[[[settings-cell-progress-position,Cell progress position]]]
 === Cell progress position
 
-image::generated/screenshots/elements/settings/cell-progress-position.png[Cell progress position]
+image::playtime::generated/screenshots/elements/settings/cell-progress-position.png[Cell progress position]
 
 Choose how a slot cell shows the playback progress of a clip.
 

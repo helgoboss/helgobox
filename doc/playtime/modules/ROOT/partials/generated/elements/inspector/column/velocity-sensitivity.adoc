@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-column-velocity-sensitivity,Velocity sensitivity]]]
 ifndef::pdf-theme[[[inspector-column-velocity-sensitivity,Velocity sensitivity]]]
 == Velocity sensitivity
 
-image::generated/screenshots/elements/inspector/column/velocity-sensitivity.png[Velocity sensitivity]
+image::playtime::generated/screenshots/elements/inspector/column/velocity-sensitivity.png[Velocity sensitivity]
 
 Adjusts how much the velocity of an incoming control message (e.g. MIDI note) affects the clip volume when triggering a slot.
 

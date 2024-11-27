@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[title-bar-pause-arrangement,Pause arrangement]]]
-ifndef::pdf-theme[[[title-bar-pause-arrangement,Pause arrangement image:generated/screenshots/elements/title-bar/pause-arrangement.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-pause-arrangement,Pause arrangement image:helgobox::generated/screenshots/elements/title-bar/pause-arrangement.png[width=50]]]]
 == Pause arrangement
 
-image:generated/screenshots/elements/title-bar/pause-arrangement.png[Pause arrangement, role="related thumb right"]
+image:helgobox::generated/screenshots/elements/title-bar/pause-arrangement.png[Pause arrangement, role="related thumb right"]
 
 Pauses the REAPER arrangement
 

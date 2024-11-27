@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[column-cell-stop,Stop column]]]
-ifndef::pdf-theme[[[column-cell-stop,Stop column image:generated/screenshots/elements/column-cell/stop.png[width=50]]]]
+ifndef::pdf-theme[[[column-cell-stop,Stop column image:playtime::generated/screenshots/elements/column-cell/stop.png[width=50]]]]
 === Stop column
 
-image:generated/screenshots/elements/column-cell/stop.png[Stop column, role="related thumb right"]
+image:playtime::generated/screenshots/elements/column-cell/stop.png[Stop column, role="related thumb right"]
 
 A single click stops all playing clips in this column according to their stop timing.
 

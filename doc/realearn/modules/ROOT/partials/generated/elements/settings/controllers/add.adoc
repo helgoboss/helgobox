@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[settings-controllers-add,Add controller]]]
-ifndef::pdf-theme[[[settings-controllers-add,Add controller image:generated/screenshots/elements/settings/controllers/add.png[width=50]]]]
+ifndef::pdf-theme[[[settings-controllers-add,Add controller image:realearn::generated/screenshots/elements/settings/controllers/add.png[width=50]]]]
 === Add controller
 
-image:generated/screenshots/elements/settings/controllers/add.png[Add controller, role="related thumb right"]
+image:realearn::generated/screenshots/elements/settings/controllers/add.png[Add controller, role="related thumb right"]
 
 Adds a new controller.
 

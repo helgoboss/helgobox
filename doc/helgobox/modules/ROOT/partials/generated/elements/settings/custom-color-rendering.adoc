@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-custom-color-rendering,Custom color rendering]]]
 ifndef::pdf-theme[[[settings-custom-color-rendering,Custom color rendering]]]
 === Custom color rendering
 
-image::generated/screenshots/elements/settings/custom-color-rendering.png[Custom color rendering]
+image::helgobox::generated/screenshots/elements/settings/custom-color-rendering.png[Custom color rendering]
 
 Choose how to render user-defined colors, such as for tracks and clips.
 

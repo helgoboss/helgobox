@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-column-playback-track,Playback track]]]
 ifndef::pdf-theme[[[inspector-column-playback-track,Playback track]]]
 == Playback track
 
-image::generated/screenshots/elements/inspector/column/playback-track.png[Playback track]
+image::playtime::generated/screenshots/elements/inspector/column/playback-track.png[Playback track]
 
 Choose the REAPER track on which this column plays its clips.
 

@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-metronome,Metronome]]]
-ifndef::pdf-theme[[[toolbar-metronome,Metronome image:generated/screenshots/elements/toolbar/metronome.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-metronome,Metronome image:playtime::generated/screenshots/elements/toolbar/metronome.png[width=50]]]]
 === Metronome
 
-image:generated/screenshots/elements/toolbar/metronome.png[Metronome, role="related thumb right"]
+image:playtime::generated/screenshots/elements/toolbar/metronome.png[Metronome, role="related thumb right"]
 
 Toggles the metronome.
 

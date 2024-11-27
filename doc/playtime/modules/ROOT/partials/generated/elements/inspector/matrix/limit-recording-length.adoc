@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-matrix-limit-recording-length,Limit recording lengt
 ifndef::pdf-theme[[[inspector-matrix-limit-recording-length,Limit recording length]]]
 == Limit recording length
 
-image::generated/screenshots/elements/inspector/matrix/limit-recording-length.png[Limit recording length]
+image::playtime::generated/screenshots/elements/inspector/matrix/limit-recording-length.png[Limit recording length]
 
 If enabled, recording a clip will automatically stop after a certain amount of time.
 

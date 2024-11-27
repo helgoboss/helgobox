@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[title-bar-tempo-detection-recording-hint,Tempo detection recording hint]]]
-ifndef::pdf-theme[[[title-bar-tempo-detection-recording-hint,Tempo detection recording hint image:generated/screenshots/elements/title-bar/tempo-detection-recording-hint.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-tempo-detection-recording-hint,Tempo detection recording hint image:playtime::generated/screenshots/elements/title-bar/tempo-detection-recording-hint.png[width=50]]]]
 == Tempo detection recording hint
 
-image:generated/screenshots/elements/title-bar/tempo-detection-recording-hint.png[Tempo detection recording hint, role="related thumb right"]
+image:playtime::generated/screenshots/elements/title-bar/tempo-detection-recording-hint.png[Tempo detection recording hint, role="related thumb right"]
 
 Playtime is stopped and metronome is disabled.
 

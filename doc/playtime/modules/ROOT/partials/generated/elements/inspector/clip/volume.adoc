@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-clip-volume,Volume]]]
 ifndef::pdf-theme[[[inspector-clip-volume,Volume]]]
 == Volume
 
-image::generated/screenshots/elements/inspector/clip/volume.png[Volume]
+image::playtime::generated/screenshots/elements/inspector/clip/volume.png[Volume]
 
 Set the volume of this clip. In case of MIDI, it will adjust the velocity of played MIDI notes.
 

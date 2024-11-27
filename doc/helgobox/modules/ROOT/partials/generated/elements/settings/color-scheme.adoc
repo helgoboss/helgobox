@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-color-scheme,Color scheme]]]
 ifndef::pdf-theme[[[settings-color-scheme,Color scheme]]]
 === Color scheme
 
-image::generated/screenshots/elements/settings/color-scheme.png[Color scheme]
+image::helgobox::generated/screenshots/elements/settings/color-scheme.png[Color scheme]
 
 Choose the prominent color for the user interface.
 

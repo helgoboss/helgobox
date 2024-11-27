@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-matrix-transport-sync,Transport synchronization]]]
 ifndef::pdf-theme[[[inspector-matrix-transport-sync,Transport synchronization]]]
 == Transport synchronization
 
-image::generated/screenshots/elements/inspector/matrix/transport-sync.png[Transport synchronization]
+image::playtime::generated/screenshots/elements/inspector/matrix/transport-sync.png[Transport synchronization]
 
 **Partial transport synchronization** means that starting playback in Playtime doesn't start playback of REAPER's arrangement. You can click this button to switch to **Full transport synchronization**, then starting playback in Playtime will start REAPER playback as well.
 

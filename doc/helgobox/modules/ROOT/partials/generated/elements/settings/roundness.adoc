@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-roundness,Roundness]]]
 ifndef::pdf-theme[[[settings-roundness,Roundness]]]
 === Roundness
 
-image::generated/screenshots/elements/settings/roundness.png[Roundness]
+image::helgobox::generated/screenshots/elements/settings/roundness.png[Roundness]
 
 Choose whether to round off corners of various user interface elements and how much.
 

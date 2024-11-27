@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-clip-source-cut-length,Source cut: Length]]]
 ifndef::pdf-theme[[[inspector-clip-source-cut-length,Source cut: Length]]]
 == Source cut: Length
 
-image::generated/screenshots/elements/inspector/clip/source-cut-length.png[Source cut: Length]
+image::playtime::generated/screenshots/elements/inspector/clip/source-cut-length.png[Source cut: Length]
 
 Crops the source material to a specific length, starting from the start position. If the length exceeds the end of the source, Playtime will insert silence.
 

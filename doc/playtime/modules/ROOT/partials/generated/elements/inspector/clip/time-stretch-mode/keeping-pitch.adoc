@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-clip-time-stretch-mode-keeping-pitch,Keeping pitch]]]
-ifndef::pdf-theme[[[inspector-clip-time-stretch-mode-keeping-pitch,Keeping pitch image:generated/screenshots/elements/inspector/clip/time-stretch-mode/keeping-pitch.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-clip-time-stretch-mode-keeping-pitch,Keeping pitch image:playtime::generated/screenshots/elements/inspector/clip/time-stretch-mode/keeping-pitch.png[width=50]]]]
 === Keeping pitch
 
-image:generated/screenshots/elements/inspector/clip/time-stretch-mode/keeping-pitch.png[Keeping pitch, role="related thumb right"]
+image:playtime::generated/screenshots/elements/inspector/clip/time-stretch-mode/keeping-pitch.png[Keeping pitch, role="related thumb right"]
 
 Changes tempo while keeping the pitch. This can be quite CPU-intensive.
 

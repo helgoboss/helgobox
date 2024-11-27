@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-matrix-recording-looped,Looped]]]
 ifndef::pdf-theme[[[inspector-matrix-recording-looped,Looped]]]
 == Looped
 
-image::generated/screenshots/elements/inspector/matrix/recording-looped.png[Looped]
+image::playtime::generated/screenshots/elements/inspector/matrix/recording-looped.png[Looped]
 
 If this is enabled, a clip will immediately start playing after it has been recorded and it will be looped.
 

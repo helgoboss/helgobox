@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[track-panel-midi-channel-filter,MIDI channel filter]]]
-ifndef::pdf-theme[[[track-panel-midi-channel-filter,MIDI channel filter image:generated/screenshots/elements/track-panel/midi-channel-filter.png[width=50]]]]
+ifndef::pdf-theme[[[track-panel-midi-channel-filter,MIDI channel filter image:playtime::generated/screenshots/elements/track-panel/midi-channel-filter.png[width=50]]]]
 === MIDI channel filter
 
-image:generated/screenshots/elements/track-panel/midi-channel-filter.png[MIDI channel filter, role="related thumb right"]
+image:playtime::generated/screenshots/elements/track-panel/midi-channel-filter.png[MIDI channel filter, role="related thumb right"]
 
 Allows to listen to a specific MIDI channel only. Messages from other MIDI channels will be ignored.
 

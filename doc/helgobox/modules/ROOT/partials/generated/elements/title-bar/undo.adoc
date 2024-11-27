@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[title-bar-undo,Undo]]]
-ifndef::pdf-theme[[[title-bar-undo,Undo image:generated/screenshots/elements/title-bar/undo.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-undo,Undo image:helgobox::generated/screenshots/elements/title-bar/undo.png[width=50]]]]
 == Undo
 
-image:generated/screenshots/elements/title-bar/undo.png[Undo, role="related thumb right"]
+image:helgobox::generated/screenshots/elements/title-bar/undo.png[Undo, role="related thumb right"]
 
 Undoes the most recent operation performed within this Playtime matrix.
 

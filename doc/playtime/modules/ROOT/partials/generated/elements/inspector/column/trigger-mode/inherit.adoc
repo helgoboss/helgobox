@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-column-trigger-mode-inherit,Inherit]]]
-ifndef::pdf-theme[[[inspector-column-trigger-mode-inherit,Inherit image:generated/screenshots/elements/inspector/column/trigger-mode/inherit.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-column-trigger-mode-inherit,Inherit image:playtime::generated/screenshots/elements/inspector/column/trigger-mode/inherit.png[width=50]]]]
 === Inherit
 
-image:generated/screenshots/elements/inspector/column/trigger-mode/inherit.png[Inherit, role="related thumb right"]
+image:playtime::generated/screenshots/elements/inspector/column/trigger-mode/inherit.png[Inherit, role="related thumb right"]
 
 Inherits the parent setting. No override.
 

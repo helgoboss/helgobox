@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-matrix-recording-sync-to-project-tempo-no,No]]]
-ifndef::pdf-theme[[[inspector-matrix-recording-sync-to-project-tempo-no,No image:generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo/no.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-matrix-recording-sync-to-project-tempo-no,No image:playtime::generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo/no.png[width=50]]]]
 === No
 
-image:generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo/no.png[No, role="related thumb right"]
+image:playtime::generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo/no.png[No, role="related thumb right"]
 
 Doesn't sync to project tempo.
 

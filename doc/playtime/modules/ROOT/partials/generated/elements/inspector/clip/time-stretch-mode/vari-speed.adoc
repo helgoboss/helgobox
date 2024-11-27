@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-clip-time-stretch-mode-vari-speed,Vari-speed]]]
-ifndef::pdf-theme[[[inspector-clip-time-stretch-mode-vari-speed,Vari-speed image:generated/screenshots/elements/inspector/clip/time-stretch-mode/vari-speed.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-clip-time-stretch-mode-vari-speed,Vari-speed image:playtime::generated/screenshots/elements/inspector/clip/time-stretch-mode/vari-speed.png[width=50]]]]
 === Vari-speed
 
-image:generated/screenshots/elements/inspector/clip/time-stretch-mode/vari-speed.png[Vari-speed, role="related thumb right"]
+image:playtime::generated/screenshots/elements/inspector/clip/time-stretch-mode/vari-speed.png[Vari-speed, role="related thumb right"]
 
 Changes tempo and pitch together. This uses resampling under the hood (uses much less CPU than real time stretching).
 

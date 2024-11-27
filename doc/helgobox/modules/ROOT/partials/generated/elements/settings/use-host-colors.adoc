@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-use-host-colors,Use host colors (experimental)]]]
 ifndef::pdf-theme[[[settings-use-host-colors,Use host colors (experimental)]]]
 === Use host colors (experimental)
 
-image::generated/screenshots/elements/settings/use-host-colors.png[Use host colors (experimental)]
+image::helgobox::generated/screenshots/elements/settings/use-host-colors.png[Use host colors (experimental)]
 
 Borrows some color from the REAPER theme.
 

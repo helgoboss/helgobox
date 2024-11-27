@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[matrix-template-panel,Template panel]]]
 ifndef::pdf-theme[[[matrix-template-panel,Template panel]]]
 == Template panel
 
-image::generated/screenshots/elements/matrix/template-panel.png[Template panel]
+image::playtime::generated/screenshots/elements/matrix/template-panel.png[Template panel]
 
 Lets you pick among a bunch of simple matrix templates.
 

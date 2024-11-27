@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-clip-stop-timing-immediately,Immediately]]]
-ifndef::pdf-theme[[[inspector-clip-stop-timing-immediately,Immediately image:generated/screenshots/elements/inspector/clip/stop-timing/immediately.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-clip-stop-timing-immediately,Immediately image:playtime::generated/screenshots/elements/inspector/clip/stop-timing/immediately.png[width=50]]]]
 === Immediately
 
-image:generated/screenshots/elements/inspector/clip/stop-timing/immediately.png[Immediately, role="related thumb right"]
+image:playtime::generated/screenshots/elements/inspector/clip/stop-timing/immediately.png[Immediately, role="related thumb right"]
 
 Stops the clip instantly.
 

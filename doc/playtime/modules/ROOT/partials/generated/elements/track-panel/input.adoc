@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[track-panel-input,Track input]]]
-ifndef::pdf-theme[[[track-panel-input,Track input image:generated/screenshots/elements/track-panel/input.png[width=50]]]]
+ifndef::pdf-theme[[[track-panel-input,Track input image:playtime::generated/screenshots/elements/track-panel/input.png[width=50]]]]
 === Track input
 
-image:generated/screenshots/elements/track-panel/input.png[Track input, role="related thumb right"]
+image:playtime::generated/screenshots/elements/track-panel/input.png[Track input, role="related thumb right"]
 
 Pick the hardware input of this track used for recording and input monitoring. This can be a MIDI or audio input.
 

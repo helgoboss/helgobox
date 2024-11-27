@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-tempo,Tempo]]]
-ifndef::pdf-theme[[[toolbar-tempo,Tempo image:generated/screenshots/elements/toolbar/tempo.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-tempo,Tempo image:playtime::generated/screenshots/elements/toolbar/tempo.png[width=50]]]]
 === Tempo
 
-image:generated/screenshots/elements/toolbar/tempo.png[Tempo, role="related thumb right"]
+image:playtime::generated/screenshots/elements/toolbar/tempo.png[Tempo, role="related thumb right"]
 
 Controls the project tempo. This is only possible as long as REAPER playback is stopped and no tempo marker exists in the project.
 [NOTE]

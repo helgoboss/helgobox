@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[info-panel-stats-pre-buffer-fallback-count,Pre-buffer fallbac
 ifndef::pdf-theme[[[info-panel-stats-pre-buffer-fallback-count,Pre-buffer fallbacks so far]]]
 === Pre-buffer fallbacks so far
 
-image::generated/screenshots/elements/info-panel/stats/pre-buffer-fallback-count.png[Pre-buffer fallbacks so far]
+image::playtime::generated/screenshots/elements/info-panel/stats/pre-buffer-fallback-count.png[Pre-buffer fallbacks so far]
 
 The number of times in which any audio clip's dynamic pre-buffer couldn't provide the desired pre-rendered audio content, but the static pre-buffer was able to provide it instead.
 

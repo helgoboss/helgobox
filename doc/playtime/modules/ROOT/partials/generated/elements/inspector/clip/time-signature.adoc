@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-clip-time-signature,Time signature]]]
 ifndef::pdf-theme[[[inspector-clip-time-signature,Time signature]]]
 === Time signature
 
-image::generated/screenshots/elements/inspector/clip/time-signature.png[Time signature]
+image::playtime::generated/screenshots/elements/inspector/clip/time-signature.png[Time signature]
 
 The original time signature in which the material has been recorded.
 

@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[title-bar-help,Help]]]
-ifndef::pdf-theme[[[title-bar-help,Help image:generated/screenshots/elements/title-bar/help.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-help,Help image:helgobox::generated/screenshots/elements/title-bar/help.png[width=50]]]]
 == Help
 
-image:generated/screenshots/elements/title-bar/help.png[Help, role="related thumb right"]
+image:helgobox::generated/screenshots/elements/title-bar/help.png[Help, role="related thumb right"]
 
 Shows a help menu
 

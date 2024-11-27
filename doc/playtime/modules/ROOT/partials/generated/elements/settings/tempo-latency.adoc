@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[settings-tempo-latency,Tempo latency]]]
-ifndef::pdf-theme[[[settings-tempo-latency,Tempo latency image:generated/screenshots/elements/settings/tempo-latency.png[width=50]]]]
+ifndef::pdf-theme[[[settings-tempo-latency,Tempo latency image:playtime::generated/screenshots/elements/settings/tempo-latency.png[width=50]]]]
 === Tempo latency
 
-image:generated/screenshots/elements/settings/tempo-latency.png[Tempo latency, role="related thumb right"]
+image:playtime::generated/screenshots/elements/settings/tempo-latency.png[Tempo latency, role="related thumb right"]
 
 Adjust how many milliseconds of audio will be pre-buffered ahead of time.
 

@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[info-panel-stats-tempo-buffer-size,Tempo buffer size (in bloc
 ifndef::pdf-theme[[[info-panel-stats-tempo-buffer-size,Tempo buffer size (in blocks)]]]
 === Tempo buffer size (in blocks)
 
-image::generated/screenshots/elements/info-panel/stats/tempo-buffer-size.png[Tempo buffer size (in blocks)]
+image::playtime::generated/screenshots/elements/info-panel/stats/tempo-buffer-size.png[Tempo buffer size (in blocks)]
 
 The current size of the tempo buffer in blocks.
 

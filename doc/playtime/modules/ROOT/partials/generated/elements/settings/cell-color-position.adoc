@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-cell-color-position,Cell color position]]]
 ifndef::pdf-theme[[[settings-cell-color-position,Cell color position]]]
 === Cell color position
 
-image::generated/screenshots/elements/settings/cell-color-position.png[Cell color position]
+image::playtime::generated/screenshots/elements/settings/cell-color-position.png[Cell color position]
 
 Choose how a slot cell shows the color of its primary clip.
 

@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[tempo-settings-tap-volume,Tap volume]]]
 ifndef::pdf-theme[[[tempo-settings-tap-volume,Tap volume]]]
 == Tap volume
 
-image::generated/screenshots/elements/tempo-settings/tap-volume.png[Tap volume]
+image::playtime::generated/screenshots/elements/tempo-settings/tap-volume.png[Tap volume]
 
 Set the volume of the tempo tap sound.
 

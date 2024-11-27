@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-clip-quantize,Quantize]]]
-ifndef::pdf-theme[[[inspector-clip-quantize,Quantize image:generated/screenshots/elements/inspector/clip/quantize.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-clip-quantize,Quantize image:playtime::generated/screenshots/elements/inspector/clip/quantize.png[width=50]]]]
 == Quantize
 
-image:generated/screenshots/elements/inspector/clip/quantize.png[Quantize, role="related thumb right"]
+image:playtime::generated/screenshots/elements/inspector/clip/quantize.png[Quantize, role="related thumb right"]
 
 Pressing this will quantize or unquantize the MIDI notes of this clip according to the matrix-wide MIDI quantization grid setting.
 

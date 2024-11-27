@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[inspector-matrix-recording-sync-to-project-tempo,Sync to proj
 ifndef::pdf-theme[[[inspector-matrix-recording-sync-to-project-tempo,Sync to project tempo]]]
 == Sync to project tempo
 
-image::generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo.png[Sync to project tempo]
+image::playtime::generated/screenshots/elements/inspector/matrix/recording-sync-to-project-tempo.png[Sync to project tempo]
 
 Set whether playback of the recorded clip (after its recording) should synchronize to the project tempo.
 

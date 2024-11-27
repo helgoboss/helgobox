@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[slot-cell-record,Record clip]]]
-ifndef::pdf-theme[[[slot-cell-record,Record clip image:generated/screenshots/elements/slot-cell/record.png[width=50]]]]
+ifndef::pdf-theme[[[slot-cell-record,Record clip image:playtime::generated/screenshots/elements/slot-cell/record.png[width=50]]]]
 === Record clip
 
-image:generated/screenshots/elements/slot-cell/record.png[Record clip, role="related thumb right"]
+image:playtime::generated/screenshots/elements/slot-cell/record.png[Record clip, role="related thumb right"]
 
 Starts recording a new clip into this slot.
 

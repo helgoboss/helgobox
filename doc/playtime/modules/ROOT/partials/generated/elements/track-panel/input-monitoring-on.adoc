@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[track-panel-input-monitoring-on,Input monitoring on]]]
-ifndef::pdf-theme[[[track-panel-input-monitoring-on,Input monitoring on image:generated/screenshots/elements/track-panel/input-monitoring-on.png[width=50]]]]
+ifndef::pdf-theme[[[track-panel-input-monitoring-on,Input monitoring on image:playtime::generated/screenshots/elements/track-panel/input-monitoring-on.png[width=50]]]]
 ==== Input monitoring on
 
-image:generated/screenshots/elements/track-panel/input-monitoring-on.png[Input monitoring on, role="related thumb right"]
+image:playtime::generated/screenshots/elements/track-panel/input-monitoring-on.png[Input monitoring on, role="related thumb right"]
 
 Switches input monitoring for this track on. That means you will hear what you play.
 

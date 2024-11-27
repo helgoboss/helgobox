@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-display-license-info,Display license info]]]
 ifndef::pdf-theme[[[settings-display-license-info,Display license info]]]
 === Display license info
 
-image::generated/screenshots/elements/settings/display-license-info.png[Display license info]
+image::helgobox::generated/screenshots/elements/settings/display-license-info.png[Display license info]
 
 If enabled, the licensee name will be displayed in the window title bar. This only affects commercial Helgobox products, such as Playtime.
 

@@ -2,7 +2,7 @@ ifdef::pdf-theme[[[settings-hide-window-when-escape-pressed,Hide window when esc
 ifndef::pdf-theme[[[settings-hide-window-when-escape-pressed,Hide window when escape pressed]]]
 === Hide window when escape pressed
 
-image::generated/screenshots/elements/settings/hide-window-when-escape-pressed.png[Hide window when escape pressed]
+image::helgobox::generated/screenshots/elements/settings/hide-window-when-escape-pressed.png[Hide window when escape pressed]
 
 If enabled, pressing escape if no dialog is open will hide the window.
 

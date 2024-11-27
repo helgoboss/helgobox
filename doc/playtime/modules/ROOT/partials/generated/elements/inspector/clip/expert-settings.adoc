@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-clip-expert-settings,Expert settings ⊖]]]
-ifndef::pdf-theme[[[inspector-clip-expert-settings,Expert settings ⊖ image:generated/screenshots/elements/inspector/clip/expert-settings.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-clip-expert-settings,Expert settings ⊖ image:playtime::generated/screenshots/elements/inspector/clip/expert-settings.png[width=50]]]]
 == Expert settings ⊖
 
-image:generated/screenshots/elements/inspector/clip/expert-settings.png[Expert settings ⊖, role="related thumb right"]
+image:playtime::generated/screenshots/elements/inspector/clip/expert-settings.png[Expert settings ⊖, role="related thumb right"]
 
 It's usually not necessary to touch the settings in this section.
 
