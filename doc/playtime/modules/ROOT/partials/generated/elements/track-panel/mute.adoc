@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[track-panel-mute,Mute track]]]
-ifndef::pdf-theme[[[track-panel-mute,Mute track image:playtime::generated/screenshots/elements/track-panel/mute.png[width=50]]]]
+ifndef::pdf-theme[[[track-panel-mute,Mute track image:playtime::generated/screenshots/elements/track-panel/mute.png[width=50, pdfwidth=8mm]]]]
 === Mute track
 
-image:playtime::generated/screenshots/elements/track-panel/mute.png[Mute track, role="related thumb right"]
+image::playtime::generated/screenshots/elements/track-panel/mute.png[Mute track, role="related thumb right", float=right]
 
 Mutes this track
 

@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[todo-clip,Clip]]]
-ifndef::pdf-theme[[[todo-clip,Clip image:playtime::generated/screenshots/elements/todo/clip.png[width=50]]]]
+ifndef::pdf-theme[[[todo-clip,Clip image:playtime::generated/screenshots/elements/todo/clip.png[width=50, pdfwidth=8mm]]]]
 == Clip
 
-image:playtime::generated/screenshots/elements/todo/clip.png[Clip, role="related thumb right"]
+image::playtime::generated/screenshots/elements/todo/clip.png[Clip, role="related thumb right", float=right]
 
 This is one of the clips in this slot. Clicking on it will reveal its settings in the area below. Double-clicking on it opens the clip in the waveform view or MIDI editor.
 

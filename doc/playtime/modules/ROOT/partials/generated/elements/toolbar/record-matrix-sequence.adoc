@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-record-matrix-sequence,Record matrix sequence]]]
-ifndef::pdf-theme[[[toolbar-record-matrix-sequence,Record matrix sequence image:playtime::generated/screenshots/elements/toolbar/record-matrix-sequence.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-record-matrix-sequence,Record matrix sequence image:playtime::generated/screenshots/elements/toolbar/record-matrix-sequence.png[width=50, pdfwidth=8mm]]]]
 === Record matrix sequence
 
-image:playtime::generated/screenshots/elements/toolbar/record-matrix-sequence.png[Record matrix sequence, role="related thumb right"]
+image::playtime::generated/screenshots/elements/toolbar/record-matrix-sequence.png[Record matrix sequence, role="related thumb right", float=right]
 
 Starts recording a new matrix performance
 

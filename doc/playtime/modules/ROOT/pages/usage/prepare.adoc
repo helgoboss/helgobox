@@ -19,7 +19,7 @@ If you want to know more about this process, please consult the one and only lin
 
 == 3. Fire up Playtime
 
-Press the image:screenshots/playtime-toolbar-icon.png[Playtime,width=50] button in REAPER's main toolbar, or use any of the alternative ways to start Playtime (described in xref:installation.adoc[]).
+Press the image:screenshots/playtime-toolbar-icon.png[Playtime,width=50, pdfwidth=8mm] button in REAPER's main toolbar, or use any of the alternative ways to start Playtime (described in xref:installation.adoc[]).
 After pressing the button, you should see the Playtime window with an empty xref:key-concepts.adoc#matrix[]:
 
 .Playtime window with empty matrix

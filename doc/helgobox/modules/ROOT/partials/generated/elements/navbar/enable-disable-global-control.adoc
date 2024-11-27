@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[navbar-enable-disable-global-control,Enable/disable global control]]]
-ifndef::pdf-theme[[[navbar-enable-disable-global-control,Enable/disable global control image:helgobox::generated/screenshots/elements/navbar/enable-disable-global-control.png[width=50]]]]
+ifndef::pdf-theme[[[navbar-enable-disable-global-control,Enable/disable global control image:helgobox::generated/screenshots/elements/navbar/enable-disable-global-control.png[width=50, pdfwidth=8mm]]]]
 == Enable/disable global control
 
-image:helgobox::generated/screenshots/elements/navbar/enable-disable-global-control.png[Enable/disable global control, role="related thumb right"]
+image::helgobox::generated/screenshots/elements/navbar/enable-disable-global-control.png[Enable/disable global control, role="related thumb right", float=right]
 
 Enables or disables the usage of global controllers for this Helgobox instance.
 

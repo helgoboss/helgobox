@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-clip-stop-timing-custom,Custom]]]
-ifndef::pdf-theme[[[inspector-clip-stop-timing-custom,Custom image:playtime::generated/screenshots/elements/inspector/clip/stop-timing/custom.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-clip-stop-timing-custom,Custom image:playtime::generated/screenshots/elements/inspector/clip/stop-timing/custom.png[width=50, pdfwidth=8mm]]]]
 === Custom
 
-image:playtime::generated/screenshots/elements/inspector/clip/stop-timing/custom.png[Custom, role="related thumb right"]
+image::playtime::generated/screenshots/elements/inspector/clip/stop-timing/custom.png[Custom, role="related thumb right", float=right]
 
 Use a custom quantization for stopping the clip.
 

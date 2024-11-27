@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[title-bar-full-screen,Full screen]]]
-ifndef::pdf-theme[[[title-bar-full-screen,Full screen image:helgobox::generated/screenshots/elements/title-bar/full-screen.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-full-screen,Full screen image:helgobox::generated/screenshots/elements/title-bar/full-screen.png[width=50, pdfwidth=8mm]]]]
 == Full screen
 
-image:helgobox::generated/screenshots/elements/title-bar/full-screen.png[Full screen, role="related thumb right"]
+image::helgobox::generated/screenshots/elements/title-bar/full-screen.png[Full screen, role="related thumb right", float=right]
 
 Toggles between full-screen and windowed mode.
 

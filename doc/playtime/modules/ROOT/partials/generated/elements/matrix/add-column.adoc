@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[matrix-add-column,Add column]]]
-ifndef::pdf-theme[[[matrix-add-column,Add column image:playtime::generated/screenshots/elements/matrix/add-column.png[width=50]]]]
+ifndef::pdf-theme[[[matrix-add-column,Add column image:playtime::generated/screenshots/elements/matrix/add-column.png[width=50, pdfwidth=8mm]]]]
 === Add column
 
-image:playtime::generated/screenshots/elements/matrix/add-column.png[Add column, role="related thumb right"]
+image::playtime::generated/screenshots/elements/matrix/add-column.png[Add column, role="related thumb right", float=right]
 
 Adds a new column to the matrix and associates it with a newly created REAPER track.
 

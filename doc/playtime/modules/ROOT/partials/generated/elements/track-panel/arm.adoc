@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[track-panel-arm,Arm track]]]
-ifndef::pdf-theme[[[track-panel-arm,Arm track image:playtime::generated/screenshots/elements/track-panel/arm.png[width=50]]]]
+ifndef::pdf-theme[[[track-panel-arm,Arm track image:playtime::generated/screenshots/elements/track-panel/arm.png[width=50, pdfwidth=8mm]]]]
 === Arm track
 
-image:playtime::generated/screenshots/elements/track-panel/arm.png[Arm track, role="related thumb right"]
+image::playtime::generated/screenshots/elements/track-panel/arm.png[Arm track, role="related thumb right", float=right]
 
 Arms this track for recording
 

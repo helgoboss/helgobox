@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[slot-cell-content,Slot content]]]
-ifndef::pdf-theme[[[slot-cell-content,Slot content image:playtime::generated/screenshots/elements/slot-cell/content.png[width=50]]]]
+ifndef::pdf-theme[[[slot-cell-content,Slot content image:playtime::generated/screenshots/elements/slot-cell/content.png[width=50, pdfwidth=8mm]]]]
 === Slot content
 
-image:playtime::generated/screenshots/elements/slot-cell/content.png[Slot content, role="related thumb right"]
+image::playtime::generated/screenshots/elements/slot-cell/content.png[Slot content, role="related thumb right", float=right]
 
 Selects this slot cell. This makes the inspector show settings for each clip in this slot.
 

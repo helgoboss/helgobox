@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[settings-dim-opacity,Dim opacity]]]
-ifndef::pdf-theme[[[settings-dim-opacity,Dim opacity image:helgobox::generated/screenshots/elements/settings/dim-opacity.png[width=50]]]]
+ifndef::pdf-theme[[[settings-dim-opacity,Dim opacity image:helgobox::generated/screenshots/elements/settings/dim-opacity.png[width=50, pdfwidth=8mm]]]]
 === Dim opacity
 
-image:helgobox::generated/screenshots/elements/settings/dim-opacity.png[Dim opacity, role="related thumb right"]
+image::helgobox::generated/screenshots/elements/settings/dim-opacity.png[Dim opacity, role="related thumb right", float=right]
 
 Adjust how much to dim the Helgobox app window when pressing the dim button.
 

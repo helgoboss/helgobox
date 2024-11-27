@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[slot-cell,Slot cell]]]
-ifndef::pdf-theme[[[slot-cell,Slot cell image:playtime::generated/screenshots/elements/slot-cell.png[width=50]]]]
+ifndef::pdf-theme[[[slot-cell,Slot cell image:playtime::generated/screenshots/elements/slot-cell.png[width=50, pdfwidth=8mm]]]]
 == Slot cell
 
-image:playtime::generated/screenshots/elements/slot-cell.png[Slot cell, role="related thumb right"]
+image::playtime::generated/screenshots/elements/slot-cell.png[Slot cell, role="related thumb right", float=right]
 
 This cell represents a slot in the matrix.
 

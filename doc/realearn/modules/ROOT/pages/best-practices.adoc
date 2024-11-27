@@ -30,7 +30,7 @@ Or you can contribute them yourself!
 * You can make your xref:key-concepts.adoc#main-mapping[main mappings] independent of the actually used xref:key-concepts.adoc#controller[].
 This is done using xref:further-concepts/source.adoc#virtual-source[virtual sources] and xref:further-concepts/target.adoc#virtual-target[virtual targets].
 * It allows you to give your knobs, buttons etc. descriptive and friendly names instead of just e.g. "CC 15".
-* You don't need to learn your <<control-element, control elements> again and again.
+* You don't need to learn your xref:key-concepts.adoc#control-element[control elements] again and again.
 Although the process of learning an element is easy in ReaLearn, it can take some time in case the xref:further-concepts/source.adoc#midi-source-character[] is not guessed correctly.
 Just do it once and be done with it!
 

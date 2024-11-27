@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[area-track-area-1,Track area]]]
-ifndef::pdf-theme[[[area-track-area-1,Track area image:playtime::generated/screenshots/elements/area/track-area-1.png[width=50]]]]
+ifndef::pdf-theme[[[area-track-area-1,Track area image:playtime::generated/screenshots/elements/area/track-area-1.png[width=50, pdfwidth=8mm]]]]
 == Track area
 
-image:playtime::generated/screenshots/elements/area/track-area-1.png[Track area, role="related thumb right"]
+image::playtime::generated/screenshots/elements/area/track-area-1.png[Track area, role="related thumb right", float=right]
 
 
 

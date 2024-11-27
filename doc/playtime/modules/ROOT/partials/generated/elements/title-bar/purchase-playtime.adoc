@@ -1,5 +1,5 @@
 ifdef::pdf-theme[[[title-bar-purchase-playtime,👍 Purchase & Activate]]]
-ifndef::pdf-theme[[[title-bar-purchase-playtime,👍 Purchase & Activate image:playtime::generated/screenshots/elements/title-bar/purchase-playtime.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-purchase-playtime,👍 Purchase & Activate image:playtime::generated/screenshots/elements/title-bar/purchase-playtime.png[width=50, pdfwidth=8mm]]]]
 == 👍 Purchase & Activate
 
 image:playtime::generated/screenshots/elements/title-bar/purchase-playtime.png[👍 Purchase & Activate, role="related thumb right"]

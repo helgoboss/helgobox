@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-clip-midi-reset-behavior-none,None]]]
-ifndef::pdf-theme[[[inspector-clip-midi-reset-behavior-none,None image:playtime::generated/screenshots/elements/inspector/clip/midi-reset-behavior/none.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-clip-midi-reset-behavior-none,None image:playtime::generated/screenshots/elements/inspector/clip/midi-reset-behavior/none.png[width=50, pdfwidth=8mm]]]]
 === None
 
-image:playtime::generated/screenshots/elements/inspector/clip/midi-reset-behavior/none.png[None, role="related thumb right"]
+image::playtime::generated/screenshots/elements/inspector/clip/midi-reset-behavior/none.png[None, role="related thumb right", float=right]
 
 No reset messages at all. Say hello to hanging notes :D
 

@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[matrix-cell,Matrix cell]]]
-ifndef::pdf-theme[[[matrix-cell,Matrix cell image:playtime::generated/screenshots/elements/matrix-cell.png[width=50]]]]
+ifndef::pdf-theme[[[matrix-cell,Matrix cell image:playtime::generated/screenshots/elements/matrix-cell.png[width=50, pdfwidth=8mm]]]]
 == Matrix cell
 
-image:playtime::generated/screenshots/elements/matrix-cell.png[Matrix cell, role="related thumb right"]
+image::playtime::generated/screenshots/elements/matrix-cell.png[Matrix cell, role="related thumb right", float=right]
 
 This cell represents the complete matrix including all of its columns, rows and slots.
 

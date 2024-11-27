@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[track-panel-fx-chain,FX chain]]]
-ifndef::pdf-theme[[[track-panel-fx-chain,FX chain image:playtime::generated/screenshots/elements/track-panel/fx-chain.png[width=50]]]]
+ifndef::pdf-theme[[[track-panel-fx-chain,FX chain image:playtime::generated/screenshots/elements/track-panel/fx-chain.png[width=50, pdfwidth=8mm]]]]
 === FX chain
 
-image:playtime::generated/screenshots/elements/track-panel/fx-chain.png[FX chain, role="related thumb right"]
+image::playtime::generated/screenshots/elements/track-panel/fx-chain.png[FX chain, role="related thumb right", float=right]
 
 Shows the REAPER FX chain of this track
 

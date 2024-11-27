@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[track-panel-pdc-tiny,Tiny latency: 5ms]]]
-ifndef::pdf-theme[[[track-panel-pdc-tiny,Tiny latency: 5ms image:playtime::generated/screenshots/elements/track-panel/pdc-tiny.png[width=50]]]]
+ifndef::pdf-theme[[[track-panel-pdc-tiny,Tiny latency: 5ms image:playtime::generated/screenshots/elements/track-panel/pdc-tiny.png[width=50, pdfwidth=8mm]]]]
 ==== Tiny latency: 5ms
 
-image:playtime::generated/screenshots/elements/track-panel/pdc-tiny.png[Tiny latency: 5ms, role="related thumb right"]
+image::playtime::generated/screenshots/elements/track-panel/pdc-tiny.png[Tiny latency: 5ms, role="related thumb right", float=right]
 
 This track is affected by a tiny latency, which Playtime compensates during playback. Input monitoring should be fine.
 

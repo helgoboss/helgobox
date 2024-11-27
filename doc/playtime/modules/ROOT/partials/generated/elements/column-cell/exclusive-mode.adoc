@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[column-cell-exclusive-mode,Exclusive mode]]]
-ifndef::pdf-theme[[[column-cell-exclusive-mode,Exclusive mode image:playtime::generated/screenshots/elements/column-cell/exclusive-mode.png[width=50]]]]
+ifndef::pdf-theme[[[column-cell-exclusive-mode,Exclusive mode image:playtime::generated/screenshots/elements/column-cell/exclusive-mode.png[width=50, pdfwidth=8mm]]]]
 === Exclusive mode
 
-image:playtime::generated/screenshots/elements/column-cell/exclusive-mode.png[Exclusive mode, role="related thumb right"]
+image::playtime::generated/screenshots/elements/column-cell/exclusive-mode.png[Exclusive mode, role="related thumb right", float=right]
 
 This lights up if the column is in exclusive mode, which means that only one slot at a time will usually be playing.
 

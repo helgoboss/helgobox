@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[track-panel-routing,Track routing]]]
-ifndef::pdf-theme[[[track-panel-routing,Track routing image:playtime::generated/screenshots/elements/track-panel/routing.png[width=50]]]]
+ifndef::pdf-theme[[[track-panel-routing,Track routing image:playtime::generated/screenshots/elements/track-panel/routing.png[width=50, pdfwidth=8mm]]]]
 === Track routing
 
-image:playtime::generated/screenshots/elements/track-panel/routing.png[Track routing, role="related thumb right"]
+image::playtime::generated/screenshots/elements/track-panel/routing.png[Track routing, role="related thumb right", float=right]
 
 Shows the REAPER routing window of this track
 

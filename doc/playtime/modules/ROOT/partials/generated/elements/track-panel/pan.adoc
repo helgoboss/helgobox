@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[track-panel-pan,Pan]]]
-ifndef::pdf-theme[[[track-panel-pan,Pan image:playtime::generated/screenshots/elements/track-panel/pan.png[width=50]]]]
+ifndef::pdf-theme[[[track-panel-pan,Pan image:playtime::generated/screenshots/elements/track-panel/pan.png[width=50, pdfwidth=8mm]]]]
 === Pan
 
-image:playtime::generated/screenshots/elements/track-panel/pan.png[Pan, role="related thumb right"]
+image::playtime::generated/screenshots/elements/track-panel/pan.png[Pan, role="related thumb right", float=right]
 
 Changes the track panning.
 

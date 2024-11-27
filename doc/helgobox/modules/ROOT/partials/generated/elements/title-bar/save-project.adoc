@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[title-bar-save-project,Save project]]]
-ifndef::pdf-theme[[[title-bar-save-project,Save project image:helgobox::generated/screenshots/elements/title-bar/save-project.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-save-project,Save project image:helgobox::generated/screenshots/elements/title-bar/save-project.png[width=50, pdfwidth=8mm]]]]
 == Save project
 
-image:helgobox::generated/screenshots/elements/title-bar/save-project.png[Save project, role="related thumb right"]
+image::helgobox::generated/screenshots/elements/title-bar/save-project.png[Save project, role="related thumb right", float=right]
 
 Saves the current REAPER project
 

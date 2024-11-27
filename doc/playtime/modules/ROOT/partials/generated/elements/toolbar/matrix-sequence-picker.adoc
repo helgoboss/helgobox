@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-matrix-sequence-picker,Matrix sequence picker]]]
-ifndef::pdf-theme[[[toolbar-matrix-sequence-picker,Matrix sequence picker image:playtime::generated/screenshots/elements/toolbar/matrix-sequence-picker.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-matrix-sequence-picker,Matrix sequence picker image:playtime::generated/screenshots/elements/toolbar/matrix-sequence-picker.png[width=50, pdfwidth=8mm]]]]
 === Matrix sequence picker
 
-image:playtime::generated/screenshots/elements/toolbar/matrix-sequence-picker.png[Matrix sequence picker, role="related thumb right"]
+image::playtime::generated/screenshots/elements/toolbar/matrix-sequence-picker.png[Matrix sequence picker, role="related thumb right", float=right]
 
 Pick the active matrix sequence
 

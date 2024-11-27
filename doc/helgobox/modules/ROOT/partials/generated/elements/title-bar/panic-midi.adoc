@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[title-bar-panic-midi,Panic]]]
-ifndef::pdf-theme[[[title-bar-panic-midi,Panic image:helgobox::generated/screenshots/elements/title-bar/panic-midi.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-panic-midi,Panic image:helgobox::generated/screenshots/elements/title-bar/panic-midi.png[width=50, pdfwidth=8mm]]]]
 == Panic
 
-image:helgobox::generated/screenshots/elements/title-bar/panic-midi.png[Panic, role="related thumb right"]
+image::helgobox::generated/screenshots/elements/title-bar/panic-midi.png[Panic, role="related thumb right", float=right]
 
 Attempts to stops all currently playing MIDI notes. Whenever you experience hanging notes, press this button.
 

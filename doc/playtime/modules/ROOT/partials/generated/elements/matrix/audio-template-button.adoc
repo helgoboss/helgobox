@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[matrix-audio-template-button,Audio]]]
-ifndef::pdf-theme[[[matrix-audio-template-button,Audio image:playtime::generated/screenshots/elements/matrix/audio-template-button.png[width=50]]]]
+ifndef::pdf-theme[[[matrix-audio-template-button,Audio image:playtime::generated/screenshots/elements/matrix/audio-template-button.png[width=50, pdfwidth=8mm]]]]
 === Audio
 
-image:playtime::generated/screenshots/elements/matrix/audio-template-button.png[Audio, role="related thumb right"]
+image::playtime::generated/screenshots/elements/matrix/audio-template-button.png[Audio, role="related thumb right", float=right]
 
 Creates a simple matrix with all track inputs set to audio channels.
 

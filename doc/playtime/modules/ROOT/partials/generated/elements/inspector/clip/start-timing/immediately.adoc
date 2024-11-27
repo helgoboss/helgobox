@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-clip-start-timing-immediately,Immediately]]]
-ifndef::pdf-theme[[[inspector-clip-start-timing-immediately,Immediately image:playtime::generated/screenshots/elements/inspector/clip/start-timing/immediately.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-clip-start-timing-immediately,Immediately image:playtime::generated/screenshots/elements/inspector/clip/start-timing/immediately.png[width=50, pdfwidth=8mm]]]]
 === Immediately
 
-image:playtime::generated/screenshots/elements/inspector/clip/start-timing/immediately.png[Immediately, role="related thumb right"]
+image::playtime::generated/screenshots/elements/inspector/clip/start-timing/immediately.png[Immediately, role="related thumb right", float=right]
 
 Plays the clip instantly. Good for finger drumming.
 

@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[title-bar-dim,Dim]]]
-ifndef::pdf-theme[[[title-bar-dim,Dim image:helgobox::generated/screenshots/elements/title-bar/dim.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-dim,Dim image:helgobox::generated/screenshots/elements/title-bar/dim.png[width=50, pdfwidth=8mm]]]]
 == Dim
 
-image:helgobox::generated/screenshots/elements/title-bar/dim.png[Dim, role="related thumb right"]
+image::helgobox::generated/screenshots/elements/title-bar/dim.png[Dim, role="related thumb right", float=right]
 
 Toggles between a transparent and opaque window. Useful for quickly having a look what REAPER is doing under the hood ;)
 

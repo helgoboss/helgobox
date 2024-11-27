@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[column-cell-follow-scenes,Follow scenes]]]
-ifndef::pdf-theme[[[column-cell-follow-scenes,Follow scenes image:playtime::generated/screenshots/elements/column-cell/follow-scenes.png[width=50]]]]
+ifndef::pdf-theme[[[column-cell-follow-scenes,Follow scenes image:playtime::generated/screenshots/elements/column-cell/follow-scenes.png[width=50, pdfwidth=8mm]]]]
 === Follow scenes
 
-image:playtime::generated/screenshots/elements/column-cell/follow-scenes.png[Follow scenes, role="related thumb right"]
+image::playtime::generated/screenshots/elements/column-cell/follow-scenes.png[Follow scenes, role="related thumb right", float=right]
 
 This lights up if the column follows scenes. You can also click this button to follow/unfollow.
 

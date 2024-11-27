@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[track-panel-solo,Solo track]]]
-ifndef::pdf-theme[[[track-panel-solo,Solo track image:playtime::generated/screenshots/elements/track-panel/solo.png[width=50]]]]
+ifndef::pdf-theme[[[track-panel-solo,Solo track image:playtime::generated/screenshots/elements/track-panel/solo.png[width=50, pdfwidth=8mm]]]]
 === Solo track
 
-image:playtime::generated/screenshots/elements/track-panel/solo.png[Solo track, role="related thumb right"]
+image::playtime::generated/screenshots/elements/track-panel/solo.png[Solo track, role="related thumb right", float=right]
 
 Soloes this track
 

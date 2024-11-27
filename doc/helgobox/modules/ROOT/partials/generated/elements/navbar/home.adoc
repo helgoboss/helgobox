@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[navbar-home,Home]]]
-ifndef::pdf-theme[[[navbar-home,Home image:helgobox::generated/screenshots/elements/navbar/home.png[width=50]]]]
+ifndef::pdf-theme[[[navbar-home,Home image:helgobox::generated/screenshots/elements/navbar/home.png[width=50, pdfwidth=8mm]]]]
 == Home
 
-image:helgobox::generated/screenshots/elements/navbar/home.png[Home, role="related thumb right"]
+image::helgobox::generated/screenshots/elements/navbar/home.png[Home, role="related thumb right", float=right]
 
 Shows the Helgobox welcome page.
 

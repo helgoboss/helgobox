@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-time-signature,Time signature]]]
-ifndef::pdf-theme[[[toolbar-time-signature,Time signature image:playtime::generated/screenshots/elements/toolbar/time-signature.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-time-signature,Time signature image:playtime::generated/screenshots/elements/toolbar/time-signature.png[width=50, pdfwidth=8mm]]]]
 === Time signature
 
-image:playtime::generated/screenshots/elements/toolbar/time-signature.png[Time signature, role="related thumb right"]
+image::playtime::generated/screenshots/elements/toolbar/time-signature.png[Time signature, role="related thumb right", float=right]
 
 Displays the project's time signature.
 [NOTE]

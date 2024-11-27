@@ -1,8 +1,8 @@
-ifdef::pdf-theme[[[matrix-mixed-template-button,MIDI]]]
-ifndef::pdf-theme[[[matrix-mixed-template-button,MIDI image:playtime::generated/screenshots/elements/matrix/mixed-template-button.png[width=50]]]]
-=== MIDI
+ifdef::pdf-theme[[[matrix-mixed-template-button,Mixed]]]
+ifndef::pdf-theme[[[matrix-mixed-template-button,Mixed image:playtime::generated/screenshots/elements/matrix/mixed-template-button.png[width=50, pdfwidth=8mm]]]]
+=== Mixed
 
-image:playtime::generated/screenshots/elements/matrix/mixed-template-button.png[MIDI, role="related thumb right"]
+image::playtime::generated/screenshots/elements/matrix/mixed-template-button.png[Mixed, role="related thumb right", float=right]
 
 Creates a simple matrix with half of the track inputs set to audio channels and the other half to MIDI devices.
 

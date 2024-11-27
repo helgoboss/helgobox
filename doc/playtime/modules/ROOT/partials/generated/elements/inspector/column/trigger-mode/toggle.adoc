@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-column-trigger-mode-toggle,Toggle]]]
-ifndef::pdf-theme[[[inspector-column-trigger-mode-toggle,Toggle image:playtime::generated/screenshots/elements/inspector/column/trigger-mode/toggle.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-column-trigger-mode-toggle,Toggle image:playtime::generated/screenshots/elements/inspector/column/trigger-mode/toggle.png[width=50, pdfwidth=8mm]]]]
 === Toggle
 
-image:playtime::generated/screenshots/elements/inspector/column/trigger-mode/toggle.png[Toggle, role="related thumb right"]
+image::playtime::generated/screenshots/elements/inspector/column/trigger-mode/toggle.png[Toggle, role="related thumb right", float=right]
 
 Press once to play, press again to stop.
 

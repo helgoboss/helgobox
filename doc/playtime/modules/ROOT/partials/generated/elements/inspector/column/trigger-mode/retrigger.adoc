@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-column-trigger-mode-retrigger,Retrigger]]]
-ifndef::pdf-theme[[[inspector-column-trigger-mode-retrigger,Retrigger image:playtime::generated/screenshots/elements/inspector/column/trigger-mode/retrigger.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-column-trigger-mode-retrigger,Retrigger image:playtime::generated/screenshots/elements/inspector/column/trigger-mode/retrigger.png[width=50, pdfwidth=8mm]]]]
 === Retrigger
 
-image:playtime::generated/screenshots/elements/inspector/column/trigger-mode/retrigger.png[Retrigger, role="related thumb right"]
+image::playtime::generated/screenshots/elements/inspector/column/trigger-mode/retrigger.png[Retrigger, role="related thumb right", float=right]
 
 Press once to play, press again to play from start.
 

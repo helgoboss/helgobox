@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[slot-cell-clip-count,Number of clips]]]
-ifndef::pdf-theme[[[slot-cell-clip-count,Number of clips image:playtime::generated/screenshots/elements/slot-cell/clip-count.png[width=50]]]]
+ifndef::pdf-theme[[[slot-cell-clip-count,Number of clips image:playtime::generated/screenshots/elements/slot-cell/clip-count.png[width=50, pdfwidth=8mm]]]]
 === Number of clips
 
-image:playtime::generated/screenshots/elements/slot-cell/clip-count.png[Number of clips, role="related thumb right"]
+image::playtime::generated/screenshots/elements/slot-cell/clip-count.png[Number of clips, role="related thumb right", float=right]
 
 Shows the number of clips contained in this slot if there's more than one.
 

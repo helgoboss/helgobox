@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[info-panel-warnings,Warnings]]]
-ifndef::pdf-theme[[[info-panel-warnings,Warnings image:playtime::generated/screenshots/elements/info-panel/warnings.png[width=50]]]]
+ifndef::pdf-theme[[[info-panel-warnings,Warnings image:playtime::generated/screenshots/elements/info-panel/warnings.png[width=50, pdfwidth=8mm]]]]
 == Warnings
 
-image:playtime::generated/screenshots/elements/info-panel/warnings.png[Warnings, role="related thumb right"]
+image::playtime::generated/screenshots/elements/info-panel/warnings.png[Warnings, role="related thumb right", float=right]
 
 The presence of this button indicates potential issues that might or might not affect you. Click the button to learn more.
 

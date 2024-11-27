@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-start-stop-playback,Start/stop playback]]]
-ifndef::pdf-theme[[[toolbar-start-stop-playback,Start/stop playback image:playtime::generated/screenshots/elements/toolbar/start-stop-playback.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-start-stop-playback,Start/stop playback image:playtime::generated/screenshots/elements/toolbar/start-stop-playback.png[width=50, pdfwidth=8mm]]]]
 === Start/stop playback
 
-image:playtime::generated/screenshots/elements/toolbar/start-stop-playback.png[Start/stop playback, role="related thumb right"]
+image::playtime::generated/screenshots/elements/toolbar/start-stop-playback.png[Start/stop playback, role="related thumb right", float=right]
 
 Pressing this button start or stops Playtime playback.
 

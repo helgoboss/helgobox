@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-pane-toggler,Pane toggler]]]
-ifndef::pdf-theme[[[toolbar-pane-toggler,Pane toggler image:playtime::generated/screenshots/elements/toolbar/pane-toggler.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-pane-toggler,Pane toggler image:playtime::generated/screenshots/elements/toolbar/pane-toggler.png[width=50, pdfwidth=8mm]]]]
 == Pane toggler
 
-image:playtime::generated/screenshots/elements/toolbar/pane-toggler.png[Pane toggler, role="related thumb right"]
+image::playtime::generated/screenshots/elements/toolbar/pane-toggler.png[Pane toggler, role="related thumb right", float=right]
 
 Shows or hides different areas of Playtime's user interface.
 

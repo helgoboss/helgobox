@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[column-cell-label,Column label]]]
-ifndef::pdf-theme[[[column-cell-label,Column label image:playtime::generated/screenshots/elements/column-cell/label.png[width=50]]]]
+ifndef::pdf-theme[[[column-cell-label,Column label image:playtime::generated/screenshots/elements/column-cell/label.png[width=50, pdfwidth=8mm]]]]
 === Column label
 
-image:playtime::generated/screenshots/elements/column-cell/label.png[Column label, role="related thumb right"]
+image::playtime::generated/screenshots/elements/column-cell/label.png[Column label, role="related thumb right", float=right]
 
 Selects this column cell. This makes the inspector show settings related to this column.
 

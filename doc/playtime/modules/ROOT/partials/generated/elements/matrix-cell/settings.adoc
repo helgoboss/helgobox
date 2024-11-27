@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[matrix-cell-settings,Matrix settings]]]
-ifndef::pdf-theme[[[matrix-cell-settings,Matrix settings image:playtime::generated/screenshots/elements/matrix-cell/settings.png[width=50]]]]
+ifndef::pdf-theme[[[matrix-cell-settings,Matrix settings image:playtime::generated/screenshots/elements/matrix-cell/settings.png[width=50, pdfwidth=8mm]]]]
 === Matrix settings
 
-image:playtime::generated/screenshots/elements/matrix-cell/settings.png[Matrix settings, role="related thumb right"]
+image::playtime::generated/screenshots/elements/matrix-cell/settings.png[Matrix settings, role="related thumb right", float=right]
 
 Selects the matrix settings cell. This makes the inspector show settings related to the complete matrix.
 

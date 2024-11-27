@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-transport-section,Transport section]]]
-ifndef::pdf-theme[[[toolbar-transport-section,Transport section image:playtime::generated/screenshots/elements/toolbar/transport-section.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-transport-section,Transport section image:playtime::generated/screenshots/elements/toolbar/transport-section.png[width=50, pdfwidth=8mm]]]]
 == Transport section
 
-image:playtime::generated/screenshots/elements/toolbar/transport-section.png[Transport section, role="related thumb right"]
+image::playtime::generated/screenshots/elements/toolbar/transport-section.png[Transport section, role="related thumb right", float=right]
 
 Provides the Playtime transport controls.
 

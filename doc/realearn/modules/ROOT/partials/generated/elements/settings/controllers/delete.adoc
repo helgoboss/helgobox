@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[settings-controllers-delete,Delete controller]]]
-ifndef::pdf-theme[[[settings-controllers-delete,Delete controller image:realearn::generated/screenshots/elements/settings/controllers/delete.png[width=50]]]]
+ifndef::pdf-theme[[[settings-controllers-delete,Delete controller image:realearn::generated/screenshots/elements/settings/controllers/delete.png[width=50, pdfwidth=8mm]]]]
 === Delete controller
 
-image:realearn::generated/screenshots/elements/settings/controllers/delete.png[Delete controller, role="related thumb right"]
+image::realearn::generated/screenshots/elements/settings/controllers/delete.png[Delete controller, role="related thumb right", float=right]
 
 Deletes the controller. This can't be undone.
 

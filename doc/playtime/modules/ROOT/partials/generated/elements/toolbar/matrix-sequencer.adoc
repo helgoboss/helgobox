@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-matrix-sequencer,Matrix sequencer]]]
-ifndef::pdf-theme[[[toolbar-matrix-sequencer,Matrix sequencer image:playtime::generated/screenshots/elements/toolbar/matrix-sequencer.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-matrix-sequencer,Matrix sequencer image:playtime::generated/screenshots/elements/toolbar/matrix-sequencer.png[width=50, pdfwidth=8mm]]]]
 == Matrix sequencer
 
-image:playtime::generated/screenshots/elements/toolbar/matrix-sequencer.png[Matrix sequencer, role="related thumb right"]
+image::playtime::generated/screenshots/elements/toolbar/matrix-sequencer.png[Matrix sequencer, role="related thumb right", float=right]
 
 The matrix sequencer lets you record play and stop interactions with the matrix and write them to the arrangement when satisfied.
 

@@ -4,7 +4,7 @@ At first, please follow the xref:helgobox::installation.adoc[installation instru
 
 == Playtime main toolbar button
 
-After installing Helgobox, the easiest way to access Playtime is by using the convenient image:screenshots/playtime-toolbar-icon.png[Playtime,width=50] button in REAPER's main toolbar.
+After installing Helgobox, the easiest way to access Playtime is by using the convenient image:screenshots/playtime-toolbar-icon.png[Playtime,width=50, pdfwidth=8mm] button in REAPER's main toolbar.
 
 You can add this button very easily by doing this:
 
@@ -17,7 +17,7 @@ image::screenshots/helgobox-welcome-screen.png[width=500]
 
 If you don't like that button, here are a few alternatives.
 
-TIP: Manually removing the image:screenshots/playtime-toolbar-icon.png[Playtime,width=50] button from the main toolbar is not going to work: You will have it back the next time you start REAPER.
+TIP: Manually removing the image:screenshots/playtime-toolbar-icon.png[Playtime,width=50, pdfwidth=8mm] button from the main toolbar is not going to work: You will have it back the next time you start REAPER.
 In order to remove the button permanently, open above-mentioned welcome screen and disable the checkbox!
 
 === Start directly via action
@@ -28,7 +28,7 @@ The default is kbd:[Shift+Cmd/Ctrl+P].
 
 === Add the button to another toolbar
 
-You can add the image:screenshots/playtime-toolbar-icon.png[Playtime,width=50] Playtime button to your own toolbar like this:
+You can add the image:screenshots/playtime-toolbar-icon.png[Playtime,width=50, pdfwidth=8mm] Playtime button to your own toolbar like this:
 
 . Right-click the toolbar and choose menu:Customize toolbar...[]
 . Click btn:[Add...] (should open the REAPER action list)

@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-clip-midi-reset-behavior-extreme-right,Extreme right]]]
-ifndef::pdf-theme[[[inspector-clip-midi-reset-behavior-extreme-right,Extreme right image:playtime::generated/screenshots/elements/inspector/clip/midi-reset-behavior/extreme-right.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-clip-midi-reset-behavior-extreme-right,Extreme right image:playtime::generated/screenshots/elements/inspector/clip/midi-reset-behavior/extreme-right.png[width=50, pdfwidth=8mm]]]]
 === Extreme right
 
-image:playtime::generated/screenshots/elements/inspector/clip/midi-reset-behavior/extreme-right.png[Extreme right, role="related thumb right"]
+image::playtime::generated/screenshots/elements/inspector/clip/midi-reset-behavior/extreme-right.png[Extreme right, role="related thumb right", float=right]
 
 Resets whatever it can when the clip stops, often leading to a hard mute of the complete instrument.
 

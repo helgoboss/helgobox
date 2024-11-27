@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-column-trigger-mode-momentary,Momentary]]]
-ifndef::pdf-theme[[[inspector-column-trigger-mode-momentary,Momentary image:playtime::generated/screenshots/elements/inspector/column/trigger-mode/momentary.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-column-trigger-mode-momentary,Momentary image:playtime::generated/screenshots/elements/inspector/column/trigger-mode/momentary.png[width=50, pdfwidth=8mm]]]]
 === Momentary
 
-image:playtime::generated/screenshots/elements/inspector/column/trigger-mode/momentary.png[Momentary, role="related thumb right"]
+image::playtime::generated/screenshots/elements/inspector/column/trigger-mode/momentary.png[Momentary, role="related thumb right", float=right]
 
 Press to play, release to stop. Goes well with immediate start/stop timing, feels weird otherwise.
 

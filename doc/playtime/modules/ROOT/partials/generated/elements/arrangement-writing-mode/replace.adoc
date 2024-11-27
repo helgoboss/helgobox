@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[arrangement-writing-mode-replace,Replace]]]
-ifndef::pdf-theme[[[arrangement-writing-mode-replace,Replace image:playtime::generated/screenshots/elements/arrangement-writing-mode/replace.png[width=50]]]]
+ifndef::pdf-theme[[[arrangement-writing-mode-replace,Replace image:playtime::generated/screenshots/elements/arrangement-writing-mode/replace.png[width=50, pdfwidth=8mm]]]]
 == Replace
 
-image:playtime::generated/screenshots/elements/arrangement-writing-mode/replace.png[Replace, role="related thumb right"]
+image::playtime::generated/screenshots/elements/arrangement-writing-mode/replace.png[Replace, role="related thumb right", float=right]
 
 Replaces the existing arrangement and places the new one at the start of the project.
 

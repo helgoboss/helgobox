@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-tempo-section,Tempo section]]]
-ifndef::pdf-theme[[[toolbar-tempo-section,Tempo section image:playtime::generated/screenshots/elements/toolbar/tempo-section.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-tempo-section,Tempo section image:playtime::generated/screenshots/elements/toolbar/tempo-section.png[width=50, pdfwidth=8mm]]]]
 == Tempo section
 
-image:playtime::generated/screenshots/elements/toolbar/tempo-section.png[Tempo section, role="related thumb right"]
+image::playtime::generated/screenshots/elements/toolbar/tempo-section.png[Tempo section, role="related thumb right", float=right]
 
 Provides tempo-related controls.
 

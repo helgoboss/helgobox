@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-clip-stop-timing-until-end-of-clip,Until end of clip]]]
-ifndef::pdf-theme[[[inspector-clip-stop-timing-until-end-of-clip,Until end of clip image:playtime::generated/screenshots/elements/inspector/clip/stop-timing/until-end-of-clip.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-clip-stop-timing-until-end-of-clip,Until end of clip image:playtime::generated/screenshots/elements/inspector/clip/stop-timing/until-end-of-clip.png[width=50, pdfwidth=8mm]]]]
 === Until end of clip
 
-image:playtime::generated/screenshots/elements/inspector/clip/stop-timing/until-end-of-clip.png[Until end of clip, role="related thumb right"]
+image::playtime::generated/screenshots/elements/inspector/clip/stop-timing/until-end-of-clip.png[Until end of clip, role="related thumb right", float=right]
 
 Stops after playing until the end of this clip.
 

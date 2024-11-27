@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[area-toolbar-0,Toolbar]]]
-ifndef::pdf-theme[[[area-toolbar-0,Toolbar image:playtime::generated/screenshots/elements/area/toolbar-0.png[width=50]]]]
+ifndef::pdf-theme[[[area-toolbar-0,Toolbar image:playtime::generated/screenshots/elements/area/toolbar-0.png[width=50, pdfwidth=8mm]]]]
 == Toolbar
 
-image:playtime::generated/screenshots/elements/area/toolbar-0.png[Toolbar, role="related thumb right"]
+image::playtime::generated/screenshots/elements/area/toolbar-0.png[Toolbar, role="related thumb right", float=right]
 
 
 

@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-slot-clip-picker,Clip picker]]]
-ifndef::pdf-theme[[[inspector-slot-clip-picker,Clip picker image:playtime::generated/screenshots/elements/inspector/slot/clip-picker.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-slot-clip-picker,Clip picker image:playtime::generated/screenshots/elements/inspector/slot/clip-picker.png[width=50, pdfwidth=8mm]]]]
 == Clip picker
 
-image:playtime::generated/screenshots/elements/inspector/slot/clip-picker.png[Clip picker, role="related thumb right"]
+image::playtime::generated/screenshots/elements/inspector/slot/clip-picker.png[Clip picker, role="related thumb right", float=right]
 
 Playtime lets you have *multiple* clips within one slot, which is great for layering clips on top of each other.
 

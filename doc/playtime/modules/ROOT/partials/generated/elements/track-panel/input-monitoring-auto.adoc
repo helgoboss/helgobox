@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[track-panel-input-monitoring-auto,Input monitoring auto]]]
-ifndef::pdf-theme[[[track-panel-input-monitoring-auto,Input monitoring auto image:playtime::generated/screenshots/elements/track-panel/input-monitoring-auto.png[width=50]]]]
+ifndef::pdf-theme[[[track-panel-input-monitoring-auto,Input monitoring auto image:playtime::generated/screenshots/elements/track-panel/input-monitoring-auto.png[width=50, pdfwidth=8mm]]]]
 ==== Input monitoring auto
 
-image:playtime::generated/screenshots/elements/track-panel/input-monitoring-auto.png[Input monitoring auto, role="related thumb right"]
+image::playtime::generated/screenshots/elements/track-panel/input-monitoring-auto.png[Input monitoring auto, role="related thumb right", float=right]
 
 Switches input monitoring to automatic mode. That means it will be on if the track is armed for recording and off if not.
 

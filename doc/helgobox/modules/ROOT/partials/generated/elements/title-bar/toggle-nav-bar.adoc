@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[title-bar-toggle-nav-bar,Toggle navigation bar]]]
-ifndef::pdf-theme[[[title-bar-toggle-nav-bar,Toggle navigation bar image:helgobox::generated/screenshots/elements/title-bar/toggle-nav-bar.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-toggle-nav-bar,Toggle navigation bar image:helgobox::generated/screenshots/elements/title-bar/toggle-nav-bar.png[width=50, pdfwidth=8mm]]]]
 == Toggle navigation bar
 
-image:helgobox::generated/screenshots/elements/title-bar/toggle-nav-bar.png[Toggle navigation bar, role="related thumb right"]
+image::helgobox::generated/screenshots/elements/title-bar/toggle-nav-bar.png[Toggle navigation bar, role="related thumb right", float=right]
 
 Shows or hides the navigation bar on the left.
 

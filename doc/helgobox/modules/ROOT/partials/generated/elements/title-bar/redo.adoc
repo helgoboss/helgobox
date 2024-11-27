@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[title-bar-redo,Redo]]]
-ifndef::pdf-theme[[[title-bar-redo,Redo image:helgobox::generated/screenshots/elements/title-bar/redo.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-redo,Redo image:helgobox::generated/screenshots/elements/title-bar/redo.png[width=50, pdfwidth=8mm]]]]
 == Redo
 
-image:helgobox::generated/screenshots/elements/title-bar/redo.png[Redo, role="related thumb right"]
+image::helgobox::generated/screenshots/elements/title-bar/redo.png[Redo, role="related thumb right", float=right]
 
 Redoes the most recent operation that was undone within this Playtime matrix.
 

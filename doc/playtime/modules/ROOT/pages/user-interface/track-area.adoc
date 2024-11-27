@@ -56,7 +56,7 @@ include::partial$generated/elements/track-panel/input-monitoring-on.adoc[]
 
 NOTE: Which input monitoring mode you choose also has an effect on how Playtime does latency compensation during recording. Read more about that in xref:further-concepts/general.adoc#latency-compensation[].
 
-[[input-monitoring-explained]]
+[[input-monitoring-explained, Playtime input monitoring explained]]
 [NOTE]
 .Playtime input monitoring explained
 ====
@@ -137,7 +137,7 @@ include::partial$generated/elements/track-panel/routing.adoc[]
 
 include::partial$generated/elements/track-panel/arm.adoc[]
 
-NOTE: See <<input-monitoring-explained>> to learn how this is translated to REAPER track properties.
+NOTE: See <<input-monitoring-explained>> to learn how this translates to REAPER track properties.
 
 
 include::partial$generated/elements/track-panel/mute.adoc[]

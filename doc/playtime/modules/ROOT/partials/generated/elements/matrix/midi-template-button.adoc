@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[matrix-midi-template-button,MIDI]]]
-ifndef::pdf-theme[[[matrix-midi-template-button,MIDI image:playtime::generated/screenshots/elements/matrix/midi-template-button.png[width=50]]]]
+ifndef::pdf-theme[[[matrix-midi-template-button,MIDI image:playtime::generated/screenshots/elements/matrix/midi-template-button.png[width=50, pdfwidth=8mm]]]]
 === MIDI
 
-image:playtime::generated/screenshots/elements/matrix/midi-template-button.png[MIDI, role="related thumb right"]
+image::playtime::generated/screenshots/elements/matrix/midi-template-button.png[MIDI, role="related thumb right", float=right]
 
 Creates a simple matrix with all track inputs set to MIDI devices.
 

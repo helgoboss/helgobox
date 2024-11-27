@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[waveform-view,Waveform view]]]
-ifndef::pdf-theme[[[waveform-view,Waveform view image:playtime::generated/screenshots/elements/waveform-view.png[width=50]]]]
+ifndef::pdf-theme[[[waveform-view,Waveform view image:playtime::generated/screenshots/elements/waveform-view.png[width=50, pdfwidth=8mm]]]]
 == Waveform view
 
-image:playtime::generated/screenshots/elements/waveform-view.png[Waveform view, role="related thumb right"]
+image::playtime::generated/screenshots/elements/waveform-view.png[Waveform view, role="related thumb right", float=right]
 
 Shows the waveform and the section bounds of a clip.
 [NOTE]

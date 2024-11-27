@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[track-panel-label,Track label]]]
-ifndef::pdf-theme[[[track-panel-label,Track label image:playtime::generated/screenshots/elements/track-panel/label.png[width=50]]]]
+ifndef::pdf-theme[[[track-panel-label,Track label image:playtime::generated/screenshots/elements/track-panel/label.png[width=50, pdfwidth=8mm]]]]
 === Track label
 
-image:playtime::generated/screenshots/elements/track-panel/label.png[Track label, role="related thumb right"]
+image::playtime::generated/screenshots/elements/track-panel/label.png[Track label, role="related thumb right", float=right]
 
 Displays the name of the column playback track.
 

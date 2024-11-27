@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[title-bar-stop-arrangement,Stop arrangement]]]
-ifndef::pdf-theme[[[title-bar-stop-arrangement,Stop arrangement image:helgobox::generated/screenshots/elements/title-bar/stop-arrangement.png[width=50]]]]
+ifndef::pdf-theme[[[title-bar-stop-arrangement,Stop arrangement image:helgobox::generated/screenshots/elements/title-bar/stop-arrangement.png[width=50, pdfwidth=8mm]]]]
 == Stop arrangement
 
-image:helgobox::generated/screenshots/elements/title-bar/stop-arrangement.png[Stop arrangement, role="related thumb right"]
+image::helgobox::generated/screenshots/elements/title-bar/stop-arrangement.png[Stop arrangement, role="related thumb right", float=right]
 
 Stops the REAPER arrangement
 

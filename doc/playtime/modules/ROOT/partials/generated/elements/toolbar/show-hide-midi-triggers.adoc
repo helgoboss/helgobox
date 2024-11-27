@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[toolbar-show-hide-midi-triggers,Show/hide MIDI triggers]]]
-ifndef::pdf-theme[[[toolbar-show-hide-midi-triggers,Show/hide MIDI triggers image:playtime::generated/screenshots/elements/toolbar/show-hide-midi-triggers.png[width=50]]]]
+ifndef::pdf-theme[[[toolbar-show-hide-midi-triggers,Show/hide MIDI triggers image:playtime::generated/screenshots/elements/toolbar/show-hide-midi-triggers.png[width=50, pdfwidth=8mm]]]]
 == Show/hide MIDI triggers
 
-image:playtime::generated/screenshots/elements/toolbar/show-hide-midi-triggers.png[Show/hide MIDI triggers, role="related thumb right"]
+image::playtime::generated/screenshots/elements/toolbar/show-hide-midi-triggers.png[Show/hide MIDI triggers, role="related thumb right", float=right]
 
 Shows or hides MIDI triggers assigned to cells.
 

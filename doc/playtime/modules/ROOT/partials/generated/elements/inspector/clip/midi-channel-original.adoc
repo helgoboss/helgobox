@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[inspector-clip-midi-channel-original,Original]]]
-ifndef::pdf-theme[[[inspector-clip-midi-channel-original,Original image:playtime::generated/screenshots/elements/inspector/clip/midi-channel-original.png[width=50]]]]
+ifndef::pdf-theme[[[inspector-clip-midi-channel-original,Original image:playtime::generated/screenshots/elements/inspector/clip/midi-channel-original.png[width=50, pdfwidth=8mm]]]]
 == Original
 
-image:playtime::generated/screenshots/elements/inspector/clip/midi-channel-original.png[Original, role="related thumb right"]
+image::playtime::generated/screenshots/elements/inspector/clip/midi-channel-original.png[Original, role="related thumb right", float=right]
 
 Simply keeps the original channel, doesn't apply any channel transformation.
 

@@ -1,8 +1,8 @@
 ifdef::pdf-theme[[[matrix-scroll-indicator,Scroll indicator]]]
-ifndef::pdf-theme[[[matrix-scroll-indicator,Scroll indicator image:playtime::generated/screenshots/elements/matrix/scroll-indicator.png[width=50]]]]
+ifndef::pdf-theme[[[matrix-scroll-indicator,Scroll indicator image:playtime::generated/screenshots/elements/matrix/scroll-indicator.png[width=50, pdfwidth=8mm]]]]
 === Scroll indicator
 
-image:playtime::generated/screenshots/elements/matrix/scroll-indicator.png[Scroll indicator, role="related thumb right"]
+image::playtime::generated/screenshots/elements/matrix/scroll-indicator.png[Scroll indicator, role="related thumb right", float=right]
 
 This arrow tells that you are seeing only a part of the matrix and that you can scroll in the indicated direction to see more of it!
 
