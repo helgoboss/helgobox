@@ -44,6 +44,7 @@ Making such an export can be done very quickly just by using keyboard keys:
 This works nicely because after exporting a row, Playtime automatically moves the play cursor or the complete time selection to the right.
 ====
 
+[[feature-arrangement]]
 == Record and write a sequence
 
 Another way to export an arrangement is to record a Playtime performance and write the result to the arrangement. This is done using Playtime's built-in xref:user-interface/toolbar.adoc#toolbar-matrix-sequencer[]:

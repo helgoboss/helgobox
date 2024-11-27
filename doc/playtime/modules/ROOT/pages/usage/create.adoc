@@ -32,8 +32,7 @@ Maybe you have existing tracks already that you want to use as xref:key-concepts
 
 There are many ways to create a new clip. Let's explore the most common ones.
 
-
-[[import-file]]
+[[feature-import]]
 === Import an existing audio or MIDI file
 
 Maybe you have an existing audio or MIDI file somewhere on your computer. Simply drag it from your favorite file manager or from REAPER's media explorer onto one of the empty slots! See xref:user-interface/matrix-area.adoc#slot-drag-and-drop[] for details.
@@ -60,7 +59,7 @@ This does more than just importing the audio file or MIDI data from the item! It
 
 If you want to start entering MIDI notes from scratch, simply double-click the slot. This will create an empty MIDI clip with the length of 1 bar.
 
-[[record-clip]]
+[[feature-record]]
 === Record a clip
 
 Playtime offers plenty of ways to record clips directly. The most common one is to record a xref:key-concepts.adoc#loop[] of rhythmic material while Playtime is playing.

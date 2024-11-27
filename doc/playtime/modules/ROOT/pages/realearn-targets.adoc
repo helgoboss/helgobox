@@ -1,3 +1,4 @@
+[[feature-realearn]]
 = ReaLearn targets
 
 xref:realearn::introduction.adoc[ReaLearn] offers a bunch of xref:realearn::key-concepts.adoc#target[targets] specific to Playtime. Most of them even support xref:realearn::key-concepts.adoc#feedback[], to power LEDs or displays. That gives you the power to create highly customized controller integrations for Playtime!

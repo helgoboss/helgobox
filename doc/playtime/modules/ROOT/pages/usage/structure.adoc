@@ -34,6 +34,7 @@ In order to change the color of a track, click the xref:user-interface/track-are
 
 In order to change the color of an individual clip, select the xref:user-interface/matrix-area.adoc#slot-cell[] and change the color in the xref:user-interface/inspector/clip.adoc[] on the right.
 
+[[feature-scenes]]
 == Build scenes
 
 One particular way to make use of rows of the matrix is to consider a row as a xref:key-concepts.adoc#scene[] - a part within a song. By organizing your clips into scenes, the scene column on the left of the matrix basically turns into a playlist for your song, which is very convenient if you want to xref:usage/arrangement.adoc[turn the song into an arrangement].

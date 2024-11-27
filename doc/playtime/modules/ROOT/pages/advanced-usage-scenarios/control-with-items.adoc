@@ -32,7 +32,7 @@ Before you can control Playtime with MIDI notes, you need to set up MIDI trigger
 
 === Option A: Learn MIDI triggers manually
 
-One way to do this is to learn the necessary MIDI triggers manually by using the xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[] feature. See xref:usage/play.adoc#playing-clips-using-a-midi-keyboard[].
+One way to do this is to learn the necessary MIDI triggers manually by using the xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[] feature. See xref:usage/play.adoc#feature-keys[].
 
 === Option B: Assign MIDI triggers automatically
 

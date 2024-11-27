@@ -1,3 +1,4 @@
+[[feature-grid]]
 = Use grid controllers
 
 .Grid controllers are optional!

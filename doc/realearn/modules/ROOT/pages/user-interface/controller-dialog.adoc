@@ -1,5 +1,21 @@
+[[feature-realearn-customize]]
 = Controller dialog
 
 include::partial$available-in-app.adoc[]
 
+This dialog appears when clicking a controller in xref:user-interface/settings-dialog.adoc#controllers[]. It allows you to configure a xref:key-concepts.adoc#managed-controller[] and define how it should be used.
+
 image::generated/screenshots/main/controller.png[]
+
+include::partial$generated/elements/settings/controller/basics.adoc[]
+
+include::partial$generated/elements/settings/controller/name.adoc[]
+include::partial$generated/elements/settings/controller/color.adoc[]
+include::partial$generated/elements/settings/controller/enabled.adoc[]
+include::partial$generated/elements/settings/controller/connection.adoc[]
+
+include::partial$generated/elements/settings/controller/usage.adoc[]
+include::partial$generated/elements/settings/controller/main-preset.adoc[]
+
+include::partial$generated/elements/settings/controller/advanced.adoc[]
+include::partial$generated/elements/settings/controller/default-controller-preset.adoc[]

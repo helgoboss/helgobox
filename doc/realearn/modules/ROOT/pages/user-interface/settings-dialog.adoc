@@ -7,8 +7,12 @@ image::generated/screenshots/main/settings.png[]
 [#controllers]
 == Controllers
 
+Clicking one of the controllers opens the corresponding xref:user-interface/controller-dialog.adoc[].
+
 include::partial$generated/elements/settings/controllers/add.adoc[]
+
 include::partial$generated/elements/settings/controllers/delete.adoc[]
 
 == Related videos
+
 video::tkyNCGOVumw[youtube]

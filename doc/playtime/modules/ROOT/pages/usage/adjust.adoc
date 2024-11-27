@@ -12,6 +12,7 @@ If you are dealing with MIDI clips, you can easily edit the clip xref:key-concep
 
 Any change can be undone using Playtime's xref:helgobox::app/user-interface/title-bar.adoc#title-bar-undo[] function.
 
+[[feature-clip-settings]]
 == Adjusting clip properties
 
 Each clip has certain properties in addition to its actual source, which you can adjust.

@@ -4,6 +4,7 @@ As soon as you have some clips in the matrix, you can play them!
 
 Unlike items on the REAPER timeline, you can start and stop clips totally freely. There are no rules, which makes Playtime very suitable for improvisation.
 
+[[feature-play]]
 == Playing clips using the app
 
 The obvious way to play a clip is to use your mouse: Press the xref:user-interface/matrix-area.adoc#slot-cell-trigger[] button of its containing xref:key-concepts.adoc#slot[]:
@@ -18,7 +19,7 @@ NOTE: Playtime "magically" plays the clip's MIDI or audio content directly throu
 
 TIP: You can xref:helgobox::app/user-interface/keyboard-shortcuts.adoc#esc[hide] or xref:helgobox::app/user-interface/title-bar.adoc#title-bar-close-window[close] the app window at any time. This will not affect playback or recording. Playtime also works without its user interface!
 
-[[playing-clips-using-a-midi-keyboard]]
+[[feature-keys]]
 == Playing clips using a MIDI keyboard
 
 Playtime allows you to play your clips by pressing keys on your MIDI keyboard:
