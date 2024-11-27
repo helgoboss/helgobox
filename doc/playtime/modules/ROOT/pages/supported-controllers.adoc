@@ -1,7 +1,7 @@
 = Supported controllers
 
-:primary-functions-supported: Primary functions are supported icon:star-half-o[]
-:support-mostly-complete: Support is mostly complete icon:star[]
+:primary-functions-supported: Clip-related functions are supported.
+:support-mostly-complete: Support is mostly complete.
 :non-assigned-buttons: Notable functions which are currently not supported
 
 At the moment, Playtime has built-in support for the following controllers. More controllers will follow over time. If your controller is not supported yet, feel free to create a new discussion in link:https://github.com/helgoboss/helgobox/discussions/categories/ideas?discussions_q=category%3AIdeas+label%3Aplaytime+is%3Aopen+sort%3Adate_created[Playtime's idea tracker].
