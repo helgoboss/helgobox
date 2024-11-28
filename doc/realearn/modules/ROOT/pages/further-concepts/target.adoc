@@ -293,14 +293,13 @@ This was the default behavior for ReaLearn versions up to 1.11.0 and is just kep
 
 IMPORTANT: **This selector is deprecated!** You shouldn't use it anymore.
 
-[[sticky-selectors]]
-=== Sticky selectors
+=== Sticky vs. non-sticky selectors
 
 We call object selectors _sticky_ if they refer to a particular object (e.g. a track).
 
-Sticky selectors:: `<Master>`, `<This>`, `Particular`
+[[sticky-selectors]] Sticky selectors:: `<Master>`, `<This>`, `Particular`
 
-Non-sticky selectors:: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All selected>`, `Named`, `All named`, `At position`, `From Playtime column`
+[[non-sticky-selectors]] Non-sticky selectors:: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All selected>`, `Named`, `All named`, `At position`, `From Playtime column`
 
 [[target-property]]
 == Target property

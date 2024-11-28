@@ -1,0 +1,11 @@
+= Export to clipboard menu
+
+This menu can be found in the xref:helgobox::plug-in/user-interface.adoc[plug-in window].
+
+The following list only describes the Playtime-related menu entries. For the rest, see xref:helgobox::plug-in/user-interface/menu-bar.adoc#export-to-clipboard[] in the Helgobox Reference.
+
+[[export-playtime-matrix-as-json]] Export Playtime matrix as JSON::
+Copies a dump of the xref:key-concepts.adoc#matrix[] (including its settings and contents) to the clipboard in JSON format.
+
+Export Playtime matrix as Lua::
+Like <<export-playtime-matrix-as-json>> but generates Lua/Luau code instead. This can be helpful if you want to xref:advanced-usage-scenarios/generate-matrix.adoc[generate a matrix using code].

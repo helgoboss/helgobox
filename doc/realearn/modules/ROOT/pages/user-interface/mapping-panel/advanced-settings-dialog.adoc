@@ -36,7 +36,7 @@ But don't worry, it _means_ exactly the same to ReaLearn.
 == Supported configuration properties
 
 In this section you will find examples that cover all currently supported configuration properties.
-You can copy and paste the stuff you need to the text editor, remove the parts that you don't need and adjust the rest.
+You can copy and paste the stuff you need to the link:https://en.wikipedia.org/wiki/Text_editor[text editor], remove the parts that you don't need and adjust the rest.
 Comments (lines starting with `#`) will be removed automatically.
 
 [#mapping-lifecycle-actions]
@@ -108,9 +108,9 @@ Instead, the MIDI message will queue up and be sent once you enable that instanc
 
 == Open in text editor button (Windows and Linux only)
 
-Opens the settings in the system text editor or whatever program is associated with YAML files.
+Opens the settings in the system link:https://en.wikipedia.org/wiki/Text_editor[text editor] or whatever program is associated with YAML files.
 It depends on your system setup if this works or not.
-If it does and if your text editor is good, this can make editing larger YAML snippets more convenient (e.g. by providing syntax highlighting).
+If it does and if your link:https://en.wikipedia.org/wiki/Text_editor[text editor] is good, this can make editing larger YAML snippets more convenient (e.g. by providing syntax highlighting).
 
 As soon as you save the file and close the editor, the text will automatically appear in the "Advanced settings" text area.
 

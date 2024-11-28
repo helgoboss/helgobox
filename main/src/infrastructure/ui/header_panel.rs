@@ -518,14 +518,14 @@ impl HeaderPanel {
                             },
                             MainMenuAction::DryRunLuaScript(text_from_clipboard_clone),
                         ),
-                        item_with_opts(
-                            "Freeze Playtime matrix",
-                            ItemOpts {
-                                enabled: has_clip_matrix,
-                                checked: false,
-                            },
-                            MainMenuAction::FreezeClipMatrix,
-                        ),
+                        // item_with_opts(
+                        //     "Freeze Playtime matrix",
+                        //     ItemOpts {
+                        //         enabled: has_clip_matrix,
+                        //         checked: false,
+                        //     },
+                        //     MainMenuAction::FreezeClipMatrix,
+                        // ),
                     ],
                 ),
                 labeled_separator(format!("Compartment-related ({compartment})")),

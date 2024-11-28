@@ -4,5 +4,5 @@ ifndef::pdf-theme[[[title-bar-helgobox-info,Helgobox Info image:helgobox::genera
 
 image::helgobox::generated/screenshots/elements/title-bar/helgobox-info.png[Helgobox Info, role="related thumb right", float=right]
 
-Shows the version number of this Helgobox installation as well as the ID of the Helgobox instance to which this App window is connected.
+Shows the version number of this Helgobox installation as well as the numeric ID of the Helgobox instance to which this App window is connected.
 

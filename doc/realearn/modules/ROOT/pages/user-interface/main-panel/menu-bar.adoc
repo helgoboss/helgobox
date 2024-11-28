@@ -11,7 +11,7 @@ It provides the following entries.
 
 [[copy-listed-mappings]] Copy listed mappings::
 Copies all mappings that are visible in the current mapping list (respecting group, search field and filters) to the clipboard.
-You can insert them by opening the right-click menu of a row panel.
+You can insert them by opening the right-click menu of a xref:user-interface/main-panel/mapping-row.adoc[].
 
 [[paste-mappings-replace-all-in-group]] Paste mappings (replace all in group)::
 Replaces all mappings in the current group with the mappings in the clipboard.
@@ -30,11 +30,10 @@ Attempts to make the sources in the main compartment virtual by matching them wi
 This is useful if you already learned a bunch of MIDI/OSC/keyboard sources in the main compartment, just to find out later that you would like to use a controller preset that exposes virtual sources.
 
 Make targets of listed mappings sticky:::
-Changes the targets of all currently listed mappings so that they use _sticky_ object selectors by attempting to resolve the objects from non-sticky selectors.
-See xref:further-concepts/target.adoc#sticky-selectors[].
+Changes the targets of all currently listed mappings so that they use xref:further-concepts/target.adoc#sticky-selectors[] object selectors by attempting to resolve the objects from xref:further-concepts/target.adoc#non-sticky-selectors[].
 
 Make targets of listed mappings non-sticky:::
-Changes the targets of all currently listed mappings so that they use the desired non-sticky object selectors.
+Changes the targets of all currently listed mappings so that they use the desired xref:further-concepts/target.adoc#non-sticky-selectors[].
 You can see this in action in link:https://www.youtube.com/watch?v=kebF_NKAweA&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=9[tutorial video 9].
 +
 The general procedure is:
@@ -45,7 +44,6 @@ The general procedure is:
 
 Move listed mappings to group::
 Moves all currently listed mappings to the specified group.
-Useful in combination with text search.
 
 Advanced::
 Provides access to expert features.
@@ -60,11 +58,8 @@ Paste from Lua (replace all in group):::
 Like <<paste-mappings-replace-all-in-group>> but treats the clipboard content as Luau code.
 
 [[dry-run-lua-script]] Dry-run Lua script from clipboard:::
-Executes the Luau code in the clipboard and opens the returned data structure in a text editor.
-See <<import-from-clipboard>> to learn in which situations this can be useful.
-
-Freeze Playtime matrix:::
-Don't use this, this feature is not ready yet!
+Executes the Luau code in the clipboard and opens the returned data structure in a link:https://en.wikipedia.org/wiki/Text_editor[text editor].
+See xref:best-practices.adoc#troubleshooting-luau-import[] to learn in which situations this can be useful.
 
 [[compartment-parameters,Compartment parameters menu]] Compartment parameters::
 This shows all parameters of the current compartment and makes it possible to customize them.
@@ -94,10 +89,10 @@ Open compartment preset folder:::
 Opens the ReaLearn preset folder for this compartment in a file manager.
 
 [[reload-all-presets]] Reload all compartment presets from disk:::
-If you made direct changes to preset files, you should press this to reflect these changes in the compartment preset lists of all open ReaLearn instances (reloads all preset files in this compartment).
+If you made direct changes to preset files, you should choose this entry in order to reflect these changes in the preset list of this xref:key-concepts.adoc#compartment[].
 +
 This *will not* apply an adjusted preset to the current compartment, it will just reload the list.
-If you want to apply a preset that has been changed on disk, you need to reload it by selecting it in the preset dropdown once again!
+If you want to apply a preset that has been changed on disk, you need to reload it by selecting it in the preset menu once again!
 
 Compartment tools::
 
@@ -142,8 +137,8 @@ Makes this unit superior.
 See xref:further-concepts/unit.adoc#superior-units[] to learn more about this feature.
 
 Use unit-wide FX-to-preset links only:::
-By default, unit-wide links are applied _in addition_ to the global links and take precedence over the global ones.
-This checkbox makes sure that only unit-wide links are used.
+By default, xref:further-concepts/unit.adoc#unit-fx-to-preset-link[unit-wide links] are applied *in addition* to the global links and take precedence over them.
+This checkbox makes sure that *only* unit-wide links are used for this xref:key-concepts.adoc#unit[].
 
 Stay active when project in background:::
 Determines if and under which conditions this ReaLearn unit should stay active when the containing project tab is not the active one.
@@ -158,7 +153,7 @@ Attempts to stay active no matter what.
 Please note that this is technically not always possible when input is set to xref:user-interface/main-panel/input-output-section.adoc#fx-input[] or output to xref:user-interface/main-panel/input-output-section.adoc#fx-output[], when the background project is not running.
 
 [[unit-fx-to-preset-links]] Unit-wide FX-to-preset links::
-Manage a unit-wide list of links from FX (plug-ins or JS effects) to ReaLearn main compartment presets.
+Manage a unit-wide list of links from FXs (plug-ins or JS effects) to ReaLearn main compartment presets.
 Covered in link:https://www.youtube.com/watch?v=HtmWO7QNpgE&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=10[video tutorial 10].
 
 Add link from last focused FX to preset:::
@@ -167,7 +162,7 @@ This only works if an FX has been focused before.
 
 _Arbitrary FX ID_:::
 If you have added a link already, you will see it here in the list.
-What you see, is the so-called _FX ID_, which by default simply corresponds to the plug-in's original name (e.g. menu:Name: VSTi: ReaSynth (Cockos) | File: - | Preset: -[]).
+In particular, you see the _FX ID_, which by default simply corresponds to the plug-in's original name (e.g. menu:Name: VSTi: ReaSynth (Cockos)[]).
 
 [[edit-fx-id]] <Edit FX ID…>::::
 With this, you can edit the FX ID manually.
@@ -178,13 +173,13 @@ See <<fx-id-dialog>> for details.
 
 _Arbitrary main preset_::::
 The rest of the submenu tells you to which main preset the FX ID is linked.
-You can change the linked preset by clicking another one.
+You can change the linked preset by choosing another one in the list.
 
 [[logging,Logging Menu]] Logging::
 
 Log debug info (now)::: Logs some information about ReaLearn's internal state.
 Can be interesting for investigating bugs or understanding how this plug-in works.
-Log real control messages::: When enabled, all incoming MIDI messages, OSC messages or key pressed will be logged to the console.
+Log real control messages::: When enabled, all incoming MIDI messages, OSC messages or key presses will be logged to the console.
 See xref:further-concepts/unit.adoc#logging-of-real-control-messages[].
 Log virtual control messages::: When enabled, all triggered virtual control elements and their values will be logged (see xref:key-concepts.adoc#controller-compartment[]).
 Log target control::: When enabled, all target invocations (parameter changes etc.) will be logged.
@@ -195,12 +190,14 @@ See xref:further-concepts/unit.adoc#logging-of-real-feedback-messages[].
 Send feedback now::
 Usually ReaLearn sends feedback whenever something changed to keep the LEDs or motorized faders of your controller in sync with REAPER at all times.
 There might be situations where it doesn't work though.
-In this case you can send feedback manually using this button.
+In this case you can send feedback manually for this xref:key-concepts.adoc#unit[] by selecting this menu entry.
++
+There's a related REAPER action xref:reaper-actions.adoc#send-feedback-for-all-instances[] which sends feedback for all instances.
 
 Instance options::
 
 [[enable-global-control]] Enable global control:::
-If you enable this option, this Helgobox instance will start to automatically add/remove units based on connected controllers.
+If you enable this option, this xref:key-concepts.adoc#instance[] will start to automatically add/remove units based on connected controllers.
 See xref:further-concepts/instance.adoc#auto-units[].
 
 [[open-pot-browser]] Open Pot Browser::
@@ -221,7 +218,7 @@ Server::
 See xref:helgobox::plug-in/user-interface/menu-bar.adoc#server[].
 
 [[global-fx-to-preset-links]] Global FX-to-preset links::
-Allows you to manage xref:further-concepts/unit.adoc#global-fx-to-preset-link[global FX-to-preset links].
+Lets you manage xref:further-concepts/unit.adoc#global-fx-to-preset-link[global FX-to-preset links].
 Works exactly as the <<unit-fx-to-preset-links>> menu.
 
 [[fx-id-dialog]]
@@ -254,10 +251,13 @@ You can use `*` for matching zero or arbitrary many characters and `?` for match
 Instead of relying on the original plug-in name you could match plug-ins with similar file names (e.g. VST2 and VST3 at once): `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2) and `Pianoteq 7 STAGE.vst3` (VST3).
 ====
 
+[[export-to-clipboard-button]]
 == Export to clipboard button
 
-Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance/unit or edit them in a text editor.
+Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance/unit or edit them in a link:https://en.wikipedia.org/wiki/Text_editor[text editor].
 See xref:further-concepts/general.adoc#import-export[].
+
+The following list only describes the ReaLearn-related menu entries. For the rest, see xref:helgobox::plug-in/user-interface/menu-bar.adoc#export-to-clipboard[] in the Helgobox Reference.
 
 Export instance as JSON::
 Copies a _complete_ dump of this xref:helgobox:ROOT:key-concepts.adoc#instance[] to the clipboard in JSON format.
@@ -267,7 +267,7 @@ Copies a dump of the currently visible compartment to the clipboard.
 It contains about the same data that a compartment preset would contain.
 
 Export main/controller compartment as Lua::
-Copies a dump of the currently visible compartment to the clipboard as Lua/Luau code (ReaLearn Script).
+Copies a dump of the currently visible compartment to the clipboard as Lua/Luau code.
 This form of Lua/Luau export skips properties that correspond to ReaLearn's default values, resulting in a minimal result.
 Perfect for pasting into a forum or programming ReaLearn with focus on only those properties that matter to you.
 
@@ -278,7 +278,7 @@ This gives you the perfect starting point if you want to extensively modify the 
 [[import-from-clipboard]]
 == Import from clipboard button
 
-Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
+Pressing the import button applies whatever ReaLearn dump is currently in the clipboard.
 It supports JSON or Luau.
 See xref:further-concepts/general.adoc#import-export[].
 
@@ -286,7 +286,7 @@ See xref:further-concepts/general.adoc#import-export[].
 == Projection button
 
 Click this button to enter ReaLearn's xref:further-concepts/unit.adoc#projection[] feature.
-You can choose between the old browser-based projection (which is going to disappear soon) and the new projection that is part of the Helgobox App (but not yet fully functional).
+You can choose between the old browser-based projection (which is going to disappear at some point) and the new projection that is part of the xref:helgobox::app.adoc[] (but not yet fully functional).
 Hopefully, the transition to the Helgobox App, including mobile versions of that App, will soon be finished.
 
 == Help button (?)

@@ -14,7 +14,7 @@ ReaLearn works with MIDI or OSC input.
 In addition, it can listen to keyboard input.
 
 [[fx-input]] MIDI: <FX input>::
-When selected, ReaLearn captures all MIDI events that flow into this ReaLearn VSTi FX instance (= track MIDI path).
+When selected, ReaLearn captures all MIDI events that flow into this ReaLearn VSTi FX instance, for example coming from track MIDI items, track MIDI receives or the track input.
 This is the default selection.
 
 MIDI: _Some input device_::
@@ -35,7 +35,7 @@ This submenu contains OSC devices for which control is currently disabled.
 
 
 [[manage-osc-devices]] Manage OSC devices::
-Allows one to display and modify the list of OSC devices (globally).
+Lets you display and modify the list of OSC devices (globally).
 
 <New>:::
 Opens a dialog window for adding a new OSC device.
@@ -44,13 +44,15 @@ See <<osc-device-dialog>>.
 _Some OSC device_:::
 
 Edit::::
-Lets you edit an existing device.
+Lets you edit the device.
 See <<osc-device-dialog>>.
 
 Remove::::
 Removes the device.
 This is a global action.
 If you remove a device, all existing ReaLearn instances which use this device will point to a device that doesn't exist anymore.
++
+CAUTION: This can't be undone!
 
 Enabled for control:::: If you disable this, ReaLearn will stop listening to this device.
 This can save resources, so you should do this with each device that is not in use (as an alternative for removing it forever).
@@ -87,8 +89,10 @@ This is the default.
 
 [[fx-output]] MIDI: <FX output>::
 This makes feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
++
+CAUTION: Under normal circumstances, it is better to use <<midi-some-output-device, select a specific output device>> instead. See xref:best-practices.adoc#best-practices-input-output[].
 
-MIDI: _Some output device_::
+[[midi-some-output-device]] MIDI: _Some output device_::
 If selected, ReaLearn will send feedback to the given MIDI output device.
 This only works if _Enable output to this device_ is checked in REAPER's preferences (menu:Options[Settings > MIDI Outputs]).
 

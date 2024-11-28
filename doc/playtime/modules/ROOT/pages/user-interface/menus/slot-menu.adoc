@@ -11,3 +11,5 @@ include::partial$generated/menus/slot/import-selected-item.adoc[]
 include::partial$generated/menus/slot/import-files.adoc[]
 include::partial$generated/menus/slot/export-primary-clip-to-arrangement.adoc[]
 include::partial$generated/menus/slot/export-primary-clip-to-clipboard-as-lua.adoc[]
+
+This can be helpful if you want to xref:advanced-usage-scenarios/generate-matrix.adoc[generate a matrix using code].

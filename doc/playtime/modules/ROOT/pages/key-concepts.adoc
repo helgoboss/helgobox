@@ -168,7 +168,7 @@ The clip _stop timing_ is  very similar to the <<clip-start-timing>> but determi
 [[loop]]
 === Loop
 
-In Playtime, a _loop_ is a <<clip>> that is _looped_, which simply means that it seamlessly repeats after it reached its end.
+In Playtime, a _loop_ is a <<clip>> that is _looped_, which simply means that it seamlessly repeats.
 
 [[one-shot]]
 === One-shot
@@ -203,7 +203,7 @@ It helps musicians understand the rhythm and feel of the music.
 The top number of a time signature (the *3* in 3/4) is called _nominator_ and shows the number of beats per measure.
 
 [[time-signature-denominator]]
-The bottom number is called (the *4* in 3/4), _denominator_ and shows the type of note that counts as one <<beat>>.
+The bottom number (the *4* in 3/4)  is called _denominator_ and shows the type of note that counts as one <<beat>>.
 
 [[in-sync]]
 == In sync

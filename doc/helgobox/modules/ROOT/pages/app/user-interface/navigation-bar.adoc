@@ -2,7 +2,7 @@
 
 The bar on the left is the _Navigation bar_.
 
-Its main purpose is to switch between different user interface pages.
+Its main purpose is to switch between different pages.
 You can show or hide it using the xref:app/user-interface/title-bar.adoc#title-bar-toggle-nav-bar[] button in the xref:app/user-interface/title-bar.adoc[].
 
 include::partial$generated/elements/navbar/home.adoc[]

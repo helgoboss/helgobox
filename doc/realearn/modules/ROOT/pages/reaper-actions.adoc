@@ -20,5 +20,5 @@ This is great for subsequent fine-tuning.
 
 Helgobox/ReaLearn: Learn source for last touched target (reassigning target):: This behaves similar to REAPER's built-in MIDI learn in that it always relates to the target that has been touched last.
 
-Helgobox/ReaLearn: Send feedback for all instances:: Makes each ReaLearn instance/unit in all project tabs send feedback for all mappings.
+[[send-feedback-for-all-instances]] Helgobox/ReaLearn: Send feedback for all instances:: Makes each ReaLearn instance/unit in all project tabs send feedback for all mappings.
 That shouldn't be necessary most of the time because ReaLearn usually sends feedback automatically, but there are situations when it might come in handy.

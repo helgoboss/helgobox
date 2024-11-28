@@ -107,7 +107,7 @@ Future versions of the Clip Engine will handle deleted tracks more gracefully.
 As we don't have the Playtime App yet, you need to do this by adjusting Lua code.
 
 . Press _Export to clipboard_ and choose _Export clip matrix as Lua_.
-. Paste the code into a text editor of your choice.
+. Paste the code into a link:https://en.wikipedia.org/wiki/Text_editor[text editor] of your choice.
 . Adjust the code and copy it.
 . Press _Import from clipboard_ and confirm.
 

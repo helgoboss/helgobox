@@ -3,7 +3,6 @@
 [[best-practices-input-output,Best practices for setting input and output]]
 == Setting input and output
 
-[qanda]
 Prefer output to a specific device over xref:user-interface/main-panel/input-output-section.adoc#fx-output[]!::
 It's usually better to select a specific output device because sending MIDI feedback to the FX output has drawbacks.
 +
@@ -90,6 +89,7 @@ list].
 Because ReaLearn's xref:further-concepts/compartment.adoc#compartment-parameter[compartment parameters] are freely assignable, they have very generic names by default.
 However, as soon as you give them meaning by using them in a specific way, it can be very helpful to give them a name by using the xref:user-interface/main-panel/menu-bar.adoc#compartment-parameters[].
 
+[[troubleshooting-luau-import]]
 == Troubleshooting Luau import
 
 The way Luau import works in ReaLearn is:

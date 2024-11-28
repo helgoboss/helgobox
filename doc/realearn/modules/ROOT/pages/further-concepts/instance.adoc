@@ -3,12 +3,12 @@
 [[auto-units]]
 == Auto units
 
-Each xref:helgobox:ROOT:key-concepts.adoc#instance[] optionally supports the automatic addition and configuration of a xref:key-concepts.adoc#unit[] with a user-defined main preset if a certain type of controller is connected and automatic removal if it is disconnected.
+Each xref:key-concepts.adoc#instance[] optionally supports the automatic addition and configuration of a xref:key-concepts.adoc#unit[] with a user-defined xref:further-concepts/compartment.adoc#main-preset[] if a certain type of controller is connected, and automatic removal if it is disconnected.
 
 The general procedure is:
 
-. Globally define once what controllers you have at your disposal and choose which main preset you want to use for which controller (in the xref:user-interface/settings-dialog.adoc[] of the app)
-. Enable global control for one Helgobox instance using xref:user-interface/main-panel/menu-bar.adoc#enable-global-control[].
+. Globally define once what controllers you have at your disposal and choose which main preset you want to use for which controller (in the xref:user-interface/settings-dialog.adoc[] of the xref:helgobox::app.adoc[])
+. Enable global control for one xref:key-concepts.adoc#instance[] using xref:user-interface/main-panel/menu-bar.adoc#enable-global-control[].
 
 === Global control
 

@@ -12,7 +12,6 @@ The link:https://docs.helgoboss.org/realearn/user-interface/mapping-panel/advanc
 
 Deciding for textual configuration and YAML in particular was a conscious decision with the goal to provide a developer-friendly framework for rapidly extending ReaLearn with advanced features that don't urgently need a graphical user interface.
 
-[qanda]
 Why ask the user to enter text instead of providing a convenient graphical user interface?::
 * That's mostly a tradeoff due to the fact that my time available for developing ReaLearn is limited.
 * It's much work to develop a graphical user interface for every feature.
@@ -24,7 +23,7 @@ Textual configuration can be more powerful in many situations once the user know
 
 Why YAML?::
 * YAML has the advantage of being popular among programmers, widely supported, highly structured and relatively well readable/writable by both humans and machines.
-* Many text editors offer built-in support for editing YAML.
+* Many link:https://en.wikipedia.org/wiki/Text_editor[text editors] offer built-in support for editing YAML.
 * Makes it easy to provide data for even very complex features.
 
 Why not a scripting language?::

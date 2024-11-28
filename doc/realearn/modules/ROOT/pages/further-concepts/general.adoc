@@ -8,7 +8,7 @@ ReaLearn can import and export data in 2 formats:
 
 link:https://www.json.org/json-en.html[JSON]::
 A wide-spread data exchange format.
-It's a text format, so if you are familiar with the search & replace feature of your favorite text editor, this is one way to do batch editing.
+It's a text format, so if you are familiar with the search & replace feature of your favorite link:https://en.wikipedia.org/wiki/Text_editor[text editor], this is one way to do batch editing.
 
 link:https://luau.org/[Luau]::
 A full-blown programming language derived from the famous Lua language that is also used in REAPER itself.
