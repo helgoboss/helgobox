@@ -9,16 +9,21 @@ ReaPack is a popular 3rd-party package manager for REAPER that makes installing 
 
 Please check below system requirements before attempting to install Helgobox!
 
+=== REAPER
+
+* Playtime needs REAPER 7.23 or later
+* ReaLearn works acceptably with older REAPER versions, but it works better with REAPER 7.23 or later
+
 [[windows]]
 === Windows
 
-* You need at least Windows 10
+* Needs Windows 10 or later
 
 [[macos]]
 === macOS
 
-* You need at least macOS 10.12 to run ReaLearn
-* You need at least macOS 10.15 to run Playtime
+* ReaLearn needs macOS 10.12 or later
+* Playtime needs macOS 10.15 or later
 * For macOS 11 and later, all below-mentioned installation options should work
 * **For macOS 10.15 or earlier, installation via installer is not supported.
 You need to install via ReaPack!**
@@ -26,11 +31,12 @@ You need to install via ReaPack!**
 [[linux]]
 === Linux
 
+* ReaLearn runs on Linux, except for a few minor features
+* Playtime doesn't run on Linux yet!
 * **Installation via installer is not supported.
 You need to install via ReaPack!**
-* Playtime doesn't run on Linux yet!
-* Requires glibc version 2.31 or later (e.g. Ubuntu 20)
-* Requires libxdo.
+* Needs glibc version 2.31 or later (e.g. Ubuntu 20)
+* Needs libxdo.
 You can install it like this:
 +
 [source,shell]
@@ -63,7 +69,7 @@ Please choose:
 === I want an installer 👍
 
 For users who don't have ReaPack installed already, there's a **convenient installer** that automatically installs both ReaPack and Helgobox.
-It gets you up and running in no time!
+It gets you up and running in no time, supporting even portable REAPER installations!
 
 You can use it if you have Windows 10+ or macOS 11+.
 

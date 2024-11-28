@@ -27,36 +27,28 @@ image::generated/screenshots/main/main-screen-empty.png[]
 
 You can press kbd:[Shift+Cmd/Ctrl+P] to show/hide the Playtime window at any time.
 
-At this point, you could directly continue with xref:usage/create.adoc[], but I strongly recommend to read the following deep dive, as it will improve your understanding of how Playtime actually works!
+At this point, you could directly continue with xref:usage/create.adoc[], but I strongly recommend to read the following deep dive, as it will improve your understanding of how Playtime works!
 
 .Deep dive: Playtime button
 ****
-Pressing the button actually does multiple things in one go!
-If you wanted, you could do all of those things also manually.
+Pressing the button actually does multiple things in one go:
 
-[cols="5,5a"]
-|===
-| Description| How you could do the step manually
+. Create a new REAPER track named "Playtime" at the very top of the project.
+. Arm the track and set its input to "MIDI: All: All channels".
+. Add an xref:helgobox::key-concepts.adoc#instance[instance] of the Helgobox plug-in to the track's FX chain.
+. Open the xref:helgobox::app.adoc[] associated with that new Helgobox instance.
+. Navigate to the Playtime section of the App.
+. Create a xref:key-concepts.adoc#matrix[Playtime Matrix] in this Helgobox instance.
 
-|1. Create a new REAPER track named "Playtime" at the very top of the project
-.3+|
+
+If you wanted, you could do all of those steps manually instead:
+
 * Right-click REAPER's track control panel and choose menu:Insert virtual instrument on new track...[]
 * Double-click instrument plug-in "VSTi: Helgobox - ReaLearn & Playtime (Helgoboss)"
 * Optionally rename the track to "Playtime"
-
-|2. Arm the track and set its input to "MIDI: All: All channels"
-
-|3. Add an xref:helgobox::key-concepts.adoc#instance[instance] of the Helgobox plug-in to the track's FX chain
-
-|4. Open the xref:helgobox::app.adoc[] associated with that new Helgobox instance
-|In the xref:helgobox::plug-in/user-interface.adoc[Helgobox plug-in window], press menu:Menu[Show app]
-
-|5. Navigate to the Playtime section of the App
-|In the xref:helgobox::app/user-interface.adoc[Helgobox app window], press the image:screenshots/playtime-toolbar-icon.png[Playtime,width=30] button in the xref:helgobox::app/user-interface/navigation-bar.adoc[] on the left
-
-|6. Create a xref:key-concepts.adoc#matrix[Playtime Matrix] in this Helgobox instance
-|Press the button btn:[Create a Playtime Matrix]
-|===
+*  In the xref:helgobox::plug-in/user-interface.adoc[Helgobox plug-in window], press menu:Menu[Show app].
+* In the xref:helgobox::app/user-interface.adoc[Helgobox app window], press the image:screenshots/playtime-toolbar-icon.png[Playtime,width=30] button in the xref:helgobox::app/user-interface/navigation-bar.adoc[] on the left.
+* Press the button btn:[Create a Playtime Matrix]
 
 What we learn from that:
 

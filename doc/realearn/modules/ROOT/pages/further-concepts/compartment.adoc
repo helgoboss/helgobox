@@ -215,7 +215,7 @@ main compartment only
 A set of features that a Helgobox instance needs to provide for the preset to make sense.
 
 Will be used for determining whether an auto unit should be created for a specific instance or not. Example: If the required feature is "playtime" and a controller is configured with
-this main preset but the instance doesn't contain a Playtime Clip Matrix, this instance will not load the main preset.
+this main preset but the instance doesn't contain a Playtime Matrix, this instance will not load the main preset.
 
 Currently, only feature `playtime` is supported, which matches if the Helgobox instance contains a Playtime Matrix.
 

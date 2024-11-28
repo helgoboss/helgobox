@@ -13,7 +13,7 @@ The general procedure is:
 === Global control
 
 If global control is enabled for an instance, all connected controllers that are configured in the xref:realearn::user-interface/settings-dialog.adoc[ReaLearn settings dialog] will load their corresponding main preset.
-You can configure controllers using the settings button in the window title bar.
+You can configure controllers using the xref:helgobox::app/user-interface/title-bar.adoc#title-bar-settings[] button in the window title bar of the xref:helgobox::app.adoc[].
 
 If global control is disabled for an instance, global controllers will be ignored in this instance.
 This gives you the freedom to create a custom control experience using ReaLearn.
