@@ -75,7 +75,7 @@ fn convert_old_unit_to_instance_data(mut d: UnitData) -> InstanceData {
     InstanceData {
         // Migrate pot state from unit data
         pot_state: d.pot_state.take().unwrap_or_default(),
-        // Migrate clip matrix state from unit data
+        // Migrate Playtime matrix state from unit data
         clip_matrix: d.clip_matrix.take(),
         main_unit: d,
         additional_units: vec![],

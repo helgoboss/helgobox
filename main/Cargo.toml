@@ -64,7 +64,7 @@ num_enum.workspace = true
 crossbeam-channel.workspace = true
 scopeguard.workspace = true
 uuid = { version = "1.6.1", features = ["v4", "serde"] }
-# New logging (for clip matrix)
+# New logging (for Playtime matrix)
 tracing.workspace = true
 tracing-core.workspace = true
 tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }

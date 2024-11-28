@@ -1346,7 +1346,7 @@ pub mod occasional_matrix_update {
         /// should probably be refetched by the client by resubscribing to occasional matrix updates.
         #[prost(string, tag = "7")]
         CompletePersistentData(::prost::alloc::string::String),
-        /// Clip matrix history state
+        /// Playtime matrix history state
         #[prost(message, tag = "8")]
         HistoryState(super::HistoryState),
         /// Click on/off

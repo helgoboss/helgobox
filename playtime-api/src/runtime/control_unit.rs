@@ -33,7 +33,7 @@ pub struct ControlUnit {
     pub id: ControlUnitId,
     /// A display name which should indicate what connected device we are talking about.
     pub name: String,
-    /// Color in which the control unit should be visualized in the clip matrix.
+    /// Color in which the control unit should be visualized in the Playtime matrix.
     ///
     /// In our case (Helgobox/ReaLearn), the color is in most usage scenarios dictated by the
     /// global controller definition but should also work without using the "global controller"

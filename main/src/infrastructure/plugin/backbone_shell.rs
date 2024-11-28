@@ -302,7 +302,7 @@ impl BackboneShell {
             RealearnControlSurfaceMainTaskSender(control_surface_main_task_sender);
         #[cfg(feature = "playtime")]
         let (clip_matrix_event_sender, clip_matrix_event_receiver) =
-            SenderToNormalThread::new_unbounded_channel("clip matrix events");
+            SenderToNormalThread::new_unbounded_channel("Playtime matrix events");
         let (osc_feedback_task_sender, osc_feedback_task_receiver) =
             SenderToNormalThread::new_unbounded_channel("osc feedback tasks");
         let (additional_feedback_event_sender, additional_feedback_event_receiver) =
@@ -350,7 +350,7 @@ impl BackboneShell {
                 .into(),
             Box::new(BackboneLicenseManagerEventHandler),
         );
-        // This just initializes the clip engine, it doesn't add any clip matrix yet, so resource consumption is low.
+        // This just initializes the clip engine, it doesn't add any Playtime matrix yet, so resource consumption is low.
         #[cfg(feature = "playtime")]
         playtime_impl::init_clip_engine(&license_manager);
         // This is the backbone representation in the domain layer, of course we need this now already.

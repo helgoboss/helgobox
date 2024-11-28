@@ -1399,7 +1399,7 @@ impl HeaderPanel {
                 instance
                     .borrow_mut()
                     .clip_matrix_mut()
-                    .expect("this instance has no clip matrix")
+                    .expect("this instance has no Playtime matrix")
                     .freeze()
                     .await;
                 Ok(())
@@ -2203,7 +2203,7 @@ impl HeaderPanel {
                 ),
                 separator(),
                 item_with_opts(
-                    "Export clip matrix as JSON",
+                    "Export Playtime matrix as JSON",
                     ItemOpts {
                         enabled: cfg!(feature = "playtime"),
                         checked: false,
@@ -2211,7 +2211,7 @@ impl HeaderPanel {
                     MenuAction::ExportClipMatrix(SerializationFormat::JsonDataObject),
                 ),
                 item_with_opts(
-                    "Export clip matrix as Lua",
+                    "Export Playtime matrix as Lua",
                     ItemOpts {
                         enabled: cfg!(feature = "playtime"),
                         checked: false,
@@ -3149,11 +3149,11 @@ fn edit_osc_device(mut dev: OscDevice) -> Result<OscDevice, EditOscDevError> {
 const COMPARTMENT_CHANGES_WARNING_TEXT: &str = "Mapping/group/parameter changes in this compartment will be lost. Consider to save them first. Do you really want to continue?";
 
 #[cfg(feature = "playtime")]
-const EMPTY_CLIP_MATRIX_LABEL: &str = "empty clip matrix";
+const EMPTY_CLIP_MATRIX_LABEL: &str = "empty Playtime matrix";
 
 #[cfg(feature = "playtime")]
 fn get_clip_matrix_label(column_count: usize) -> String {
-    format!("clip matrix with {column_count} columns")
+    format!("Playtime matrix with {column_count} columns")
 }
 
 enum MainMenuAction {

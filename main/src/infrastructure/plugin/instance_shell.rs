@@ -457,7 +457,7 @@ impl InstanceShell {
             settings: self.settings.get().borrow().clone(),
             pot_state: instance.save_pot_unit(),
             // TODO-medium Subject to improvement: If ReaLearn has been compiled without playtime feature, a
-            //  potential clip matrix in the instance data will be silently discarded and disappear when saving
+            //  potential Playtime matrix in the instance data will be silently discarded and disappear when saving
             //  next time. It would be better to memorize the data in the shell.
             clip_matrix: {
                 #[cfg(feature = "playtime")]
@@ -513,7 +513,7 @@ impl InstanceShell {
         instance
             .borrow_mut()
             .set_custom_data(instance_data.custom_data);
-        // Clip matrix
+        // Playtime matrix
         #[cfg(feature = "playtime")]
         {
             if let Some(matrix_ref) = instance_data.clip_matrix {
@@ -525,7 +525,7 @@ impl InstanceShell {
                             .load(*m)?;
                     }
                     crate::infrastructure::data::ClipMatrixRefData::Foreign(_) => {
-                        bail!("Referring to the clip matrix of another instance is not supported anymore!");
+                        bail!("Referring to the Playtime matrix of another instance is not supported anymore!");
                     }
                 };
             } else {
@@ -653,9 +653,9 @@ impl InstanceShell {
         }
     }
 
-    /// Returns and - if necessary - installs an owned clip matrix from/into the given instance.
+    /// Returns and - if necessary - installs an owned Playtime matrix from/into the given instance.
     ///
-    /// If this instance already contains an owned clip matrix, returns it. If not, creates
+    /// If this instance already contains an owned Playtime matrix, returns it. If not, creates
     /// and installs one, removing a possibly existing foreign matrix reference.
     #[cfg(feature = "playtime")]
     pub fn get_or_insert_owned_clip_matrix(

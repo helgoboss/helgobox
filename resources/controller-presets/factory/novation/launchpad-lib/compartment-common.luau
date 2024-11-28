@@ -296,7 +296,7 @@ function module.pad_script(
     end
     -- Handle text feedback
     if type(y) == "string" then
-        -- This is a grid controller, typically used for controlling a clip matrix, so we should be able to
+        -- This is a grid controller, typically used for controlling a Playtime matrix, so we should be able to
         -- handle text feedback that conforms to Playtime's clip state convention.
         local entry = feedback_table[y]
         if entry == nil then

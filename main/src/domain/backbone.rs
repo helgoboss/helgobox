@@ -55,8 +55,8 @@ pub struct Backbone {
         RefCell<NonCryptoHashMap<DeviceFeedbackOutput, NonCryptoHashSet<UnitId>>>,
     superior_units: RefCell<NonCryptoHashSet<UnitId>>,
     /// We hold pointers to all ReaLearn instances in order to let instance B
-    /// borrow a clip matrix which is owned by instance A. This is great because it allows us to
-    /// control the same clip matrix from different controllers.
+    /// borrow a Playtime matrix which is owned by instance A. This is great because it allows us to
+    /// control the same Playtime matrix from different controllers.
     // TODO-high-playtime-refactoring Since the introduction of units, foreign matrices are not used in practice. Let's
     //  keep this for a while and remove.
     instances: RefCell<NonCryptoHashMap<InstanceId, WeakInstance>>,
@@ -627,9 +627,9 @@ impl Backbone {
     }
 
     //
-    // /// Returns and - if necessary - installs an owned clip matrix.
+    // /// Returns and - if necessary - installs an owned Playtime matrix.
     // ///
-    // /// If this instance already contains an owned clip matrix, returns it. If not, creates
+    // /// If this instance already contains an owned Playtime matrix, returns it. If not, creates
     // /// and installs one, removing a possibly existing foreign matrix reference.
     // pub fn get_or_insert_owned_clip_matrix(&mut self) -> &mut playtime_clip_engine::base::Matrix {
     //     self.create_and_install_owned_clip_matrix_if_necessary();
@@ -638,12 +638,12 @@ impl Backbone {
 
     // TODO-high-playtime-refactoring Woah, ugly. This shouldn't be here anymore, the design involved and this dirt
     //  stayed. self is not used. Same with _mut.
-    /// Grants immutable access to the clip matrix defined for the given ReaLearn instance,
+    /// Grants immutable access to the Playtime matrix defined for the given ReaLearn instance,
     /// if one is defined.
     ///
     /// # Errors
     ///
-    /// Returns an error if the given instance doesn't have any clip matrix defined.
+    /// Returns an error if the given instance doesn't have any Playtime matrix defined.
     #[cfg(feature = "playtime")]
     pub fn with_clip_matrix<R>(
         &self,
@@ -655,7 +655,7 @@ impl Backbone {
         Ok(f(matrix))
     }
 
-    /// Grants mutable access to the clip matrix defined for the given ReaLearn instance,
+    /// Grants mutable access to the Playtime matrix defined for the given ReaLearn instance,
     /// if one is defined.
     #[cfg(feature = "playtime")]
     pub fn with_clip_matrix_mut<R>(

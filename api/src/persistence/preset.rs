@@ -178,7 +178,7 @@ pub struct MainPresetMetaData {
     ///
     /// Will be used for determining whether an auto unit should be created for a specific instance
     /// or not. Example: If the required feature is "playtime" and a controller is configured with
-    /// this main preset but the instance doesn't contain a Playtime Clip Matrix, this instance will
+    /// this main preset but the instance doesn't contain a Playtime matrix, this instance will
     /// not load the main preset.
     #[serde(default)]
     pub required_features: HashSet<String>,
@@ -243,6 +243,6 @@ impl VirtualControlSchemeId {
 
 /// Known instance features.
 pub mod instance_features {
-    /// Instance owns a Playtime Clip Matrix.
+    /// Instance owns a Playtime matrix.
     pub const PLAYTIME: &str = "playtime";
 }

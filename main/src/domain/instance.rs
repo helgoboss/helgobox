@@ -274,7 +274,7 @@ mod playtime_impl {
     use reaper_high::OrCurrentProject;
 
     impl Instance {
-        /// Polls the clip matrix of this ReaLearn instance, if existing and only if it's an owned one
+        /// Polls the Playtime matrix of this ReaLearn instance, if existing and only if it's an owned one
         /// (not borrowed from another instance).
         pub fn poll_owned_clip_matrix(
             &mut self,
@@ -331,11 +331,11 @@ mod playtime_impl {
             self.playtime.clip_matrix.as_mut()
         }
 
-        /// Returns `Ok(true)` if it installed a clip matrix and `Ok(false)` if one was installed already.
+        /// Returns `Ok(true)` if it installed a Playtime matrix and `Ok(false)` if one was installed already.
         ///
         /// # Errors
         ///
-        /// Returns an error if the clip matrix can't be created, e.g. when on the monitoring FX chain.
+        /// Returns an error if the Playtime matrix can't be created, e.g. when on the monitoring FX chain.
         pub(crate) fn create_and_install_clip_matrix_if_necessary(
             &mut self,
             create_handler: impl FnOnce(
@@ -363,7 +363,7 @@ mod playtime_impl {
 
         pub fn set_clip_matrix(&mut self, matrix: Option<playtime_clip_engine::base::Matrix>) {
             if self.playtime.clip_matrix.is_some() {
-                tracing::debug!("Shutdown existing clip matrix");
+                tracing::debug!("Shutdown existing Playtime matrix");
                 self.update_real_time_clip_matrix(None);
             }
             self.playtime.clip_matrix = matrix;
@@ -474,4 +474,4 @@ pub enum PotStateChangedEvent {
 }
 
 #[cfg(feature = "playtime")]
-const NO_CLIP_MATRIX_SET: &str = "no clip matrix set for this instance";
+const NO_CLIP_MATRIX_SET: &str = "no Playtime matrix set for this instance";

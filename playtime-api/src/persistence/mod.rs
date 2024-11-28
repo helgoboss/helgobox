@@ -1049,7 +1049,7 @@ pub struct ColumnClipPlayAudioSettings {
 /// a one-to-one relationship between a row and a scene.
 ///
 /// The difference between row and scene is of conceptual nature: A scene represents a part of a
-/// song that's played exclusively whereas a row is just a row in the clip matrix. This distinction
+/// song that's played exclusively whereas a row is just a row in the Playtime matrix. This distinction
 /// results in some practical differences:
 ///
 /// - A column can be configured to not follow scenes. The clips in that column are of

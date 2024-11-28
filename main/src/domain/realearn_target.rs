@@ -457,9 +457,9 @@ impl<'a> RealTimeControlContext<'a> {
         let instance = base::non_blocking_lock(&*instance, "real-time instance");
         instance
             .clip_matrix()
-            .ok_or("real-time clip matrix not yet initialized")?
+            .ok_or("real-time Playtime matrix not yet initialized")?
             .upgrade()
-            .ok_or("real-time clip matrix doesn't exist anymore")
+            .ok_or("real-time Playtime matrix doesn't exist anymore")
     }
 }
 
@@ -709,7 +709,7 @@ pub enum ReaperTargetType {
     // Clip row targets
     PlaytimeRowAction = 52,
 
-    // Clip matrix
+    // Playtime matrix
     PlaytimeMatrixAction = 51,
     PlaytimeControlUnitScroll = 64,
     PlaytimeBrowseCells = 65,

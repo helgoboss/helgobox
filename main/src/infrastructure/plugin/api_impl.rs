@@ -37,7 +37,7 @@ fn find_first_playtime_helgobox_instance_in_project(
         .or_current_project();
     let instance_id = BackboneShell::get()
         .find_first_playtime_helgobox_instance_in_project(project)
-        .context("Project doesn't contain Helgobox instance with a Playtime Clip Matrix")?;
+        .context("Project doesn't contain Helgobox instance with a Playtime matrix")?;
     Ok(u32::from(instance_id) as _)
 }
 

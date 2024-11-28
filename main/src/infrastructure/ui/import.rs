@@ -49,7 +49,7 @@ pub enum DataObject {
     /// A Helgobox unit (within an instance).
     #[serde(alias = "Session")]
     Unit(Envelope<Box<UnitData>>),
-    /// A Playtime clip matrix.
+    /// A Playtime matrix.
     ClipMatrix(Envelope<Box<Option<playtime_api::persistence::FlexibleMatrix>>>),
     /// Main compartment.
     MainCompartment(Envelope<Box<CompartmentModelData>>),

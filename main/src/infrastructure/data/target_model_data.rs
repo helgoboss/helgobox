@@ -422,7 +422,7 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub clip_slot: Option<PlaytimeSlotDescriptor>,
-    /// Clip matrix column.
+    /// Playtime matrix column.
     ///
     /// For track targets, this contains the clip column from which we want to "borrow" the track.
     ///

@@ -833,9 +833,9 @@ where
         let res = match value {
             // Error
             Err(e) => Some(Err(Status::unknown(e.to_string()))),
-            // Clip matrix ID matches
+            // Playtime matrix ID matches
             Ok(value) if include(&value) => Some(Ok(create_result(value))),
-            // Clip matrix ID doesn't match
+            // Playtime matrix ID doesn't match
             _ => None,
         };
         future::ready(res)

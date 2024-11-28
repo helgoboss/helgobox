@@ -781,7 +781,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    /// Processes the given clip matrix events if they are relevant to this unit.
+    /// Processes the given Playtime matrix events if they are relevant to this unit.
     #[cfg(feature = "playtime")]
     pub fn process_polled_clip_matrix_events(
         &self,
@@ -796,7 +796,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    /// Processes the given clip matrix event if it's relevant to this instance.
+    /// Processes the given Playtime matrix event if it's relevant to this instance.
     #[cfg(feature = "playtime")]
     pub fn process_non_polled_clip_matrix_event(
         &self,

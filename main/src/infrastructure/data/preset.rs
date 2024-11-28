@@ -103,7 +103,7 @@ impl FileBasedCompartmentPresetManager<MainPresetMetaData> {
             .collect();
         // Sort ascending by suitability
         candidates.sort_unstable_by(|candidate_a, candidate_b| {
-            // Prefer Playtime preset if at least one instance has a Playtime clip matrix
+            // Prefer Playtime preset if at least one instance has a Playtime matrix
             if conditions.at_least_one_instance_has_playtime_clip_matrix {
                 let candidate_a_requires_playtime =
                     candidate_a.preset.specific_meta_data.requires_playtime();

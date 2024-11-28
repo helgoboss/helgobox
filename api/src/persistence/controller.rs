@@ -46,7 +46,7 @@ pub struct Controller {
     //  The default_main_preset would act as fallback, as last line in the list of rules, which doesn't
     //  define any additional condition.
     //  Possible conditions:
-    //  - Playtime clip matrix (if at least one instance is active that has a clip matrix)
+    //  - Playtime matrix (if at least one instance is active that has a Playtime matrix)
     //  - Active pot unit?
     //  Possible effects:
     //  - Main preset (optional)
