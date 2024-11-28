@@ -5,6 +5,6 @@ xref:realearn::introduction.adoc[ReaLearn] is the controller integration tool at
 
 In simple terms, a xref:realearn::key-concepts.adoc#target[ReaLearn target] defines what happens when you press a button on your controller. ReaLearn provides a wide variety of such xref:realearn::targets.adoc[targets], including a xref:realearn::targets/playtime.adoc[specialized set of targets] tailored for Playtime. Most of these targets even support xref:realearn::key-concepts.adoc#feedback[], enabling features like LED lighting or display updates. That gives you the flexibility to create highly customized controller integrations for Playtime!
 
-For a glimpse of what's possible, take a look at Playtime's xref:usage/grid-controllers.adoc[grid controller support]. This functionality isn't hard-coded into Playtime &mdash; it's entirely implemented through xref:realearn::further-concepts/compartment.adoc#compartment-preset[ReaLearn compartment presets].
+For a glimpse of what's possible, take a look at Playtime's xref:usage/grid-controllers.adoc[grid controller support]. This functionality isn't hard-coded into Playtime, it's entirely implemented through xref:realearn::further-concepts/compartment.adoc#compartment-preset[ReaLearn compartment presets].
 
 All targets are described xref:realearn::targets/playtime.adoc[here].
