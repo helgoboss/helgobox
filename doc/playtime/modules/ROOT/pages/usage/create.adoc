@@ -22,7 +22,7 @@ IMPORTANT: Exactly as in REAPER, Playtime columns don't have a type. They can al
 .Alternatives
 ****
 Use matrix templates::
-Instead of creating the column manually, you could also have started with a template by pressing the xref:user-interface/matrix-area.adoc#matrix-mixed-template-button[], for example.
+Instead of creating the column manually, you could also have started with a template by pressing xref:user-interface/matrix-area.adoc#matrix-mixed-template-button[] in the xref:user-interface/matrix-area.adoc#matrix-template-panel[], for example.
 
 Import existing tracks::
 Maybe you have existing tracks already that you want to use as xref:key-concepts.adoc#column-track[column tracks]. In that case, select them, right-click xref:user-interface/matrix-area.adoc#matrix-cell-settings[] and choose xref:user-interface/menus/matrix-menu.adoc#matrix-insert-column-for-each-selected-track[].
@@ -51,7 +51,7 @@ Maybe you have an existing item on a REAPER track that you want to turn into a P
 . Select the item
 . Right-click an empty slot and choose xref:user-interface/menus/slot-menu.adoc#slot-import-selected-item[]
 
-This does more than just importing the audio file or MIDI data from the item! It also translates many of the item's properties, such as the item cut and pitch, to Playtime clip properties.
+This does more than just importing the audio file or MIDI data from the item: It also translates many of the item's properties, such as the item cut and pitch, to Playtime clip properties.
 
 
 [[create-empty-midi-clip]]
@@ -131,8 +131,10 @@ One more way to give you more time is to start recording with your foot instead 
 . Press the xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[] button in the toolbar. This should reveal a small MIDI trigger area on the right sight of the xref:user-interface/toolbar.adoc#toolbar-smart-record[] button.
 . Press that MIDI trigger area. It should turn red.
 . Press the MIDI foot switch connected to your MIDI keyboard. Playtime should pick it up. If not, see xref:user-interface/toolbar.adoc#midi-trigger-troubleshooting[].
-. Press the MIDI foot to start recording.
+. Press the MIDI foot switch to start recording.
 . Press it again to stop recording.
++
+TIP: You can hide the MIDI trigger areas at any time by pressing the xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[] button again. They will remain active!
 
 Record with tempo detection and without click::
 All the approaches that we have talked about so far require a metronome or another clip to provide a rhythmical reference. However, imagine you want to do a looper-style live improvisation, without metronome. In that case, you can do a xref:further-concepts/matrix.adoc#feature-tempo-detection[].
@@ -145,7 +147,7 @@ Playtime suites itself very much for rhythmic material. But what if you want to 
 
 +
 --
-You can simply achieve that by setting the xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-start-timing[] in the xref:user-interface/inspector/matrix/playback.adoc[] to xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[]. If you want to use this behavior just for a specific column, use xref:user-interface/inspector/column/playback.adoc#inspector-column-start-timing[] instead!
+You can simply achieve that by setting the xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-start-timing[] in the xref:user-interface/inspector/matrix/playback.adoc[] to xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[]. If you want to use this behavior just for a specific column, you can xref:user-interface/inspector/column/playback.adoc#inspector-column-start-timing[override this setting on column level] instead!
 --
 
 

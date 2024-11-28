@@ -34,13 +34,13 @@ Playtime allows you to play your clips by pressing keys on your MIDI keyboard:
 .Variations
 ****
 Play as long as you press the key::
-By default, pressing the key toggles between _playing_ and _stopped_. You can change that, for example on column level, by setting xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode[] to xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode-momentary[]. Then pressing the key down will start playback and releasing it will stop playback. This goes very well with xref:key-concepts.adoc#clip-start-timing[] xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[].
+By default, pressing the key toggles between _playing_ and _stopped_. You can change that, for example on column level, by setting the column property xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode[] to xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode-momentary[] in the xref:user-interface/inspector/column.adoc[]. Then pressing the key down will start playback and releasing it will stop playback. This goes very well with xref:key-concepts.adoc#clip-start-timing[] xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[].
 
 Restart when pressing the key again::
 Another xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode[] is xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode-retrigger[]: Tapping the key once will start playback and tapping it again will trigger a restart.
 
 Play with different velocities::
-Maybe you want to play the clip with a lower volume when hitting the key softly and with a higher volume when hitting it hard. You can achieve this and fine-tune the effect by adjusting xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-velocity-sensitivity[]. This is of course also adjustable on xref:user-interface/inspector/column/playback.adoc#inspector-column-velocity-sensitivity[column] and xref:user-interface/inspector/clip.adoc#inspector-clip-velocity-sensitivity[clip] level.
+Maybe you want to play the clip with a lower volume when hitting the key softly and with a higher volume when hitting it hard. You can achieve this and fine-tune the effect by adjusting the matrix property xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-velocity-sensitivity[] in the xref:user-interface/inspector/matrix.adoc[]. It is of course also adjustable on xref:user-interface/inspector/column/playback.adoc#inspector-column-velocity-sensitivity[column] and xref:user-interface/inspector/clip.adoc#inspector-clip-velocity-sensitivity[clip] level.
 ****
 
 
@@ -55,18 +55,10 @@ So if you use xref:key-concepts.adoc#clip-start-timing[] xref:user-interface/ins
 .Is Playtime a sampler?
 [TIP]
 ====
-When playing Playtime via MIDI, it helps to look at it as a kind of sampler. But instead of playing single tones, you usually trigger complete musical _phrases_, either as MIDI or audio.
+When playing Playtime via MIDI, it works a bit like a sampler. But instead of playing single tones, it is optimized to trigger complete musical _phrases_. And not just audio phrases, also MIDI sequences.
 
 You are basically working on a higher level. Each of the triggered phrases in turn can trigger samplers or synthesizers ... or even xref:advanced-usage-scenarios/meta-clips.adoc[Playtime itself].
 ====
-
-== Playing and stopping multiple clips
-
-You can play all clips in a row at once by pressing the xref:user-interface/matrix-area.adoc#row-cell-play-scene[] button at the very left.
-
-You can permanently stop all clips in a column at once by pressing the xref:user-interface/matrix-area.adoc#column-cell-stop[] button in the xref:user-interface/matrix-area.adoc#column-cell[] at the top of the column. Double-clicking this button stops the clips abruptly.
-
-You can permanently stop all clips in the complete matrix at once by pressing the xref:user-interface/matrix-area.adoc#matrix-cell-stop[] button in the xref:user-interface/matrix-area.adoc#matrix-cell[] at the top-left of the matrix area. Double-clicking this button stops the clips abruptly.
 
 == Playing multiple clips
 
@@ -78,7 +70,7 @@ By default, playback within one column is limited to just one slot. We call this
 
 .Exclusive mode
 ====
-Let's say you have clip A in the first column cell 1 and clip B in the second column cell.
+Let's say you have clip A in the first column cell and clip B in the second column cell.
 
 . Trigger clip A and wait until it started playing
 . Now, trigger clip B
@@ -100,6 +92,14 @@ After disabling exclusive mode, you can play multiple clips within that column, 
 Usually when playing multiple clips within a clip launcher, one expects those clips to play perfectly xref:key-concepts.adoc#in-sync[in sync] with each other. This "perfectly in sync" is by default given in Playtime, but it all depends on how each of the clips is configured.
 
 If you have messed with xref:key-concepts.adoc#clip-start-timing[], xref:user-interface/inspector/clip.adoc#inspector-clip-start-position[], xref:user-interface/inspector/clip.adoc#inspector-clip-length[] or xref:user-interface/inspector/clip.adoc#inspector-clip-sync-to-project-tempo[], your clips might get out of sync. If this happens, and you don't know why, revisit xref:key-concepts.adoc#in-sync[] to deepen your understanding.
+
+=== Row and column transport buttons
+
+You can play all clips in a row at once by pressing the xref:user-interface/matrix-area.adoc#row-cell-play-scene[] button at the very left.
+
+You can permanently stop all clips in a column at once by pressing the xref:user-interface/matrix-area.adoc#column-cell-stop[] button in the xref:user-interface/matrix-area.adoc#column-cell[] at the top of the column. Double-clicking this button stops the clips abruptly.
+
+You can permanently stop all clips in the complete matrix at once by pressing the xref:user-interface/matrix-area.adoc#matrix-cell-stop[] button in the xref:user-interface/matrix-area.adoc#matrix-cell[] at the top-left of the matrix area. Double-clicking this button stops the clips abruptly.
 
 == Starting and stopping Playtime playback
 

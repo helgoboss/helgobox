@@ -1,8 +1,10 @@
 = ReaLearn targets
 
 [[feature-realearn]]
-xref:realearn::introduction.adoc[ReaLearn] offers a bunch of xref:realearn::key-concepts.adoc#target[targets] specific to Playtime. Most of them even support xref:realearn::key-concepts.adoc#feedback[], to power LEDs or displays. That gives you the power to create highly customized controller integrations for Playtime!
+xref:realearn::introduction.adoc[ReaLearn] is the controller integration tool at the heart of Helgobox that enables Playtime's _haptic_ features. It drives the xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[MIDI trigger] functionality, integrates the xref:key-concepts.adoc#grid-controller[grid controllers], and allows you to craft your own controller experiences. ReaLearn is the engine behind it all!
 
-To get an impression of that power, you just need to look at Playtime's xref:usage/grid-controllers.adoc[support for grid controllers]. This support is not hard-coded into Playtime. It is implemented solely in the form of xref:realearn::further-concepts/compartment.adoc#compartment-preset[ReaLearn compartment presets].
+In simple terms, a xref:realearn::key-concepts.adoc#target[ReaLearn target] defines what happens when you press a button on your controller. ReaLearn provides a wide variety of such xref:realearn::targets.adoc[targets], including a xref:realearn::targets/playtime.adoc[specialized set of targets] tailored for Playtime. Most of these targets even support xref:realearn::key-concepts.adoc#feedback[], enabling features like LED lighting or display updates. That gives you the flexibility to create highly customized controller integrations for Playtime!
+
+For a glimpse of what's possible, take a look at Playtime's xref:usage/grid-controllers.adoc[grid controller support]. This functionality isn't hard-coded into Playtime &mdash; it's entirely implemented through xref:realearn::further-concepts/compartment.adoc#compartment-preset[ReaLearn compartment presets].
 
 All targets are described xref:realearn::targets/playtime.adoc[here].

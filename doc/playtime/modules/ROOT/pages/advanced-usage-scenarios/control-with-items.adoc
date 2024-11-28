@@ -46,7 +46,7 @@ Below code snippet by default spreads MIDI notes row by row in groups of 8, star
 . Press the xref:realearn::user-interface/main-panel/menu-bar.adoc#import-from-clipboard[]
 +
 CAUTION: This will overwrite existing MIDI mappings in the xref:realearn::key-concepts.adoc#unit[ReaLearn main unit].
-. After confirming the import, you should now see a list of mappings in ReaLearn. But also in the xref:user-interface.adoc[Playtime user interface], when pressing xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[showing the MIDI triggers].
+. After confirming the import, you should see a list of mappings in ReaLearn. But also in the xref:user-interface.adoc[Playtime user interface], when pressing xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[showing the MIDI triggers].
 
 [source,lua]
 ----

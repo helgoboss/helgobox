@@ -26,7 +26,7 @@ _Triggering a slot_ is an action carried out on a xref:key-concepts.adoc#slot[] 
 * Start slot recording
 * Stop slot recording
 
-Triggering a slot can be achieved either by using the xref:user-interface/keyboard-shortcuts.adoc#enter[] shortcut in the xref:user-interface.adoc[] or by using the ReaLearn xref:realearn::targets/playtime/slot-transport-action.adoc[].
+A slot can be triggered either by pressing kbd:[Enter] in the xref:user-interface.adoc[] or from a controller (see ReaLearn xref:realearn::targets/playtime/slot-transport-action.adoc[]).
 
 Triggering also takes the xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode[] and xref:user-interface/inspector/clip.adoc#inspector-clip-velocity-sensitivity[] into account.
 
@@ -102,6 +102,7 @@ It goes like this:
 . Make sure Playtime's metronome is turned *on*. If it's off, press the kbd:[M] key.
 . Press the xref:user-interface/matrix-area.adoc#slot-cell-record[] button in an empty slot. That should start Playtime's playback, and you should hear and see a count-in of 2 bars, during which you can prepare. When the slot count-down reaches zero, Playtime records as usual.
 
+The count-in length can be adjusted in by right-clicking the xref:user-interface/toolbar.adoc#toolbar-metronome[] button and adjusting xref:user-interface/dialogs/tempo-settings-dialog.adoc#tempo-settings-count-in[].
 
 Here's a video showing this way of recording:
 

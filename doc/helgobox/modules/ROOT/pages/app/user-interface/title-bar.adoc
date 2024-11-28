@@ -23,6 +23,8 @@ The opacity of the opaque window can be adjusted via xref:app/user-interface/set
 
 include::partial$generated/elements/title-bar/settings.adoc[]
 
+See xref:app/user-interface/settings-dialog.adoc[].
+
 include::partial$generated/elements/title-bar/refresh.adoc[]
 
 include::partial$generated/elements/title-bar/undo.adoc[]

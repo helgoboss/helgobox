@@ -2,6 +2,8 @@
 
 include::partial$available-in-app.adoc[]
 
+This dialog opens when pressing the xref:helgobox:ROOT:app/user-interface/title-bar.adoc#title-bar-settings[] button in the title bar and navigating to the ReaLearn section.
+
 image::generated/screenshots/main/settings.png[]
 
 [#controllers]

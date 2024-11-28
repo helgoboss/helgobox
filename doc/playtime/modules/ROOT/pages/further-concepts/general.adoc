@@ -3,7 +3,7 @@
 [#pdc]
 == Plugin delay compensation (PDC)
 
-Some FX (effects and instruments) add latency to a track due to internal processing. This can happen even with FX that's not on the track itself, but somewhere downstream in the signal flow, e.g. on the master track.
+FX (an effect or instrument) may add latency to a track due to internal processing. This can happen even with FX that's not on the track itself, but somewhere downstream in the signal flow, e.g. on the master track.
 
 REAPER and Playtime apply plug-in delay compensation (PDC) in order to fix the timing. That means they start processing content ahead of time in order to make up for the latency. PDC ensures that all tracks stay perfectly synchronized by delaying other tracks to match the plugin's latency. This prevents timing issues and maintains phase alignment in your project, ensuring accurate playback and mixing.
 

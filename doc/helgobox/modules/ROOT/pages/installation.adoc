@@ -9,8 +9,6 @@ ReaPack is a popular 3rd-party package manager for REAPER that makes installing 
 
 Please check below system requirements before attempting to install Helgobox!
 
-NOTE: A more detailed compatibility table can be found link:https://www.helgoboss.org/projects/helgobox#requirements[here].
-
 [[windows]]
 === Windows
 
@@ -47,7 +45,9 @@ sudo apt-get install -y libxdo-dev
 sudo zypper install xdotool
 ----
 
-IMPORTANT: If you want to use ReaLearn with the Stream Deck on Linux, xref:realearn::sources/stream-deck.adoc#linux[more setup] is necessary.
+IMPORTANT: If you want to use a _Stream Deck_ controller with ReaLearn on Linux, xref:realearn::sources/stream-deck.adoc#linux[more setup] is necessary.
+
+NOTE: A more detailed system compatibility table can be found link:https://www.helgoboss.org/projects/helgobox#requirements[here].
 
 == Installing Helgobox
 

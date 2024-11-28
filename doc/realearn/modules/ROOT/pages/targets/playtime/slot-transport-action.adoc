@@ -8,7 +8,7 @@ All actions that are about starting and stopping slots are real-time capable, wh
 
 The kind of action to be executed.
 
-Trigger::
+[[trigger]] Trigger::
 xref:playtime::further-concepts/matrix.adoc#trigger-slot[Triggers] the slot.
 
 Play/stop::

@@ -7,7 +7,7 @@ We can take the previous scenario xref:advanced-usage-scenarios/control-with-ite
 
 If we can control Playtime with MIDI items, shouldn't it be possible to control it with MIDI xref:key-concepts.adoc#clip[_clips_] as well? The answer is yes! I call such clips _meta clips_. *Playtime can basically play itself!*
 
-Meta clips open up a whole new world of possibilities. Here are just some of the things you could do with it:
+Meta clips open up a whole new world of possibilities. Here are just some of the things you can do with them:
 
 * Meta clips can be used as xref:key-concepts.adoc#scene[scenes] on steroids. You can trigger many other clips at once, no matter in which row they are.
 * You can record sequences of clip invocations and play them back at the press of a button.
