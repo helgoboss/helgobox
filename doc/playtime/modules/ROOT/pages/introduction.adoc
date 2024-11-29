@@ -9,7 +9,7 @@ include::helgobox::partial$intro-header.adoc[]
 
 == What is Playtime?
 
-link:https://www.helgoboss.org/projects/playtime[Playtime] is a powerful and versatile *session view* or *clip launcher* designed specifically for the DAW link:https://www.reaper.fm[REAPER]. It is designed as a creative instrument for recording and triggering both audio and MIDI clips, making it ideal for *live performances*, *improvisation*, *jamming*, *looping* and *sketching arrangements*.
+link:https://www.helgoboss.org/projects/playtime[Playtime] is a powerful and versatile *session view* or *clip launcher* made specifically for the DAW link:https://www.reaper.fm[REAPER]. It is designed as a creative instrument for recording and triggering both audio and MIDI clips, making it ideal for *live performances*, *improvisation*, *jamming*, *looping* and *sketching arrangements*.
 
 As part of the link:https://www.helgoboss.org/projects/helgobox[Helgobox] plug-in,
 Playtime integrates seamlessly with REAPER by leveraging its unique native-speed extension API. This deep integration provides a smoother and more efficient user experience compared to using REAPER alongside other DAWs.
