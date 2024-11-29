@@ -108,7 +108,7 @@ If nothing happens when you press the note or foot switch, we need to check the 
 . Press the xref:helgobox::app/user-interface/navigation-bar.adoc#navbar-show-helgobox-plugin[] button in the navigation bar on the left. This should open the xref:helgobox::plug-in/user-interface.adoc[plug-in window] starring ReaLearn's xref:realearn::user-interface/main-panel.adoc[].
 . Check ReaLearn's xref:realearn::user-interface/main-panel/input-output-section.adoc[input]!
 
-By default, the input should be set to xref:realearn::user-interface/main-panel/input-output-section.adoc#fx-input[]. This means that ReaLearn captures MIDI messages from the surrounding REAPER track (the one containing this xref:helgobox::key-concepts.adoc#instance[Helgobox instance]). *In this case, make ensure that the track is armed and input monitoring is switched on!*
+By default, the input should be set to xref:realearn::user-interface/main-panel/input-output-section.adoc#fx-input[]. This means that ReaLearn captures MIDI messages from the surrounding REAPER track (the one containing this xref:helgobox::key-concepts.adoc#instance[Helgobox instance]). *In this case, make sure that the track is armed and input monitoring is switched on!*
 
 If you want, you can also set the input to a specific device instead! In that case, the Helgobox track doesn't need to be armed.
 
