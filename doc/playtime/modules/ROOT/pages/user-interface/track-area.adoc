@@ -32,7 +32,7 @@ WARNING: Playtime captures audio or MIDI input more or less directly from the ha
 That also means that the track's _input_ FX chain will not have any effect on the recording!
 You can work around this limitation by using *Loopback* channels instead of input FX.
 
-TIP: Selecting one of the *Loopback* channels as audio input doesn't automatically enable it!
+TIP: Selecting *Loopback* channels as audio input doesn't automatically enable them!
 Make sure that the REAPER setting *Virtual loopback audio hardware channels* in menu:Options[Settings... > Audio] is high enough!
 
 NOTE: This directly sets the input of the corresponding REAPER track.
