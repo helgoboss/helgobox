@@ -74,7 +74,7 @@ If you are satisfied, you can write the sequence to the REAPER tracks by pressin
 
 == The translation from clips to items
 
-What happens in both cases it that Playtime translates its xref:key-concepts.adoc#clip[clips] into REAPER items.
+What happens in both cases is that Playtime translates its xref:key-concepts.adoc#clip[clips] into REAPER items.
 
 Ideally, the items - when played back by REAPER - should sound exactly as the clips in Playtime. If you detect deviations, please open a bug report in the link:https://github.com/helgoboss/helgobox/issues[Helgobox issue tracker].
 
@@ -84,3 +84,22 @@ The resulting items are played back by REAPER alone. Those are conventional REAP
 
 That also means that if you share the REAPER project file with other people, they won't need a Playtime installation to play back the arrangement.
 ====
+
+
+.Deep-dive: Translation from clips to items
+****
+When translating clips to items, Playtime may set track, item or take properties.
+
+Here are some noteworthy translations:
+
+Free item positioning::
+Playtime enables free item positioning for a track as soon as it detects that some items written to the same track would overlap in time. This usually happens when two clips play at the same time on the same track. Not enabling it would lead to a hard-to-see overlap.
+
+Time base::
+If the clip is configured to xref:user-interface/inspector/clip.adoc#inspector-clip-sync-to-project-tempo[synchronize to the project tempo], it chooses item time base *Beats (auto-stretch at tempo changes)*, because this reflects how Playtime itself would behave when changing the tempo. With this mode, REAPER may automatically create stretch markers.
++
+If the clip is configured to *not* synchronize to the project tempo, it chooses item timebase *Time* (if start timing is xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[]) or *Beats (position only)* (the the start timing is quantized), because those settings resemble Playtime's clip playing behavior best.
+
+Play rate::
+For audio clips, the play rate is always set to the ratio between the clip's xref:user-interface/inspector/clip.adoc#inspector-clip-tempo[] and the project tempo.
+****

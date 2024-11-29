@@ -75,6 +75,8 @@ include::partial$generated/elements/toolbar/write-to-arrangement.adoc[]
 
 If the Playtime column tracks already contain items, pressing this button will show the xref:user-interface/dialogs/arrangement-writing-mode-dialog.adoc[].
 
+See xref:usage/arrangement.adoc#feature-arrangement[] for details.
+
 include::partial$generated/elements/toolbar/show-hide-midi-triggers.adoc[]
 
 [IMPORTANT]
