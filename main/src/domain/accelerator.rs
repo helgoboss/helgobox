@@ -68,7 +68,8 @@ where
 
     /// Decides what to do with the key if no main processor used it.
     fn process_unmatched(&self, msg: AccelMsg) -> TranslateAccelResult {
-        if msg.behavior().contains(AcceleratorBehavior::VirtKey)
+        let is_virt_key = msg.message() != AccelMsgKind::Char && msg.behavior().contains(AcceleratorBehavior::VirtKey);
+        if is_virt_key
             && msg.key().get() as u32 == raw::VK_ESCAPE
         {
             // Don't process escape in special ways. We want the normal close behavior. Especially
@@ -86,7 +87,7 @@ where
         };
         // Support F1 in our windows (key_down and key_up don't work very well on Linux and Windows if there's
         // a text field)
-        if msg.key().get() == virt_keys::F1.get() {
+        if is_virt_key && msg.key().get() == virt_keys::F1.get() {
             if msg.message() == AccelMsgKind::KeyUp {
                 view.help_requested();
             }
