@@ -126,9 +126,22 @@ cached = "0.53.1"
 imageproc = "0.25.0"
 
 [profile.release]
-# There's a long reasoning about those values in CONTRIBUTING.adoc
 debug = 2
-# Switching to "symbols" will reduce size even more but leads to useless stack traces when panicking
+
+[profile.release-strip]
+inherits = "release"
+# We use this profile on Linux and macOS only. On Windows, we build with older Rust version 1.77.2
+# in order to support Windows 7. This old version strips away too much due to an implementation
+# error in rustc:
+#
+#     "Prior to 1.79, this unintentionally disabled the generation of *.pdb files on MSVC, resulting
+#     in the absence of symbols."
+#     (https://doc.rust-lang.org/rustc/codegen-options/index.html#strip).
+#
+# Not stripping on Windows is okay because the PDB is a separate file anyway. We do the following
+# mainly for macOS. There's a long reasoning about the concrete values in CONTRIBUTING.adoc.
+# BTW, switching to "symbols" would reduce size even more but leads to useless stack traces when
+# panicking.
 strip = "debuginfo"
 split-debuginfo = "packed"
 

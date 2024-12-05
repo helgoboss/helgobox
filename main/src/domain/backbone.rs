@@ -24,13 +24,15 @@ use helgobox_api::persistence::{
 };
 use imageproc::definitions::{HasBlack, HasWhite};
 use once_cell::sync::Lazy;
+// Use once_cell::sync::Lazy instead of std::sync::LazyLock in order to be able to build with Rust 1.77.2 (to stay Win7-compatible)
+use once_cell::sync::Lazy as LazyLock;
 use palette::IntoColor;
 use reaper_high::{Fx, Reaper};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::cmp::min;
 use std::hash::Hash;
 use std::rc::Rc;
-use std::sync::{LazyLock, RwLock};
+use std::sync::RwLock;
 use std::time::{Duration, Instant};
 use streamdeck::StreamDeck;
 use strum::EnumCount;

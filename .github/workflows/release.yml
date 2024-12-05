@@ -15,7 +15,7 @@ jobs:
         include:
           - artifact: windows-x86_64
             os: windows-latest
-            toolchain-suffix: x86_64-pc-windows-msvc
+            toolchain: 1.77.2-x86_64-pc-windows-msvc
             lib-file-name: helgobox.dll
             extension-file-name: reaper_helgobox.dll
             target: x86_64-pc-windows-msvc
@@ -24,7 +24,7 @@ jobs:
             features: "playtime,egui,licensing"
           - artifact: windows-i686
             os: windows-latest
-            toolchain-suffix: i686-pc-windows-msvc
+            toolchain: 1.81.0-i686-pc-windows-msvc
             lib-file-name: helgobox.dll
             extension-file-name: reaper_helgobox.dll
             target: i686-pc-windows-msvc
@@ -33,48 +33,48 @@ jobs:
             features: "egui"
           - artifact: macos-x86_64
             os: macos-latest
-            toolchain-suffix: x86_64-apple-darwin
+            toolchain: 1.81.0-x86_64-apple-darwin
             lib-file-name: libhelgobox.dylib
             extension-file-name: libreaper_helgobox.dylib
             target: x86_64-apple-darwin
             use-cross: false
-            profile: release
+            profile: release-strip
             features: "playtime,egui,licensing"
           - artifact: macos-aarch64
             os: macos-latest
-            toolchain-suffix: x86_64-apple-darwin
+            toolchain: 1.81.0-x86_64-apple-darwin
             lib-file-name: libhelgobox.dylib
             extension-file-name: libreaper_helgobox.dylib
             target: aarch64-apple-darwin
             use-cross: false
-            profile: release
+            profile: release-strip
             features: "playtime,egui,licensing"
           - artifact: linux-x86_64
             os: ubuntu-20.04
-            toolchain-suffix: x86_64-unknown-linux-gnu
+            toolchain: 1.81.0-x86_64-unknown-linux-gnu
             lib-file-name: libhelgobox.so
             extension-file-name: "not-yet-supported"
             target: x86_64-unknown-linux-gnu
             use-cross: false
-            profile: release
+            profile: release-strip
             features: ""
     #          - artifact: linux-aarch64
     #            os: ubuntu-22.04
-    #            toolchain-suffix: x86_64-unknown-linux-gnu
+    #            toolchain: 1.81.0-x86_64-unknown-linux-gnu
     #            lib-file-name: libhelgobox.so
     #            extension-file-name: ""
     #            target: aarch64-unknown-linux-gnu
     #            use-cross: true
-    #            profile: release
+    #            profile: release-strip
     #            features: ""
     #          - artifact: linux-armv7
     #            os: ubuntu-22.04
-    #            toolchain-suffix: x86_64-unknown-linux-gnu
+    #            toolchain: 1.81.0-x86_64-unknown-linux-gnu
     #            lib-file-name: libhelgobox.so
     #            extension-file-name: ""
     #            target: armv7-unknown-linux-gnueabihf
     #            use-cross: true
-    #            profile: release
+    #            profile: release-strip
     #            features: ""
     env:
       # This is relevant for macOS builds only (and only if not overridden).
@@ -96,7 +96,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.81.0-${{ matrix.toolchain-suffix }}
+          toolchain: ${{ matrix.toolchain }}
           target: ${{ matrix.target }}
           override: true
       # Install OS dependencies (Linux/macOS only)
