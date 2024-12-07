@@ -24,8 +24,8 @@ Please check below system requirements before attempting to install Helgobox!
 
 * ReaLearn needs macOS 10.12 or later
 * Playtime needs macOS 10.15 or later
-* For macOS 10.15 or later, all below-mentioned installation options should work
-* **For macOS 10.14 or earlier, installation via installer is not supported.
+* For macOS 10.14 or later, all below-mentioned installation options should work
+* **For macOS 10.13 or earlier, installation via installer is not supported.
 You need to install via ReaPack!**
 
 [[linux]]
