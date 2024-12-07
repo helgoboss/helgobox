@@ -17,15 +17,15 @@ Please check below system requirements before attempting to install Helgobox!
 [[windows]]
 === Windows
 
-* Needs Windows 10 or later
+* Needs Windows 10 or later (TODO in the upcoming version, ReaLearn will support Windows 7 and 8 again!)
 
 [[macos]]
 === macOS
 
 * ReaLearn needs macOS 10.12 or later
 * Playtime needs macOS 10.15 or later
-* For macOS 11 and later, all below-mentioned installation options should work
-* **For macOS 10.15 or earlier, installation via installer is not supported.
+* For macOS 10.15 or later, all below-mentioned installation options should work
+* **For macOS 10.14 or earlier, installation via installer is not supported.
 You need to install via ReaPack!**
 
 [[linux]]
@@ -71,24 +71,9 @@ Please choose:
 For users who don't have ReaPack installed already, there's a **convenient installer** that automatically installs both ReaPack and Helgobox.
 It gets you up and running in no time, supporting even portable REAPER installations!
 
-You can use it if you have Windows 10+ or macOS 11+.
+You can use it if you have Windows 7+ or macOS 10.15+.
 
 Simply press the following link and follow the instructions: link:https://reaboot.com/install/https%3A%2F%2Fraw.githubusercontent.com%2Fhelgoboss%2Fhelgobox%2Fmaster%2Freaboot.json[Install Helgobox]
-
-[WARNING]
-.The installer is currently in beta!
-====
-If you encounter any issues, please go to <<i-want-to-install-reapack>>.
-Report any installer problems to info@helgoboss.org.
-Thank you!
-====
-
-==== Known issues
-
-Installer shows error "no column found for name: flags"::
-It's an issue related to having an older ReaPack version installed.
-I need to look into it.
-Because this means that you have ReaPack installed already, a simple workaround is to follow the instructions in <<i-have-reapack>>.
 
 [[i-have-reapack]]
 === I have ReaPack and want to use it to install Helgobox
