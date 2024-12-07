@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
 use camino::Utf8PathBuf;
 use ini::{Ini, Properties};
 use reaper_high::Reaper;
@@ -13,9 +13,9 @@ pub fn add_toolbar_button_persistently(
     icon_file_name: Option<&str>,
 ) -> anyhow::Result<()> {
     // Load toolbar button INI file
-    const MISSING_CUSTOMIZATION: &str = "Because of limitations of the REAPER extension API, Helgobox can't automatically add toolbar buttons if you haven't already customized the toolbar at least once!\n\
+    const MISSING_CUSTOMIZATION: &str = "You are running an older version of REAPER. Because of this, Helgobox can't automatically add toolbar buttons, unless you have already customized the toolbar at least once!\n\
         \n\
-        Please add an arbitrary toolbar customization first and try again:\n\
+        Please update REAPER to the latest version (recommended), or do this:\n\
         \n\
         1. Right-click the main toolbar\n\
         2. Click \"Customize toolbar...\"\n\
@@ -25,11 +25,11 @@ pub fn add_toolbar_button_persistently(
         6. Click \"OK\"\n\
         7. Try again\n\
     ";
-    let mut ini = MenuIni::load().context(MISSING_CUSTOMIZATION)?;
+    let mut ini = MenuIni::load().map_err(|_| anyhow!(MISSING_CUSTOMIZATION))?;
     // Look through existing toolbar buttons
     let mut toolbar_section = ini
         .get_toolbar("Main toolbar")
-        .context(MISSING_CUSTOMIZATION)?;
+        .map_err(|_| anyhow!(MISSING_CUSTOMIZATION))?;
     let mut max_item_index = -1i32;
     for toolbar_item in toolbar_section.items() {
         if &toolbar_item.command[1..] == command_name {
