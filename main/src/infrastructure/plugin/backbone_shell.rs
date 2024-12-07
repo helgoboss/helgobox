@@ -2982,7 +2982,7 @@ pub struct NewInstanceOutcome {
 mod playtime_impl {
     use crate::infrastructure::data::LicenseManager;
     use crate::infrastructure::plugin::{BackboneShell, NewInstanceOutcome};
-    use anyhow::Context;
+    use anyhow::{bail, Context};
     use base::metrics_util::{record_duration, record_occurrence};
     use camino::Utf8PathBuf;
     use playtime_api::persistence::PlaytimeSettings;
@@ -2990,6 +2990,7 @@ mod playtime_impl {
     use reaper_high::{GroupingBehavior, Project, Reaper};
     use reaper_medium::{GangBehavior, InputMonitoringMode, RecordingInput};
     use std::fs;
+    use crate::infrastructure::plugin::backbone_shell::MIN_REAPER_VERSION_FOR_PLAYTIME;
 
     impl BackboneShell {
         pub(crate) fn read_playtime_settings() -> Option<PlaytimeSettings> {
@@ -3007,6 +3008,9 @@ mod playtime_impl {
     }
 
     async fn add_and_show_playtime() -> anyhow::Result<()> {
+        if Reaper::get().version().revision() < MIN_REAPER_VERSION_FOR_PLAYTIME {
+            bail!("Please update REAPER to version 7 to access Playtime!");
+        }
         let project = Reaper::get().current_project();
         create_new_instance_in_project(project, "Playtime").await?;
         enable_playtime_for_first_helgobox_instance_and_show_it()?;
@@ -3163,3 +3167,5 @@ struct MatchingSourceOutcome {
     mapping: SharedMapping,
     source_is_learnable: bool,
 }
+
+const MIN_REAPER_VERSION_FOR_PLAYTIME: &str = "7";
