@@ -268,7 +268,9 @@ impl Instance {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::domain::instance::NO_CLIP_MATRIX_SET;
-    use crate::domain::{Instance, QualifiedClipMatrixEvent};
+    use crate::domain::{
+        err_if_reaper_version_too_low_for_playtime, Instance, QualifiedClipMatrixEvent,
+    };
     use anyhow::Context;
     use base::NamedChannelSender;
     use reaper_high::OrCurrentProject;
@@ -346,6 +348,7 @@ mod playtime_impl {
             if self.playtime.clip_matrix.is_some() {
                 return Ok(false);
             }
+            err_if_reaper_version_too_low_for_playtime()?;
             let track = self.processor_context.track()
                 .context("Sorry, Playtime is not intended to be used from the monitoring FX chain! If you have a really good use case for that, please write to info@helgoboss.org and we will see what we can do.")?;
             let matrix =
@@ -475,3 +478,12 @@ pub enum PotStateChangedEvent {
 
 #[cfg(feature = "playtime")]
 const NO_CLIP_MATRIX_SET: &str = "no Playtime matrix set for this instance";
+
+#[cfg(feature = "playtime")]
+pub fn err_if_reaper_version_too_low_for_playtime() -> anyhow::Result<()> {
+    const MIN_REAPER_VERSION: &str = "7";
+    if reaper_high::Reaper::get().version().revision() < MIN_REAPER_VERSION {
+        anyhow::bail!("Please update REAPER to version {MIN_REAPER_VERSION} to access Playtime!");
+    }
+    Ok(())
+}
