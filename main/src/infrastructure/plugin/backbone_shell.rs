@@ -550,6 +550,10 @@ impl BackboneShell {
 
     /// Creates a new Helgobox instance on the given track.
     pub async fn create_new_instance_on_track(track: &Track) -> anyhow::Result<NewInstanceOutcome> {
+        if Reaper::get().version().revision() < "6.69" {
+            // Version too old to support TrackFX_AddByName with only VST2-UID specified
+            bail!("Please update REAPER to the latest version to access this feature!");
+        }
         let fx = track
             .normal_fx_chain()
             .add_fx_by_original_name(HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING)
