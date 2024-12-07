@@ -71,7 +71,7 @@ Please choose:
 For users who don't have ReaPack installed already, there's a **convenient installer** that automatically installs both ReaPack and Helgobox.
 It gets you up and running in no time, supporting even portable REAPER installations!
 
-You can use it if you have Windows 7+ or macOS 10.15+.
+You can use it if you have Windows 7+ or macOS 10.14+.
 
 Simply press the following link and follow the instructions: link:https://reaboot.com/install/https%3A%2F%2Fraw.githubusercontent.com%2Fhelgoboss%2Fhelgobox%2Fmaster%2Freaboot.json[Install Helgobox]
 
