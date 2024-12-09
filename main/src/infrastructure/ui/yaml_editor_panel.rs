@@ -149,7 +149,5 @@ impl View for YamlEditorPanel {
 }
 
 fn help() {
-    open_in_browser(
-        "https://github.com/helgoboss/helgobox/blob/master/doc/realearn-user-guide.adoc#advanced-settings",
-    );
+    open_in_browser("https://docs.helgoboss.org/realearn/goto#advanced-settings-dialog");
 }

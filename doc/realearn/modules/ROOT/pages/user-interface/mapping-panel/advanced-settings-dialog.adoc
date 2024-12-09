@@ -1,5 +1,6 @@
 = Advanced settings dialog
 
+[[advanced-settings-dialog]]
 CAUTION: Expert level!
 
 This dialog allows access to advanced configuration by entering text in the https://en.wikipedia.org/wiki/YAML[YAML] configuration language.
