@@ -44,7 +44,9 @@ use crate::base::notification::notify_user_about_anyhow_error;
 use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
-use crate::infrastructure::plugin::dynamic_toolbar::add_or_remove_toolbar_button;
+use crate::infrastructure::plugin::dynamic_toolbar::{
+    add_or_remove_toolbar_button, custom_toolbar_api_is_available, ToolbarChangeDetector,
+};
 use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
 use crate::infrastructure::plugin::hidden_helper_panel::HiddenHelperPanel;
 use crate::infrastructure::plugin::persistent_toolbar::add_toolbar_button_persistently;
@@ -194,6 +196,7 @@ pub struct BackboneShell {
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     proto_hub: crate::infrastructure::proto::ProtoHub,
     welcome_panel: RefCell<Option<SharedView<WelcomePanel>>>,
+    toolbar_change_detector: Option<RefCell<ToolbarChangeDetector>>,
     /// We need to keep this panel in memory in order to be informed when it's destroyed.
     _shutdown_detection_panel: SharedView<HiddenHelperPanel>,
 }
@@ -442,11 +445,30 @@ impl BackboneShell {
         // Must be called after registering actions and waking REAPER up, otherwise it won't find the command IDs.
         let _ = Self::register_extension_menu();
         let _ = Self::register_toolbar_icon_map();
-        for (key, value) in &config.toolbar {
-            if *value > 0 {
-                let _ = add_or_remove_toolbar_button(key, true);
+        let toolbar_change_detector = if custom_toolbar_api_is_available() {
+            // Auto-add previously enabled dynamic toolbar buttons, if not present already
+            for (command_name, enabled) in &config.toolbar {
+                if *enabled > 0 {
+                    let _ = add_or_remove_toolbar_button(command_name, true);
+                }
             }
-        }
+            // Create change detector to automatically disable a dynamic toolbar button if the user removes the
+            // button manually.
+            let observed_commands = ACTION_DEFS.iter().filter_map(|def| {
+                if !def.add_toolbar_button {
+                    return None;
+                }
+                let command_id = Reaper::get()
+                    .action_by_command_name(def.command_name)
+                    .command_id()
+                    .ok()?;
+                Some((command_id, def.command_name.to_string()))
+            });
+            let detector = ToolbarChangeDetector::new(observed_commands.collect());
+            Some(RefCell::new(detector))
+        } else {
+            None
+        };
         // Detect shutdown via hidden child window as suggested by Justin
         let shutdown_detection_panel = SharedView::new(HiddenHelperPanel::new());
         shutdown_detection_panel.clone().open(reaper_main_window());
@@ -479,6 +501,7 @@ impl BackboneShell {
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
             proto_hub: crate::infrastructure::proto::ProtoHub::new(),
             welcome_panel: Default::default(),
+            toolbar_change_detector,
             _shutdown_detection_panel: shutdown_detection_panel,
         }
     }
@@ -1069,6 +1092,20 @@ impl BackboneShell {
             add_or_remove_toolbar_button(command_name, enable)?;
             Ok(())
         })
+    }
+
+    /// To be called regularly, maybe once a second.
+    ///
+    /// See https://github.com/helgoboss/helgobox/issues/1331.
+    pub fn disable_manually_removed_dynamic_toolbar_buttons(&self) {
+        let Some(detector) = &self.toolbar_change_detector else {
+            return;
+        };
+        for command_name in detector.borrow_mut().detect_manually_removed_commands() {
+            self.change_config(|config| {
+                config.toolbar.insert(command_name.to_string(), 0);
+            })
+        }
     }
 
     /// Logging debug info is always initiated by a particular session.
@@ -2159,6 +2196,7 @@ impl Drop for BackboneShell {
 #[serde(default)]
 pub struct BackboneConfig {
     main: MainConfig,
+    // Map from command name (e.g. HB_SHOW_HIDE_PLAYTIME to state integer, 0 for disabled , 1 for enabled)
     toolbar: HashMap<String, u8>,
 }
 

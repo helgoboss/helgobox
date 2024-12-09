@@ -15,7 +15,7 @@ mod actions;
 mod ini_util;
 pub use actions::*;
 
-mod dynamic_toolbar;
+pub mod dynamic_toolbar;
 mod hidden_helper_panel;
 pub mod persistent_toolbar;
 mod sandbox;

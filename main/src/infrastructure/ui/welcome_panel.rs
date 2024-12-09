@@ -1,9 +1,9 @@
 use enumset::EnumSet;
-use reaper_high::Reaper;
 use reaper_low::raw;
 use std::fmt::Debug;
 
 use crate::base::notification::alert;
+use crate::infrastructure::plugin::dynamic_toolbar::custom_toolbar_api_is_available;
 use crate::infrastructure::plugin::{
     BackboneShell, ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME, ACTION_SHOW_WELCOME_SCREEN_LABEL,
 };
@@ -84,15 +84,6 @@ impl View for WelcomePanel {
             _ => {}
         }
     }
-}
-
-fn custom_toolbar_api_is_available() -> bool {
-    Reaper::get()
-        .medium_reaper()
-        .low()
-        .pointers()
-        .GetCustomMenuOrToolbarItem
-        .is_some()
 }
 
 impl WelcomePanel {

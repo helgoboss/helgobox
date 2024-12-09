@@ -8,7 +8,8 @@ pub struct HiddenHelperPanel {
     view: ViewContext,
 }
 
-const TIMER_ID: usize = 322;
+const PLAYTIME_ENGINE_STATS_TIMER_ID: usize = 322;
+const HELGOBOX_TOOLBAR_CHECK_TIMER_ID: usize = 323;
 
 impl HiddenHelperPanel {
     pub fn new() -> Self {
@@ -30,7 +31,8 @@ impl View for HiddenHelperPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
-        window.set_timer(TIMER_ID, Duration::from_millis(200));
+        window.set_timer(PLAYTIME_ENGINE_STATS_TIMER_ID, Duration::from_millis(200));
+        window.set_timer(HELGOBOX_TOOLBAR_CHECK_TIMER_ID, Duration::from_millis(3000));
         false
     }
 
@@ -39,15 +41,21 @@ impl View for HiddenHelperPanel {
     }
 
     fn timer(&self, id: usize) -> bool {
-        if id != TIMER_ID {
-            return false;
+        match id {
+            PLAYTIME_ENGINE_STATS_TIMER_ID => {
+                #[cfg(feature = "playtime")]
+                {
+                    BackboneShell::get()
+                        .proto_hub()
+                        .notify_engine_stats_changed();
+                }
+                true
+            }
+            HELGOBOX_TOOLBAR_CHECK_TIMER_ID => {
+                BackboneShell::get().disable_manually_removed_dynamic_toolbar_buttons();
+                true
+            }
+            _ => false,
         }
-        #[cfg(feature = "playtime")]
-        {
-            BackboneShell::get()
-                .proto_hub()
-                .notify_engine_stats_changed()
-        }
-        true
     }
 }
