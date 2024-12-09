@@ -66,6 +66,22 @@ pub fn create_initial_instance_updates(
             ))
         }
     }
+    if cfg!(target_os = "macos") {
+        if let Ok(var) = Reaper::get().get_preference_ref::<i32>("osxdisplayoptions") {
+            let flags = *var as u32;
+            let wheel_flag = flags & 64 > 0;
+            let swipe_flag = flags & 128 > 0;
+            let move_flag = flags & 256 > 0;
+            if !wheel_flag || !swipe_flag || !move_flag {
+                let msg = "At least one of the checkboxes in the REAPER preference \"Options → Settings... → General → Advanced UI/system tweaks... → Throttle mouse-events\" is not enabled. This will cause temporary user interface lags in REAPER and Playtime while using the mouse or touchpad in REAPER, e.g. when adjusting the track volume. Enabling all checkboxes will improve your REAPER experience in general, not just when using Playtime!";
+                warnings.push(Update::warning(
+                    Severity::Low,
+                    Some(Scope::Playtime),
+                    msg.to_string(),
+                ))
+            }
+        }
+    }
     create(
         fixed_instance_updates
             .into_iter()
