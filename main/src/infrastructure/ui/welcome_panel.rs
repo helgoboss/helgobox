@@ -5,7 +5,8 @@ use std::fmt::Debug;
 use crate::base::notification::alert;
 use crate::infrastructure::plugin::dynamic_toolbar::custom_toolbar_api_is_available;
 use crate::infrastructure::plugin::{
-    BackboneShell, ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME, ACTION_SHOW_WELCOME_SCREEN_LABEL,
+    BackboneShell, ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME,
+    ACTION_SHOW_HIDE_PLAYTIME_FROM_TEMPLATE_COMMAND_NAME, ACTION_SHOW_WELCOME_SCREEN_LABEL,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{fonts, symbols};
@@ -58,8 +59,6 @@ impl View for WelcomePanel {
         let arrow = symbols::arrow_right_symbol();
         text_3.set_text(format!("Tip: You can come back here at any time via\nExtensions {arrow} Helgobox {arrow} {ACTION_SHOW_WELCOME_SCREEN_LABEL}"));
         // Checkboxes
-        let playtime_checkbox = window.require_control(root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON);
-        playtime_checkbox.check();
         self.invalidate_controls();
         true
     }
@@ -68,6 +67,10 @@ impl View for WelcomePanel {
         match resource_id {
             root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON => {
                 self.toggle_toolbar_button(ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME)
+                    .expect("couldn't toggle toolbar button");
+            }
+            root::ID_SETUP_ADD_PLAYTIME_FROM_TEMPLATE_TOOLBAR_BUTTON => {
+                self.toggle_toolbar_button(ACTION_SHOW_HIDE_PLAYTIME_FROM_TEMPLATE_COMMAND_NAME)
                     .expect("couldn't toggle toolbar button");
             }
             root::ID_SETUP_PANEL_OK => {
@@ -89,18 +92,28 @@ impl View for WelcomePanel {
 impl WelcomePanel {
     fn invalidate_controls(&self) {
         if custom_toolbar_api_is_available() {
-            self.invalidate_playtime_checkbox();
+            self.invalidate_toolbar_checkboxes();
         }
         self.invalidate_button();
     }
 
-    fn invalidate_playtime_checkbox(&self) {
-        let checked = BackboneShell::get()
-            .config()
-            .toolbar_button_is_enabled(ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME);
-        self.view
-            .require_control(root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON)
-            .set_checked(checked);
+    fn invalidate_toolbar_checkboxes(&self) {
+        let bindings = [
+            (
+                root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON,
+                ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME,
+            ),
+            (
+                root::ID_SETUP_ADD_PLAYTIME_FROM_TEMPLATE_TOOLBAR_BUTTON,
+                ACTION_SHOW_HIDE_PLAYTIME_FROM_TEMPLATE_COMMAND_NAME,
+            ),
+        ];
+        for (control_id, action_name) in bindings {
+            let checked = BackboneShell::get()
+                .config()
+                .toolbar_button_is_enabled(action_name);
+            self.view.require_control(control_id).set_checked(checked);
+        }
     }
 
     fn invalidate_button(&self) {

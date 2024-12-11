@@ -9,10 +9,12 @@
             /*
                 The following CSS variables are just for preview purposes. They are currently
                 not supported when generating the toolbar icons via `artwork-processor`.
+                When generating icons, we replace the --var references directly.
             */
             --toolbar-icon-color: #686f6f;
             --toolbar-icon-hovered-color: #7c8383;
             --toolbar-icon-selected-color: #4da884;
+            --toolbar-icon-background-color: #616161;
 
             --dark-color: #616161;
             --light-color: #f5f5f5;
@@ -74,6 +76,32 @@
             fill: var(--toolbar-icon-selected-color);
             stroke: var(--toolbar-icon-selected-color);
         }
+
+        #template-badge {
+            display: none;
+        }
+
+        .from-template #template-badge {
+            display: inline;
+        }
+
+        #template-badge-circle {
+            fill: var(--light-color);
+            stroke: var(--dark-color);
+        }
+
+        #template-badge-text {
+            fill: var(--dark-color);
+        }
+
+        .toolbar-icon #template-badge-circle {
+            fill: var(--toolbar-icon-color);
+            stroke: var(--toolbar-icon-background-color);
+        }
+
+        .toolbar-icon #template-badge-text {
+            fill: var(--toolbar-icon-background-color);
+        }
         ]]>
     </style>
     <defs>
@@ -105,5 +133,12 @@
                     q -15,-15 -30,-20
                     "
         />
+    </g>
+    <g id="template-badge" transform="translate(50, 0) scale(0.5, 0.5)">
+        <circle id="template-badge-circle" cx="50" cy="50" r="25" stroke-width="2"/>
+        <text id="template-badge-text" x="50" y="55" font-family="Noto Sans" font-size="40"
+              text-anchor="middle" alignment-baseline="middle">
+            T
+        </text>
     </g>
 </svg>

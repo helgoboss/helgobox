@@ -1701,6 +1701,20 @@ impl BackboneShell {
         }
     }
 
+    pub fn show_hide_playtime_from_template() {
+        #[cfg(feature = "playtime")]
+        {
+            // It's possible that the backbone shell is not yet woken up at this point, in which case
+            // spawning wouldn't work.
+            let _ = Self::get().wake_up();
+            spawn_in_main_thread(async {
+                let result = playtime_impl::show_or_hide_playtime().await;
+                notification::notify_user_on_anyhow_error(result);
+                Ok(())
+            })
+        }
+    }
+
     async fn find_first_mapping_by_learnable_source_async(
         &self,
         compartment: CompartmentKind,

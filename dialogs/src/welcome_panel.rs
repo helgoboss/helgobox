@@ -29,6 +29,11 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
                 ids.named_id("ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON"),
                 context.rect(60, 120, 150, 8),
             ),
+            context.checkbox(
+                "Add Playtime (from template) button to main toolbar",
+                ids.named_id("ID_SETUP_ADD_PLAYTIME_FROM_TEMPLATE_TOOLBAR_BUTTON"),
+                context.rect(60, 135, 150, 8),
+            ),
             ctext(
                 "Tip",
                 ids.named_id("ID_SETUP_TIP_TEXT"),

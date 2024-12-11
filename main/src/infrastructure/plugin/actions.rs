@@ -7,6 +7,8 @@ use reaper_medium::{AcceleratorBehavior, AcceleratorKeyCode};
 use swell_ui::menu_tree::{item, menu, Entry};
 
 pub const ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME: &str = "HB_SHOW_HIDE_PLAYTIME";
+pub const ACTION_SHOW_HIDE_PLAYTIME_FROM_TEMPLATE_COMMAND_NAME: &str =
+    "HB_SHOW_HIDE_PLAYTIME_FROM_TEMPLATE";
 pub const ACTION_TOGGLE_APP_FOCUS_COMMAND_NAME: &str = "HB_TOGGLE_APP_FOCUS";
 pub const ACTION_SHOW_WELCOME_SCREEN_LABEL: &str = "Show welcome screen";
 
@@ -96,6 +98,15 @@ pub const ACTION_DEFS: &[ActionDef] = &[
             key_code: AcceleratorKeyCode::new(b'P' as _),
             kind: KeyBindingKind::GlobalText,
         }),
+        ..DEFAULT_DEF
+    },
+    ActionDef {
+        section: ActionSection::Playtime,
+        command_name: ACTION_SHOW_HIDE_PLAYTIME_FROM_TEMPLATE_COMMAND_NAME,
+        action_name: "Show/hide Playtime (from template)",
+        op: BackboneShell::show_hide_playtime_from_template,
+        add_toolbar_button: true,
+        icon_file_name: Some("toolbar_playtime_from_template.png"),
         ..DEFAULT_DEF
     },
     ActionDef {
