@@ -3,7 +3,8 @@ use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::test::run_test;
 use enumflags2::make_bitflags;
 use reaper_high::{ActionKind, KeyBinding, KeyBindingKind, Reaper};
-use reaper_medium::{AcceleratorBehavior, AcceleratorKeyCode};
+use reaper_medium::{reaper_str, AcceleratorBehavior, AcceleratorKeyCode, ReaperStr};
+use std::ffi::CStr;
 use swell_ui::menu_tree::{item, menu, Entry};
 
 pub const ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME: &str = "HB_SHOW_HIDE_PLAYTIME";
@@ -92,7 +93,7 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         action_name: "Show/hide Playtime",
         op: BackboneShell::show_hide_playtime,
         add_toolbar_button: true,
-        icon_file_name: Some("toolbar_playtime.png"),
+        icon: Some(c"toolbar_playtime"),
         default_key_binding: Some(KeyBinding {
             behavior: make_bitflags!(AcceleratorBehavior::{Shift | Control | VirtKey}),
             key_code: AcceleratorKeyCode::new(b'P' as _),
@@ -106,7 +107,7 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         action_name: "Show/hide Playtime (from template)",
         op: BackboneShell::show_hide_playtime_from_template,
         add_toolbar_button: true,
-        icon_file_name: Some("toolbar_playtime_from_template.png"),
+        icon: Some(c"toolbar_playtime_from_template"),
         ..DEFAULT_DEF
     },
     ActionDef {
@@ -147,7 +148,7 @@ pub struct ActionDef {
     pub developer: bool,
     pub requires_instance: bool,
     pub default_key_binding: Option<KeyBinding>,
-    pub icon_file_name: Option<&'static str>,
+    pub icon: Option<&'static CStr>,
     pub add_toolbar_button: bool,
 }
 
@@ -159,7 +160,7 @@ const DEFAULT_DEF: ActionDef = ActionDef {
     developer: false,
     requires_instance: false,
     default_key_binding: None,
-    icon_file_name: None,
+    icon: None,
     add_toolbar_button: false,
 };
 

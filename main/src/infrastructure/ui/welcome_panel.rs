@@ -1,8 +1,6 @@
-use enumset::EnumSet;
 use reaper_low::raw;
 use std::fmt::Debug;
 
-use crate::base::notification::alert;
 use crate::infrastructure::plugin::dynamic_toolbar::custom_toolbar_api_is_available;
 use crate::infrastructure::plugin::{
     BackboneShell, ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME,
@@ -25,9 +23,13 @@ impl WelcomePanel {
     }
 
     fn toggle_toolbar_button(&self, command_name: &str) -> anyhow::Result<()> {
-        if custom_toolbar_api_is_available() {
-            BackboneShell::get().toggle_toolbar_button_dynamically(command_name)?;
+        if !custom_toolbar_api_is_available() {
+            self.view.require_window().alert(
+                "Helgobox",
+                "To use this feature, please update REAPER to version 7.12 or later!",
+            );
         }
+        BackboneShell::get().toggle_toolbar_button_dynamically(command_name)?;
         self.invalidate_controls();
         Ok(())
     }
@@ -73,13 +75,7 @@ impl View for WelcomePanel {
                 self.toggle_toolbar_button(ACTION_SHOW_HIDE_PLAYTIME_FROM_TEMPLATE_COMMAND_NAME)
                     .expect("couldn't toggle toolbar button");
             }
-            root::ID_SETUP_PANEL_OK => {
-                if custom_toolbar_api_is_available() {
-                    self.close()
-                } else {
-                    self.apply_and_close();
-                }
-            }
+            root::ID_SETUP_PANEL_OK => self.close(),
             // IDCANCEL is escape button
             raw::IDCANCEL => {
                 self.close();
@@ -117,57 +113,8 @@ impl WelcomePanel {
     }
 
     fn invalidate_button(&self) {
-        let button_text =
-            if self.build_instructions().is_empty() || custom_toolbar_api_is_available() {
-                "Close"
-            } else {
-                "Continue"
-            };
         self.view
             .require_control(root::ID_SETUP_PANEL_OK)
-            .set_text(button_text);
-    }
-
-    fn apply_and_close(&self) {
-        let instructions = self.build_instructions();
-        if !instructions.is_empty() {
-            for instruction in instructions {
-                instruction.execute();
-            }
-            let addition = if custom_toolbar_api_is_available() {
-                ""
-            } else {
-                "\n\nIf you enabled the toolbar button, please restart REAPER now (otherwise you will not see the button)!"
-            };
-            alert(format!("Additional setup finished!{addition}"));
-        }
-        self.close();
-    }
-
-    fn build_instructions(&self) -> EnumSet<SetupInstruction> {
-        let mut set = EnumSet::empty();
-        if self
-            .view
-            .require_control(root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON)
-            .is_checked()
-        {
-            set.insert(SetupInstruction::PlaytimeToolbarButton);
-        }
-        set
-    }
-}
-
-#[derive(enumset::EnumSetType)]
-enum SetupInstruction {
-    PlaytimeToolbarButton,
-}
-
-impl SetupInstruction {
-    pub fn execute(&self) {
-        match self {
-            SetupInstruction::PlaytimeToolbarButton => {
-                BackboneShell::add_toolbar_buttons_persistently();
-            }
-        }
+            .set_text("Close");
     }
 }

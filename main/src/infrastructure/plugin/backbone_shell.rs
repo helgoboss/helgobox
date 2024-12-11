@@ -1550,22 +1550,6 @@ impl BackboneShell {
         }
     }
 
-    /// This is only necessary for REAPER versions < 7.11+dev0305
-    pub fn add_toolbar_buttons_persistently() {
-        for def in ACTION_DEFS.iter().filter(|def| def.add_toolbar_button) {
-            let result = add_toolbar_button_persistently(
-                def.command_name,
-                &def.build_full_action_name(),
-                def.icon_file_name,
-            );
-            if let Err(e) = result {
-                notify_user_about_anyhow_error(e);
-                return;
-            }
-        }
-        // alert("Successfully added or updated Helgobox toolbar buttons. Please restart REAPER to see them!");
-    }
-
     pub fn show_welcome_screen() {
         let shell = Self::get();
         open_child_panel(
@@ -1690,28 +1674,18 @@ impl BackboneShell {
     pub fn show_hide_playtime() {
         #[cfg(feature = "playtime")]
         {
-            // It's possible that the backbone shell is not yet woken up at this point, in which case
-            // spawning wouldn't work.
-            let _ = Self::get().wake_up();
-            spawn_in_main_thread(async {
-                let result = playtime_impl::show_or_hide_playtime().await;
-                notification::notify_user_on_anyhow_error(result);
-                Ok(())
-            })
+            playtime_impl::execute_playtime_show_hide_action(async {
+                playtime_impl::show_or_hide_playtime(false).await
+            });
         }
     }
 
     pub fn show_hide_playtime_from_template() {
         #[cfg(feature = "playtime")]
         {
-            // It's possible that the backbone shell is not yet woken up at this point, in which case
-            // spawning wouldn't work.
-            let _ = Self::get().wake_up();
-            spawn_in_main_thread(async {
-                let result = playtime_impl::show_or_hide_playtime().await;
-                notification::notify_user_on_anyhow_error(result);
-                Ok(())
-            })
+            playtime_impl::execute_playtime_show_hide_action(async {
+                playtime_impl::show_or_hide_playtime(true).await
+            });
         }
     }
 
@@ -3014,9 +2988,14 @@ impl ToolbarIconMap for BackboneShell {
         command_id: CommandId,
         _toggle_state: Option<bool>,
     ) -> Option<&'static ReaperStr> {
-        Reaper::get().with_our_command(command_id, |command| match command?.command_name() {
-            ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME => Some(reaper_str!("toolbar_playtime")),
-            _ => None,
+        Reaper::get().with_our_command(command_id, |command| {
+            let command_name = command?.command_name();
+            let action_def = ACTION_DEFS
+                .iter()
+                .find(|d| d.command_name == command_name)?;
+            action_def
+                .icon
+                .map(|icon| unsafe { ReaperStr::from_ptr(icon.as_ptr()) })
         })
     }
 }
@@ -3032,17 +3011,25 @@ pub struct NewInstanceOutcome {
 
 #[cfg(feature = "playtime")]
 mod playtime_impl {
-    use crate::domain::err_if_reaper_version_too_low_for_playtime;
+    use crate::base::notification;
+    use crate::domain::{err_if_reaper_version_too_low_for_playtime, InstanceId};
     use crate::infrastructure::data::LicenseManager;
     use crate::infrastructure::plugin::{BackboneShell, NewInstanceOutcome};
-    use anyhow::Context;
+    use crate::infrastructure::ui::util::open_in_browser;
+    use anyhow::{bail, Context};
+    use base::future_util::millis;
     use base::metrics_util::{record_duration, record_occurrence};
+    use base::spawn_in_main_thread;
     use camino::Utf8PathBuf;
     use playtime_api::persistence::PlaytimeSettings;
     use playtime_clip_engine::PlaytimeEngine;
     use reaper_high::{GroupingBehavior, Project, Reaper};
-    use reaper_medium::{GangBehavior, InputMonitoringMode, RecordingInput};
+    use reaper_medium::{
+        GangBehavior, InputMonitoringMode, MessageBoxResult, MessageBoxType, OpenProjectBehavior,
+        RecordingInput,
+    };
     use std::fs;
+    use std::future::Future;
 
     impl BackboneShell {
         pub(crate) fn read_playtime_settings() -> Option<PlaytimeSettings> {
@@ -3059,12 +3046,17 @@ mod playtime_impl {
         }
     }
 
-    async fn add_and_show_playtime() -> anyhow::Result<()> {
-        err_if_reaper_version_too_low_for_playtime()?;
-        let project = Reaper::get().current_project();
-        create_new_instance_in_project(project, "Playtime").await?;
-        enable_playtime_for_first_helgobox_instance_and_show_it()?;
-        Ok(())
+    pub fn execute_playtime_show_hide_action(
+        future: impl Future<Output = anyhow::Result<()>> + 'static,
+    ) {
+        // It's possible that the backbone shell is not yet woken up at this point, in which case
+        // spawning wouldn't work.
+        let _ = BackboneShell::get().wake_up();
+        spawn_in_main_thread(async {
+            let result = future.await;
+            notification::notify_user_on_anyhow_error(result);
+            Ok(())
+        })
     }
     /// Creates a new track in the given project and adds a new Helgobox instance to it.
     pub async fn create_new_instance_in_project(
@@ -3145,37 +3137,83 @@ mod playtime_impl {
     }
 
     fn enable_playtime_for_first_helgobox_instance_and_show_it() -> anyhow::Result<()> {
-        let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
+        // let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
         // We don't really need to do that via the external API but on the other hand, this is the only
         // example so far where we actually use our exposed API! If we don't "eat our own dogfood", we would have
         // to add integration tests in order to quickly realize if this works or not.
         // TODO-low Add integration tests instead of using API here.
-        let helgobox_api = helgobox_api::runtime::HelgoboxApiSession::load(plugin_context)
-            .context("Couldn't load Helgobox API even after adding Helgobox. Old version?")?;
-        let playtime_api = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
-            .context("Couldn't load Playtime API even after adding Helgobox. Old version? Or Helgobox built without Playtime?")?;
-        let instance_id = helgobox_api.HB_FindFirstHelgoboxInstanceInProject(std::ptr::null_mut());
-        playtime_api.HB_CreateClipMatrix(instance_id);
-        playtime_api.HB_ShowOrHidePlaytime(instance_id);
+        // let helgobox_api = helgobox_api::runtime::HelgoboxApiSession::load(plugin_context)
+        //     .context("Couldn't load Helgobox API even after adding Helgobox. Old version?")?;
+        // let playtime_api = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
+        //     .context("Couldn't load Playtime API even after adding Helgobox. Old version? Or Helgobox built without Playtime?")?;
+        // let instance_id = helgobox_api.HB_FindFirstHelgoboxInstanceInProject(std::ptr::null_mut());
+        // playtime_api.HB_CreateClipMatrix(instance_id);
+        // playtime_api.HB_ShowOrHidePlaytime(instance_id);
+        let project = Reaper::get().current_project();
+        let instance_id = BackboneShell::get()
+            .find_first_helgobox_instance_in_project(project)
+            .context("Couldn't find any Helgobox instance in this project.")?;
+        let instance_shell = BackboneShell::get()
+            .find_instance_shell_by_instance_id(instance_id)
+            .context("instance not found")?;
+        instance_shell
+            .clone()
+            .insert_owned_clip_matrix_if_necessary()?;
+        instance_shell
+            .panel()
+            .start_show_or_hide_app_instance(Some("/playtime".to_string()));
         Ok(())
     }
 
-    pub async fn show_or_hide_playtime() -> anyhow::Result<()> {
-        let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
-        let Some(playtime_api) = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
-        else {
-            // Project doesn't have any Helgobox instance yet. Add one.
-            add_and_show_playtime().await?;
-            return Ok(());
-        };
-        let helgobox_instance =
-            playtime_api.HB_FindFirstPlaytimeHelgoboxInstanceInProject(std::ptr::null_mut());
-        if helgobox_instance == -1 {
-            // Project doesn't have any Playtime-enabled Helgobox instance yet. Add one.
-            add_and_show_playtime().await?;
-            return Ok(());
+    pub async fn show_or_hide_playtime(use_template: bool) -> anyhow::Result<()> {
+        let project = Reaper::get().current_project();
+        match BackboneShell::get().find_first_playtime_helgobox_instance_in_project(project) {
+            None => {
+                // Project doesn't have any Playtime-enabled Helgobox instance yet. Add one.
+                err_if_reaper_version_too_low_for_playtime()?;
+                if use_template {
+                    let resource_path = Reaper::get().resource_path();
+                    let template_path =
+                        resource_path.join("TrackTemplates/Playtime.RTrackTemplate");
+                    if !template_path.exists() {
+                        let msg = "Before using this function, please create a custom top-level REAPER track template called \"Playtime\"!\n\nIt should include your customized Playtime track as well as any used column tracks.\n\nDo you need further help?";
+                        let result = Reaper::get().medium_reaper().show_message_box(
+                            msg,
+                            "Playtime",
+                            MessageBoxType::YesNo,
+                        );
+                        if result == MessageBoxResult::Yes {
+                            open_in_browser(
+                                "https://docs.helgoboss.org/playtime/goto#start-from-template",
+                            );
+                        }
+                        return Ok(());
+                    }
+                    Reaper::get()
+                        .medium_reaper()
+                        .main_open_project(&template_path, OpenProjectBehavior::default());
+                    millis(100).await;
+                    let instance_id = BackboneShell::get()
+                        .find_first_helgobox_instance_in_project(project)
+                        .context("Looks like your track template \"Playtime\" doesn't contain any Helgobox instance. Please recreate the Playtime track template and try again!")?;
+                    let instance_shell = BackboneShell::get()
+                        .find_instance_shell_by_instance_id(instance_id)
+                        .context("instance not found")?;
+                    instance_shell
+                        .panel()
+                        .start_show_or_hide_app_instance(Some("/playtime".to_string()));
+                } else {
+                    create_new_instance_in_project(project, "Playtime").await?;
+                    enable_playtime_for_first_helgobox_instance_and_show_it()?;
+                }
+            }
+            Some(instance_id) => {
+                let instance_panel = BackboneShell::get()
+                    .find_instance_panel_by_instance_id(instance_id)
+                    .context("Instance not found")?;
+                instance_panel.start_show_or_hide_app_instance(Some("/playtime".to_string()));
+            }
         }
-        playtime_api.HB_ShowOrHidePlaytime(helgobox_instance);
         Ok(())
     }
 }
