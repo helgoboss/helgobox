@@ -1,0 +1,42 @@
+= Start custom Playtime from template
+
+[[start-custom-playtime]]
+Would you like to adjust the default settings of new xref:key-concepts.adoc#instance[Playtime instances]? Then you are at the right place.
+
+== Most settings in Playtime are instance-specific
+
+When designing software with the concept of xref:key-concepts.adoc#instance[instances] or projects, a common challenge is deciding whether a particula setting should be **global** (immediately affecting all instances), **global template-like** (affecting all new instances) or **instance-specific** (affect only the current instance).
+
+For Playtime, I chose to make most settings **instance-specific**. Only settings related to _appearance_ and _performance_ -- essentially everything in the xref:user-interface/dialogs/settings-dialog.adoc[] -- are global. The primary advantage of this approach is that it allows precise restoration of any instance, ensuring it behaves exactly as it was saved.
+
+However, this approach has a drawback: You need to adjust settings for every new instance manually, especially if the default settings don’t match your preferences.
+
+== Track templates to the rescue
+
+You can solve this issue by leveraging a feature that you probably already know: *REAPER track templates*!
+
+. Create a Playtime instance as usual as explained in xref:usage/prepare.adoc#fire-up-playtime[].
+
+. Modify the instance-specific settings to suit your needs. For example:
+* Change settings in the xref:user-interface/inspector/matrix.adoc[].
+* Change metronome settings in the xref:user-interface/dialogs/tempo-settings-dialog.adoc[].
+* Add frequently used columns with specific track inputs.
+
+. Right-click the "Playtime" track and all xref:key-concepts.adoc#column-track[column tracks] and choose menu:Save tracks as track template...[], saving the new track template as "Playtime.RTrackTemplate".
+. Whenever you want to start with this custom Playtime instance in a new project, right-click the track control panel, choose
+. In new projects, you can now right-click the track control panel and choose menu:Insert track from template[] to insert your custom "Playtime" track template.
+
+Done! You immediately get a fresh Playtime instance with your favorite settings, including all columns.
+
+== An action to make this approach more streamlined
+
+The downside of this approach is that you can't use the beloved image:screenshots/playtime-toolbar-icon.png[Playtime,width=50, pdfwidth=8mm] button to add Playtime, because this one still creates the Playtime default instance, not your custom one.
+
+This is where the action xref:reaper-actions.adoc#show-hide-custom-playtime[] comes into play. You can easily add a toolbar button for this action:
+
+. Select menu:Extensions[Helgobox > Show welcome screen]
+. Check "Add custom Playtime button to toolbar"
+
+The default icon for this button is image:screenshots/playtime-custom-toolbar-icon.png[Playtime,width=50, pdfwidth=8mm]. When you press it, it looks for a track template called "Playtime" and loads it.
+
+No default shortcut is assigned to this action, but you can assign your own in REAPER menu menu:Actions[Show action list...]. For example, you could remove the kbd:[Shift+Cmd/Ctrl+P] shortcut from the xref:reaper-actions.adoc#show-hide-playtime[] action and instead assign it to this action.

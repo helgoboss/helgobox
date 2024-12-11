@@ -49,6 +49,7 @@
 ** xref:further-concepts/matrix.adoc[]
 ** xref:further-concepts/slot.adoc[]
 * xref:advanced-usage-scenarios.adoc[]
+** xref:advanced-usage-scenarios/start-custom-playtime.adoc[]
 ** xref:advanced-usage-scenarios/record-performance-as-audio.adoc[]
 ** xref:advanced-usage-scenarios/control-with-items.adoc[]
 ** xref:advanced-usage-scenarios/meta-clips.adoc[]

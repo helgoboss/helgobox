@@ -9,7 +9,7 @@ After installing Helgobox, the easiest way to access Playtime is by using the co
 You can add this button very easily by doing this:
 
 . Select menu:Extensions[Helgobox > Show welcome screen]
-. Check "Add Playtime button to main toolbar"
+. Check "Add Playtime button to toolbar"
 
 image::screenshots/helgobox-welcome-screen.png[width=500]
 

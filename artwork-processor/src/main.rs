@@ -15,11 +15,7 @@ fn main() -> Result<()> {
 fn render_artwork() -> Result<()> {
     let playtime_logo_file = "resources/artwork/playtime-logo.svg";
     generate_toolbar_icons("playtime", playtime_logo_file, "")?;
-    generate_toolbar_icons(
-        "playtime_from_template",
-        playtime_logo_file,
-        "from-template",
-    )?;
+    generate_toolbar_icons("playtime_custom", playtime_logo_file, "with-custom-icon")?;
     generate_icon(
         playtime_logo_file,
         "doc/playtime/modules/ROOT/images/screenshots/playtime-toolbar-icon.png",
@@ -29,9 +25,9 @@ fn render_artwork() -> Result<()> {
     )?;
     generate_icon(
         playtime_logo_file,
-        "doc/playtime/modules/ROOT/images/screenshots/playtime-from-template-toolbar-icon.png",
+        "doc/playtime/modules/ROOT/images/screenshots/playtime-custom-toolbar-icon.png",
         (120, 120),
-        "from-template",
+        "with-custom-icon",
         &[ToolbarIconStatus::Normal],
     )?;
     Ok(())

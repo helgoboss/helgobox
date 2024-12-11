@@ -17,6 +17,7 @@ If you haven't done it already, you should let REAPER know which audio and MIDI 
 
 If you want to know more about this process, please consult the one and only link:https://www.reaper.fm/userguide.php[REAPER user guide].
 
+[[fire-up-playtime]]
 == 3. Fire up Playtime
 
 Press the image:screenshots/playtime-toolbar-icon.png[Playtime,width=50, pdfwidth=8mm] button in REAPER's main toolbar, or use any of the alternative ways to start Playtime (described in xref:installation.adoc[]).

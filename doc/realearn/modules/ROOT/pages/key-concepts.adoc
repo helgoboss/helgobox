@@ -87,9 +87,9 @@ To send <<feedback>> back to your <<controller>>, ReaLearn transmits instruction
 You can change the output port using the xref:user-interface/main-panel/input-output-section.adoc#output[].
 
 [[instance]]
-== Instance
+== ReaLearn Instance
 
-A ReaLearn instance is the same as a xref:helgobox:ROOT:key-concepts.adoc#instance[Helgobox instance].
+The terms _ReaLearn Instance_ and xref:helgobox:ROOT:key-concepts.adoc#instance[Helgobox instance] are interchangeable — they both refer to the same concept.
 
 [[unit]]
 == Unit

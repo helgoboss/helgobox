@@ -7,3 +7,6 @@ If there's no Helgobox instance with a Playtime matrix in the current project, t
 
 +
 The default shortcut is kbd:[Shift+Cmd/Ctrl+P].
+
+[[show-hide-custom-playtime]] Helgobox/Playtime: Show/hide custom Playtime::
+Works like <<show-hide-playtime>> with the following difference: If there's no Helgobox instance with a Playtime matrix in the current project, it looks for a top-level track template called "Playtime" and adds it to the project. See xref:advanced-usage-scenarios/start-custom-playtime.adoc[].

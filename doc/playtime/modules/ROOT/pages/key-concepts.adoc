@@ -32,9 +32,14 @@ In Playtime, a _matrix_ is the top-level structure.
 It is fundamentally a two-dimensional grid of <<slot,slots>> that hold <<clip,clips>>, arranged in <<column,columns>> and <<row,rows>>.
 On a broader level, the matrix functions as a container, comparable to a project in REAPER, and includes various settings.
 
-Each xref:helgobox:ROOT:key-concepts.adoc#instance[instance of Helgobox] can load a single Playtime matrix.
+Each <<instance>> can load a single Playtime matrix.
 By default, it contains no matrix, so it must be created explicitly.
 This approach ensures that Helgobox instances dedicated solely to xref:realearn::introduction.adoc[ReaLearn] don't consume any Playtime-related CPU or memory resources - you only "pay for what you use".
+
+[[instance]]
+== Playtime Instance
+
+The terms _Playtime Instance_ and xref:helgobox:ROOT:key-concepts.adoc#instance[Helgobox instance] are interchangeable — they both refer to the same concept.
 
 [[column]]
 == Column

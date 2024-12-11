@@ -1680,7 +1680,7 @@ impl BackboneShell {
         }
     }
 
-    pub fn show_hide_playtime_from_template() {
+    pub fn show_hide_custom_playtime() {
         #[cfg(feature = "playtime")]
         {
             playtime_impl::execute_playtime_show_hide_action(async {
@@ -3184,7 +3184,7 @@ mod playtime_impl {
                         );
                         if result == MessageBoxResult::Yes {
                             open_in_browser(
-                                "https://docs.helgoboss.org/playtime/goto#start-from-template",
+                                "https://docs.helgoboss.org/playtime/goto#start-custom-playtime",
                             );
                         }
                         return Ok(());
