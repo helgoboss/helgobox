@@ -1,0 +1,10 @@
+ifdef::pdf-theme[[[inspector-matrix-recording-allow-tempo-detection-recording,Allow tempo detection recording]]]
+ifndef::pdf-theme[[[inspector-matrix-recording-allow-tempo-detection-recording,Allow tempo detection recording]]]
+=== Allow tempo detection recording
+
+image::playtime::generated/screenshots/elements/inspector/matrix/recording-allow-tempo-detection-recording.png[Allow tempo detection recording]
+
+If this is enabled, recording a clip will initiate a link:https://docs.helgoboss.org/playtime/goto#feature-tempo-detection[tempo detection recording] when playback is stopped and the metronome is off.
+
+If disabled, it will initiate a count-in recording instead.
+

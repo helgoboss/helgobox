@@ -384,6 +384,11 @@ pub struct MatrixClipRecordSettings {
     pub stop_timing: ClipRecordStopTiming,
     #[serde(default)]
     pub length_mode: RecordLengthMode,
+    /// If `true`, starting to record in stopped state when metronome off, does a tempo detection recording.
+    ///
+    /// Otherwise, it does a count-in recording without a metronome.
+    #[serde(default = "allow_tempo_detection_recording_default")]
+    pub allow_tempo_detection_recording: bool,
     #[serde(default)]
     pub custom_length: EvenQuantization,
     #[serde(default)]
@@ -513,11 +518,16 @@ impl Default for MatrixClipRecordSettings {
             looped: looped_default(),
             midi_settings: Default::default(),
             audio_settings: Default::default(),
+            allow_tempo_detection_recording: allow_tempo_detection_recording_default(),
         }
     }
 }
 
 fn looped_default() -> bool {
+    true
+}
+
+fn allow_tempo_detection_recording_default() -> bool {
     true
 }
 
