@@ -163,61 +163,72 @@ local solid = 0x90
 local flashing = 0x91
 local pulsing = 0x92
 local black_color = 0
+local green_color = 0x15
 local white_color = { r = 255, g = 255, b = 255 }
 local red_color = { r = 255, g = 0, b = 0 }
 
 local dark =  0.75
 local medium = 0.90
 
-local feedback_table: { [string]: FeedbackEntry? } = {
-    ["playtime.slot_state.empty"] = {
-        behavior = solid,
-        color = black_color,
-    },
-    ["playtime.slot_state.armed"] = {
-        behavior = solid,
-        color = red_color,
-        brightness = dark,
-    },
-    ["playtime.slot_state.stopped"] = {
-        behavior = solid,
-        brightness = dark,
-    },
-    ["playtime.slot_state.ignited"] = {
-        behavior = solid,
-        brightness = dark,
-    },
-    ["playtime.slot_state.scheduled_for_play_start"] = {
-        behavior = solid,
-        brightness = medium,
-    },
-    ["playtime.slot_state.playing"] = {
-        behavior = pulsing,
-    },
-    ["playtime.slot_state.paused"] = {
-        behavior = solid,
-        brightness = medium,
-    },
-    ["playtime.slot_state.scheduled_for_play_stop"] = {
-        behavior = flashing,
-    },
-    ["playtime.slot_state.scheduled_for_play_restart"] = {
-        behavior = flashing,
-    },
-    ["playtime.slot_state.scheduled_for_record_start"] = {
-        behavior = solid,
-        color = red_color,
-        brightness = medium,
-    },
-    ["playtime.slot_state.recording"] = {
-        behavior = pulsing,
-        color = red_color,
-    },
-    ["playtime.slot_state.scheduled_for_record_stop"] = {
-        behavior = flashing,
-        color = red_color,
-    },
-}
+local function create_feedback_table(play_color: number?): { [string]: FeedbackEntry? }
+    return {
+        ["playtime.slot_state.empty"] = {
+            behavior = solid,
+            color = black_color,
+        },
+        ["playtime.slot_state.armed"] = {
+            behavior = solid,
+            color = red_color,
+            brightness = dark,
+        },
+        ["playtime.slot_state.stopped"] = {
+            behavior = solid,
+            brightness = dark,
+        },
+        ["playtime.slot_state.ignited"] = {
+            behavior = solid,
+            brightness = dark,
+        },
+        ["playtime.slot_state.scheduled_for_play_start"] = {
+            behavior = flashing,
+            color = play_color,
+        },
+        ["playtime.slot_state.playing"] = {
+            behavior = pulsing,
+            color = play_color,
+        },
+        ["playtime.slot_state.paused"] = {
+            behavior = solid,
+            brightness = medium,
+        },
+        ["playtime.slot_state.scheduled_for_play_stop"] = {
+            behavior = flashing,
+        },
+        ["playtime.slot_state.scheduled_for_play_restart"] = {
+            behavior = flashing,
+            color = play_color,
+        },
+        ["playtime.slot_state.scheduled_for_record_start"] = {
+            behavior = solid,
+            color = red_color,
+            brightness = medium,
+        },
+        ["playtime.slot_state.recording"] = {
+            behavior = pulsing,
+            color = red_color,
+        },
+        ["playtime.slot_state.scheduled_for_record_stop"] = {
+            behavior = flashing,
+            color = red_color,
+        }
+    }
+end
+
+-- Uses original color when playing (currently disabled, will probably be a configuration option in the future)
+local colorful_feedback_table = create_feedback_table(nil)
+
+-- Uses green color when playing
+local green_feedback_table = create_feedback_table(green_color)
 
 local function build_messages(
     pad_index: number,
@@ -298,7 +309,7 @@ function module.pad_script(
     if type(y) == "string" then
         -- This is a grid controller, typically used for controlling a Playtime matrix, so we should be able to
         -- handle text feedback that conforms to Playtime's clip state convention.
-        local entry = feedback_table[y]
+        local entry = green_feedback_table[y]
         if entry == nil then
             -- Unknown texts switch the LED off
             return off_output
