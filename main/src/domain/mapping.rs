@@ -1133,9 +1133,11 @@ impl MainMapping {
         let prop_provider = MappingPropProvider::new(self, control_context);
         let feedback_value = if self.core.mode.wants_advanced_feedback() {
             // Advanced feedback (e.g. text expression)
-            self.core
+            let feedback_value = self
+                .core
                 .mode
-                .build_feedback(&prop_provider, control_context.mode_context)
+                .build_feedback(&prop_provider, control_context.mode_context);
+            Some(feedback_value)
         } else {
             // Normal numeric feedback
             let style = self.core.mode.feedback_style(&prop_provider);
@@ -1146,13 +1148,18 @@ impl MainMapping {
             // This behavior turns out to be weird as soon as you have a display source that wants to display something
             // (e.g. text), no matter whether the target supports feedback or not: The display will just be empty,
             // nothing will happen to it. It will not even be switched off, so old content stays there ...
-            // which is misleading.
+            // which is misleading. I realized this when building Stream Deck buttons that show a constant text and
+            // control a trigger-like action.
             // I think the best way to deal with it is to emit the minimum feedback value = 0%. Emitting 0% is different
             // from off. "Off" means, the mapping and/or target is inactive. So emitting 0% makes the source aware that
-            // an active target is connected.
-            let final_target_value =
-                combined_target_value.unwrap_or(AbsoluteValue::Continuous(UnitValue::MIN));
-            FeedbackValue::Numeric(NumericFeedbackValue::new(style, final_target_value))
+            // an active target is connected. However, we shouldn't fall back to 0% already now. We should do it
+            // later in the feedback processing pipeline, otherwise numeric feedback transformation would be fed
+            // with a 0% value and might turn it into something that doesn't correspond to 0%
+            // (not knowing that actually no valid value was returned). This was the cause of
+            // https://github.com/helgoboss/helgobox/issues/1090.
+            combined_target_value.map(|final_target_value| {
+                FeedbackValue::Numeric(NumericFeedbackValue::new(style, final_target_value))
+            })
         };
         let cause = if self.core.is_echo() {
             FeedbackCause::Echo
@@ -1160,7 +1167,7 @@ impl MainMapping {
             FeedbackCause::Normal
         };
         let specific_compound_value = self.feedback_given_target_value(
-            Cow::Owned(feedback_value),
+            feedback_value.map(Cow::Owned),
             destinations,
             control_context.source_context,
             logger,
@@ -1189,6 +1196,11 @@ impl MainMapping {
         self.core.group_id
     }
 
+    /// If the feedback value is `None`, it means the target didn't return a value. This can happen with
+    /// targets that don't have the concept of a current value (e.g., trigger-like actions) or with targets
+    /// that are in a state in which no control is possible (e.g., control unit scrolling, but without any
+    /// possibility to scroll because the dimension is not large enough).
+    ///
     /// Taking the feedback value as a Cow is better than taking a reference because with a
     /// reference we would for sure have to clone a textual feedback value, even if the consumer
     /// can give us ownership of the feedback value. It's also better than taking an owned value
@@ -1196,7 +1208,7 @@ impl MainMapping {
     /// that can't give up ownership would need to make a clone in advance - for nothing!
     pub fn feedback_given_target_value(
         &self,
-        feedback_value: Cow<FeedbackValue>,
+        feedback_value: Option<Cow<FeedbackValue>>,
         destinations: FeedbackDestinations,
         source_context: RealearnSourceContext,
         logger: impl SourceFeedbackLogger,

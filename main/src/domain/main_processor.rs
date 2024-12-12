@@ -3790,7 +3790,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                     // This clone is unavoidable because we are producing
                                     // real feedback values and these will be sent to another
                                     //  thread, so they must be self-contained.
-                                    Cow::Borrowed(value.feedback_value()),
+                                    Some(Cow::Borrowed(value.feedback_value())),
                                     FeedbackDestinations {
                                         with_source_feedback: destinations.with_source_feedback
                                             && m.feedback_is_enabled(),
