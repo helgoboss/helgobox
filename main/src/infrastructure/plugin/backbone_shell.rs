@@ -82,7 +82,7 @@ use reaper_medium::{
     reaper_str, AccelMsg, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
     HookPostCommand, HookPostCommand2, Hwnd, HwndInfo, HwndInfoType, MenuHookFlag,
     MidiInputDeviceId, MidiOutputDeviceId, ReaProject, ReaperStr, RegistrationHandle,
-    SectionContext, ToolbarIconMap, WindowContext,
+    SectionContext, SectionId, ToolbarIconMap, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -102,7 +102,7 @@ use strum::IntoEnumIterator;
 use swell_ui::{Menu, SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
-use tracing::debug;
+use tracing::{debug, instrument};
 use url::Url;
 
 /// Generates a REAPER-extension-like entry point. It also generates everything that
@@ -2452,42 +2452,77 @@ impl HookPostCommand2 for BackboneShell {
         section: SectionContext,
         command_id: CommandId,
         _value_change: ActionValueChange,
-        _window: WindowContext,
-        _project: ReaProject,
+        window: WindowContext,
+        project: ReaProject,
     ) {
-        if section != SectionContext::MainSection {
-            return;
+        if section == SectionContext::MainSection {
+            // Process executed main action as feedback
+            BackboneShell::get()
+                .additional_feedback_event_sender
+                .send_complaining(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
+                    section_context: SectionContext::MainSection,
+                    command_id,
+                }));
         }
-        // Process executed action as feedback
-        BackboneShell::get()
-            .additional_feedback_event_sender
-            .send_complaining(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
-                section_context: SectionContext::MainSection,
-                command_id,
-            }));
         #[cfg(feature = "playtime")]
-        post_process_action_invocation_for_playtime(command_id);
+        post_process_action_invocation_for_playtime(section, command_id, window, project);
     }
 }
 
 #[cfg(feature = "playtime")]
-fn post_process_action_invocation_for_playtime(command_id: CommandId) {
-    let toggle_metronome_command_id = CommandId::new(40364);
-    if command_id == toggle_metronome_command_id {
-        // Metronome toggle
-        let toggle_metronome_action = Reaper::get()
-            .main_section()
-            .action_by_command_id(command_id);
-        if toggle_metronome_action.is_on() == Ok(Some(false)) {
-            // Switched metronome off. Switch Playtime clicks off as well!
-            BackboneShell::get().with_instance_shell_infos(|infos| {
-                for instance in infos.iter().flat_map(|info| info.instance.upgrade()) {
-                    let mut instance = instance.borrow_mut();
-                    if let Some(matrix) = instance.clip_matrix_mut() {
-                        matrix.set_click_enabled(false);
-                    }
+fn post_process_action_invocation_for_playtime(
+    context: SectionContext,
+    command_id: CommandId,
+    window: WindowContext,
+    project: ReaProject,
+) {
+    match context {
+        SectionContext::MainSection => {
+            let toggle_metronome_command_id = CommandId::new(40364);
+            if command_id == toggle_metronome_command_id {
+                // Metronome toggle
+                let toggle_metronome_action = Reaper::get()
+                    .main_section()
+                    .action_by_command_id(command_id);
+                if toggle_metronome_action.is_on() == Ok(Some(false)) {
+                    // Switched metronome off. Switch Playtime clicks off as well!
+                    BackboneShell::get().with_instance_shell_infos(|infos| {
+                        for instance in infos.iter().flat_map(|info| info.instance.upgrade()) {
+                            let mut instance = instance.borrow_mut();
+                            if let Some(matrix) = instance.clip_matrix_mut() {
+                                matrix.set_click_enabled(false);
+                            }
+                        }
+                    });
                 }
-            });
+            }
+        }
+        SectionContext::Sec(sec) => {
+            let WindowContext::Win(hwnd) = window else {
+                return;
+            };
+            if sec.unique_id().get() == 32060 {
+                // MIDI editor section
+                let play_stop_command_id = CommandId::new(40016);
+                if command_id == play_stop_command_id {
+                    // Playback within a MIDI editor has been started or stopped. If this is a MIDI editor for a
+                    // Playtime clip, we should stop playback of that clip. In both cases.
+                    BackboneShell::get().with_instance_shell_infos(|infos| {
+                        let relevant_helgobox_instances = infos
+                            .iter()
+                            .filter(|info| {
+                                info.processor_context.project_or_current_project().raw() == project
+                            })
+                            .flat_map(|info| info.instance.upgrade());
+                        for instance in relevant_helgobox_instances {
+                            let mut instance = instance.borrow_mut();
+                            if let Some(matrix) = instance.clip_matrix_mut() {
+                                matrix.panic_slot_with_open_midi_editor(hwnd);
+                            }
+                        }
+                    });
+                }
+            }
         }
     }
 }
