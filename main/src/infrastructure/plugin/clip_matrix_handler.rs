@@ -5,13 +5,16 @@ use crate::domain::{
     RealTimeInstanceTask, ReaperTarget,
 };
 use crate::infrastructure::plugin::WeakInstanceShell;
-use base::{Global, NamedChannelSender};
+use anyhow::Context;
+use base::{spawn_in_main_thread, Global, NamedChannelSender};
 use helgobox_api::persistence::{
     PlaytimeColumnAction, PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeSlotTransportAction,
 };
+use playtime_api::persistence::SlotAddress;
 use playtime_api::runtime::{
     ControlUnit, ControlUnitId, SimpleMappingContainer, SimpleMappingTarget,
 };
+use playtime_clip_engine::base::ClipMatrixEvent;
 use reaper_high::Reaper;
 
 #[derive(Debug)]
@@ -46,7 +49,28 @@ impl MatrixHandler {
         }
     }
 
-    fn do_async_with_session(&self, f: impl FnOnce(SharedUnitModel) + 'static) {
+    fn invalidate_control_units(&self) {
+        let weak_instance_shell = self.weak_instance_shell.clone();
+        spawn_in_main_thread(async move {
+            let instance_shell = weak_instance_shell
+                .upgrade()
+                .context("instance shell gone")?;
+            let instance = instance_shell.instance().borrow();
+            let matrix = instance.clip_matrix().context("no matrix")?;
+            let column_count = matrix.column_count();
+            let row_count = matrix.row_count();
+            for unit_model in instance_shell.additional_unit_models() {
+                unit_model
+                    .borrow()
+                    .unit()
+                    .borrow_mut()
+                    .invalidate_control_unit_scroll_pos(column_count, row_count);
+            }
+            Ok(())
+        });
+    }
+
+    fn do_async_with_main_unit_model(&self, f: impl FnOnce(SharedUnitModel) + 'static) {
         let session = self.main_unit_model.clone();
         Global::task_support()
             .do_later_in_main_thread_from_main_thread_asap(move || {
@@ -79,6 +103,11 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
     }
 
     fn emit_event(&self, event: playtime_clip_engine::base::ClipMatrixEvent) {
+        // Check if we should do something special with that event
+        if matches!(event, ClipMatrixEvent::EverythingChanged) {
+            self.invalidate_control_units();
+        }
+        // Send event to receiver
         let event = QualifiedClipMatrixEvent {
             instance_id: self.instance_id,
             event,
@@ -134,7 +163,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
     }
 
     fn toggle_learn_source_by_target(&self, target: SimpleMappingTarget) {
-        self.do_async_with_session(move |shared_session| {
+        self.do_async_with_main_unit_model(move |shared_session| {
             let mut session = shared_session.borrow_mut();
             let mapping_desc = SimpleMappingDesc::from_simple_target(target);
             session.toggle_learn_source_for_target(
@@ -147,7 +176,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
     }
 
     fn remove_mapping_by_target(&self, target: SimpleMappingTarget) {
-        self.do_async_with_session(move |shared_session| {
+        self.do_async_with_main_unit_model(move |shared_session| {
             let mut session = shared_session.borrow_mut();
             let mapping_desc = SimpleMappingDesc::from_simple_target(target);
             session.remove_mapping_by_target(CompartmentKind::Main, &mapping_desc.reaper_target);

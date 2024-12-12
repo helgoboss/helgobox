@@ -1,4 +1,6 @@
 use std::cell::RefCell;
+use std::cmp;
+use std::cmp::min;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
@@ -14,6 +16,7 @@ use crate::domain::{
 };
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use base::{serde_json_util, NamedChannelSender, SenderToNormalThread};
+use playtime_api::persistence::SlotAddress;
 
 pub type SharedUnit = Rc<RefCell<Unit>>;
 pub type WeakUnit = Weak<RefCell<Unit>>;
@@ -258,6 +261,26 @@ impl Unit {
 
     pub fn control_unit_top_left_corner(&self) -> playtime_api::persistence::SlotAddress {
         self.control_unit_top_left_corner
+    }
+
+    pub fn invalidate_control_unit_scroll_pos(&mut self, column_count: usize, row_count: usize) {
+        let actual_column = self.control_unit_top_left_corner.column_index;
+        let fixed_column = fix_scroll_pos(
+            actual_column,
+            self.control_unit_column_count() as usize,
+            column_count,
+        );
+        let actual_row = self.control_unit_top_left_corner.row_index;
+        let fixed_row = fix_scroll_pos(
+            actual_row,
+            self.control_unit_row_count() as usize,
+            row_count,
+        );
+        if actual_column == fixed_column && actual_row == fixed_row {
+            return;
+        }
+        // Control unit scroll position is invalid
+        self.set_control_unit_top_left_corner(SlotAddress::new(fixed_column, fixed_row));
     }
 
     pub fn set_control_unit_top_left_corner(
@@ -619,4 +642,13 @@ impl UnitEvent {
     pub fn is_interesting_for_other_units(&self) -> bool {
         matches!(self, UnitEvent::MappingWhichLearnsTargetChanged { .. })
     }
+}
+
+fn fix_scroll_pos(start_pos: usize, span: usize, count: usize) -> usize {
+    if count == 0 || span == 0 {
+        return 0;
+    }
+    let exclusive_end_pos = start_pos + span;
+    let fixed_exclusive_end_pos = min(count, exclusive_end_pos);
+    fixed_exclusive_end_pos.saturating_sub(span)
 }

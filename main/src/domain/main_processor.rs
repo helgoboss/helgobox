@@ -41,6 +41,7 @@ use crate::domain::ui_util::{
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet, NonCryptoIndexSet};
 use base::{hash_util, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
+use playtime_api::runtime::ControlUnitId;
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket, OscType};
@@ -4134,6 +4135,12 @@ impl From<u32> for UnitId {
 impl From<UnitId> for u32 {
     fn from(value: UnitId) -> Self {
         value.0
+    }
+}
+
+impl From<ControlUnitId> for UnitId {
+    fn from(value: ControlUnitId) -> Self {
+        UnitId(value.get())
     }
 }
 
