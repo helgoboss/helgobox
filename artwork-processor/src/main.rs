@@ -1,5 +1,6 @@
+use crate::ToolbarIconStatus::{Hovered, Normal, Selected};
 use anyhow::{Context, Result};
-use resvg::tiny_skia::{Pixmap, Transform};
+use resvg::tiny_skia::{ColorU8, Pixmap, PremultipliedColorU8, Transform};
 use resvg::usvg;
 use resvg::usvg::Options;
 use std::fs;
@@ -13,21 +14,26 @@ fn main() -> Result<()> {
 }
 
 fn render_artwork() -> Result<()> {
-    let playtime_logo_file = "resources/artwork/playtime-logo.svg";
-    generate_toolbar_icons("playtime", playtime_logo_file, "")?;
-    generate_toolbar_icons("playtime_custom", playtime_logo_file, "with-custom-icon")?;
+    let logo_file = "resources/artwork/playtime-logo.svg";
+    generate_icons("playtime", logo_file, "")?;
+    generate_icons("playtime-custom", logo_file, "with-settings-icon")?;
+    Ok(())
+}
+
+fn generate_icons(
+    name_with_dashes: &str,
+    src_file: &str,
+    additional_root_classes: &str,
+) -> Result<()> {
+    let name_with_underscores = name_with_dashes.replace('-', "_");
+    // Toolbar icons
+    generate_toolbar_icons(&name_with_underscores, src_file, additional_root_classes)?;
+    // Icons for docs
     generate_icon(
-        playtime_logo_file,
-        "doc/playtime/modules/ROOT/images/screenshots/playtime-toolbar-icon.png",
+        src_file,
+        format!("doc/playtime/modules/ROOT/images/screenshots/{name_with_dashes}-toolbar-icon.png"),
         (120, 120),
         "",
-        &[ToolbarIconStatus::Normal],
-    )?;
-    generate_icon(
-        playtime_logo_file,
-        "doc/playtime/modules/ROOT/images/screenshots/playtime-custom-toolbar-icon.png",
-        (120, 120),
-        "with-custom-icon",
         &[ToolbarIconStatus::Normal],
     )?;
     Ok(())
@@ -85,20 +91,18 @@ fn render_toolbar_icon(
     let mut pixmap = Pixmap::new(width * sprite_count, height).unwrap();
     use ToolbarIconStatus::*;
     for (i, status) in statuses.iter().enumerate() {
-        let root_classes = match status {
-            Normal => "toolbar-icon",
-            Hovered => "toolbar-icon hovered",
-            Selected => "toolbar-icon selected",
+        let fg_color = match status {
+            Normal => "#818989",
+            Hovered => "#939a9a",
+            Selected => "#1abc98",
         };
         let interpolated_svg = svg
             .replace(
                 "ROOT_CLASSES_PLACEHOLDER",
-                &format!("{root_classes} {additional_root_classes}"),
+                &format!("toolbar-icon {additional_root_classes}"),
             )
-            .replace("var(--toolbar-icon-color)", "#818989")
-            .replace("var(--toolbar-icon-background-color)", "#f5f5f5")
-            .replace("var(--toolbar-icon-hovered-color)", "#939a9a")
-            .replace("var(--toolbar-icon-selected-color)", "#1abc98");
+            .replace("var(--fg-color)", fg_color)
+            .replace("var(--bg-color", "#333333");
         let mut options = Options::default();
         let mut font_db = usvg::fontdb::Database::new();
         font_db.load_fonts_dir("resources/artwork/fonts");
@@ -111,6 +115,13 @@ fn render_toolbar_icon(
         )
         .post_translate(i as f32 * width as f32, 0.0);
         resvg::render(&tree, transform, &mut pixmap.as_mut());
+    }
+    // Replace "shine-through" color with transparency
+    let shine_through_color = PremultipliedColorU8::from_rgba(255, 0, 255, 255).unwrap(); // Magenta
+    for pixel in pixmap.pixels_mut() {
+        if *pixel == shine_through_color {
+            *pixel = PremultipliedColorU8::from_rgba(0, 0, 0, 0).unwrap(); // Transparent
+        }
     }
     Ok(pixmap)
 }
