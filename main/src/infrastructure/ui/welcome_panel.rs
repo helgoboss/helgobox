@@ -3,8 +3,7 @@ use std::fmt::Debug;
 
 use crate::infrastructure::plugin::dynamic_toolbar::custom_toolbar_api_is_available;
 use crate::infrastructure::plugin::{
-    BackboneShell, ACTION_SHOW_HIDE_CUSTOM_PLAYTIME_COMMAND_NAME,
-    ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME, ACTION_SHOW_WELCOME_SCREEN_LABEL,
+    BackboneShell, ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME, ACTION_SHOW_WELCOME_SCREEN_LABEL,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{fonts, symbols};
@@ -71,10 +70,6 @@ impl View for WelcomePanel {
                 self.toggle_toolbar_button(ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME)
                     .expect("couldn't toggle toolbar button");
             }
-            root::ID_SETUP_ADD_CUSTOM_PLAYTIME_TOOLBAR_BUTTON => {
-                self.toggle_toolbar_button(ACTION_SHOW_HIDE_CUSTOM_PLAYTIME_COMMAND_NAME)
-                    .expect("couldn't toggle toolbar button");
-            }
             root::ID_SETUP_PANEL_OK => self.close(),
             // IDCANCEL is escape button
             raw::IDCANCEL => {
@@ -94,16 +89,10 @@ impl WelcomePanel {
     }
 
     fn invalidate_toolbar_checkboxes(&self) {
-        let bindings = [
-            (
-                root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON,
-                ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME,
-            ),
-            (
-                root::ID_SETUP_ADD_CUSTOM_PLAYTIME_TOOLBAR_BUTTON,
-                ACTION_SHOW_HIDE_CUSTOM_PLAYTIME_COMMAND_NAME,
-            ),
-        ];
+        let bindings = [(
+            root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON,
+            ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME,
+        )];
         for (control_id, action_name) in bindings {
             let checked = BackboneShell::get()
                 .config()

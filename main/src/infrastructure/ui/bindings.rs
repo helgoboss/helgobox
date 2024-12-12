@@ -315,9 +315,8 @@ pub mod root {
     pub const ID_SETUP_INTRO_TEXT_1: u32 = 30244;
     pub const ID_SETUP_INTRO_TEXT_2: u32 = 30245;
     pub const ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON: u32 = 30246;
-    pub const ID_SETUP_ADD_CUSTOM_PLAYTIME_TOOLBAR_BUTTON: u32 = 30247;
-    pub const ID_SETUP_TIP_TEXT: u32 = 30248;
-    pub const ID_SETUP_PANEL_OK: u32 = 30249;
-    pub const ID_COLOR_PANEL: u32 = 30250;
-    pub const ID_HIDDEN_PANEL: u32 = 30251;
+    pub const ID_SETUP_TIP_TEXT: u32 = 30247;
+    pub const ID_SETUP_PANEL_OK: u32 = 30248;
+    pub const ID_COLOR_PANEL: u32 = 30249;
+    pub const ID_HIDDEN_PANEL: u32 = 30250;
 }

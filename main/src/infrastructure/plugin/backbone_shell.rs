@@ -446,18 +446,17 @@ impl BackboneShell {
         let _ = Self::register_extension_menu();
         let _ = Self::register_toolbar_icon_map();
         let toolbar_change_detector = if custom_toolbar_api_is_available() {
-            // Auto-add previously enabled dynamic toolbar buttons, if not present already
-            for (command_name, enabled) in &config.toolbar {
-                if *enabled > 0 {
-                    let _ = add_or_remove_toolbar_button(command_name, true);
-                }
-            }
-            // Create change detector to automatically disable a dynamic toolbar button if the user removes the
-            // button manually.
             let observed_commands = ACTION_DEFS.iter().filter_map(|def| {
                 if !def.add_toolbar_button {
                     return None;
                 }
+                // Auto-add previously enabled dynamic toolbar buttons, if not present already
+                let enabled = config.toolbar.get(def.command_name).is_some_and(|v| *v > 0);
+                if enabled {
+                    let _ = add_or_remove_toolbar_button(def.command_name, true);
+                }
+                // Create change detector to automatically disable a dynamic toolbar button if the user removes the
+                // button manually.
                 let command_id = Reaper::get()
                     .action_by_command_name(def.command_name)
                     .command_id()

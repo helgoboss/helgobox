@@ -105,7 +105,6 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         command_name: ACTION_SHOW_HIDE_CUSTOM_PLAYTIME_COMMAND_NAME,
         action_name: "Show/hide custom Playtime",
         op: BackboneShell::show_hide_custom_playtime,
-        add_toolbar_button: true,
         icon: Some(c"toolbar_playtime_custom"),
         ..DEFAULT_DEF
     },
