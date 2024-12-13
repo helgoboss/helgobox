@@ -4,6 +4,8 @@ include::partial$user-interface/title-bar-desc.adoc[]
 
 This section focuses solely on the Playtime-specific functions.
 For more information on the general functions, refer to the xref:helgobox::app/user-interface/title-bar.adoc[] section in the Helgobox documentation.
+//
+// include::partial$generated/elements/title-bar/tempo-detection-recording-hint.adoc[]
 
 include::partial$generated/elements/title-bar/purchase-playtime.adoc[]
 
