@@ -10,7 +10,6 @@ use base::{spawn_in_main_thread, Global, NamedChannelSender};
 use helgobox_api::persistence::{
     PlaytimeColumnAction, PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeSlotTransportAction,
 };
-use playtime_api::persistence::SlotAddress;
 use playtime_api::runtime::{
     ControlUnit, ControlUnitId, SimpleMappingContainer, SimpleMappingTarget,
 };

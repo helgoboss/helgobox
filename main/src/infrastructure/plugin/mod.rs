@@ -17,7 +17,6 @@ pub use actions::*;
 
 pub mod dynamic_toolbar;
 mod hidden_helper_panel;
-pub mod persistent_toolbar;
 mod sandbox;
 mod unit_shell;
 pub use unit_shell::*;

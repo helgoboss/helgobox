@@ -1,6 +1,5 @@
-use crate::ToolbarIconStatus::{Hovered, Normal, Selected};
 use anyhow::{Context, Result};
-use resvg::tiny_skia::{ColorU8, Pixmap, PremultipliedColorU8, Transform};
+use resvg::tiny_skia::{Pixmap, PremultipliedColorU8, Transform};
 use resvg::usvg;
 use resvg::usvg::Options;
 use std::fs;

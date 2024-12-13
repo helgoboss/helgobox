@@ -68,10 +68,9 @@ where
 
     /// Decides what to do with the key if no main processor used it.
     fn process_unmatched(&self, msg: AccelMsg) -> TranslateAccelResult {
-        let is_virt_key = msg.message() != AccelMsgKind::Char && msg.behavior().contains(AcceleratorBehavior::VirtKey);
-        if is_virt_key
-            && msg.key().get() as u32 == raw::VK_ESCAPE
-        {
+        let is_virt_key = msg.message() != AccelMsgKind::Char
+            && msg.behavior().contains(AcceleratorBehavior::VirtKey);
+        if is_virt_key && msg.key().get() as u32 == raw::VK_ESCAPE {
             // Don't process escape in special ways. We want the normal close behavior. Especially
             // important for the floating ReaLearn FX window where closing the main panel would not
             // close the surrounding floating window.

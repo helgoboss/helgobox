@@ -405,7 +405,6 @@ impl HeaderPanel {
             let instance_shell = self.instance_panel().shell().unwrap();
             let session = self.session();
             let session = session.borrow();
-            let has_clip_matrix = session.instance().borrow().has_clip_matrix();
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
             let last_relevant_focused_fx_id = Backbone::get()
@@ -828,9 +827,6 @@ impl HeaderPanel {
             }
             MainMenuAction::EditCompartmentParameter(compartment, range) => {
                 let _ = edit_compartment_parameter(self.session(), compartment, range);
-            }
-            MainMenuAction::FreezeClipMatrix => {
-                self.freeze_clip_matrix();
             }
             MainMenuAction::ToggleGlobalControl => self.toggle_global_control(),
             MainMenuAction::ToggleRealInputLogging => self.toggle_real_input_logging(),
@@ -1389,6 +1385,7 @@ impl HeaderPanel {
 
     // TODO-high-playtime-after-release As soon as we implement this, we need to fix the clippy error.
     #[allow(clippy::await_holding_refcell_ref)]
+    #[allow(dead_code)]
     fn freeze_clip_matrix(&self) {
         #[cfg(feature = "playtime")]
         {
@@ -3169,7 +3166,6 @@ enum MainMenuAction {
     PasteReplaceAllInGroup(Envelope<Vec<MappingModelData>>),
     PasteFromLuaReplaceAllInGroup(Rc<String>),
     DryRunLuaScript(Rc<String>),
-    FreezeClipMatrix,
     ToggleGlobalControl,
     ToggleRealInputLogging,
     ToggleVirtualInputLogging,

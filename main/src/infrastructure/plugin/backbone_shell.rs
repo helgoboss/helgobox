@@ -40,7 +40,6 @@ use base::{
 };
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
-use crate::base::notification::notify_user_about_anyhow_error;
 use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
@@ -49,11 +48,9 @@ use crate::infrastructure::plugin::dynamic_toolbar::{
 };
 use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
 use crate::infrastructure::plugin::hidden_helper_panel::HiddenHelperPanel;
-use crate::infrastructure::plugin::persistent_toolbar::add_toolbar_button_persistently;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::plugin::{
     ini_util, update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
-    ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME,
 };
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -79,10 +76,10 @@ use reaper_high::{
 use reaper_low::{raw, PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    reaper_str, AccelMsg, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
+    AccelMsg, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
     HookPostCommand, HookPostCommand2, Hwnd, HwndInfo, HwndInfoType, MenuHookFlag,
     MidiInputDeviceId, MidiOutputDeviceId, ReaProject, ReaperStr, RegistrationHandle,
-    SectionContext, SectionId, ToolbarIconMap, WindowContext,
+    SectionContext, ToolbarIconMap, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -102,7 +99,7 @@ use strum::IntoEnumIterator;
 use swell_ui::{Menu, SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
-use tracing::{debug, instrument};
+use tracing::debug;
 use url::Url;
 
 /// Generates a REAPER-extension-like entry point. It also generates everything that
@@ -2464,8 +2461,14 @@ impl HookPostCommand2 for BackboneShell {
                     command_id,
                 }));
         }
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = (window, project);
+        }
         #[cfg(feature = "playtime")]
-        post_process_action_invocation_for_playtime(section, command_id, window, project);
+        {
+            post_process_action_invocation_for_playtime(section, command_id, window, project);
+        }
     }
 }
 
@@ -3046,11 +3049,11 @@ pub struct NewInstanceOutcome {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::base::notification;
-    use crate::domain::{err_if_reaper_version_too_low_for_playtime, InstanceId};
+    use crate::domain::err_if_reaper_version_too_low_for_playtime;
     use crate::infrastructure::data::LicenseManager;
     use crate::infrastructure::plugin::{BackboneShell, NewInstanceOutcome};
     use crate::infrastructure::ui::util::open_in_browser;
-    use anyhow::{bail, Context};
+    use anyhow::Context;
     use base::future_util::millis;
     use base::metrics_util::{record_duration, record_occurrence};
     use base::spawn_in_main_thread;
