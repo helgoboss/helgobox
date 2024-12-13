@@ -17,7 +17,8 @@ Please check below system requirements before attempting to install Helgobox!
 [[windows]]
 === Windows
 
-* Needs Windows 10 or later (TODO in the upcoming version, ReaLearn will support Windows 7 and 8 again!)
+* ReaLearn needs Windows 7 or later
+* Playtime needs Windows 10 or later
 
 [[macos]]
 === macOS

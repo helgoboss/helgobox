@@ -7,7 +7,8 @@ Now that you know how to create and play clips, you might want change them a bit
 If you are dealing with MIDI clips, you can easily edit the clip xref:key-concepts.adoc#source[]:
 
 . Double-click the xref:user-interface/matrix-area.adoc#slot-cell-content[] area of the desired slot. This should open the clip source in REAPER's MIDI editor.
-. Make changes in the MIDI editor. Any change should be applied right away, if the clip is currently playing.
+. Make changes in the MIDI editor. Any change should be applied right away if the clip is currently playing.
+. You can also use the playback controls of REAPER's MIDI editor or arrange view. As soon as you use them, the clip will stop playing in Playtime and you can play it within REAPER instead. As long as the MIDI editor is open, the clip is mirrored by a regular REAPER MIDI item positioned on the xref:key-concepts.adoc#column-track[].
 . Close the MIDI editor.
 
 Any change can be undone using Playtime's xref:helgobox::app/user-interface/title-bar.adoc#title-bar-undo[] function.
