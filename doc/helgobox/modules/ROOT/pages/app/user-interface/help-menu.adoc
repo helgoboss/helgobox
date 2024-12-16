@@ -1,0 +1,13 @@
+= Help menu
+
+This menu appears when clicking the xref:app/user-interface/title-bar.adoc#title-bar-help[] button in the window title bar.
+
+include::partial$generated/menus/help/open-helgobox-reference.adoc[]
+
+include::partial$generated/menus/help/open-helgobox-website.adoc[]
+
+include::partial$generated/menus/help/highlight-screen-areas.adoc[]
+
+include::partial$generated/menus/help/about.adoc[]
+
+See xref:app/user-interface/about-dialog.adoc[].
