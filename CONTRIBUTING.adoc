@@ -486,6 +486,24 @@ After modifying this file, you need to execute the following command in the proj
 
  node doc/svg-gen/index.js
 
+== License check
+
+It's important to make sure that the licenses of all dependencies are compatible with the final license. We use link:https://github.com/EmbarkStudios/cargo-deny[cargo-deny] for this.
+
+Installation:
+
+[source]
+----
+cargo install --locked cargo-deny
+----
+
+Check:
+
+[source]
+----
+cargo deny check licenses
+----
+
 == Release
 
 This serves mainly as a checklist for Helgobox's author.
