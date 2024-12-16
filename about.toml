@@ -1,4 +1,24 @@
 accepted = [
-    "Apache-2.0",
     "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "BSL-1.0",
+    "CC0-1.0",
+    "OFL-1.1",
+    "Zlib",
+    "MPL-2.0",
+    "Unicode-DFS-2016",
+    "LicenseRef-UFL-1.0",
+    "OpenSSL",
 ]
+
+workarounds = [
+    "ring",
+]
+
+private = { ignore = true }
+
+ignore-dev-dependencies = true
+ignore-build-dependencies = true

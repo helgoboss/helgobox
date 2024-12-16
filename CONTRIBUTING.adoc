@@ -504,11 +504,30 @@ Check:
 cargo deny check licenses
 ----
 
+== License report
+
+It's important to make sure that the licenses of all dependencies are compatible with the final license. We use link:https://github.com/EmbarkStudios/cargo-deny[cargo-deny] for this.
+
+Installation:
+
+[source]
+----
+cargo install --locked cargo-deny
+----
+
+Generate the report:
+
+[source]
+----
+cargo about generate --fail --workspace --all-features --threshold 0.93 about.hbs > third-party-licenses.html
+----
+
 == Release
 
 This serves mainly as a checklist for Helgobox's author.
 
 . Check licenses via `cargo deny check licenses` and make sure the outcome is "licenses ok"
+. Update license report (see above)
 . Take care of app versioning
 ** Plug-in repository: Adjust `HOST_API_VERSION` and `MIN_APP_API_VERSION`
 ** App repository: Adjust `appApiVersion` (macOS, Swift), `APP_API_VERSION` (Windows, C++) and `_minHostApiVersionString` (Dart)
