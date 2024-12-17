@@ -21,9 +21,10 @@ use base::hash_util::{NonCryptoHashMap, NonCryptoIndexMap};
 use base::metrics_util::measure_time;
 use itertools::{EitherOrBoth, Itertools};
 use reaper_medium::{
-    CommandId, ExtSupportsExtendedTouchArgs, GetFocusedFx2Result, GetTouchStateArgs, MediaTrack,
-    MidiInputDeviceId, MidiOutputDeviceId, PositionInSeconds, ReaProject,
-    ReaperNormalizedFxParamValue, SectionContext,
+    CommandId, ExtSupportsExtendedTouchArgs, GetFocusedFx2Result, GetTouchStateArgs,
+    GetTouchedOrFocusedFxCurrentlyFocusedFxResult, MediaTrack, MidiInputDeviceId,
+    MidiOutputDeviceId, PositionInSeconds, ReaProject, ReaperNormalizedFxParamValue,
+    SectionContext,
 };
 use rxrust::prelude::*;
 use std::fmt::Debug;
@@ -57,7 +58,8 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     future_middleware: FutureMiddleware,
     counter: u64,
     full_beats: NonCryptoHashMap<ReaProject, u32>,
-    fx_focus_state: Option<GetFocusedFx2Result>,
+    deprecated_fx_focus_state: Option<GetFocusedFx2Result>,
+    modern_fx_focus_state: Option<GetTouchedOrFocusedFxCurrentlyFocusedFxResult>,
     target_capture_senders: NonCryptoHashMap<Option<UnitId>, TargetCaptureSender>,
     osc_capture_sender: Option<OscCaptureSender>,
     osc_input_devices: Vec<OscInputDevice>,
@@ -236,7 +238,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             future_middleware: Global::get().create_future_support_middleware(),
             counter: 0,
             full_beats: Default::default(),
-            fx_focus_state: Default::default(),
+            deprecated_fx_focus_state: Default::default(),
+            modern_fx_focus_state: Default::default(),
             target_capture_senders: Default::default(),
             osc_capture_sender: None,
             osc_input_devices: vec![],
@@ -607,14 +610,34 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn emit_focus_switch_between_main_and_fx_as_feedback_event(&mut self) {
-        let reaper = Reaper::get().medium_reaper();
-        if reaper.low().pointers().GetFocusedFX2.is_none() {
-            // Detection of unfocusing FX (without focusing a new one) not supported in REAPER versions < 7.
-            return;
+        let pointers = Reaper::get().medium_reaper().low().pointers();
+        // TODO The modern GetTouchedOrFocusedFX way needs more testing. I tried to use it hoping it would fix
+        //  https://github.com/helgoboss/helgobox/issues/1367 but it essentially behaves the same
+        //  as GetFocusedFX2, so there's no urge to migrate.
+        // let fire = if pointers.GetTouchedOrFocusedFX.is_some() {
+        //     // The latest and greatest way to detect focused FX
+        //     self.detect_focus_switch_between_main_and_fx_as_feedback_event_modern()
+        // } else
+        let fire = if pointers.GetFocusedFX2.is_some() {
+            // The deprecated way to detect focused FX
+            self.detect_focus_switch_between_main_and_fx_as_feedback_event_deprecated()
+        } else {
+            // Detection of unfocusing FX (without focusing a new one) not supported in REAPER versions < 7
+            false
+        };
+        if fire {
+            let event = AdditionalFeedbackEvent::FocusSwitchedBetweenMainAndFx;
+            for p in &mut *self.main_processors.borrow_mut() {
+                p.process_additional_feedback_event(&event);
+            }
         }
-        let new = reaper.get_focused_fx_2();
-        let last = mem::replace(&mut self.fx_focus_state, new);
-        let fire = match (last, new) {
+    }
+
+    fn detect_focus_switch_between_main_and_fx_as_feedback_event_modern(&mut self) -> bool {
+        let reaper = Reaper::get().medium_reaper();
+        let new = reaper.get_touched_or_focused_fx_currently_focused_fx();
+        let last = mem::replace(&mut self.modern_fx_focus_state, new);
+        match (last, new) {
             (None, None) => {
                 // This happens continuously before any FX is focused
                 false
@@ -631,14 +654,35 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             (Some(last), Some(new)) => {
                 // Only fire if we changed from "no FX focused" to "FX focused" or vice versa (not when focusing
                 // between FX ... this is detected better by REAPER's built-in control surface FxFocused event,
-                // mainly because latter doesn't fire when an FX is removed - which would be too much)
+                // mainly because the latter doesn't fire when an FX is removed - which would be too much)
                 last.is_still_focused != new.is_still_focused
             }
-        };
-        if fire {
-            let event = AdditionalFeedbackEvent::FocusSwitchedBetweenMainAndFx;
-            for p in &mut *self.main_processors.borrow_mut() {
-                p.process_additional_feedback_event(&event);
+        }
+    }
+
+    fn detect_focus_switch_between_main_and_fx_as_feedback_event_deprecated(&mut self) -> bool {
+        let reaper = Reaper::get().medium_reaper();
+        let new = reaper.get_focused_fx_2();
+        let last = mem::replace(&mut self.deprecated_fx_focus_state, new);
+        match (last, new) {
+            (None, None) => {
+                // This happens continuously before any FX is focused
+                false
+            }
+            (None, Some(_)) => {
+                // The first time an FX is focused
+                true
+            }
+            (Some(_), None) => {
+                // Shouldn't happen because REAPER usually doesn't clear the last-focused FX. But if it happens,
+                // we should fire.
+                true
+            }
+            (Some(last), Some(new)) => {
+                // Only fire if we changed from "no FX focused" to "FX focused" or vice versa (not when focusing
+                // between FX ... this is detected better by REAPER's built-in control surface FxFocused event,
+                // mainly because the latter doesn't fire when an FX is removed - which would be too much)
+                last.is_still_focused != new.is_still_focused
             }
         }
     }
