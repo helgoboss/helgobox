@@ -1738,6 +1738,56 @@ impl MappingPanel {
         Ok(op(&p))
     }
 
+    fn open_target_menu(self: SharedView<Self>) {
+        enum MenuAction {
+            SetTarget(Box<ReaperTarget>),
+            GoToTarget,
+        }
+        let menu = {
+            use swell_ui::menu_tree::*;
+            let mapping = self.mapping();
+            let session = self.session();
+            let session = session.borrow();
+            let compartment = mapping.borrow().compartment();
+            let context = session.extended_context();
+            let recently_touched_items = Backbone::get()
+                .extract_last_touched_targets()
+                .into_iter()
+                .rev()
+                .map(|t| {
+                    let mut target_model = TargetModel::default_for_compartment(compartment);
+                    let _ = target_model.apply_from_target(&t, context, compartment);
+                    // let target_type_label = ReaperTargetType::from_target(&t);
+                    let target_label = TargetModelFormatVeryShort(&target_model);
+                    // let label = format!("{target_type_label} / {target_label}");
+                    item(target_label.to_string(), MenuAction::SetTarget(Box::new(t)))
+                })
+                .collect();
+            anonymous_menu(vec![
+                menu(
+                    "Pick recently touched target (by type)",
+                    recently_touched_items,
+                ),
+                item("Go to target (if supported)", MenuAction::GoToTarget),
+            ])
+        };
+        let menu_action = self
+            .view
+            .require_window()
+            .open_popup_menu(menu, Window::cursor_pos());
+        let Some(menu_action) = menu_action else {
+            return;
+        };
+        self.write(|panel| match &menu_action {
+            MenuAction::SetTarget(t) => {
+                panel.set_mapping_target(&t);
+            }
+            MenuAction::GoToTarget => {
+                panel.go_to_target();
+            }
+        });
+    }
+
     fn show_target_type_menu(&self) {
         let window = self.view.require_window();
         let (target_category, target_type, control_element_type) = {
@@ -1899,53 +1949,6 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn first_resolved_target(&self) -> Option<CompoundMappingTarget> {
         self.resolved_targets().into_iter().next()
-    }
-
-    fn open_target_menu(&mut self) {
-        enum MenuAction {
-            SetTarget(Box<ReaperTarget>),
-            GoToTarget,
-        }
-        let compartment = self.mapping.compartment();
-        let context = self.session.extended_context();
-        let menu = {
-            use swell_ui::menu_tree::*;
-            let recently_touched_items = Backbone::get()
-                .extract_last_touched_targets()
-                .into_iter()
-                .rev()
-                .map(|t| {
-                    let mut target_model = TargetModel::default_for_compartment(compartment);
-                    let _ = target_model.apply_from_target(&t, context, compartment);
-                    // let target_type_label = ReaperTargetType::from_target(&t);
-                    let target_label = TargetModelFormatVeryShort(&target_model);
-                    // let label = format!("{target_type_label} / {target_label}");
-                    item(target_label.to_string(), MenuAction::SetTarget(Box::new(t)))
-                })
-                .collect();
-            anonymous_menu(vec![
-                menu(
-                    "Pick recently touched target (by type)",
-                    recently_touched_items,
-                ),
-                item("Go to target (if supported)", MenuAction::GoToTarget),
-            ])
-        };
-        let menu_action = self
-            .view
-            .require_window()
-            .open_popup_menu(menu, Window::cursor_pos());
-        let Some(menu_action) = menu_action else {
-            return;
-        };
-        match menu_action {
-            MenuAction::SetTarget(t) => {
-                self.set_mapping_target(&t);
-            }
-            MenuAction::GoToTarget => {
-                self.go_to_target();
-            }
-        }
     }
 
     fn set_mapping_target(&mut self, target: &ReaperTarget) {
@@ -7256,7 +7259,7 @@ impl View for MappingPanel {
             root::ID_TARGET_CHECK_BOX_5 => self.write(|p| p.handle_target_check_box_5_change()),
             root::ID_TARGET_CHECK_BOX_6 => self.write(|p| p.handle_target_check_box_6_change()),
             root::ID_TARGET_LEARN_BUTTON => self.toggle_learn_target(),
-            root::ID_TARGET_MENU_BUTTON => self.write(|p| p.open_target_menu()),
+            root::ID_TARGET_MENU_BUTTON => self.open_target_menu(),
             root::ID_TARGET_LINE_2_BUTTON => {
                 let _ = self.handle_target_line_2_button_press();
             }
