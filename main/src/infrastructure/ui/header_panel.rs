@@ -957,6 +957,7 @@ impl HeaderPanel {
                 ),
                 item("Contact developer", HelpMenuAction::ContactDeveloper),
                 item("Donate", HelpMenuAction::Donate),
+                item("About", HelpMenuAction::OpenAboutPage),
             ];
             anonymous_menu(entries)
         };
@@ -973,6 +974,7 @@ impl HeaderPanel {
             HelpMenuAction::OpenRealearnForum => self.open_realearn_forum(),
             HelpMenuAction::ContactDeveloper => self.contact_developer(),
             HelpMenuAction::OpenRealearnWebsite => self.open_realearn_website(),
+            HelpMenuAction::OpenAboutPage => self.open_about_page(),
             HelpMenuAction::Donate => self.donate(),
         };
         Ok(())
@@ -2619,6 +2621,11 @@ impl HeaderPanel {
         open_in_browser("https://www.helgoboss.org/projects/realearn/");
     }
 
+    fn open_about_page(&self) {
+        let about_html = BackboneShell::helgobox_data_dir_path().join("doc/about.html");
+        open_in_browser(about_html.as_str());
+    }
+
     fn register_listeners(self: SharedView<Self>) {
         let shared_session = self.session();
         let session = shared_session.borrow();
@@ -3204,6 +3211,7 @@ enum HelpMenuAction {
     OpenRealearnControllerList,
     OpenRealearnForum,
     OpenRealearnWebsite,
+    OpenAboutPage,
     ContactDeveloper,
     Donate,
 }

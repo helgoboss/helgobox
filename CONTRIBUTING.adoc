@@ -519,7 +519,7 @@ Generate the report:
 
 [source]
 ----
-cargo about generate --fail --workspace --all-features --threshold 0.93 about.hbs > third-party-licenses.html
+cargo about generate --fail --workspace --all-features --threshold 0.93 about.hbs > about.html
 ----
 
 == Release

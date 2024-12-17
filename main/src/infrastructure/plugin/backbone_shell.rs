@@ -1174,6 +1174,12 @@ impl BackboneShell {
         BackboneShell::helgoboss_resource_dir_path().join("ReaLearn")
     }
 
+    pub fn helgobox_data_dir_path() -> Utf8PathBuf {
+        Reaper::get()
+            .resource_path()
+            .join("Data/helgoboss/helgobox")
+    }
+
     pub fn realearn_data_dir_path() -> Utf8PathBuf {
         Reaper::get()
             .resource_path()
