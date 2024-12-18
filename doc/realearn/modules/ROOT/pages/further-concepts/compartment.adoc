@@ -3,6 +3,7 @@
 [[compartment-preset]]
 == Compartment preset
 
+
 === Main presets vs. controller presets
 
 [[main-preset]]
@@ -10,10 +11,16 @@
 
 The term _main preset_ is just a shortcut for saying "compartment preset in the main compartment".
 
+The number of factory _main_ presets is relatively small because ReaLearn is all about enabling you to quickly come up with your own customized main mappings. However, a few interesting main presets are available link:https://github.com/helgoboss/helgobox/wiki/ReaLearn-Interesting-Presets[in the Wiki].
+
 [[controller-preset]]
 ==== Controller preset
 
 The term _controller preset_ is just a shortcut for saying "compartment preset in the controller compartment".
+
+.Mix and match!
+TIP: The big advantage of separating controller presets from main presets is that you can freely combine them on a mix-and-match basis.
+This enables you to get out-of-the-box access to all kinds of interesting control scenarios with potentially very different controllers.
 
 === Factory preset vs. User preset
 
@@ -21,9 +28,19 @@ The term _controller preset_ is just a shortcut for saying "compartment preset i
 ==== Factory preset
 
 Factory presets are built-in compartment presets.
-You can't change them yourself.
-But you can "make them your own" by making a copy of them.
-See <<writing-presets-with-luau>>.
+
+Characteristics:
+
+* You can't change them.
+* If you want to change a factory preset, you can make a copy of it, either by pressing btn:[Save as...] or by <<writing-presets-with-luau, creating your personal Lua workspace>>.
+* It's always possible that factory presets are changed in future ReaLearn versions.
++
+.No worries
+NOTE: This is not a problem for existing compartments. A changed preset will *only* be applied to the compartment if you select the preset again!
++
+.Preset stability
+TIP: Whenever you like a certain factory preset and want it to remain the same, even if you select it again, it's best if you make your own copy of it. The simplest way to do this is to press btn:[Save as...].
+
 
 [[user-compartment-preset]]
 ==== User preset
@@ -392,18 +409,49 @@ Please note that velocity-sensitive keys should be exposed as <<virtual-control-
 [[virtual-control-scheme]]
 ==== Virtual control scheme
 
-If you want your main preset to be compatible with as many controller presets as possible, try to use predefined names instead of inventing your own virtual control naming scheme.
+===== Introduction
 
-When you define a virtual source or virtual target, there's a convenient picker that provides names for the following standardized virtual control schemes:
+Mixing and matching controller and main presets only works as long as controller and main presets share the same philosophy and virtual control element naming/numbering.
+
+IMPORTANT: A main preset is not automagically compatible with any controller preset!
+
+As you can imagine, there are far too many types of controllers and control scenarios out there to make this work in all cases.
+However, ReaLearn provides many means to get close to this ideal.
+
+To make it easier for users to know which main presets are compatible with which controller presets, ReaLearn has the concept of _virtual control schemes_. At the moment, ReaLearn uses the following schemes:
 
 DAW control (`daw`)::
-The names you see here are heavily inspired by the wording used on Mackie Control devices.
+Control elements that are typically used for controlling a DAW.
+The control elements names available in this scheme are heavily inspired by the wording used on Mackie Control devices, e.g. `ch1/fader`.
 
 Grid (`grid`)::
-For controls divided into rows and column, as for example found on the Novation Launchpad.
+Control elements that are laid out in columns and rows, as for example found on the Novation Launchpad. Typical control element names are `col1/row2/pad`.
 
 Numbered (`numbered`)::
-Simply lets you pick among any number between 1 and 100.
+Control elements that are laid out as a simple row or column. The names available in this scheme are simply numbers, e.g. from 1 to 8.
+
+The general idea is:
+
+* A **controller preset** _provides_ an arbitrary number of schemes.
+** E.g. the Akai APC Key 25 provides control elements of all the mentioned schemes.
+** A controller should not double-expose one single control element under different virtual control element names.
+* A **main preset** _uses_ an arbitrary number of schemes.
+** E.g. they could assign a track volume change to both the numbered multi control element 5 (_Numbered_  scheme) and to the named multi control element `ch5/fader` (_DAW_ scheme) by using 2 mappings with the same target.
+Then we say this preset uses both schemes.
+
+===== How main presets can leverage virtual control schemes
+
+There are roughly 3 kinds of main presets:
+
+. **Controller-specific main presets without virtual sources:** They are built for one specific controller and use MIDI/OSC sources directly.
+. **Controller-specific main presets with virtual sources:** They are built for one specific controller but primarily use virtual sources (e.g. in order to take advantage of ReaLearn's projection feature).
+. **Reusable main presets:** Thy are built for all controllers that provide a specific control scheme.
+
+===== Usage
+
+If you want your main preset to be compatible with as many controller presets as possible, try to use predefined control element names instead of coming up with your own way of naming things!
+
+When you define a virtual source or virtual target, there's a convenient picker that provides names for the following standardized virtual control schemes.
 
 [[custom-data]]
 == Custom compartment data
