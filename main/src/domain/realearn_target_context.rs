@@ -4,8 +4,8 @@ use crate::domain::{
 };
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use base::{NamedChannelSender, SenderToNormalThread};
-use reaper_high::{Fx, GroupingBehavior, Track};
-use reaper_medium::{GangBehavior, MediaTrack};
+use reaper_high::{Fx, GroupingBehavior, Reaper, Track};
+use reaper_medium::{GangBehavior, MediaTrack, NotificationBehavior, ValueChange};
 
 /// Feedback for most targets comes from REAPER itself but there are some targets for which ReaLearn
 /// holds the state. It's in this struct.
@@ -127,6 +127,7 @@ impl RealearnTargetState {
     ) {
         self.touched_things
             .remove(&TouchedThing::new(track.raw(), parameter_type));
+        self.post_process_touch(track, parameter_type);
         self.additional_feedback_event_sender.send_complaining(
             AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
                 ParameterAutomationTouchStateChangedEvent {
@@ -141,25 +142,34 @@ impl RealearnTargetState {
     fn post_process_touch(&mut self, track: &Track, parameter_type: TouchedTrackParameterType) {
         match parameter_type {
             TouchedTrackParameterType::Volume => {
-                track.set_volume(
-                    track.volume(),
+                let resulting_value = track.csurf_on_volume_change_ex(
+                    ValueChange::Absolute(track.volume()),
                     GangBehavior::DenyGang,
-                    GroupingBehavior::PreventGrouping,
                 );
+                if let Ok(v) = resulting_value {
+                    let _ = track.csurf_set_surface_volume(v, NotificationBehavior::NotifyAll);
+                }
             }
             TouchedTrackParameterType::Pan => {
-                track.set_pan(
-                    track.pan(),
+                let resulting_value = track.csurf_on_pan_change_ex(
+                    ValueChange::Absolute(track.pan().reaper_value()),
                     GangBehavior::DenyGang,
-                    GroupingBehavior::PreventGrouping,
                 );
+                if let Ok(v) = resulting_value {
+                    let _ = track.csurf_set_surface_pan(v, NotificationBehavior::NotifyAll);
+                }
             }
             TouchedTrackParameterType::Width => {
-                track.set_width(
-                    track.width(),
+                let result = track.csurf_on_width_change_ex(
+                    ValueChange::Absolute(track.width().reaper_value()),
                     GangBehavior::DenyGang,
-                    GroupingBehavior::PreventGrouping,
                 );
+                if result.is_ok() {
+                    let _ = track.csurf_set_surface_pan(
+                        track.pan().reaper_value(),
+                        NotificationBehavior::NotifyAll,
+                    );
+                }
             }
         }
     }

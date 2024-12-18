@@ -97,6 +97,7 @@ impl RealearnTarget for TrackMonitoringModeTarget {
                         )
                     },
                 );
+                Ok(())
             },
         )?;
         Ok(HitResponse::processed_with_effect())

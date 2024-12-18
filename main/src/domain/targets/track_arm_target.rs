@@ -76,6 +76,7 @@ impl RealearnTarget for TrackArmTarget {
                     |t| t.arm(false, gang_behavior, grouping_behavior),
                     |t| t.disarm(false, gang_behavior, grouping_behavior),
                 );
+                Ok(())
             },
         )?;
         Ok(HitResponse::processed_with_effect())

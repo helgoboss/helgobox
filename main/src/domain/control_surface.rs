@@ -660,6 +660,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
+    #[allow(deprecated)]
     fn detect_focus_switch_between_main_and_fx_as_feedback_event_deprecated(&mut self) -> bool {
         let reaper = Reaper::get().medium_reaper();
         let new = reaper.get_focused_fx_2();

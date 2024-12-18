@@ -76,6 +76,7 @@ impl RealearnTarget for TrackMuteTarget {
                     |t| t.mute(gang_behavior, grouping_behavior),
                     |t| t.unmute(gang_behavior, grouping_behavior),
                 );
+                Ok(())
             },
         )?;
         Ok(HitResponse::processed_with_effect())

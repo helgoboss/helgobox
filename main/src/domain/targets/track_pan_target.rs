@@ -104,7 +104,8 @@ impl RealearnTarget for TrackPanTarget {
             self.gang_behavior,
             &TRACK_PAN_TARGET,
             |gang_behavior, grouping_behavior| {
-                self.track.set_pan(pan, gang_behavior, grouping_behavior);
+                self.track
+                    .set_pan_smart(pan, gang_behavior, grouping_behavior)
             },
         )?;
         Ok(HitResponse::processed_with_effect())

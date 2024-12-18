@@ -87,11 +87,11 @@ impl RealearnTarget for TrackVolumeTarget {
             self.gang_behavior,
             &TRACK_VOLUME_TARGET,
             |gang_behavior, grouping_behavior| {
-                self.track.set_volume(
+                self.track.set_volume_smart(
                     volume.unwrap_or(SliderVolume::MIN).reaper_value(),
                     gang_behavior,
                     grouping_behavior,
-                );
+                )
             },
         )?;
         Ok(HitResponse::processed_with_effect())

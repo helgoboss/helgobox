@@ -7,7 +7,8 @@ use enum_dispatch::enum_dispatch;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, FxParameter,
-    GroupingBehavior, Pan, PanExt, PlayRate, Project, Reaper, Tempo, Track, TrackRoute, Width,
+    GroupingBehavior, Pan, PanExt, PlayRate, Project, Reaper, ReaperError, Tempo, Track,
+    TrackRoute, Width,
 };
 use reaper_medium::{
     AutomationMode, Bpm, GangBehavior, GlobalAutomationModeOverride, NormalizedPlayRate, ParamId,
@@ -1506,12 +1507,12 @@ pub fn with_gang_behavior(
     project: Project,
     behavior: TrackGangBehavior,
     target_type_def: &TargetTypeDef,
-    f: impl FnOnce(GangBehavior, GroupingBehavior),
+    f: impl FnOnce(GangBehavior, GroupingBehavior) -> Result<(), ReaperError>,
 ) -> Result<(), &'static str> {
     let (gang_behavior, grouping_behavior) = behavior.gang_and_grouping_behavior();
     if new_set_track_ui_functions_are_available() {
         // REAPER >= 6.69+dev1027 makes things much easier.
-        f(gang_behavior, grouping_behavior);
+        f(gang_behavior, grouping_behavior)?;
         return Ok(());
     }
     use TrackGangBehavior::*;
@@ -1521,22 +1522,26 @@ pub fn with_gang_behavior(
                 // CSurf_OnMuteChangeEx, CSurf_OnSoloChangeEx, CSurf_OnRecArmChangeEx respect
                 // track grouping even when passing DenyGang. So we need to switch it off
                 // temporarily.
-                project.with_track_grouping(false, || f(gang_behavior, grouping_behavior))
+                project.with_track_grouping(false, || f(gang_behavior, grouping_behavior))?;
             } else {
-                f(gang_behavior, grouping_behavior)
+                f(gang_behavior, grouping_behavior)?;
             }
         }
-        SelectionOnly => project.with_track_grouping(false, || f(gang_behavior, grouping_behavior)),
+        SelectionOnly => {
+            project.with_track_grouping(false, || f(gang_behavior, grouping_behavior))?;
+        }
         GroupingOnly => {
             if target_type_def.supports_track_grouping_only_gang_behavior {
                 // CSurf_OnMuteChangeEx, CSurf_OnSoloChangeEx, CSurf_OnRecArmChangeEx respect
                 // track grouping even when passing DenyGang. Perfect.
-                f(gang_behavior, grouping_behavior)
+                f(gang_behavior, grouping_behavior)?;
             } else {
                 return Err("grouping-only is not supported for this target");
             }
         }
-        SelectionAndGrouping => f(GangBehavior::AllowGang, GroupingBehavior::UseGrouping),
+        SelectionAndGrouping => {
+            f(GangBehavior::AllowGang, GroupingBehavior::UseGrouping)?;
+        }
     };
     Ok(())
 }

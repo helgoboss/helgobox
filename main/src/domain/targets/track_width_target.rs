@@ -104,7 +104,7 @@ impl RealearnTarget for TrackWidthTarget {
             &TRACK_WIDTH_TARGET,
             |gang_behavior, grouping_behavior| {
                 self.track
-                    .set_width(width, gang_behavior, grouping_behavior);
+                    .set_width_smart(width, gang_behavior, grouping_behavior)
             },
         )?;
         Ok(HitResponse::processed_with_effect())
