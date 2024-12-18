@@ -118,6 +118,8 @@ Projection is a quite unique feature that allows you to project a schematic repr
 You can put this device close to your controller in order to see immediately which control element is mapped to which parameter.
 This is an attempt to solve an inherent problem with generic controllers: That it's easy to forget which control element is mapped to which target parameter.
 
+See xref:user-interface/projection.adoc[].
+
 == Logging
 
 Logging can be enabled or disabled via xref:user-interface/main-panel/menu-bar.adoc#logging[].

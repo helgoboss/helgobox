@@ -22,6 +22,7 @@
 *** xref:user-interface/mapping-panel/advanced-settings-dialog.adoc[]
 ** xref:user-interface/settings-dialog.adoc[]
 ** xref:user-interface/controller-dialog.adoc[]
+** xref:user-interface/projection.adoc[]
 * xref:sources.adoc[]
 ** xref:sources/none.adoc[]
 ** xref:sources/midi.adoc[]
