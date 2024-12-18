@@ -1,4 +1,4 @@
---- name: iCON Platform M+
+--- name: Platform M+
 --- realearn_version: 2.16.0
 --- author: helgoboss
 --- device_manufacturer: iCON
