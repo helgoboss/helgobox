@@ -428,6 +428,7 @@ impl ReaperTarget {
                     // touched" anyway!
                     poll_for_feedback: false,
                     retrigger: false,
+                    real_time_even_if_not_rendering: false,
                 })
             }
             FxPresetChanged(e) => FxPreset(FxPresetTarget { fx: e.fx }),
@@ -484,6 +485,7 @@ impl ReaperTarget {
                     param,
                     poll_for_feedback: false,
                     retrigger: false,
+                    real_time_even_if_not_rendering: false,
                 };
                 Some(FxParameter(t).into())
             }))

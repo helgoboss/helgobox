@@ -4,7 +4,7 @@ use crate::domain::{
 };
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use base::{NamedChannelSender, SenderToNormalThread};
-use reaper_high::{Fx, GroupingBehavior, Reaper, Track};
+use reaper_high::{Fx, Track};
 use reaper_medium::{GangBehavior, MediaTrack, NotificationBehavior, ValueChange};
 
 /// Feedback for most targets comes from REAPER itself but there are some targets for which ReaLearn

@@ -4,11 +4,39 @@ Sets the value of a particular track FX parameter.
 
 == Parameter controls
 
-The parameter to be controlled.
+Use them to set the parameter to be controlled.
 
 Please note that both xref:further-concepts/target.adoc#particular-fx-selector[] and xref:further-concepts/target.adoc#at-position-selector[] address the FX by its position in the FX chain.
 The difference between the two is that xref:further-concepts/target.adoc#particular-selector[] shows a dropdown containing the available parameters and xref:further-concepts/target.adoc#at-position-selector[] lets you enter the position as a number in a text field.
-Latter is useful if at the time of choosing the position, the FX is not available.
+The latter is useful if at the time of choosing the position, the FX is not available.
+
+== Retrigger checkbox
+
+By default, ReaLearn doesn't set the parameter if it already has the desired value. That prevents unnecessary invocations.
+
+However, some FX parameters are more like triggers. They don't actually have a value and are just used to trigger some action within that FX. In this case, it's important to enable _Retrigger_, which sets the parameter no matter what.
+
+== Real-time checkbox
+
+=== Main thread vs. real-time thread
+
+By default, ReaLearn does FX parameter value adjustments from the so-called _main_ thread instead of the _real-time_ thread. That means, in the worst case, we get latency as long as one main loop cycle. One main loop cycle is usually around 30 ms.
+
+In many control scenarios, this is completely acceptable. Basically, all control surface solutions including REAPER's built-in control surfaces, CSI and DrivenByMoss adjust FX parameters in the _main_ thread. Imagine you adjust a volume with a knob for mixing purposes. Such adjustments are usually rather slow and gradual, so it won't matter if the effect comes in 5 ms or 30 ms later.
+
+However, ReaLearn is a tool not just for mixing, also for performing. And in performing, there's sometimes demand for low latencies and fast responses, even when controlling FX parameters.
+
+=== Enabling real-time
+
+If you enable this checkbox, ReaLearn will **under certain conditions** control the FX parameter from a _real-time_ thread, enabling much lower latencies. In particular, the latency will correspond to the configured audio device block size -- the same thing that influences how fast virtual instruments respond when you press a note.
+
+The conditions are as follows:
+
+Condition 1: Same track:: The controlled FX must be on the **same track** as the ReaLearn instance.
+
+Condition 2: FX input:: The xref:key-concepts.adoc#input-port[] must be set to xref:user-interface/main-panel/input-output-section.adoc#fx-input[], **not** to a particular device.
+
+In all other circumstances, ReaLearn will fall back to adjusting the FX parameter from the _main_ thread.
 
 == Target-specific properties
 

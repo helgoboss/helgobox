@@ -585,7 +585,7 @@ impl MappingPanel {
                                             P::UseRegions => {
                                                 view.invalidate_target_check_boxes();
                                             }
-                                            P::UseLoopPoints | P::PollForFeedback | P::Retrigger => {
+                                            P::UseLoopPoints | P::PollForFeedback | P::Retrigger | P::RealTime => {
                                                 view.invalidate_target_check_boxes();
                                             }
                                             P::UseTimeSelection => {
@@ -3037,6 +3037,9 @@ impl<'a> MutableMappingPanel<'a> {
             .is_checked();
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::FxParameterValue => self.change_mapping(
+                    MappingCommand::ChangeTarget(TargetCommand::SetRealTime(is_checked)),
+                ),
                 ReaperTargetType::Seek | ReaperTargetType::GoToBookmark => {
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetUseTimeSelection(is_checked),
@@ -6204,6 +6207,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_check_box_6(&self) {
         let state = match self.target.category() {
             TargetCategory::Reaper => match self.target.target_type() {
+                ReaperTargetType::FxParameterValue => Some(("Real-time", self.target.real_time())),
                 ReaperTargetType::Seek => {
                     Some(("Use time selection", self.target.use_time_selection()))
                 }

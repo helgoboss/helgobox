@@ -22,6 +22,7 @@ pub struct UnresolvedFxParameterTarget {
     pub fx_parameter_descriptor: FxParameterDescriptor,
     pub poll_for_feedback: bool,
     pub retrigger: bool,
+    pub real_time_even_if_not_rendering: bool,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedFxParameterTarget {
@@ -41,6 +42,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTarget {
                     param,
                     poll_for_feedback: self.poll_for_feedback,
                     retrigger: self.retrigger,
+                    real_time_even_if_not_rendering: self.real_time_even_if_not_rendering,
                 };
                 ReaperTarget::FxParameter(target)
             })
@@ -67,6 +69,7 @@ pub struct FxParameterTarget {
     pub param: FxParameter,
     pub poll_for_feedback: bool,
     pub retrigger: bool,
+    pub real_time_even_if_not_rendering: bool,
 }
 
 impl FxParameterTarget {
@@ -262,6 +265,7 @@ impl RealearnTarget for FxParameterTarget {
             fx_location: self.param.fx().query_index(),
             param_index: self.param.index(),
             retrigger: self.retrigger,
+            real_time_even_if_not_rendering: self.real_time_even_if_not_rendering,
         };
         Some(RealTimeReaperTarget::FxParameter(target))
     }
@@ -288,6 +292,7 @@ pub struct RealTimeFxParameterTarget {
     fx_location: TrackFxLocation,
     param_index: u32,
     retrigger: bool,
+    real_time_even_if_not_rendering: bool,
 }
 
 unsafe impl Send for RealTimeFxParameterTarget {}
@@ -304,11 +309,8 @@ impl RealTimeFxParameterTarget {
             // from the audio hook (control input = MIDI hardware device).
             return false;
         }
-        if !is_rendering {
-            // We want real-time control only during rendering. Because REAPER won't invoke the
-            // change notifications when called in real-time (ReaLearn and maybe also other
-            // control surface implementations relies on those during normal playing to make
-            // feedback work).
+        if !self.real_time_even_if_not_rendering && !is_rendering {
+            // By default, we want real-time control only during rendering.
             return false;
         }
         true

@@ -224,6 +224,8 @@ fn convert_real_target(
             ),
             retrigger: style
                 .required_value_with_default(data.retrigger, defaults::TARGET_RETRIGGER),
+            real_time: style
+                .required_value_with_default(data.real_time, defaults::TARGET_REAL_TIME),
             parameter: convert_fx_parameter_descriptor(data, style),
         }),
         CompartmentParameterValue => {
