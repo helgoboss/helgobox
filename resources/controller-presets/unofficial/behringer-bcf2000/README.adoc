@@ -1,3 +1,0 @@
-= Behringer BCF2000
-
-See https://github.com/helgoboss/helgobox/issues/375[#375]

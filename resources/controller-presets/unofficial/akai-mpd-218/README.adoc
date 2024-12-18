@@ -1,3 +1,0 @@
-= Akai MPD 218
-
-Thanks Tobias for the contribution!

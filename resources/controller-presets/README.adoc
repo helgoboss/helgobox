@@ -1,3 +1,0 @@
-= ReaLearn - Controller Presets
-
-You'll find information about ReaLearn's official controller presets in the https://github.com/helgoboss/helgobox/blob/master/doc/controllers.adoc[Controllers] document.
