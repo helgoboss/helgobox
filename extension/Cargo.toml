@@ -10,7 +10,6 @@ reaper-medium.workspace = true
 reaper-low.workspace = true
 reaper-macros.workspace = true
 anyhow.workspace = true
-base.workspace = true
 libloading.workspace = true
 
 [lib]

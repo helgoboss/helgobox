@@ -11,7 +11,6 @@ reaper-medium.workspace = true
 reaper-low.workspace = true
 reaper-common-types.workspace = true
 rxrust.workspace = true
-rx-util.workspace = true
 scopeguard.workspace = true
 raw-window-handle.workspace = true
 tracing.workspace = true
@@ -32,6 +31,3 @@ objc2.workspace = true
 # [target.'cfg(target_os = "linux")'.dependencies]
 # gdk-sys = "0.17.0"
 # gdkx11-sys = "0.17.0"
-
-[build-dependencies]
-bindgen.workspace = true

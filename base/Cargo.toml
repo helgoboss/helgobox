@@ -12,13 +12,11 @@ reaper-medium.workspace = true
 reaper-low.workspace = true
 reaper-rx.workspace = true
 helgobox-api.workspace = true
-helgobox-allocator.workspace = true
 
 # 3rd-party
 serde.workspace = true
 serde_json.workspace = true
 xxhash-rust.workspace = true
-walkdir.workspace = true
 crossbeam-channel.workspace = true
 futures-timer.workspace = true
 once_cell.workspace = true

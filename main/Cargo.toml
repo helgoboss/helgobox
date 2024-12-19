@@ -53,7 +53,6 @@ anyhow.workspace = true
 serde_with.workspace = true
 # For panicking when accessing something from the wrong thread
 fragile.workspace = true
-c_str_macro.workspace = true
 # For acting as DAW plug-in
 vst.workspace = true
 rxrust.workspace = true
@@ -61,7 +60,6 @@ serde.workspace = true
 serde_json.workspace = true
 serde_repr.workspace = true
 derive_more.workspace = true
-lazycell.workspace = true
 num_enum.workspace = true
 crossbeam-channel.workspace = true
 scopeguard.workspace = true
@@ -77,7 +75,6 @@ once_cell.workspace = true
 derivative.workspace = true
 chrono.workspace = true
 smallvec.workspace = true
-backtrace.workspace = true
 regex.workspace = true
 enum-map.workspace = true
 # For generating controller file names from controller names
@@ -123,8 +120,6 @@ itertools.workspace = true
 env_logger.workspace = true
 # To open user guide in local PDF app
 open.workspace = true
-# In projection server, we must be able to handle controller IDs with special characters
-percent-encoding = "2.1.0"
 # For comparing ReaLearn versions in order to determine if preset migration is necessary
 semver.workspace = true
 # Maybe better asynchronous channel than in futures or tokio (basically the async version of crossbeam)
@@ -159,8 +154,6 @@ indexmap = { workspace = true }
 approx.workspace = true
 # For the API (ReaLearn Script) and MIDI scripts
 mlua.workspace = true
-# For checking if an FX has loaded a specific chunk and duplicate detection of non-primitive feedback messages
-xxhash-rust.workspace = true
 # For convenient converting prop key to prop enum variant
 strum.workspace = true
 metrics.workspace = true
@@ -176,7 +169,6 @@ egui-baseview = { workspace = true, optional = true }
 baseview = { workspace = true, optional = true }
 egui = { workspace = true, optional = true }
 egui_extras = { workspace = true, optional = true }
-raw-window-handle.workspace = true
 # Pot Browser
 pot-browser = { workspace = true, optional = true }
 # For decompressing App
@@ -184,16 +176,12 @@ zstd = "0.13.0"
 tar = "0.4.40"
 # For loading App
 libloading.workspace = true
-# For saving controller role kinds
-enumset.workspace = true
 # For embedding factory presets into the binary
 include_dir.workspace = true
 # For prefixing preset IDs with the user name
 whoami.workspace = true
 # For passing MIDI device inquiry replies from audio thread to main thread
 tinyvec.workspace = true
-# For adding toolbar items by parsing/formatting INI (hopefully gets an API soon)
-rust-ini.workspace = true
 # For not having to deal with non-UTF8 paths if we are sure we don't have them
 camino.workspace = true
 # For not having to manually implement Lua module finder trait for smart pointers
