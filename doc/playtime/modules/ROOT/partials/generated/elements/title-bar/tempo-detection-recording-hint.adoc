@@ -4,11 +4,9 @@ ifndef::pdf-theme[[[title-bar-tempo-detection-recording-hint,Tempo detection rec
 
 image::playtime::generated/screenshots/elements/title-bar/tempo-detection-recording-hint.png[Tempo detection recording hint, role="related thumb right", float=right]
 
-Playtime is stopped and metronome is disabled.
+Playtime is stopped and the metronome is disabled. When you record a clip now, Playtime will initiate a link:https://docs.helgoboss.org/playtime/goto#feature-tempo-detection[tempo detection recording].
 
-When you record a clip now, the project tempo will be adjusted to match the length of the recorded clip. This is useful to get started without having to use a metronome.
+If you would like to do a count-in recording instead, enable the metronome.
 
-If you would like to record with count-in instead, enable the metronome.
-
-If you would like to record accompanied by other clips, start playback again before recording clips.
+You can link:https://docs.helgoboss.org/playtime/goto#inspector-matrix-recording-allow-tempo-detection-recording[disable this special behavior] in the matrix recording settings.
 
