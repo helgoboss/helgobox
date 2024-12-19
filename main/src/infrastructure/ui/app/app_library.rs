@@ -49,7 +49,6 @@ impl AppLibrary {
                     "url_launcher_windows_plugin.dll",
                     "window_manager_plugin.dll",
                     "pointer_lock_plugin.dll",
-                    "package_info_plus.dll",
                 ]
                 .as_slice(),
             )
@@ -70,7 +69,6 @@ impl AppLibrary {
                     "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
                     "Contents/Frameworks/window_manager.framework/window_manager",
                     "Contents/Frameworks/pointer_lock.framework/pointer_lock",
-                    "Contents/Frameworks/package_info_plus.framework/package_info_plus",
                 ].as_slice(),
             )
         } else if cfg!(target_os = "linux") {
