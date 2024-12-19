@@ -3026,7 +3026,6 @@ dependencies = [
  "helgoboss-license-api",
  "rand",
  "rmp-serde",
- "semver 1.0.17",
 ]
 
 [[package]]
@@ -5164,11 +5163,8 @@ dependencies = [
  "either",
  "enum-map",
  "enumset",
- "fallible-iterator",
  "futures",
- "helgobox-allocator",
  "helgobox-api",
- "indexmap 2.1.0",
  "itertools 0.12.0",
  "lexical-sort",
  "nanoid",

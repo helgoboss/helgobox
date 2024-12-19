@@ -23,7 +23,7 @@ winapi = { workspace = true, features = ["winuser", "uxtheme"] }
 libloading.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.3.0-beta.3"
+objc2.workspace = true
 
 
 # Disabled until we get egui to work nicely (search for "wonky"). It's also important to use cross v0.3.0 then

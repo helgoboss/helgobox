@@ -28,11 +28,11 @@ serde_with.workspace = true
 # For testing Lua compatibility
 mlua.workspace = true
 # For generating Luau type definitions from our Rust APIs
-syn = { version = "2.0.48", features = ["full", "extra-traits"] }
+syn = { workspace = true, features = ["full", "extra-traits"] }
 # For generating Luau type definitions from our Rust APIs
-darling = "0.20.3"
+darling.workspace = true
 # For generating Luau type definitions from our Rust APIs
-heck = "0.4.0"
+heck.workspace = true
 # For formatting generated Luau Type definitions
-stylua = { version = "0.19.1", features = ["luau"] }
+stylua = { workspace = true, features = ["luau"] }
 anyhow.workspace = true

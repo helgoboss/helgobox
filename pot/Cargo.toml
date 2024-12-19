@@ -15,7 +15,6 @@ rppxml-parser.workspace = true
 
 # 3rd-party
 enumset.workspace = true
-indexmap.workspace = true
 itertools.workspace = true
 wildmatch.workspace = true
 serde.workspace = true
@@ -23,25 +22,23 @@ derive_more.workspace = true
 tokio.workspace = true
 enum-map.workspace = true
 once_cell.workspace = true
-lexical-sort = "0.3.1"
+lexical-sort.workspace = true
 strum.workspace = true
-splitty = "1.0.1"
+splitty.workspace = true
 rust-ini.workspace = true
 walkdir.workspace = true
 either.workspace = true
-fallible-iterator = "0.3.0"
-riff-io = "0.1.2"
-rusqlite = { version = "0.30.0", features = ["bundled"] }
+riff-io.workspace = true
+rusqlite = { workspace = true, features = ["bundled"] }
 rmp-serde.workspace = true
 serde_json.workspace = true
 dirs.workspace = true
 futures.workspace = true
 derivative.workspace = true
 tempfile.workspace = true
-sanitize-filename = "0.5.0"
+sanitize-filename.workspace = true
 tracing.workspace = true
 regex.workspace = true
-helgobox-allocator.workspace = true
 nanoid.workspace = true
 chrono.workspace = true
 anyhow.workspace = true

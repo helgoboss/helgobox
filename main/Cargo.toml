@@ -37,6 +37,8 @@ swell-ui.workspace = true
 rx-util.workspace = true
 pot.workspace = true
 helgobox-api.workspace = true
+# For obtaining dialog constants from dialog crate
+helgobox-dialogs.workspace = true
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn.workspace = true
 helgoboss-midi.workspace = true
@@ -51,9 +53,9 @@ anyhow.workspace = true
 serde_with.workspace = true
 # For panicking when accessing something from the wrong thread
 fragile.workspace = true
-c_str_macro = "1.0.2"
+c_str_macro.workspace = true
 # For acting as DAW plug-in
-vst = "0.3.0"
+vst.workspace = true
 rxrust.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -63,19 +65,19 @@ lazycell.workspace = true
 num_enum.workspace = true
 crossbeam-channel.workspace = true
 scopeguard.workspace = true
-uuid = { version = "1.6.1", features = ["v4", "serde"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
 # New logging (for Playtime matrix)
 tracing.workspace = true
 tracing-core.workspace = true
-tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 # For interacting with the OS clipboard
-arboard = "3.3.0"
+arboard.workspace = true
 once_cell.workspace = true
 # For being able to exclude fields from the derived Debug implementation
 derivative.workspace = true
 chrono.workspace = true
-smallvec = "1.7.0"
-backtrace = "0.3.74"
+smallvec.workspace = true
+backtrace.workspace = true
 regex.workspace = true
 enum-map.workspace = true
 # For generating controller file names from controller names
@@ -86,42 +88,39 @@ nanoid.workspace = true
 futures.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
-tower = "0.4"
+tower.workspace = true
 # For ReaLearn's http server (used for projection)
-# We can't update to 0.7 because of tonic not yet using http 1 (https://github.com/hyperium/tonic/issues/1579)
-axum = { version = "0.6.18", features = ["ws"] }
-# We can't update to 0.6.0 as long as axum is still on 0.6
-axum-server = { version = "0.5.1", features = ["tls-rustls"] }
-# We can't update to 0.5.0 as long as axum is still on 0.6
-tower-http = { version = "0.4.2", features = ["cors"] }
+axum = { workspace = true, features = ["ws"] }
+axum-server = { workspace = true, features = ["tls-rustls"] }
+tower-http = { workspace = true, features = ["cors"] }
 # For ReaLearn's gRPC server
 tonic.workspace = true
 prost.workspace = true
 # For generating projection QR code
-qrcode = { version = "0.14.1" }
+qrcode.workspace = true
 # For rendering projection QR code to PNG
 image = { workspace = true, features = ["png"] }
 # For generating self-signed certificate for projection web server
-rcgen = "0.12.0"
+rcgen.workspace = true
 # For showing different ways of connecting to this computer (projection feature)
-dns-lookup = "2.0.4"
-hostname = "^0.3"
+dns-lookup.workspace = true
+hostname.workspace = true
 # For rendering projection setup HTML page template
-askama = "0.12.1"
+askama.workspace = true
 # For persisting app configuration
-serde_ini = "0.2.0"
+serde_ini.workspace = true
 # For opening projection setup page and companion app in local browser
-webbrowser = "0.8.12"
+webbrowser.workspace = true
 # For writing generated projection setup page to disk
 tempfile.workspace = true
 # For adding firewall rules
-runas = "1.1.0"
+runas.workspace = true
 # For building URls, e.g. companion web app URL
 url.workspace = true
 # For grouping mappings by virtual control elements and grouping outgoing OSC messages by device
 itertools.workspace = true
 # For being able to configure logging via environment variable RUST_LOG
-env_logger = "0.10.1"
+env_logger.workspace = true
 # To open user guide in local PDF app
 open.workspace = true
 # In projection server, we must be able to handle controller IDs with special characters
@@ -129,23 +128,23 @@ percent-encoding = "2.1.0"
 # For comparing ReaLearn versions in order to determine if preset migration is necessary
 semver.workspace = true
 # Maybe better asynchronous channel than in futures or tokio (basically the async version of crossbeam)
-async-channel = "2.1.1"
+async-channel.workspace = true
 # For displaying snapshot sizes
 bytesize.workspace = true
 # For OSC
 rosc.workspace = true
 # For letting the user edit advanced mapping settings
-edit = { git = "https://github.com/helgoboss/edit", branch = "realearn" }
+edit.workspace = true
 # For parsing/formatting advanced mapping settings
-serde_yaml = "0.8.17"
+serde_yaml.workspace = true
 # For parsing hexadecimal data notation to byte vector (for system-exclusive lifecycle MIDI messages)
 hex.workspace = true
 # For evaluation of <Dynamic> formulas
-fasteval = { version = "0.2.4", default-features = false }
+fasteval = { workspace = true, default-features = false }
 # For wildcard support when using "By name" selector
 wildmatch.workspace = true
 # For creating HashSet literals for projection feedback and in unit tests
-maplit = "1.0.2"
+maplit.workspace = true
 # For easier support of named virtual control elements
 ascii.workspace = true
 # For using bit flags in the reaper-rs API.
@@ -165,18 +164,16 @@ xxhash-rust.workspace = true
 # For convenient converting prop key to prop enum variant
 strum.workspace = true
 metrics.workspace = true
-metrics-exporter-prometheus = { version = "0.13.0", default-features = false }
+metrics-exporter-prometheus = { workspace = true, default-features = false }
 # For parsing OSC argument value ranges
 nom.workspace = true
-# For obtaining dialog constants from dialog crate
-helgobox-dialogs = { path = "../dialogs" }
 # For being able to return iterators of different types
 either.workspace = true
 # For reading preset directories recursively
 walkdir.workspace = true
 # For egui graphics
-egui-baseview = { git = "https://github.com/helgoboss/egui-baseview.git", branch = "realearn", optional = true }
-baseview = { git = "https://github.com/helgoboss/baseview.git", branch = "realearn", optional = true }
+egui-baseview = { workspace = true, optional = true }
+baseview = { workspace = true, optional = true }
 egui = { workspace = true, optional = true }
 egui_extras = { workspace = true, optional = true }
 raw-window-handle.workspace = true
@@ -190,9 +187,9 @@ libloading.workspace = true
 # For saving controller role kinds
 enumset.workspace = true
 # For embedding factory presets into the binary
-include_dir = "0.7.3"
+include_dir.workspace = true
 # For prefixing preset IDs with the user name
-whoami = "1.4.1"
+whoami.workspace = true
 # For passing MIDI device inquiry replies from audio thread to main thread
 tinyvec.workspace = true
 # For adding toolbar items by parsing/formatting INI (hopefully gets an API soon)
@@ -210,11 +207,11 @@ atomic.workspace = true
 # For making sure that sharing global audio state uses atomics
 static_assertions.workspace = true
 # For Stream Deck support
-streamdeck = "0.9.0"
+streamdeck.workspace = true
 # For Stream Deck support
-ab_glyph = "0.2.29"
+ab_glyph.workspace = true
 # For Stream Deck support
-hidapi = "2.4"
+hidapi.workspace = true
 # For caching button images for Stream Deck
 cached.workspace = true
 # For drawing knobs for Stream Deck button
@@ -224,38 +221,36 @@ pathdiff.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source
-tts = { git = "https://github.com/helgoboss/tts-rs", branch = "helgoboss-fixes" }
+tts.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special characters can be displayed)
-sys-info = "0.9.1"
+sys-info.workspace = true
 # For converting virtual umlaut/special keys into character codes (keyboard source)
 winapi = { workspace = true, features = ["winuser"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # For taking screenshots for docs
-xcap = "0.0.13"
+xcap.workspace = true
 # For taking screenshots for docs
 dirs.workspace = true
 
 
 [build-dependencies]
 # For making Git commit hash available to code
-built = { version = "0.7.1", features = ["git2", "chrono"] }
+built = { workspace = true, features = ["git2", "chrono"] }
 # For generating bindings (for dialog resource IDs and EEL functions)
 bindgen.workspace = true
 # For compiling EEL and SWELL dialog resources
-# We use a special version because of "link_lib_modifiers", which allows us to add "+whole-archive"
-# in a convenient way. TODO-low-wait https://github.com/rust-lang/cc-rs/pull/671
-cc = { git = "https://github.com/petrochenkov/cc-rs.git", rev = "4d52bd211aeb2b4ddccd1b9c0a0841e03aaaef7c" }
+cc.workspace = true
 # For embedding dialog resource files on Windows
-embed-resource = "2.4.1"
+embed-resource.workspace = true
 # For RC dialog file generation
-helgobox-dialogs = { path = "../dialogs" }
+helgobox-dialogs.workspace = true
 
 [dev-dependencies]
 # For the EEL memory consumption test
-sysinfo = "0.30.5"
+sysinfo.workspace = true
 
 [lib]
 name = "helgobox"

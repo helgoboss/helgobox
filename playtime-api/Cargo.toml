@@ -20,7 +20,7 @@ derive_more.workspace = true
 # For encoding/decoding a signed matrix value
 rmp-serde.workspace = true
 # For encoding/decoding a signed matrix value
-base64 = "0.21.2"
+base64.workspace = true
 # For proper error types
 thiserror.workspace = true
 # For date/time persistence

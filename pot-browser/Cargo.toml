@@ -18,9 +18,9 @@ egui.workspace = true
 egui_extras.workspace = true
 egui-toast.workspace = true
 chrono.workspace = true
-lru = "0.12.1"
-pulldown-cmark = "0.9.2"
-dirs = "5.0.1"
+lru.workspace = true
+pulldown-cmark.workspace = true
+dirs.workspace = true
 crossbeam-channel.workspace = true
 strum.workspace = true
 swell-ui.workspace = true
@@ -30,8 +30,8 @@ anyhow.workspace = true
 url.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
-rfd = "0.12.1"
+rfd.workspace = true
 
 [target.'cfg(not(all(target_os = "windows", target_arch = "x86")))'.dependencies]
 # This doesn't work on win32
-opener = { version = "0.7.1", features = ["reveal"] }
+opener = { workspace = true, features = ["reveal"] }
