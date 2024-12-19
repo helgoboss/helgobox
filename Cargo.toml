@@ -80,8 +80,6 @@ enumflags2 = "0.7.4"
 nanoid = "0.4.0"
 slug = "0.1.4"
 num_enum = "0.7.2"
-tonic = "0.10.2"
-prost = "0.12.3"
 nom = "7.0.0"
 semver = { version = "1.0.17", features = ["serde"] }
 enumset = "1.0.12"
@@ -126,13 +124,15 @@ static_assertions = "1.1.0"
 image = { version = "0.25.2", default-features = false }
 cached = "0.53.1"
 imageproc = "0.25.0"
-tower = "0.4"
+tower = "0.5.2"
 # We can't update to 0.7 because of tonic not yet using http 1 (https://github.com/hyperium/tonic/issues/1579)
-axum = "0.6.18"
+axum = "0.7.9"
 # We can't update to 0.6.0 as long as axum is still on 0.6
-axum-server = "0.5.1"
+axum-server = "0.7.1"
 # We can't update to 0.5.0 as long as axum is still on 0.6
-tower-http = "0.4.2"
+tower-http = "0.6.2"
+tonic = "0.12.3"
+prost = "0.13.4"
 rcgen = "0.12.0"
 dns-lookup = "2.0.4"
 hostname = "^0.3"
