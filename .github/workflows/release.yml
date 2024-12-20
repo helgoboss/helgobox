@@ -132,6 +132,7 @@ jobs:
           PLAYTIME_AUTHENTICITY_SIGNING_KEY: "${{ secrets.PLAYTIME_AUTHENTICITY_SIGNING_KEY }}"
           PLAYTIME_LICENSE_VERIFYING_KEY: "${{ secrets.PLAYTIME_LICENSE_VERIFYING_KEY }}"
           PLAYTIME_PRESET_VERIFYING_KEY: "${{ secrets.PLAYTIME_PRESET_VERIFYING_KEY }}"
+          AWS_LC_SYS_CMAKE_BUILDER: "1"
         with:
           command: build
           args: --features "${{ matrix.features }}" --profile ${{ matrix.profile }} --target ${{ matrix.target }}

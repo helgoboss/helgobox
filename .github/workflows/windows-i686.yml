@@ -36,6 +36,8 @@ jobs:
           override: true
       - name: cargo build
         uses: actions-rs/cargo@v1
+        env:
+          AWS_LC_SYS_CMAKE_BUILDER: "1"
         with:
           command: build
           # Prevent "LLVM ERROR: out of memory"
