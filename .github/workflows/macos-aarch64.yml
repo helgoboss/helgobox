@@ -16,6 +16,9 @@ jobs:
   build:
     name: Build
     runs-on: macos-latest
+    env:
+      # The first aarch64 target
+      MACOSX_DEPLOYMENT_TARGET: 11.0
     steps:
       # Checkout with Playtime Clip Engine
       - uses: actions/checkout@v2
@@ -35,12 +38,6 @@ jobs:
           toolchain: 1.81.0
           target: aarch64-apple-darwin
           override: true
-      - name: Set SDKROOT
-        run: echo "SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path)" >> $GITHUB_ENV
-      - name: Set MACOSX_DEPLOYMENT_TARGET
-        run: echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version)" >> $GITHUB_ENV
-      #      - name: Setup tmate session
-      #        uses: mxschmitt/action-tmate@v2
       - name: cargo build
         uses: actions-rs/cargo@v1
         with:
