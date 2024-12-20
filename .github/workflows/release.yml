@@ -22,6 +22,7 @@ jobs:
             use-cross: false
             profile: release
             features: "playtime,egui,licensing"
+            macosx_deployment_target: ""
           - artifact: windows-i686
             os: windows-latest
             toolchain: 1.81.0-i686-pc-windows-msvc
@@ -31,6 +32,7 @@ jobs:
             use-cross: false
             profile: release-llvm-out-of-memory-fix
             features: "egui"
+            macosx_deployment_target: ""
           - artifact: macos-x86_64
             os: macos-latest
             toolchain: 1.81.0-x86_64-apple-darwin
@@ -40,6 +42,8 @@ jobs:
             use-cross: false
             profile: release-strip
             features: "playtime,egui,licensing"
+            # The minimum version that I tested with is 10.13.
+            macosx_deployment_target: "10.7"
           - artifact: macos-aarch64
             os: macos-latest
             toolchain: 1.81.0-x86_64-apple-darwin
@@ -49,6 +53,8 @@ jobs:
             use-cross: false
             profile: release-strip
             features: "playtime,egui,licensing"
+            # First aarch64 macOS version
+            macosx_deployment_target: "11.0"
           - artifact: linux-x86_64
             os: ubuntu-20.04
             toolchain: 1.81.0-x86_64-unknown-linux-gnu
@@ -58,6 +64,7 @@ jobs:
             use-cross: false
             profile: release-strip
             features: ""
+            macosx_deployment_target: ""
     #          - artifact: linux-aarch64
     #            os: ubuntu-22.04
     #            toolchain: 1.81.0-x86_64-unknown-linux-gnu
@@ -67,6 +74,7 @@ jobs:
     #            use-cross: true
     #            profile: release-strip
     #            features: ""
+    #            macosx_deployment_target: ""
     #          - artifact: linux-armv7
     #            os: ubuntu-22.04
     #            toolchain: 1.81.0-x86_64-unknown-linux-gnu
@@ -76,10 +84,9 @@ jobs:
     #            use-cross: true
     #            profile: release-strip
     #            features: ""
+    #            macosx_deployment_target: ""
     env:
-      # This is relevant for macOS builds only (and only if not overridden).
-      # TODO-high This is temporarily 10.9 (should be 10.7) until  https://github.com/rust-lang/cc-rs/issues/902 is fixed
-      MACOSX_DEPLOYMENT_TARGET: 10.9
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
     steps:
       # Prepare (all)
       - name: Checkout
@@ -107,13 +114,6 @@ jobs:
           sudo apt-get install nasm php binutils-arm-linux-gnueabihf binutils-aarch64-linux-gnu libudev-dev libxdo-dev libx11-dev  libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev libspeechd-dev libgtk-3-dev
       - run: brew install php
         if: matrix.os == 'macos-latest'
-      # Override SDK root and deployment target (macOS aarch64 only)
-      - name: Set SDKROOT
-        if: matrix.target == 'aarch64-apple-darwin'
-        run: echo "SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path)" >> $GITHUB_ENV
-      - name: Set MACOSX_DEPLOYMENT_TARGET
-        if: matrix.target == 'aarch64-apple-darwin'
-        run: echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version)" >> $GITHUB_ENV
       # Generate dialogs outside of Docker containers in cross builds because PHP is not available in container.
       # TODO-high-performance Update: Actually, now it is ... I added it to Cross.toml. So I guess we can remove this.
       - name: cargo test (for generating dialogs with php)
