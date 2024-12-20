@@ -1780,7 +1780,7 @@ impl MappingPanel {
         };
         self.write(|panel| match &menu_action {
             MenuAction::SetTarget(t) => {
-                panel.set_mapping_target(&t);
+                panel.set_mapping_target(t);
             }
             MenuAction::GoToTarget => {
                 panel.go_to_target();

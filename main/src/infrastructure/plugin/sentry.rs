@@ -23,7 +23,7 @@ async fn init_sentry_internal(plugin_info: &PluginInfo) -> anyhow::Result<()> {
     let yaml = response.text().await?;
     let remote_config: HelgoboxRemoteConfig = serde_yaml::from_str(&yaml)?;
     let sentry_config = SentryConfig {
-        plugin_info: &plugin_info,
+        plugin_info,
         dsn: remote_config.sentry.dsn.parse()?,
         in_app_include: vec!["helgobox"],
     };
