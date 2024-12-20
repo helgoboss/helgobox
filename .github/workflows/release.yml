@@ -23,16 +23,17 @@ jobs:
             profile: release
             features: "playtime,egui,licensing"
             macosx_deployment_target: ""
-          - artifact: windows-i686
-            os: windows-latest
-            toolchain: 1.81.0-i686-pc-windows-msvc
-            lib-file-name: helgobox.dll
-            extension-file-name: reaper_helgobox.dll
-            target: i686-pc-windows-msvc
-            use-cross: false
-            profile: release-llvm-out-of-memory-fix
-            features: "egui"
-            macosx_deployment_target: ""
+          # Windows 32-bit build disabled as long as aws-lc-sys doesn't build
+          #          - artifact: windows-i686
+          #            os: windows-latest
+          #            toolchain: 1.81.0-i686-pc-windows-msvc
+          #            lib-file-name: helgobox.dll
+          #            extension-file-name: reaper_helgobox.dll
+          #            target: i686-pc-windows-msvc
+          #            use-cross: false
+          #            profile: release-llvm-out-of-memory-fix
+          #            features: "egui"
+          #            macosx_deployment_target: ""
           - artifact: macos-x86_64
             os: macos-latest
             toolchain: 1.81.0-x86_64-apple-darwin
@@ -187,24 +188,24 @@ jobs:
           asset_name: reaper_helgobox-windows-x86_64.dll
           asset_content_type: application/octet-stream
       # Upload Windows i686 artifacts
-      - name: Upload windows-i686 release artifact 1
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./windows-i686/helgobox.dll
-          asset_name: helgobox-windows-i686.dll
-          asset_content_type: application/octet-stream
-      - name: Upload windows-i686 release artifact 2
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./windows-i686/reaper_helgobox.dll
-          asset_name: reaper_helgobox-windows-i686.dll
-          asset_content_type: application/octet-stream
+      #      - name: Upload windows-i686 release artifact 1
+      #        uses: actions/upload-release-asset@v1
+      #        env:
+      #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #        with:
+      #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #          asset_path: ./windows-i686/helgobox.dll
+      #          asset_name: helgobox-windows-i686.dll
+      #          asset_content_type: application/octet-stream
+      #      - name: Upload windows-i686 release artifact 2
+      #        uses: actions/upload-release-asset@v1
+      #        env:
+      #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #        with:
+      #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #          asset_path: ./windows-i686/reaper_helgobox.dll
+      #          asset_name: reaper_helgobox-windows-i686.dll
+      #          asset_content_type: application/octet-stream
       # Upload macOS x86_64 artifacts
       - name: Upload macos-x86_64 release artifact 1
         uses: actions/upload-release-asset@v1
