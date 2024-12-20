@@ -88,7 +88,10 @@ tokio-stream.workspace = true
 tower.workspace = true
 # For ReaLearn's http server (used for projection)
 axum = { workspace = true, features = ["ws"] }
-axum-server = { workspace = true, features = ["tls-rustls"] }
+# Use "tls-rustls-no-provider" instead of "tls-rustls" because we want to use "ring" for
+# cryptography instead of "aws-lc-rs" (because the latter causes build issues on Windows)
+axum-server = { workspace = true, features = ["tls-rustls-no-provider"] }
+rustls = { workspace = true, features = ["ring"] }
 tower-http = { workspace = true, features = ["cors"] }
 # For ReaLearn's gRPC server
 tonic.workspace = true

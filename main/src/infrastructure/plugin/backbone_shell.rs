@@ -287,6 +287,8 @@ impl BackboneShell {
             .worker_threads(1)
             .build()
             .expect("couldn't start Helgobox async runtime");
+        // Use "ring" as crypto provider (instead of "aws-lc-rs", because this is harder to build)
+        let _ = rustls::crypto::ring::default_provider().install_default();
         // We need Swell already without VST plug-in instance to populate the extension menu. As soon as an instance
         // exists, we also need it for all the native GUI stuff.
         Swell::make_available_globally(Swell::load(context));

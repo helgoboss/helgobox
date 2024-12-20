@@ -192,6 +192,7 @@ rfd = "0.12.1"
 opener = "0.7.1"
 objc2 = "0.3.0-beta.3"
 reqwest = "0.12.9"
+rustls = { version = "0.23.20", default-features = false }
 
 [profile.release]
 debug = 2
