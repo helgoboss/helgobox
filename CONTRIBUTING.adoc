@@ -512,7 +512,7 @@ Installation:
 
 [source]
 ----
-cargo install --locked cargo-deny
+cargo install --locked cargo-about
 ----
 
 Generate the report:
