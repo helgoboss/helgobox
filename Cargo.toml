@@ -191,7 +191,7 @@ pulldown-cmark = "0.9.2"
 rfd = "0.12.1"
 opener = "0.7.1"
 objc2 = "0.3.0-beta.3"
-reqwest = "0.12.9"
+reqwest = { version = "0.12.9", default-features = false }
 rustls = { version = "0.23.20", default-features = false }
 
 [profile.release]

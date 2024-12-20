@@ -209,8 +209,9 @@ cached.workspace = true
 imageproc.workspace = true
 # For relativizing paths for Stream Deck button images
 pathdiff.workspace = true
-# For fetching Helgobox remote config
-reqwest.workspace = true
+# For fetching Helgobox remote config.
+# Important to not use default features because we want to avoid the libssl dependency on Linux.
+reqwest = { workspace = true, default-features = false, features = ["rustls-tls-no-provider"] }
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source
