@@ -50,7 +50,7 @@ use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_A
 use crate::infrastructure::plugin::hidden_helper_panel::HiddenHelperPanel;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::plugin::{
-    ini_util, update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
+    built_info, ini_util, sentry, update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
 };
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -71,7 +71,7 @@ use helgobox_api::runtime::{AutoAddedControllerEvent, GlobalInfoEvent};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use reaper_high::{
-    ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
+    ChangeEvent, Fx, Guid, MiddlewareControlSurface, PluginInfo, Project, Reaper, Track,
 };
 use reaper_low::{raw, PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
@@ -163,6 +163,11 @@ type _App = BackboneShell;
 
 #[derive(Debug)]
 pub struct BackboneShell {
+    /// This should always be set except in the destructor.
+    ///
+    /// The only reason why this is optinaal is, because we need to take ownership of the runtime when the shell is
+    /// dropped.
+    async_runtime: Option<Runtime>,
     /// RAII
     _tracing_hook: Option<TracingHook>,
     /// RAII
@@ -260,7 +265,6 @@ struct AwakeState {
     audio_hook_handle: RegistrationHandle<RealearnAudioHook>,
     accelerator_handle: RegistrationHandle<RealearnSessionAccelerator>,
     async_deallocation_thread: JoinHandle<AsyncDeallocatorCommandReceiver>,
-    async_runtime: Runtime,
 }
 
 impl BackboneShell {
@@ -272,21 +276,24 @@ impl BackboneShell {
     ///
     /// The opposite function is [Self::dispose].
     pub fn init(context: PluginContext) -> Self {
+        // Start async runtime
+        // The main reason why we start it already here (and not wait until wake_up) is the async Sentry error reporting
+        // initialization. However, more things might be added in the future. Plus, this runtime runs in its own thread,
+        // so it doesn't clutter REAPER's main thread. It's fine if it runs in the background with nothing to do most
+        // of the time.
+        let async_runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .thread_name("Helgobox async runtime")
+            .worker_threads(1)
+            .build()
+            .expect("couldn't start Helgobox async runtime");
         // We need Swell already without VST plug-in instance to populate the extension menu. As soon as an instance
         // exists, we also need it for all the native GUI stuff.
         Swell::make_available_globally(Swell::load(context));
         // We need access to REAPER as soon as possible, of course
         // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
         //  so not a big deal. Still, maybe could be improved?
-        Reaper::setup_with_defaults(
-            context,
-            CrashInfo {
-                plugin_name: "Helgobox".to_string(),
-                plugin_version: BackboneShell::detailed_version_label().to_string(),
-                support_email_address: "info@helgoboss.org".to_string(),
-                update_url: "https://www.helgoboss.org/projects/helgobox".to_string(),
-            },
-        );
+        Reaper::setup_with_defaults(context, create_plugin_info());
         // The API contains functions that must be around without any VST plug-in instance being active
         register_api().expect("couldn't register API");
         // Senders and receivers are initialized here but used only when awake. Yes, they already consume memory
@@ -296,6 +303,10 @@ impl BackboneShell {
             debug!("{}", e);
             Default::default()
         });
+        // Init error reporting
+        set_send_errors_to_dev_internal(config.send_errors_to_dev(), &async_runtime);
+        set_show_errors_in_console_internal(config.show_errors_in_console());
+        // Create channels
         let (control_surface_main_task_sender, control_surface_main_task_receiver) =
             SenderToNormalThread::new_unbounded_channel("control surface main tasks");
         let control_surface_main_task_sender =
@@ -469,6 +480,7 @@ impl BackboneShell {
         let shutdown_detection_panel = SharedView::new(HiddenHelperPanel::new());
         shutdown_detection_panel.clone().open(reaper_main_window());
         BackboneShell {
+            async_runtime: Some(async_runtime),
             _tracing_hook: tracing_hook,
             _metrics_hook: metrics_hook,
             state: RefCell::new(AppState::Sleeping(sleeping_state)),
@@ -503,6 +515,12 @@ impl BackboneShell {
     }
 
     pub fn dispose(&mut self) {
+        // Shutdown async runtime
+        tracing::info!("Shutting down async runtime...");
+        if let Some(async_runtime) = self.async_runtime.take() {
+            async_runtime.shutdown_timeout(Duration::from_secs(1));
+        }
+        tracing::info!("Async runtime shut down successfully");
         // This is ugly but we need it on Windows where getting the current thread can lead to
         // "use of std::thread::current() is not possible after the thread's local data has been destroyed"
         // when exiting REAPER. The following code essentially ignores this.
@@ -652,6 +670,12 @@ impl BackboneShell {
         }
     }
 
+    fn async_runtime(&self) -> &Runtime {
+        self.async_runtime
+            .as_ref()
+            .expect("async runtime dropped already")
+    }
+
     /// Executed whenever the first Helgobox instance is loaded.
     ///
     /// This should fire up stuff that only needs to be around while awake (= as long as at least one Helgobox VST
@@ -694,18 +718,11 @@ impl BackboneShell {
             RealearnDeallocator::with_metrics("helgobox.allocator.async_deallocation"),
             sleeping_state.async_deallocation_receiver,
         );
-        // Start async runtime
-        let async_runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .thread_name("Helgobox async runtime")
-            .worker_threads(1)
-            .build()
-            .expect("couldn't start ReaLearn async runtime");
         // Activate server
         if self.config.borrow().server_is_enabled() {
             self.server()
                 .borrow_mut()
-                .start(&async_runtime, self.create_services())
+                .start(self.async_runtime(), self.create_services())
                 .unwrap_or_else(warn_about_failed_server_start);
         }
         let mut session = Reaper::get().medium_session();
@@ -756,7 +773,6 @@ impl BackboneShell {
             audio_hook_handle,
             accelerator_handle,
             async_deallocation_thread,
-            async_runtime,
         };
         self.state.replace(AppState::Awake(awake_state));
         Ok(())
@@ -797,12 +813,6 @@ impl BackboneShell {
         session.plugin_register_remove_hook_post_command::<ActionRxHookPostCommand<Global>>();
         // Server
         self.server().borrow_mut().stop();
-        // Shutdown async runtime
-        tracing::info!("Shutting down async runtime...");
-        awake_state
-            .async_runtime
-            .shutdown_timeout(Duration::from_secs(1));
-        tracing::info!("Async runtime shut down successfully");
         // Stop async deallocation thread
         GLOBAL_ALLOCATOR.stop_async_deallocation();
         let async_deallocation_receiver = awake_state
@@ -961,7 +971,6 @@ impl BackboneShell {
                     audio_hook_handle: s.audio_hook_handle,
                     accelerator_handle: s.accelerator_handle,
                     async_deallocation_thread: s.async_deallocation_thread,
-                    async_runtime: s.async_runtime,
                 };
                 AppState::Awake(awake_state)
             }
@@ -970,7 +979,7 @@ impl BackboneShell {
         self.state.replace(next_state);
     }
 
-    /// Spawns the given future on the ReaLearn async runtime.
+    /// Spawns the given future on the Helgobox async runtime.
     ///
     /// # Panics
     ///
@@ -983,16 +992,7 @@ impl BackboneShell {
     where
         R: Send + 'static,
     {
-        self.with_async_runtime(|runtime| runtime.spawn(f))
-            .expect("couldn't use runtime")
-    }
-
-    fn with_async_runtime<R>(&self, f: impl FnOnce(&Runtime) -> R) -> anyhow::Result<R> {
-        let state = self.state.borrow();
-        let AppState::Awake(state) = &*state else {
-            bail!("attempt to access async runtime while ReaLearn in wrong state: {state:?}");
-        };
-        Ok(f(&state.async_runtime))
+        self.async_runtime().spawn(f)
     }
 
     pub fn license_manager(&self) -> &SharedLicenseManager {
@@ -1058,12 +1058,9 @@ impl BackboneShell {
 
     pub fn start_server_persistently(&self) -> Result<(), String> {
         let start_result = self
-            .with_async_runtime(|runtime| {
-                self.server
-                    .borrow_mut()
-                    .start(runtime, self.create_services())
-            })
-            .map_err(|e| e.to_string())?;
+            .server
+            .borrow_mut()
+            .start(self.async_runtime(), self.create_services());
         self.change_config(BackboneConfig::enable_server);
         start_result
     }
@@ -1071,6 +1068,20 @@ impl BackboneShell {
     pub fn stop_server_persistently(&self) {
         self.change_config(BackboneConfig::disable_server);
         self.server.borrow_mut().stop();
+    }
+
+    pub fn set_send_errors_to_dev_persistently(&self, value: bool) {
+        // Persistence
+        self.change_config(|c| c.set_send_errors_to_dev(value));
+        // Actual behavior
+        set_send_errors_to_dev_internal(value, self.async_runtime());
+    }
+
+    pub fn set_show_errors_in_console_persistently(&self, value: bool) {
+        // Persistence
+        self.change_config(|c| c.set_show_errors_in_console(value));
+        // Actual behavior
+        set_show_errors_in_console_internal(value);
     }
 
     pub fn toggle_background_colors(&self) {
@@ -2207,6 +2218,22 @@ impl BackboneConfig {
         Ok(())
     }
 
+    pub fn send_errors_to_dev(&self) -> bool {
+        self.main.send_errors_to_dev > 0
+    }
+
+    pub fn set_send_errors_to_dev(&mut self, value: bool) {
+        self.main.send_errors_to_dev = value.into();
+    }
+
+    pub fn show_errors_in_console(&self) -> bool {
+        self.main.show_errors_in_console > 0
+    }
+
+    pub fn set_show_errors_in_console(&mut self, value: bool) {
+        self.main.show_errors_in_console = value.into();
+    }
+
     pub fn enable_server(&mut self) {
         self.main.server_enabled = 1;
     }
@@ -2274,12 +2301,25 @@ struct MainConfig {
         skip_serializing_if = "is_default_background_colors_enabled"
     )]
     background_colors_enabled: u8,
+    #[serde(
+        default = "default_send_errors_to_dev",
+        skip_serializing_if = "is_default_send_errors_to_dev"
+    )]
+    send_errors_to_dev: u8,
+    #[serde(
+        default = "default_show_errors_in_console",
+        skip_serializing_if = "is_default_show_errors_in_console"
+    )]
+    show_errors_in_console: u8,
 }
 
 const DEFAULT_SERVER_HTTP_PORT: u16 = 39080;
 const DEFAULT_SERVER_HTTPS_PORT: u16 = 39443;
 const DEFAULT_SERVER_GRPC_PORT: u16 = 39051;
 const DEFAULT_BACKGROUND_COLORS_ENABLED: u8 = 1;
+const DEFAULT_SHOW_ERRORS_IN_CONSOLE: u8 = 1;
+/// For existing installations, we don't enable this (would change behavior).
+const DEFAULT_SEND_ERRORS_TO_DEV: u8 = 0;
 
 fn default_background_colors_enabled() -> u8 {
     DEFAULT_BACKGROUND_COLORS_ENABLED
@@ -2287,6 +2327,22 @@ fn default_background_colors_enabled() -> u8 {
 
 fn is_default_background_colors_enabled(v: &u8) -> bool {
     *v == DEFAULT_BACKGROUND_COLORS_ENABLED
+}
+
+fn default_show_errors_in_console() -> u8 {
+    DEFAULT_SHOW_ERRORS_IN_CONSOLE
+}
+
+fn is_default_show_errors_in_console(v: &u8) -> bool {
+    *v == DEFAULT_SHOW_ERRORS_IN_CONSOLE
+}
+
+fn default_send_errors_to_dev() -> u8 {
+    DEFAULT_SEND_ERRORS_TO_DEV
+}
+
+fn is_default_send_errors_to_dev(v: &u8) -> bool {
+    *v == DEFAULT_SEND_ERRORS_TO_DEV
 }
 
 fn default_server_http_port() -> u16 {
@@ -2323,6 +2379,7 @@ fn is_default_companion_web_app_url(v: &str) -> bool {
 
 impl Default for MainConfig {
     fn default() -> Self {
+        // This default implementation is used when Helgobox hasn't been used before. It's the initial config.
         MainConfig {
             server_enabled: 0,
             server_http_port: default_server_http_port(),
@@ -2331,6 +2388,9 @@ impl Default for MainConfig {
             companion_web_app_url: default_companion_web_app_url(),
             showed_welcome_screen: 0,
             background_colors_enabled: default_background_colors_enabled(),
+            show_errors_in_console: 1,
+            // For new installations, this is an opt-out. The welcome screen will be shown for sure, so that's okay.
+            send_errors_to_dev: 1,
         }
     }
 }
@@ -3297,4 +3357,26 @@ struct MatchingSourceOutcome {
     unit_model: SharedUnitModel,
     mapping: SharedMapping,
     source_is_learnable: bool,
+}
+
+fn create_plugin_info() -> PluginInfo {
+    PluginInfo {
+        plugin_name: "Helgobox".to_string(),
+        plugin_version: built_info::PKG_VERSION.to_string(),
+        plugin_version_long: BackboneShell::detailed_version_label().to_string(),
+        support_email_address: "info@helgoboss.org".to_string(),
+        update_url: "https://www.helgoboss.org/projects/helgobox".to_string(),
+    }
+}
+
+fn set_send_errors_to_dev_internal(value: bool, async_runtime: &Runtime) {
+    Reaper::get().set_report_crashes_to_sentry(value);
+    // Activate sentry if necessary
+    if value {
+        async_runtime.spawn(sentry::init_sentry(create_plugin_info()));
+    }
+}
+
+fn set_show_errors_in_console_internal(value: bool) {
+    Reaper::get().set_log_crashes_to_console(value);
 }

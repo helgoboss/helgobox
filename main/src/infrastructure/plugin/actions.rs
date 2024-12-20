@@ -128,6 +128,7 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         requires_instance: true,
         ..DEFAULT_DEF
     },
+    #[cfg(debug_assertions)]
     ActionDef {
         section: ActionSection::General,
         command_name: "HB_PANIC",

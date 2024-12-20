@@ -28,7 +28,7 @@ generate = []
 # Own
 base.workspace = true
 reaper-rx.workspace = true
-reaper-high.workspace = true
+reaper-high = { workspace = true, features = ["sentry"] }
 reaper-medium.workspace = true
 reaper-common-types = { workspace = true, features = ["color-macros", "palette"] }
 reaper-low.workspace = true
@@ -206,6 +206,8 @@ cached.workspace = true
 imageproc.workspace = true
 # For relativizing paths for Stream Deck button images
 pathdiff.workspace = true
+# For fetching Helgobox remote config
+reqwest.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

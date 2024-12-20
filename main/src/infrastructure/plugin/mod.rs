@@ -14,6 +14,7 @@ pub use auto_units::*;
 mod actions;
 mod ini_util;
 pub use actions::*;
+mod sentry;
 
 pub mod dynamic_toolbar;
 mod hidden_helper_panel;

@@ -1,12 +1,11 @@
-use reaper_low::raw;
-use std::fmt::Debug;
-
 use crate::infrastructure::plugin::dynamic_toolbar::custom_toolbar_api_is_available;
 use crate::infrastructure::plugin::{
     BackboneShell, ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME, ACTION_SHOW_WELCOME_SCREEN_LABEL,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{fonts, symbols};
+use reaper_low::raw;
+use std::fmt::Debug;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -31,6 +30,64 @@ impl WelcomePanel {
         BackboneShell::get().toggle_toolbar_button_dynamically(command_name)?;
         self.invalidate_controls();
         Ok(())
+    }
+
+    fn toggle_send_errors_to_dev(&self) {
+        let shell = BackboneShell::get();
+        let value = shell.config().send_errors_to_dev();
+        shell.set_send_errors_to_dev_persistently(!value);
+        self.invalidate_controls();
+    }
+
+    fn toggle_show_errors_in_console(&self) {
+        let shell = BackboneShell::get();
+        let value = shell.config().show_errors_in_console();
+        shell.set_show_errors_in_console_persistently(!value);
+        self.invalidate_controls();
+    }
+
+    fn invalidate_controls(&self) {
+        if custom_toolbar_api_is_available() {
+            self.invalidate_toolbar_checkboxes();
+        }
+        let send_errors_to_dev = BackboneShell::get().config().send_errors_to_dev();
+        let show_errors_in_console = BackboneShell::get().config().show_errors_in_console();
+        let comment = match (send_errors_to_dev, show_errors_in_console) {
+            (false, false) => {
+                Some("Please consider checking at least one of the error checkboxes, as it helps to improve Helgobox!")
+            }
+            (false, true) => None,
+            (true, _) => Some("Error are sent anonymously. Please see our privacy policy for details."),
+        };
+        self.view
+            .require_control(root::ID_SETUP_SEND_ERRORS_TO_DEV)
+            .set_checked(send_errors_to_dev);
+        self.view
+            .require_control(root::ID_SETUP_SHOW_ERRORS_IN_CONSOLE)
+            .set_checked(show_errors_in_console);
+        self.view
+            .require_control(root::ID_SETUP_COMMENT)
+            .set_text_or_hide(comment);
+        self.invalidate_button();
+    }
+
+    fn invalidate_toolbar_checkboxes(&self) {
+        let bindings = [(
+            root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON,
+            ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME,
+        )];
+        for (control_id, action_name) in bindings {
+            let checked = BackboneShell::get()
+                .config()
+                .toolbar_button_is_enabled(action_name);
+            self.view.require_control(control_id).set_checked(checked);
+        }
+    }
+
+    fn invalidate_button(&self) {
+        self.view
+            .require_control(root::ID_SETUP_PANEL_OK)
+            .set_text("Close");
     }
 }
 
@@ -70,6 +127,12 @@ impl View for WelcomePanel {
                 self.toggle_toolbar_button(ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME)
                     .expect("couldn't toggle toolbar button");
             }
+            root::ID_SETUP_SEND_ERRORS_TO_DEV => {
+                self.toggle_send_errors_to_dev();
+            }
+            root::ID_SETUP_SHOW_ERRORS_IN_CONSOLE => {
+                self.toggle_show_errors_in_console();
+            }
             root::ID_SETUP_PANEL_OK => self.close(),
             // IDCANCEL is escape button
             raw::IDCANCEL => {
@@ -77,33 +140,5 @@ impl View for WelcomePanel {
             }
             _ => {}
         }
-    }
-}
-
-impl WelcomePanel {
-    fn invalidate_controls(&self) {
-        if custom_toolbar_api_is_available() {
-            self.invalidate_toolbar_checkboxes();
-        }
-        self.invalidate_button();
-    }
-
-    fn invalidate_toolbar_checkboxes(&self) {
-        let bindings = [(
-            root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON,
-            ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME,
-        )];
-        for (control_id, action_name) in bindings {
-            let checked = BackboneShell::get()
-                .config()
-                .toolbar_button_is_enabled(action_name);
-            self.view.require_control(control_id).set_checked(checked);
-        }
-    }
-
-    fn invalidate_button(&self) {
-        self.view
-            .require_control(root::ID_SETUP_PANEL_OK)
-            .set_text("Close");
     }
 }

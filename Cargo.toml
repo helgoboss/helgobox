@@ -125,11 +125,8 @@ image = { version = "0.25.2", default-features = false }
 cached = "0.53.1"
 imageproc = "0.25.0"
 tower = "0.5.2"
-# We can't update to 0.7 because of tonic not yet using http 1 (https://github.com/hyperium/tonic/issues/1579)
 axum = "0.7.9"
-# We can't update to 0.6.0 as long as axum is still on 0.6
 axum-server = "0.7.1"
-# We can't update to 0.5.0 as long as axum is still on 0.6
 tower-http = "0.6.2"
 tonic = "0.12.3"
 prost = "0.13.4"
@@ -194,6 +191,7 @@ pulldown-cmark = "0.9.2"
 rfd = "0.12.1"
 opener = "0.7.1"
 objc2 = "0.3.0-beta.3"
+reqwest = "0.12.9"
 
 [profile.release]
 debug = 2
@@ -252,15 +250,15 @@ vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param
 #vst = { path = "../vst-rs" }
 
 # This is for temporary development with local reaper-rs.
-#[patch.'https://github.com/helgoboss/reaper-rs.git']
-#reaper-common-types = { path = "../reaper-rs/main/common-types" }
-#reaper-fluent = { path = "../reaper-rs/main/fluent" }
-#reaper-high = { path = "../reaper-rs/main/high" }
-#reaper-medium = { path = "../reaper-rs/main/medium" }
-#reaper-macros = { path = "../reaper-rs/main/macros" }
-#reaper-low = { path = "../reaper-rs/main/low" }
-#reaper-rx = { path = "../reaper-rs/main/rx" }
-#rppxml-parser = { path = "../reaper-rs/main/rppxml-parser" }
+[patch.'https://github.com/helgoboss/reaper-rs.git']
+reaper-common-types = { path = "../reaper-rs/main/common-types" }
+reaper-fluent = { path = "../reaper-rs/main/fluent" }
+reaper-high = { path = "../reaper-rs/main/high" }
+reaper-medium = { path = "../reaper-rs/main/medium" }
+reaper-macros = { path = "../reaper-rs/main/macros" }
+reaper-low = { path = "../reaper-rs/main/low" }
+reaper-rx = { path = "../reaper-rs/main/rx" }
+rppxml-parser = { path = "../reaper-rs/main/rppxml-parser" }
 
 ## This is for temporary development with local egui-baseview.
 #[patch.'https://github.com/helgoboss/egui-baseview.git']

@@ -59,7 +59,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     counter: u64,
     full_beats: NonCryptoHashMap<ReaProject, u32>,
     deprecated_fx_focus_state: Option<GetFocusedFx2Result>,
-    modern_fx_focus_state: Option<GetTouchedOrFocusedFxCurrentlyFocusedFxResult>,
+    _modern_fx_focus_state: Option<GetTouchedOrFocusedFxCurrentlyFocusedFxResult>,
     target_capture_senders: NonCryptoHashMap<Option<UnitId>, TargetCaptureSender>,
     osc_capture_sender: Option<OscCaptureSender>,
     osc_input_devices: Vec<OscInputDevice>,
@@ -239,7 +239,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             counter: 0,
             full_beats: Default::default(),
             deprecated_fx_focus_state: Default::default(),
-            modern_fx_focus_state: Default::default(),
+            _modern_fx_focus_state: Default::default(),
             target_capture_senders: Default::default(),
             osc_capture_sender: None,
             osc_input_devices: vec![],
@@ -633,10 +633,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
+    #[allow(unused)]
     fn detect_focus_switch_between_main_and_fx_as_feedback_event_modern(&mut self) -> bool {
         let reaper = Reaper::get().medium_reaper();
         let new = reaper.get_touched_or_focused_fx_currently_focused_fx();
-        let last = mem::replace(&mut self.modern_fx_focus_state, new);
+        let last = mem::replace(&mut self._modern_fx_focus_state, new);
         match (last, new) {
             (None, None) => {
                 // This happens continuously before any FX is focused
