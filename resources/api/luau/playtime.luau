@@ -244,6 +244,7 @@ export type MatrixClipRecordSettings = {
 	start_timing: ClipRecordStartTiming?,
 	stop_timing: ClipRecordStopTiming?,
 	length_mode: RecordLengthMode?,
+	allow_tempo_detection_recording: boolean?,
 	custom_length: EvenQuantization?,
 	play_start_timing: ClipPlayStartTimingOverrideAfterRecording?,
 	play_stop_timing: ClipPlayStopTimingOverrideAfterRecording?,

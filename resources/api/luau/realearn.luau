@@ -1650,6 +1650,7 @@ export type Target_FxParameterValue = {
 	parameter: FxParameterDescriptor,
 	poll_for_feedback: boolean?,
 	retrigger: boolean?,
+	real_time: boolean?,
 }
 
 export type Target_FxParameterAutomationTouchState = {
@@ -2971,6 +2972,7 @@ export type FxParameterValueTarget = {
 	parameter: FxParameterDescriptor,
 	poll_for_feedback: boolean?,
 	retrigger: boolean?,
+	real_time: boolean?,
 }
 --- Creates a FxParameterValueTarget value.
 function module.FxParameterValueTarget(value: FxParameterValueTarget): FxParameterValueTarget
