@@ -20,6 +20,12 @@ NOTE: Device
 .{non-assigned-buttons}
 NOTE: Device
 
+== Akai APC mini (experimental)
+
+{support-mostly-complete}
+
+.{non-assigned-buttons}
+NOTE: Device
 
 == Akai APC mini mk2
 

@@ -15,6 +15,13 @@ After that, the device should visually reflect the contents of the Playtime xref
 
 In addition, the device should now appear in the xref:realearn:ROOT:user-interface/settings-dialog.adoc#controllers[ReaLearn controllers] section of the xref:helgobox::app/user-interface/settings-dialog.adoc[]. This is also the place where you can manually set up the device in case it was not auto-detected.
 
+== Troubleshooting
+
+If the device is not detected, please proceed as follows:
+
+* Execute REAPER action xref:realearn::reaper-actions.adoc#auto-detect-controllers-with-logging[] and copy the output to the clipboard.
+* If the controller is not in the xref:supported-controllers.adoc[list of supported devices], create a https://github.com/helgoboss/helgobox/discussions/categories/ideas[feature request], naming your controller and including the copied info.
+* If the controller is in the list, write an email to info@helgoboss.org, naming your controller and including the copied info.
 
 == Related videos
 

@@ -22,3 +22,5 @@ Helgobox/ReaLearn: Learn source for last touched target (reassigning target):: T
 
 [[send-feedback-for-all-instances]] Helgobox/ReaLearn: Send feedback for all instances:: Makes each ReaLearn instance/unit in all project tabs send feedback for all mappings.
 That shouldn't be necessary most of the time because ReaLearn usually sends feedback automatically, but there are situations when it might come in handy.
+
+[[auto-detect-controllers-with-logging]] Helgobox/ReaLearn: Auto-detect controllers (with logging):: Looks at each currently connected MIDI device and automatically creates a xref:key-concepts.adoc#managed-controller[] if the device is known and a suitable preset exists. Also logs information that helps troubleshoot controller detection issues.
