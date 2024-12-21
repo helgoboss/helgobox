@@ -1,4 +1,4 @@
---- name: APC mini - Playtime (experimental)
+--- name: APC mini - Playtime
 --- realearn_version: 2.16.0-pre.8
 --- author: helgoboss
 --- device_manufacturer: Akai
