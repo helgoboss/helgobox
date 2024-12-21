@@ -1,3 +1,4 @@
+use crate::base::notification::notify_user_on_anyhow_error;
 use crate::infrastructure::plugin::dynamic_toolbar::custom_toolbar_api_is_available;
 use crate::infrastructure::plugin::{
     BackboneShell, ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME, ACTION_SHOW_WELCOME_SCREEN_LABEL,
@@ -26,6 +27,7 @@ impl WelcomePanel {
                 "Helgobox",
                 "To use this feature, please update REAPER to version 7.12 or later!",
             );
+            return Ok(());
         }
         BackboneShell::get().toggle_toolbar_button_dynamically(command_name)?;
         self.invalidate_controls();
@@ -124,8 +126,9 @@ impl View for WelcomePanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON => {
-                self.toggle_toolbar_button(ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME)
-                    .expect("couldn't toggle toolbar button");
+                notify_user_on_anyhow_error(
+                    self.toggle_toolbar_button(ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME),
+                );
             }
             root::ID_SETUP_SEND_ERRORS_TO_DEV => {
                 self.toggle_send_errors_to_dev();
