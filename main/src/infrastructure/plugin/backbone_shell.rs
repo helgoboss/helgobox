@@ -66,7 +66,6 @@ use helgobox_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
     VirtualControlElementCharacter,
 };
-use helgobox_api::runtime::GlobalInfoEvent;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use reaper_high::{
@@ -2838,6 +2837,7 @@ impl LicenseManagerEventHandler for BackboneLicenseManagerEventHandler {
         // Inform Playtime, currently the only module which contains license-only functions
         #[cfg(feature = "playtime")]
         {
+            use helgobox_api::runtime::GlobalInfoEvent;
             // Let the Playtime Clip Engine check if it finds a suitable license
             let success = playtime_clip_engine::PlaytimeEngine::get()
                 .main()
