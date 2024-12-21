@@ -6,7 +6,7 @@
 --- description: |
 ---     This controller preset exposes all control elements of the APC Key 25 mk2 in a neutral way. It supports
 ---     ReaLearn color feedback as well as Playtime slot status feedback.
---- midi_identity_pattern: F0 7E ? 06 02 47 4E 00 19 05 * F7
+--- midi_identity_pattern: F0 7E ? 06 02 47 4E 00 19 * F7
 --- # This device exposes 2 USB MIDI ports, one for "Keys" and one for "Control". We are
 --- # interested in "Control". Both MIDI ports reply with the same device identity. If we
 --- # don't provide a MIDI output device pattern, it's possible that ReaLearn's automatic 

@@ -6,7 +6,7 @@
 --- description: |
 ---     This controller preset exposes all control elements of the APC Key 25 mk1 in a neutral way. It supports
 ---     Playtime slot status feedback.
---- midi_identity_pattern: F0 7E ? 06 02 47 27 00 19 01 * F7
+--- midi_identity_pattern: F0 7E ? 06 02 47 27 00 19 * F7
 --- provided_schemes: [akai/apc-key-25, grid]
 
 --!strict
