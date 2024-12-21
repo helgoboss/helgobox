@@ -44,13 +44,13 @@ struct MidiDeviceInquiryTask {
     inquiry_sent_at: Instant,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RequestMidiDeviceIdentityReply {
     pub input_device_id: MidiInputDeviceId,
     pub device_inquiry_reply: MidiDeviceInquiryReply,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MidiDeviceInquiryReply {
     pub message: ArrayVec<[u8; RawMidiEvent::MAX_LENGTH]>,
 }

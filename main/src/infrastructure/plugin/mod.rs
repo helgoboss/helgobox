@@ -14,6 +14,7 @@ pub use auto_units::*;
 mod actions;
 mod ini_util;
 pub use actions::*;
+mod controller_detection;
 mod sentry;
 
 pub mod dynamic_toolbar;

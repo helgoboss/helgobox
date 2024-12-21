@@ -87,6 +87,14 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         ..DEFAULT_DEF
     },
     ActionDef {
+        section: ActionSection::ReaLearn,
+        command_name: "REALEARN_DETECT_CONTROLLERS_WITH_LOGGING",
+        action_name: "Auto-detect controllers (with logging)",
+        op: BackboneShell::detect_controllers_with_logging,
+        requires_instance: true,
+        ..DEFAULT_DEF
+    },
+    ActionDef {
         section: ActionSection::Playtime,
         command_name: ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME,
         action_name: "Show/hide Playtime",

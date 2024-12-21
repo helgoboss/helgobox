@@ -2356,7 +2356,7 @@ impl HeaderPanel {
                 self.view.require_window().alert("Success!", text);
                 let _ = open_in_file_manager(descriptor.dir.as_std_path());
             }
-            Err(e) => notify_user_about_anyhow_error(e),
+            Err(e) => notify_user_about_anyhow_error(&e),
         }
     }
 
