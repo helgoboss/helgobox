@@ -57,7 +57,7 @@ impl WelcomePanel {
                 Some("Please consider checking at least one of the error checkboxes, as it helps to improve Helgobox!")
             }
             (false, true) => None,
-            (true, _) => Some("Error are sent anonymously. Please see our privacy policy for details."),
+            (true, _) => Some("Errors are sent anonymously. Please see our privacy statement for details."),
         };
         self.view
             .require_control(root::ID_SETUP_SEND_ERRORS_TO_DEV)
