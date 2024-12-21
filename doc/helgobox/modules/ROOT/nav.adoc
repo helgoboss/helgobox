@@ -4,6 +4,7 @@
 * xref:key-concepts.adoc[]
 * xref:plug-in.adoc[]
 ** xref:plug-in/user-interface.adoc[]
+*** xref:plug-in/user-interface/welcome-dialog.adoc[]
 *** xref:plug-in/user-interface/menu-bar.adoc[]
 * xref:app.adoc[]
 ** xref:app/user-interface.adoc[]

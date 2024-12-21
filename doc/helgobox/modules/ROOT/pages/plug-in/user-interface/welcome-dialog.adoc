@@ -1,0 +1,57 @@
+= Welcome dialog
+
+This dialog appears once after installing Helgobox and whenever you start the action xref:reaper-actions.adoc#show-welcome-screen[].
+
+image::helgobox::screenshots/welcome-dialog.png[width=500]
+
+== Checkbox "Add Playtime button to main toolbar"
+
+Lets you enable or disable a button in the main toolbar that starts xref:playtime::introduction.adoc[Playtime].
+
+== Error checkboxes
+
+Like any other complex piece of software, Helgobox might have link:https://en.wikipedia.org/wiki/Software_bug[bugs]. There are roughly two types of bugs: _Subtle_ bugs and _detectable_ bugs. Subtle bugs are very hard to investigate. Detectable bugs, however, are "great" because they contain an error message and give me (the developer) a clue of what went wrong. This clue is crucial because I need it to fix the bug.
+
+The error checkboxes let you decide what Helgobox does if it detects a _detectable_ bug. Let's say the bug occurs. Here's what happens, depending on your configuration:
+
+[cols="1,1,4"]
+|===
+|Send errors |Show errors | Effect
+
+|Off
+|Off
+|
+A small btn:[ERR] notification will show up in the REAPER title bar (easy to miss!). When you click it, you will see only very basic information about the error.
+
+|Off
+|On
+|
+A console window will appear with detailed information about the error and a plea to send this information to the developer manually.
+
+|On
+|Off
+|
+If you are online, Helgobox will send detailed information about the error to the developer (using the third-party error tracking service https://sentry.io[Sentry], see our https://www.helgoboss.org/privacy-statement[privacy statement]). In addition, a small btn:[ERR] notification will show up in the REAPER title bar. Clicking it will reveal further instructions.
+
+If you are offline, a console window will appear with detailed information about the error and a plea to send this information to the developer manually.
+
+|On
+|On
+|
+If you are online, Helgobox will send detailed information about the error to the developer and show a console window with further instructions.
+
+If you are offline, a console window will appear with detailed information about the error and a plea to send this information to the developer manually.
+|===
+
+.Recommendation
+[TIP]
+====
+I recommend enabling both checkboxes!
+
+Sending the error automatically makes sure that I learn about the error as soon as possible, even without your manual notification (I know that you are busy with other things than reporting errors icon:smile-o[]). It also means that the error message shown in the console gets much smaller, as Helgobox then only shows an error ID instead of the full info.
+
+Showing the error in the console in addition makes sure that you don't miss that something went wrong and offers you ways how to deal with the situation. In many cases, it helps if I get further information from you, such as instructions how to reproduce the error.
+====
+
+
+IMPORTANT: Unless you have a live situation (in which case it might make sense to ignore errors), please tick at least one of the checkboxes. I can't fix bugs if I don't know about them! Thanks.

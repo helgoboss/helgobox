@@ -11,7 +11,7 @@ You can add this button very easily by doing this:
 . Select menu:Extensions[Helgobox > Show welcome screen]
 . Check "Add Playtime button to toolbar"
 
-image::screenshots/helgobox-welcome-screen.png[width=500]
+image::helgobox::screenshots/welcome-dialog.png[width=500]
 
 == Alternatives
 

@@ -15,8 +15,8 @@ This is likely going to change in the future.
 For the time being, it can be useful to put a Helgobox instance on REAPER's monitoring FX chain in order to have access to those actions at all times.
 ====
 
-Helgobox/General: Show welcome screen::
-Shows the welcome screen that was displayed after the first installation of Helgobox.
+[[show-welcome-screen]] Helgobox/General: Show welcome screen::
+Shows the xref:plug-in/user-interface/welcome-dialog.adoc[] that was displayed after the first installation of Helgobox.
 
 [[toggle-app-focus]] Helgobox/General: Toggle app focus::
 Switches focus between REAPER and the xref:app.adoc[].
