@@ -940,7 +940,7 @@ impl View for MappingRowPanel {
             root::ID_MAPPING_ROW_LEARN_TARGET_BUTTON => self.toggle_learn_target(),
             root::ID_MAPPING_ROW_CONTROL_CHECK_BOX => self.update_control_is_enabled(),
             root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX => self.update_feedback_is_enabled(),
-            _ => unreachable!(),
+            _ => {}
         }
     }
 

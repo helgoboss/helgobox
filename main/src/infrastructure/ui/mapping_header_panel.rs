@@ -657,7 +657,7 @@ impl View for MappingHeaderPanel {
             ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX => {
                 self.with_session_and_item(Self::update_activation_setting_2_on);
             }
-            _ => unreachable!(),
+            _ => {}
         }
     }
 
@@ -667,7 +667,7 @@ impl View for MappingHeaderPanel {
             ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX => {
                 self.with_session_and_item(Self::update_activation_type);
             }
-            _ => unreachable!(),
+            _ => {}
         }
     }
 

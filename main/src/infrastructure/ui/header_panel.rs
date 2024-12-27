@@ -1947,7 +1947,7 @@ impl HeaderPanel {
                     .borrow();
                 Some(GroupFilter(group.id()))
             }
-            _ => unreachable!(),
+            _ => unreachable!("unexpected group combo box item data"),
         };
         self.main_state
             .borrow_mut()
@@ -2911,7 +2911,7 @@ impl View for HeaderPanel {
         match resource_id {
             root::ID_GROUP_COMBO_BOX => self.update_group(),
             root::ID_AUTO_LOAD_COMBO_BOX => self.update_preset_auto_load_mode(),
-            _ => unreachable!(),
+            _ => {}
         }
     }
 
@@ -2926,7 +2926,7 @@ impl View for HeaderPanel {
         }
         match resource_id {
             root::ID_HEADER_SEARCH_EDIT_CONTROL => self.update_search_expression(),
-            _ => unreachable!(),
+            _ => {}
         }
         true
     }

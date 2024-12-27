@@ -100,7 +100,7 @@ impl View for GroupPanel {
             ID_GROUP_PANEL_OK | raw::IDCANCEL => {
                 self.close();
             }
-            _ => unreachable!(),
+            _ => {}
         }
     }
 }

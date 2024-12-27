@@ -7280,7 +7280,7 @@ impl View for MappingPanel {
                 let _ = self.read(|p| p.hit_target_special(true));
             }
             root::ID_TARGET_UNIT_BUTTON => self.write(|p| p.handle_target_unit_button_press()),
-            _ => unreachable!(),
+            _ => {}
         }
     }
 
@@ -7340,7 +7340,7 @@ impl View for MappingPanel {
             root::ID_TARGET_LINE_4_COMBO_BOX_2 => {
                 self.write(|p| p.handle_target_line_4_combo_box_2_change())
             }
-            _ => unreachable!(),
+            _ => {}
         }
     }
 
@@ -7377,7 +7377,7 @@ impl View for MappingPanel {
             s if s == sliders.target_value => {
                 let _ = self.read(|p| p.hit_target(s.slider_unit_value()));
             }
-            _ => unreachable!(),
+            _ => {}
         };
     }
 

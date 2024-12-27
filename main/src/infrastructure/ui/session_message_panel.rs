@@ -118,7 +118,7 @@ impl View for SessionMessagePanel {
         match resource_id {
             // Escape key
             raw::IDCANCEL => self.close(),
-            _ => unreachable!(),
+            _ => {}
         }
     }
 }
