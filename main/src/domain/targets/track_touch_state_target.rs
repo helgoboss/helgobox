@@ -107,10 +107,14 @@ impl RealearnTarget for TrackTouchStateTarget {
         match evt {
             CompoundChangeEvent::Additional(
                 AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(e),
-            ) if e.track == self.track.raw() && e.parameter_type == self.parameter_type => (
-                true,
-                Some(AbsoluteValue::Continuous(touched_unit_value(e.new_value))),
-            ),
+            ) if self.track.raw().is_ok_and(|t| e.track == t)
+                && e.parameter_type == self.parameter_type =>
+            {
+                (
+                    true,
+                    Some(AbsoluteValue::Continuous(touched_unit_value(e.new_value))),
+                )
+            }
             _ => (false, None),
         }
     }
@@ -130,7 +134,7 @@ impl<'a> Target<'a> for TrackTouchStateTarget {
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let is_touched = Backbone::target_state()
             .borrow()
-            .automation_parameter_is_touched(self.track.raw(), self.parameter_type);
+            .automation_parameter_is_touched(self.track.raw().ok()?, self.parameter_type);
         Some(AbsoluteValue::Continuous(touched_unit_value(is_touched)))
     }
 

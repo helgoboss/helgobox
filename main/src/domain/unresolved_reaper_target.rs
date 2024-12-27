@@ -1081,9 +1081,10 @@ impl VirtualFxParameter {
                     let index = fx
                         .track()
                         .and_then(|t| unsafe {
+                            let t = t.raw().ok()?;
                             Reaper::get()
                                 .medium_reaper()
-                                .get_tcp_fx_parm(project.context(), t.raw(), i)
+                                .get_tcp_fx_parm(project.context(), t, i)
                                 .ok()
                         })
                         .map(|res| res.param_index as f64)
@@ -1876,9 +1877,10 @@ impl VirtualChainFx {
                     let index = chain
                         .track()
                         .and_then(|t| unsafe {
+                            let t = t.raw().ok()?;
                             Reaper::get()
                                 .medium_reaper()
-                                .get_tcp_fx_parm(project.context(), t.raw(), i)
+                                .get_tcp_fx_parm(project.context(), t, i)
                                 .ok()
                         })
                         .map(|res| res.fx_location.to_raw() as f64)

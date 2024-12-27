@@ -869,7 +869,10 @@ mod playtime_impl {
         if peak_util::peaks_should_be_hidden(track) {
             return vec![];
         }
-        peak_util::get_track_peaks(track.raw())
+        let Ok(track) = track.raw() else {
+            return vec![];
+        };
+        peak_util::get_track_peaks(track)
             .map(|vol| vol.to_db_ex(Db::MINUS_INF).get())
             .collect()
     }

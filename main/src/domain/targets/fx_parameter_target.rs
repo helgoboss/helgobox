@@ -261,7 +261,7 @@ impl RealearnTarget for FxParameterTarget {
             return None;
         }
         let target = RealTimeFxParameterTarget {
-            track: self.param.fx().track()?.raw(),
+            track: self.param.fx().track()?.raw().ok()?,
             fx_location: self.param.fx().query_index(),
             param_index: self.param.index(),
             retrigger: self.retrigger,

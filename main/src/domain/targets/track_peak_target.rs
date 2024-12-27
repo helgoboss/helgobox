@@ -64,7 +64,7 @@ impl TrackPeakTarget {
         if peak_util::peaks_should_be_hidden(&self.track) {
             return Some(SliderVolume::MIN);
         }
-        let peaks = peak_util::get_track_peaks(self.track.raw());
+        let peaks = peak_util::get_track_peaks(self.track.raw().ok()?);
         let channel_count = peaks.len();
         if channel_count == 0 {
             return None;

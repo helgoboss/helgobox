@@ -106,13 +106,16 @@ impl RealearnTargetState {
         track: &Track,
         parameter_type: TouchedTrackParameterType,
     ) {
+        let Ok(raw_track) = track.raw() else {
+            return;
+        };
         self.touched_things
-            .insert(TouchedThing::new(track.raw(), parameter_type));
+            .insert(TouchedThing::new(raw_track, parameter_type));
         self.post_process_touch(track, parameter_type);
         self.additional_feedback_event_sender.send_complaining(
             AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
                 ParameterAutomationTouchStateChangedEvent {
-                    track: track.raw(),
+                    track: raw_track,
                     parameter_type,
                     new_value: true,
                 },
@@ -125,13 +128,16 @@ impl RealearnTargetState {
         track: &Track,
         parameter_type: TouchedTrackParameterType,
     ) {
+        let Ok(raw_track) = track.raw() else {
+            return;
+        };
         self.touched_things
-            .remove(&TouchedThing::new(track.raw(), parameter_type));
+            .remove(&TouchedThing::new(raw_track, parameter_type));
         self.post_process_touch(track, parameter_type);
         self.additional_feedback_event_sender.send_complaining(
             AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
                 ParameterAutomationTouchStateChangedEvent {
-                    track: track.raw(),
+                    track: raw_track,
                     parameter_type,
                     new_value: false,
                 },
