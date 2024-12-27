@@ -248,8 +248,8 @@ debug = 1
 #hyper = { git = "https://github.com/helgoboss/hyper.git", branch = "feature/realearn" }
 
 # We need to use our on "vst" crate that contains a bunch of improvements
-#vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param-props" }
-vst = { path = "../vst-rs" }
+vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param-props" }
+#vst = { path = "../vst-rs" }
 
 # This is for temporary development with local reaper-rs.
 #[patch.'https://github.com/helgoboss/reaper-rs.git']

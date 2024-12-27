@@ -8068,6 +8068,7 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 [[package]]
 name = "vst"
 version = "0.4.0"
+source = "git+https://github.com/helgoboss/vst-rs.git?branch=feature/param-props#6270170beec99e8185128046a0eb15485de99fbc"
 dependencies = [
  "bitflags 1.3.2",
  "libc",
