@@ -25,7 +25,7 @@ impl UnresolvedReaperTargetDef for UnresolvedMouseTarget {
         _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::Mouse(EnigoMouseTarget {
-            mouse: Default::default(),
+            mouse: EnigoMouse::new(),
             action_type: self.action_type,
             axis: self.axis,
             button: self.button,
@@ -235,6 +235,8 @@ pub const MOUSE_TARGET: TargetTypeDef = TargetTypeDef {
     section: TargetSection::Global,
     name: "Mouse",
     short_name: "Mouse",
+    #[cfg(target_os = "macos")]
+    hint: "Needs macOS accessibility permissions",
     supports_axis: true,
     supports_mouse_button: true,
     ..DEFAULT_TARGET

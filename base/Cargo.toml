@@ -24,6 +24,7 @@ tracing.workspace = true
 metrics.workspace = true
 ascii.workspace = true
 enigo.workspace = true
+# For getting current mouse state
 device_query.workspace = true
 derive_more.workspace = true
 either.workspace = true
@@ -32,3 +33,7 @@ anyhow.workspace = true
 thiserror.workspace = true
 camino.workspace = true
 indexmap.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# For not letting device_query panic when macOS accessibility permissions not granted
+macos-accessibility-client.workspace = true

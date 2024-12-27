@@ -675,6 +675,7 @@ dependencies = [
  "helgobox-api",
  "indexmap 2.1.0",
  "logos 0.13.0",
+ "macos-accessibility-client",
  "metrics",
  "once_cell",
  "reaper-high",

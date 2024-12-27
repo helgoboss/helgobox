@@ -228,7 +228,7 @@ where
     let reaper_resource_dir = Reaper::get().resource_path();
     let fx_info = args.fx.info()?;
     let plugin_id = get_plugin_id_from_fx_info(&fx_info);
-    let mut mouse = EnigoMouse::default();
+    let mut mouse = EnigoMouse::new();
     let escape_catcher = EscapeCatcher::new();
     let mut chunks_file = tempfile::tempfile()?;
     let mut current_file_offset = 0u64;

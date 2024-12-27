@@ -2,19 +2,47 @@ use crate::{Mouse, MouseCursorPosition};
 use device_query::DeviceState;
 use enigo::{Enigo, MouseControllable};
 use helgobox_api::persistence::{Axis, MouseButton};
+use reaper_high::Reaper;
 use std::fmt::Debug;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct EnigoMouse {
     enigo: Enigo,
-    device_state: DeviceState,
+    device_state: Option<DeviceState>,
+}
+
+impl EnigoMouse {
+    pub fn new() -> Self {
+        Self {
+            enigo: Default::default(),
+            device_state: create_device_state(),
+        }
+    }
+}
+
+fn create_device_state() -> Option<DeviceState> {
+    #[cfg(target_os = "macos")]
+    {
+        let trusted =
+            macos_accessibility_client::accessibility::application_is_trusted_with_prompt();
+        if trusted {
+            Some(DeviceState::new())
+        } else {
+            Reaper::get().show_console_msg("This Helgobox feature only works if Helgobox can access the state of your mouse. For this, it needs macOS accessibility permissions. Please grant REAPER the accessibility permission in the macOS system settings and restart it!\n\n");
+            None
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Some(DeviceState::new())
+    }
 }
 
 unsafe impl Send for EnigoMouse {}
 
 impl Clone for EnigoMouse {
     fn clone(&self) -> Self {
-        Default::default()
+        Self::new()
     }
 }
 
@@ -52,7 +80,11 @@ impl Mouse for EnigoMouse {
         let (x, y) = Enigo::mouse_location();
         #[cfg(target_os = "linux")]
         let (x, y) = {
-            let device_state = self.device_state.query_pointer();
+            let device_state = self
+                .device_state
+                .as_ref()
+                .expect("DeviceState should always work on Linux")
+                .query_pointer();
             (device_state.coords.0, device_state.coords.1)
         };
         Ok(MouseCursorPosition::new(x.max(0) as u32, y.max(0) as u32))
@@ -91,7 +123,11 @@ impl Mouse for EnigoMouse {
     }
 
     fn is_pressed(&self, button: MouseButton) -> Result<bool, &'static str> {
-        let mouse_state = self.device_state.query_pointer();
+        let mouse_state = self
+            .device_state
+            .as_ref()
+            .ok_or("macOS accessibility permissions not granted")?
+            .query_pointer();
         let button_index = convert_button_to_device_query(button);
         let pressed = mouse_state
             .button_pressed
