@@ -19,7 +19,6 @@ use reaper_medium::{Hz, ReaperStr};
 
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_void};
-use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use std::sync::{Arc, OnceLock};
 
@@ -97,26 +96,23 @@ unsafe impl Send for HelgoboxPlugin {}
 
 impl Plugin for HelgoboxPlugin {
     fn new(host: HostCallback) -> Self {
-        firewall(|| {
-            let instance_id = InstanceId::next();
-            Self {
-                instance_id,
-                host,
-                _reaper_guard: None,
-                param_container: Arc::new(InstanceParameterContainer::new()),
-                was_playing_in_last_cycle: false,
-                sample_rate: Default::default(),
-                block_size: 0,
-                is_plugin_scan: false,
-                lazy_data: OnceLock::new(),
-                instance_panel: Rc::new(InstancePanel::new(instance_id)),
-            }
-        })
-        .unwrap_or_default()
+        let instance_id = InstanceId::next();
+        Self {
+            instance_id,
+            host,
+            _reaper_guard: None,
+            param_container: Arc::new(InstanceParameterContainer::new()),
+            was_playing_in_last_cycle: false,
+            sample_rate: Default::default(),
+            block_size: 0,
+            is_plugin_scan: false,
+            lazy_data: OnceLock::new(),
+            instance_panel: Rc::new(InstancePanel::new(instance_id)),
+        }
     }
 
     fn get_info(&self) -> Info {
-        firewall(|| Info {
+        Info {
             name: "Helgobox - ReaLearn & Playtime".to_string(),
             vendor: "Helgoboss".to_string(),
             unique_id: HELGOBOX_UNIQUE_VST_PLUGIN_ID,
@@ -127,8 +123,7 @@ impl Plugin for HelgoboxPlugin {
             inputs: 2,
             outputs: 0,
             ..Default::default()
-        })
-        .unwrap_or_default()
+        }
     }
 
     fn get_parameter_info(&self, index: i32) -> Option<PluginParameterInfo> {
@@ -146,69 +141,62 @@ impl Plugin for HelgoboxPlugin {
     }
 
     fn init(&mut self) {
-        firewall(|| {
-            // Trick to find out whether we are only being scanned.
-            self.is_plugin_scan = unsafe { (*self.host.raw_effect()).reserved1 == 0 };
-            if self.is_plugin_scan {
-                tracing::debug!("Helgobox is being scanned by REAPER");
-                return;
-            }
-            tracing::debug!("Helgobox is being opened by REAPER");
-            self._reaper_guard = Some(self.ensure_reaper_setup());
-            // At this point, REAPER cannot reliably give us the containing FX. As a
-            // consequence we also don't have a instance shell yet, because creating an incomplete
-            // instance shell pushes the problem of not knowing the containing FX into the application
-            // logic, which we for sure don't want. In the next main loop cycle, it should be
-            // possible to identify the containing FX.
-            let host = self.host;
-            Global::task_support()
-                .do_later_in_main_thread_from_main_thread_asap(move || {
-                    let plugin = unsafe { (*host.raw_effect()).get_plugin() };
-                    plugin.vendor_specific(INIT_INSTANCE_SHELL, 0, null_mut(), 0.0);
-                })
-                .unwrap();
-        });
+        // Trick to find out whether we are only being scanned.
+        self.is_plugin_scan = unsafe { (*self.host.raw_effect()).reserved1 == 0 };
+        if self.is_plugin_scan {
+            tracing::debug!("Helgobox is being scanned by REAPER");
+            return;
+        }
+        tracing::debug!("Helgobox is being opened by REAPER");
+        self._reaper_guard = Some(self.ensure_reaper_setup());
+        // At this point, REAPER cannot reliably give us the containing FX. As a
+        // consequence we also don't have a instance shell yet, because creating an incomplete
+        // instance shell pushes the problem of not knowing the containing FX into the application
+        // logic, which we for sure don't want. In the next main loop cycle, it should be
+        // possible to identify the containing FX.
+        let host = self.host;
+        Global::task_support()
+            .do_later_in_main_thread_from_main_thread_asap(move || {
+                let plugin = unsafe { (*host.raw_effect()).get_plugin() };
+                plugin.vendor_specific(INIT_INSTANCE_SHELL, 0, null_mut(), 0.0);
+            })
+            .unwrap();
     }
 
     fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
-        firewall(|| {
-            // Unfortunately, vst-rs calls `get_editor` before the plug-in is initialized by the
-            // host, e.g. in order to check if it should the hasEditor flag or not. That means
-            // we don't know yet if this is a plug-in scan or not. We have to create the editor.
-            let boxed: Box<dyn Editor> =
-                Box::new(HelgoboxPluginEditor::new(self.instance_panel.clone()));
-            Some(boxed)
-        })
-        .unwrap_or(None)
+        // Unfortunately, vst-rs calls `get_editor` before the plug-in is initialized by the
+        // host, e.g. in order to check if it should the hasEditor flag or not. That means
+        // we don't know yet if this is a plug-in scan or not. We have to create the editor.
+        let boxed: Box<dyn Editor> =
+            Box::new(HelgoboxPluginEditor::new(self.instance_panel.clone()));
+        Some(boxed)
     }
 
     fn can_do(&self, can_do: CanDo) -> Supported {
-        firewall(|| {
-            use CanDo::*;
-            use Supported::*;
-            #[allow(overflowing_literals)]
-            match can_do {
-                SendEvents | SendMidiEvent | ReceiveEvents | ReceiveMidiEvent
-                | ReceiveSysExEvent => Supported::Yes,
-                // If we don't do this, REAPER for Linux won't give us a SWELL plug-in window, which
-                // leads to a horrible crash when doing CreateDialogParam. In our UI we use SWELL
-                // to put controls into the plug-in window. SWELL assumes that the parent window for
-                // controls is also a SWELL window.
-                Other(s) => match s.as_str() {
-                    "hasCockosViewAsConfig" => Custom(0xbeef_0000),
-                    "hasCockosExtensions" => Custom(0xbeef_0000),
-                    // This is necessary for REAPER 6.48 - 6.51 on macOS to not let the background
-                    // turn black. These REAPER versions introduced a change putting third-party
-                    // VSTs into a container window. The following line prevents that. For
-                    // REAPER v6.52+ it's not necessary anymore because it also reacts to
-                    // "hasCockosViewAsConfig".
-                    "hasCockosNoScrollUI" => Custom(0xbeef_0000),
-                    _ => Maybe,
-                },
-                _ => Maybe,
+        use CanDo::*;
+        use Supported::*;
+        #[allow(overflowing_literals)]
+        match can_do {
+            SendEvents | SendMidiEvent | ReceiveEvents | ReceiveMidiEvent | ReceiveSysExEvent => {
+                Supported::Yes
             }
-        })
-        .unwrap_or(Supported::No)
+            // If we don't do this, REAPER for Linux won't give us a SWELL plug-in window, which
+            // leads to a horrible crash when doing CreateDialogParam. In our UI we use SWELL
+            // to put controls into the plug-in window. SWELL assumes that the parent window for
+            // controls is also a SWELL window.
+            Other(s) => match s.as_str() {
+                "hasCockosViewAsConfig" => Custom(0xbeef_0000),
+                "hasCockosExtensions" => Custom(0xbeef_0000),
+                // This is necessary for REAPER 6.48 - 6.51 on macOS to not let the background
+                // turn black. These REAPER versions introduced a change putting third-party
+                // VSTs into a container window. The following line prevents that. For
+                // REAPER v6.52+ it's not necessary anymore because it also reacts to
+                // "hasCockosViewAsConfig".
+                "hasCockosNoScrollUI" => Custom(0xbeef_0000),
+                _ => Maybe,
+            },
+            _ => Maybe,
+        }
     }
 
     fn get_parameter_object(&mut self) -> Arc<dyn PluginParameters> {
@@ -216,74 +204,65 @@ impl Plugin for HelgoboxPlugin {
     }
 
     fn vendor_specific(&mut self, index: i32, value: isize, ptr: *mut c_void, opt: f32) -> isize {
-        firewall(|| {
-            // tracing_debug!("VST vendor specific (index = {})", index);
-            self.handle_vendor_specific(index, value, ptr, opt)
-        })
-        .unwrap_or(0)
+        // tracing_debug!("VST vendor specific (index = {})", index);
+        self.handle_vendor_specific(index, value, ptr, opt)
     }
 
     fn process_events(&mut self, events: &Events) {
-        firewall(|| {
-            assert_no_alloc(|| {
-                let is_transport_start = !self.was_playing_in_last_cycle && self.is_now_playing();
-                let block_count = GLOBAL_AUDIO_STATE.load_block_count();
-                let sample_count = block_count * self.block_size as u64;
-                let device_sample_rate = GLOBAL_AUDIO_STATE.load_sample_rate();
-                for e in events.events() {
-                    let our_event = match MidiEvent::from_vst(e) {
-                        Err(_) => {
-                            // Just ignore if not a valid MIDI message. Invalid MIDI message was
-                            // observed in the wild: https://github.com/helgoboss/helgobox/issues/82.
-                            continue;
-                        }
-                        Ok(e) => e,
-                    };
-                    let timestamp = ControlEventTimestamp::from_rt(
-                        sample_count,
-                        device_sample_rate,
-                        our_event.offset().to_seconds(self.sample_rate),
-                    );
-                    let our_event = ControlEvent::new(our_event, timestamp);
-                    if let Some(lazy_data) = self.lazy_data.get() {
-                        lazy_data.instance_shell.process_incoming_midi_from_plugin(
-                            our_event,
-                            is_transport_start,
-                            self.host,
-                        );
+        assert_no_alloc(|| {
+            let is_transport_start = !self.was_playing_in_last_cycle && self.is_now_playing();
+            let block_count = GLOBAL_AUDIO_STATE.load_block_count();
+            let sample_count = block_count * self.block_size as u64;
+            let device_sample_rate = GLOBAL_AUDIO_STATE.load_sample_rate();
+            for e in events.events() {
+                let our_event = match MidiEvent::from_vst(e) {
+                    Err(_) => {
+                        // Just ignore if not a valid MIDI message. Invalid MIDI message was
+                        // observed in the wild: https://github.com/helgoboss/helgobox/issues/82.
+                        continue;
                     }
+                    Ok(e) => e,
+                };
+                let timestamp = ControlEventTimestamp::from_rt(
+                    sample_count,
+                    device_sample_rate,
+                    our_event.offset().to_seconds(self.sample_rate),
+                );
+                let our_event = ControlEvent::new(our_event, timestamp);
+                if let Some(lazy_data) = self.lazy_data.get() {
+                    lazy_data.instance_shell.process_incoming_midi_from_plugin(
+                        our_event,
+                        is_transport_start,
+                        self.host,
+                    );
                 }
-            });
+            }
         });
     }
 
     fn process_f64(&mut self, buffer: &mut AudioBuffer<f64>) {
-        firewall(|| {
-            assert_no_alloc(|| {
-                // Get current time information so we can detect changes in play state reliably
-                // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
-                self.was_playing_in_last_cycle = self.is_now_playing();
-                if let Some(lazy_data) = self.lazy_data.get() {
-                    #[cfg(feature = "playtime")]
-                    lazy_data.instance_shell.run_playtime_from_plugin(
-                        buffer,
-                        crate::domain::AudioBlockProps::from_vst(buffer, self.sample_rate),
-                    );
-                    lazy_data.instance_shell.run_from_plugin(self.host);
-                }
-            });
+        assert_no_alloc(|| {
+            // Get current time information so we can detect changes in play state reliably
+            // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
+            self.was_playing_in_last_cycle = self.is_now_playing();
+            if let Some(lazy_data) = self.lazy_data.get() {
+                #[cfg(feature = "playtime")]
+                lazy_data.instance_shell.run_playtime_from_plugin(
+                    buffer,
+                    crate::domain::AudioBlockProps::from_vst(buffer, self.sample_rate),
+                );
+                lazy_data.instance_shell.run_from_plugin(self.host);
+            }
         });
         let _ = buffer;
     }
 
     fn set_sample_rate(&mut self, rate: f32) {
-        firewall(|| {
-            tracing::debug!("VST set sample rate");
-            self.sample_rate = Hz::new_panic(rate as _);
-            if let Some(lazy_data) = self.lazy_data.get() {
-                lazy_data.instance_shell.set_sample_rate(rate);
-            }
-        });
+        tracing::debug!("VST set sample rate");
+        self.sample_rate = Hz::new_panic(rate as _);
+        if let Some(lazy_data) = self.lazy_data.get() {
+            lazy_data.instance_shell.set_sample_rate(rate);
+        }
     }
 
     fn suspend(&mut self) {
@@ -551,10 +530,6 @@ fn write_to_c_str(dest: *mut c_void, src: String) -> Result<(), &'static str> {
     let dest_slice = unsafe { slice::from_raw_parts_mut(dest as *mut u8, 256) };
     dest_slice[..bytes.len()].copy_from_slice(bytes);
     Ok(())
-}
-
-fn firewall<F: FnOnce() -> R, R>(f: F) -> Option<R> {
-    catch_unwind(AssertUnwindSafe(f)).ok()
 }
 
 /// This is our own code. We call ourselves in order to safe us an Arc around

@@ -139,88 +139,78 @@ const NOT_READY_YET: &str = "not-ready-yet";
 
 impl PluginParameters for InstanceParameterContainer {
     fn get_bank_data(&self) -> Vec<u8> {
-        firewall(|| {
-            let Some(lazy_data) = self.lazy_data.get() else {
-                return match self.pending_data_to_be_loaded.read().unwrap().as_ref() {
-                    None => NOT_READY_YET.to_string().into_bytes(),
-                    Some(d) => d.clone(),
-                };
+        let Some(lazy_data) = self.lazy_data.get() else {
+            return match self.pending_data_to_be_loaded.read().unwrap().as_ref() {
+                None => NOT_READY_YET.to_string().into_bytes(),
+                Some(d) => d.clone(),
             };
-            lazy_data
-                .instance_shell
-                .upgrade()
-                .expect("instance shell gone")
-                .save()
-        })
-        .unwrap_or_default()
+        };
+        lazy_data
+            .instance_shell
+            .upgrade()
+            .expect("instance shell gone")
+            .save()
     }
 
     fn load_bank_data(&self, data: &[u8]) {
-        firewall(|| {
-            // TODO-medium-performance We could optimize by getting the config var only once, saving it in a global
-            //  struct and then just dereferencing the var whenever we need it. Justin said that the result of
-            //  get_config_var never changes throughout the lifetime of REAPER.
-            if let Ok(pref) = Reaper::get().get_preference_ref::<u8>("__fx_loadstate_ctx") {
-                if *pref == b'U' {
-                    // REAPER is loading an updated undo state. We don't want to participate in REAPER's undo because
-                    // it often leads to unpleasant surprises. ReaLearn is its own world. And Playtime even has its
-                    // own undo system.
-                    return;
-                }
-            }
-            if data == NOT_READY_YET.as_bytes() {
-                if let Some(lazy_data) = self.lazy_data.get() {
-                    // Looks like someone activated the "Reset to factory default" preset.
-                    lazy_data
-                        .instance_shell
-                        .upgrade()
-                        .expect("instance shell gone")
-                        .apply_data(InstanceData::default())
-                        .expect("couldn't load factory default");
-                }
+        // TODO-medium-performance We could optimize by getting the config var only once, saving it in a global
+        //  struct and then just dereferencing the var whenever we need it. Justin said that the result of
+        //  get_config_var never changes throughout the lifetime of REAPER.
+        if let Ok(pref) = Reaper::get().get_preference_ref::<u8>("__fx_loadstate_ctx") {
+            if *pref == b'U' {
+                // REAPER is loading an updated undo state. We don't want to participate in REAPER's undo because
+                // it often leads to unpleasant surprises. ReaLearn is its own world. And Playtime even has its
+                // own undo system.
                 return;
             }
-            let Some(lazy_data) = self.lazy_data.get() else {
-                // Unit shell is not available yet. Memorize data so we can apply it
-                // as soon as the shell is available.
-                self.pending_data_to_be_loaded
-                    .write()
-                    .unwrap()
-                    .replace(data.to_vec());
-                return;
-            };
-            let instance_shell = lazy_data
-                .instance_shell
-                .upgrade()
-                .expect("instance shell gone");
-            load_data_or_warn(instance_shell, data);
-        });
+        }
+        if data == NOT_READY_YET.as_bytes() {
+            if let Some(lazy_data) = self.lazy_data.get() {
+                // Looks like someone activated the "Reset to factory default" preset.
+                lazy_data
+                    .instance_shell
+                    .upgrade()
+                    .expect("instance shell gone")
+                    .apply_data(InstanceData::default())
+                    .expect("couldn't load factory default");
+            }
+            return;
+        }
+        let Some(lazy_data) = self.lazy_data.get() else {
+            // Unit shell is not available yet. Memorize data so we can apply it
+            // as soon as the shell is available.
+            self.pending_data_to_be_loaded
+                .write()
+                .unwrap()
+                .replace(data.to_vec());
+            return;
+        };
+        let instance_shell = lazy_data
+            .instance_shell
+            .upgrade()
+            .expect("instance shell gone");
+        load_data_or_warn(instance_shell, data);
     }
 
     fn get_parameter_name(&self, index: i32) -> String {
-        firewall(|| self.get_parameter_name_internal(index).unwrap_or_default()).unwrap_or_default()
+        self.get_parameter_name_internal(index).unwrap_or_default()
     }
 
     fn get_parameter(&self, index: i32) -> f32 {
-        firewall(|| self.get_parameter_internal(index).unwrap_or_default()).unwrap_or_default()
+        self.get_parameter_internal(index).unwrap_or_default()
     }
 
     fn set_parameter(&self, index: i32, value: f32) {
-        firewall(|| {
-            let _ = self.set_parameter_internal(index, value);
-        });
+        let _ = self.set_parameter_internal(index, value);
     }
 
     fn get_parameter_text(&self, index: i32) -> String {
-        firewall(|| self.get_parameter_text_internal(index).unwrap_or_default()).unwrap_or_default()
+        self.get_parameter_text_internal(index).unwrap_or_default()
     }
 
     fn string_to_parameter(&self, index: i32, text: String) -> bool {
-        firewall(|| {
-            self.string_to_parameter_internal(index, text)
-                .unwrap_or_default()
-        })
-        .unwrap_or(false)
+        self.string_to_parameter_internal(index, text)
+            .unwrap_or_default()
     }
 }
 

@@ -139,7 +139,7 @@ webbrowser = "0.8.12"
 runas = "1.1.0"
 qrcode = "0.14.1"
 uuid = "1.6.1"
-vst = "0.3.0"
+vst = "0.4.0"
 c_str_macro = "1.0.2"
 arboard = "3.3.0"
 smallvec = "1.7.0"
@@ -247,9 +247,9 @@ debug = 1
 # time! Turns out the same is actually true for axum, so we use select! there as well.
 #hyper = { git = "https://github.com/helgoboss/hyper.git", branch = "feature/realearn" }
 
-# TODO-low-wait Wait until https://github.com/RustAudio/vst-rs/issues/184 merged.
-vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param-props" }
-#vst = { path = "../vst-rs" }
+# We need to use our on "vst" crate that contains a bunch of improvements
+#vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param-props" }
+vst = { path = "../vst-rs" }
 
 # This is for temporary development with local reaper-rs.
 #[patch.'https://github.com/helgoboss/reaper-rs.git']
