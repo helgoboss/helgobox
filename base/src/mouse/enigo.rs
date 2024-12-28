@@ -11,6 +11,12 @@ pub struct EnigoMouse {
     device_state: Option<DeviceState>,
 }
 
+impl Default for EnigoMouse {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EnigoMouse {
     pub fn new() -> Self {
         Self {

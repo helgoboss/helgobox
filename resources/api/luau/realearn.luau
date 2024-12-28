@@ -1555,6 +1555,8 @@ export type Target_TrackAutomationTouchState = {
 	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
+	use_track_grouping: boolean?,
+	use_selection_ganging: boolean?,
 	touched_parameter: TouchedTrackParameter,
 }
 
@@ -2690,6 +2692,8 @@ export type TrackAutomationTouchStateTarget = {
 	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
+	use_track_grouping: boolean?,
+	use_selection_ganging: boolean?,
 	touched_parameter: TouchedTrackParameter,
 }
 --- Creates a TrackAutomationTouchStateTarget value.
