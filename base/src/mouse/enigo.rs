@@ -2,7 +2,6 @@ use crate::{Mouse, MouseCursorPosition};
 use device_query::DeviceState;
 use enigo::{Enigo, MouseControllable};
 use helgobox_api::persistence::{Axis, MouseButton};
-use reaper_high::Reaper;
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -34,7 +33,7 @@ fn create_device_state() -> Option<DeviceState> {
         if trusted {
             Some(DeviceState::new())
         } else {
-            Reaper::get().show_console_msg("This Helgobox feature only works if Helgobox can access the state of your mouse. For this, it needs macOS accessibility permissions. Please grant REAPER the accessibility permission in the macOS system settings and restart it!\n\n");
+            reaper_high::Reaper::get().show_console_msg("This Helgobox feature only works if Helgobox can access the state of your mouse. For this, it needs macOS accessibility permissions. Please grant REAPER the accessibility permission in the macOS system settings and restart it!\n\n");
             None
         }
     }
