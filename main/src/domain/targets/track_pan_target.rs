@@ -9,7 +9,7 @@ use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
     BASE_EPSILON,
 };
-use reaper_high::{AvailablePanValue, ChangeEvent, Pan, PanExt, Project, Track};
+use reaper_high::{AvailablePanValue, ChangeEvent, Pan, PanExt, Project, Track, TrackSetSmartOpts};
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -104,8 +104,15 @@ impl RealearnTarget for TrackPanTarget {
             self.gang_behavior,
             &TRACK_PAN_TARGET,
             |gang_behavior, grouping_behavior| {
-                self.track
-                    .set_pan_smart(pan, gang_behavior, grouping_behavior)
+                self.track.set_pan_smart(
+                    pan.reaper_value(),
+                    TrackSetSmartOpts {
+                        gang_behavior,
+                        grouping_behavior,
+                        // Important because we don't want undo points for each little fader movement!
+                        done: false,
+                    },
+                )
             },
         )?;
         Ok(HitResponse::processed_with_effect())

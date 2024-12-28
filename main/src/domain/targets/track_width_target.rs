@@ -12,7 +12,9 @@ use crate::domain::{
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
-use reaper_high::{AvailablePanValue, ChangeEvent, PanExt, Project, Track, Width};
+use reaper_high::{
+    AvailablePanValue, ChangeEvent, PanExt, Project, Track, TrackSetSmartOpts, Width,
+};
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -103,8 +105,15 @@ impl RealearnTarget for TrackWidthTarget {
             self.gang_behavior,
             &TRACK_WIDTH_TARGET,
             |gang_behavior, grouping_behavior| {
-                self.track
-                    .set_width_smart(width, gang_behavior, grouping_behavior)
+                self.track.set_width_smart(
+                    width.reaper_value(),
+                    TrackSetSmartOpts {
+                        gang_behavior,
+                        grouping_behavior,
+                        // Important because we don't want undo points for each little fader movement!
+                        done: false,
+                    },
+                )
             },
         )?;
         Ok(HitResponse::processed_with_effect())

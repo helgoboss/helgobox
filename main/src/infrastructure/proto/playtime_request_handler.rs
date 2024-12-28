@@ -1,5 +1,5 @@
 use anyhow::Context;
-use reaper_high::{GroupingBehavior, Guid, Pan, Track};
+use reaper_high::{GroupingBehavior, Guid, Pan, Track, TrackSetSmartOpts};
 use reaper_medium::{Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, SoloMode};
 use tonic::{Response, Status};
 
@@ -589,8 +589,7 @@ impl PlaytimeProtoRequestHandler {
                     let project = matrix.project();
                     project.master_track()?.set_volume_smart(
                         db.to_linear_volume_value(),
-                        GangBehavior::DenyGang,
-                        GroupingBehavior::PreventGrouping,
+                        TrackSetSmartOpts::default(),
                     )?;
                 }
                 MatrixVolumeKind::Click => {
@@ -609,11 +608,9 @@ impl PlaytimeProtoRequestHandler {
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
         self.handle_matrix_command(req.matrix_id, |matrix| {
             let project = matrix.project();
-            project.master_track()?.set_pan_smart(
-                Pan::from_reaper_value(pan),
-                GangBehavior::DenyGang,
-                GroupingBehavior::PreventGrouping,
-            )?;
+            project
+                .master_track()?
+                .set_pan_smart(pan, TrackSetSmartOpts::default())?;
             Ok(())
         })
     }
@@ -621,11 +618,7 @@ impl PlaytimeProtoRequestHandler {
     pub fn set_track_volume(&self, req: SetTrackVolumeRequest) -> Result<Response<Empty>, Status> {
         let db = Db::try_from(req.db).map_err(|e| Status::invalid_argument(e.to_string()))?;
         self.handle_track_command(&req.track_address, |_matrix, track| {
-            track.set_volume_smart(
-                db.to_linear_volume_value(),
-                GangBehavior::DenyGang,
-                GroupingBehavior::PreventGrouping,
-            )?;
+            track.set_volume_smart(db.to_linear_volume_value(), TrackSetSmartOpts::default())?;
             Ok(())
         })
     }
@@ -633,11 +626,7 @@ impl PlaytimeProtoRequestHandler {
     pub fn set_track_pan(&self, req: SetTrackPanRequest) -> Result<Response<Empty>, Status> {
         let pan = ReaperPanValue::new_panic(req.pan.clamp(-1.0, 1.0));
         self.handle_track_command(&req.track_address, |_matrix, track| {
-            track.set_pan_smart(
-                Pan::from_reaper_value(pan),
-                GangBehavior::DenyGang,
-                GroupingBehavior::PreventGrouping,
-            )?;
+            track.set_pan_smart(pan, TrackSetSmartOpts::default())?;
             Ok(())
         })
     }

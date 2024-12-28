@@ -8,7 +8,7 @@ use crate::domain::{
     TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Project, SliderVolume, Track};
+use reaper_high::{ChangeEvent, Project, SliderVolume, Track, TrackSetSmartOpts};
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -89,8 +89,12 @@ impl RealearnTarget for TrackVolumeTarget {
             |gang_behavior, grouping_behavior| {
                 self.track.set_volume_smart(
                     volume.unwrap_or(SliderVolume::MIN).reaper_value(),
-                    gang_behavior,
-                    grouping_behavior,
+                    TrackSetSmartOpts {
+                        gang_behavior,
+                        grouping_behavior,
+                        // Important because we don't want undo points for each little fader movement!
+                        done: false,
+                    },
                 )
             },
         )?;

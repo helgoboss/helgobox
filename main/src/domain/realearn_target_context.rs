@@ -4,7 +4,7 @@ use crate::domain::{
 };
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use base::{NamedChannelSender, SenderToNormalThread};
-use reaper_high::{Fx, Track};
+use reaper_high::{Fx, Track, TrackSetSmartOpts};
 use reaper_medium::{GangBehavior, MediaTrack, NotificationBehavior, ValueChange};
 
 /// Feedback for most targets comes from REAPER itself but there are some targets for which ReaLearn
@@ -111,7 +111,7 @@ impl RealearnTargetState {
         };
         self.touched_things
             .insert(TouchedThing::new(raw_track, parameter_type));
-        self.post_process_touch(track, parameter_type);
+        self.post_process_touch(track, parameter_type, true);
         self.additional_feedback_event_sender.send_complaining(
             AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
                 ParameterAutomationTouchStateChangedEvent {
@@ -133,7 +133,7 @@ impl RealearnTargetState {
         };
         self.touched_things
             .remove(&TouchedThing::new(raw_track, parameter_type));
-        self.post_process_touch(track, parameter_type);
+        self.post_process_touch(track, parameter_type, false);
         self.additional_feedback_event_sender.send_complaining(
             AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
                 ParameterAutomationTouchStateChangedEvent {
@@ -145,37 +145,25 @@ impl RealearnTargetState {
         );
     }
 
-    fn post_process_touch(&mut self, track: &Track, parameter_type: TouchedTrackParameterType) {
+    fn post_process_touch(
+        &mut self,
+        track: &Track,
+        parameter_type: TouchedTrackParameterType,
+        touched: bool,
+    ) {
+        let opts = TrackSetSmartOpts {
+            done: !touched,
+            ..Default::default()
+        };
         match parameter_type {
             TouchedTrackParameterType::Volume => {
-                let resulting_value = track.csurf_on_volume_change_ex(
-                    ValueChange::Absolute(track.volume()),
-                    GangBehavior::DenyGang,
-                );
-                if let Ok(v) = resulting_value {
-                    let _ = track.csurf_set_surface_volume(v, NotificationBehavior::NotifyAll);
-                }
+                let _ = track.set_volume_smart(track.volume(), opts);
             }
             TouchedTrackParameterType::Pan => {
-                let resulting_value = track.csurf_on_pan_change_ex(
-                    ValueChange::Absolute(track.pan().reaper_value()),
-                    GangBehavior::DenyGang,
-                );
-                if let Ok(v) = resulting_value {
-                    let _ = track.csurf_set_surface_pan(v, NotificationBehavior::NotifyAll);
-                }
+                let _ = track.set_pan_smart(track.pan().reaper_value(), opts);
             }
             TouchedTrackParameterType::Width => {
-                let result = track.csurf_on_width_change_ex(
-                    ValueChange::Absolute(track.width().reaper_value()),
-                    GangBehavior::DenyGang,
-                );
-                if result.is_ok() {
-                    let _ = track.csurf_set_surface_pan(
-                        track.pan().reaper_value(),
-                        NotificationBehavior::NotifyAll,
-                    );
-                }
+                let _ = track.set_width_smart(track.width().reaper_value(), opts);
             }
         }
     }

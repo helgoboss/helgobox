@@ -1,5 +1,4 @@
 use crate::base::notification;
-use reaper_low::firewall;
 use std::sync;
 
 use crate::domain::{ParameterManager, PluginParamIndex};
