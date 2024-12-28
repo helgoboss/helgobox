@@ -43,7 +43,9 @@ jobs:
             profile: release-strip
             features: "playtime,egui,licensing"
             # The minimum version that I tested with is 10.13.
-            macosx_deployment_target: "10.7"
+            # Writing 10.7 builds, but it won't run, for example, on 10.14 (weird)!
+            # https://github.com/helgoboss/helgobox/issues/1384
+            macosx_deployment_target: "10.9"
           - artifact: macos-aarch64
             os: macos-latest
             toolchain: 1.81.0-x86_64-apple-darwin

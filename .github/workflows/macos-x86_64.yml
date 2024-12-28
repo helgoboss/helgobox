@@ -44,7 +44,6 @@ jobs:
     name: Test
     runs-on: macos-latest
     env:
-      # TODO-high This is temporarily 10.9 (should be 10.7) until  https://github.com/rust-lang/cc-rs/issues/902 is fixed
       MACOSX_DEPLOYMENT_TARGET: 10.9
     steps:
       # Checkout with Playtime Clip Engine
