@@ -2503,6 +2503,7 @@ impl TargetModel {
                             track_descriptor: self.track_descriptor()?,
                             parameter_type: self.touched_track_parameter_type,
                             exclusivity: self.track_exclusivity,
+                            gang_behavior: self.fixed_gang_behavior(),
                         })
                     }
                     GoToBookmark => {

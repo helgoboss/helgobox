@@ -480,6 +480,10 @@ pub struct TrackAutomationTouchStateTarget {
     pub track: Option<TrackDescriptor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusivity: Option<TrackExclusivity>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_track_grouping: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_selection_ganging: Option<bool>,
     pub touched_parameter: TouchedTrackParameter,
 }
 

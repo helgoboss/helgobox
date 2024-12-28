@@ -1,11 +1,11 @@
 use crate::domain::{
     AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
-    TouchedTrackParameterType,
+    TouchedTrackParameterType, TrackGangBehavior,
 };
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use base::{NamedChannelSender, SenderToNormalThread};
 use reaper_high::{Fx, Track, TrackSetSmartOpts};
-use reaper_medium::{GangBehavior, MediaTrack, NotificationBehavior, ValueChange};
+use reaper_medium::MediaTrack;
 
 /// Feedback for most targets comes from REAPER itself but there are some targets for which ReaLearn
 /// holds the state. It's in this struct.
@@ -105,13 +105,14 @@ impl RealearnTargetState {
         &mut self,
         track: &Track,
         parameter_type: TouchedTrackParameterType,
+        gang_behavior: TrackGangBehavior,
     ) {
         let Ok(raw_track) = track.raw() else {
             return;
         };
         self.touched_things
             .insert(TouchedThing::new(raw_track, parameter_type));
-        self.post_process_touch(track, parameter_type, true);
+        self.post_process_touch(track, parameter_type, gang_behavior, true);
         self.additional_feedback_event_sender.send_complaining(
             AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
                 ParameterAutomationTouchStateChangedEvent {
@@ -127,13 +128,14 @@ impl RealearnTargetState {
         &mut self,
         track: &Track,
         parameter_type: TouchedTrackParameterType,
+        gang_behavior: TrackGangBehavior,
     ) {
         let Ok(raw_track) = track.raw() else {
             return;
         };
         self.touched_things
             .remove(&TouchedThing::new(raw_track, parameter_type));
-        self.post_process_touch(track, parameter_type, false);
+        self.post_process_touch(track, parameter_type, gang_behavior, false);
         self.additional_feedback_event_sender.send_complaining(
             AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
                 ParameterAutomationTouchStateChangedEvent {
@@ -149,11 +151,14 @@ impl RealearnTargetState {
         &mut self,
         track: &Track,
         parameter_type: TouchedTrackParameterType,
+        gang_behavior: TrackGangBehavior,
         touched: bool,
     ) {
+        let (gang_behavior, grouping_behavior) = gang_behavior.gang_and_grouping_behavior();
         let opts = TrackSetSmartOpts {
+            grouping_behavior,
+            gang_behavior,
             done: !touched,
-            ..Default::default()
         };
         match parameter_type {
             TouchedTrackParameterType::Volume => {

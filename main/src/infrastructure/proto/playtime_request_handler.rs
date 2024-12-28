@@ -1,5 +1,5 @@
 use anyhow::Context;
-use reaper_high::{GroupingBehavior, Guid, Pan, Track, TrackSetSmartOpts};
+use reaper_high::{GroupingBehavior, Guid, Track, TrackSetSmartOpts};
 use reaper_medium::{Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, SoloMode};
 use tonic::{Response, Status};
 

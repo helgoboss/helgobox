@@ -346,6 +346,14 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
+                use_track_grouping: Some(
+                    d.use_track_grouping
+                        .unwrap_or(defaults::TARGET_USE_TRACK_GROUPING),
+                ),
+                use_selection_ganging: Some(
+                    d.use_selection_ganging
+                        .unwrap_or(defaults::TARGET_USE_SELECTION_GANGING),
+                ),
                 touched_parameter_type: {
                     use domain::TouchedTrackParameterType as T;
                     use TouchedTrackParameter::*;

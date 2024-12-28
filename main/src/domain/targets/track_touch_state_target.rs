@@ -4,7 +4,7 @@ use crate::domain::{
     AdditionalFeedbackEvent, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
     ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
-    TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -16,6 +16,7 @@ pub struct UnresolvedTrackTouchStateTarget {
     pub track_descriptor: TrackDescriptor,
     pub parameter_type: TouchedTrackParameterType,
     pub exclusivity: TrackExclusivity,
+    pub gang_behavior: TrackGangBehavior,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedTrackTouchStateTarget {
@@ -32,6 +33,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackTouchStateTarget {
                         track,
                         parameter_type: self.parameter_type,
                         exclusivity: self.exclusivity,
+                        gang_behavior: self.gang_behavior,
                     })
                 })
                 .collect(),
@@ -48,6 +50,7 @@ pub struct TrackTouchStateTarget {
     pub track: Track,
     pub parameter_type: TouchedTrackParameterType,
     pub exclusivity: TrackExclusivity,
+    pub gang_behavior: TrackGangBehavior,
 }
 
 impl RealearnTarget for TrackTouchStateTarget {
@@ -70,14 +73,18 @@ impl RealearnTarget for TrackTouchStateTarget {
             self.exclusivity,
             value.to_unit_value()?,
             |t| {
-                target_context
-                    .borrow_mut()
-                    .touch_automation_parameter(t, self.parameter_type)
+                target_context.borrow_mut().touch_automation_parameter(
+                    t,
+                    self.parameter_type,
+                    self.gang_behavior,
+                )
             },
             |t| {
-                target_context
-                    .borrow_mut()
-                    .untouch_automation_parameter(t, self.parameter_type)
+                target_context.borrow_mut().untouch_automation_parameter(
+                    t,
+                    self.parameter_type,
+                    self.gang_behavior,
+                )
             },
         );
         Ok(HitResponse::processed_with_effect())
@@ -149,6 +156,8 @@ pub const TRACK_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Track touch state",
     supports_track: true,
     supports_track_exclusivity: true,
+    supports_gang_selected: true,
+    supports_gang_grouping: true,
     ..DEFAULT_TARGET
 };
 
