@@ -377,7 +377,7 @@ impl HelgoboxPlugin {
                 let mut bytes = instance_id_c_string
                     .as_bytes_with_nul()
                     .iter()
-                    .map(|v| *v as i8);
+                    .map(|v| *v as c_char);
                 buffer[0..bytes.len()].fill_with(|| bytes.next().unwrap());
                 Ok(())
             }
