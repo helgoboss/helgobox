@@ -2981,6 +2981,7 @@ mod playtime_impl {
     use base::metrics_util::{record_duration, record_occurrence};
     use base::spawn_in_main_thread;
     use camino::Utf8PathBuf;
+    use futures::future::BoxFuture;
     use playtime_api::persistence::PlaytimeSettings;
     use playtime_clip_engine::PlaytimeEngine;
     use reaper_high::{GroupingBehavior, Project, Reaper};
@@ -3061,8 +3062,8 @@ mod playtime_impl {
                 None
             };
         #[derive(Debug)]
-        struct RealearnPlaytimeIntegration;
-        impl playtime_clip_engine::PlaytimeIntegration for RealearnPlaytimeIntegration {
+        struct HelgoboxPlaytimeIntegration;
+        impl playtime_clip_engine::PlaytimeIntegration for HelgoboxPlaytimeIntegration {
             fn export_to_clipboard(
                 &self,
                 item: &dyn playtime_clip_engine::PlaytimeItem,
@@ -3086,12 +3087,16 @@ mod playtime_impl {
                 fs::write(settings_path, json)?;
                 Ok(())
             }
+
+            fn spawn_in_async_runtime(&self, f: BoxFuture<'static, ()>) {
+                BackboneShell::get().spawn_in_async_runtime(f);
+            }
         }
         let args = playtime_clip_engine::PlaytimeEngineInitArgs {
             available_licenses: license_manager.licenses(),
             settings: BackboneShell::read_playtime_settings(),
             metrics_recorder,
-            integration: Box::new(RealearnPlaytimeIntegration),
+            integration: Box::new(HelgoboxPlaytimeIntegration),
         };
         PlaytimeEngine::make_available_globally(PlaytimeEngine::new(args));
     }
