@@ -57,12 +57,12 @@ impl<T> ImportantSenderFromRtToNormalThread<T> {
     }
 }
 
-impl<T: Copy> ImportantSenderFromRtToNormalThread<T> {
+impl<T> ImportantSenderFromRtToNormalThread<T> {
     /// Returns `false` if receiver gone.
     pub fn send(&self, msg: T) -> bool {
         if let Err(e) = self.bounded_normal_sender.try_send(msg) {
             match e {
-                TrySendError::Full(_) => {
+                TrySendError::Full(msg) => {
                     tracing::error!(
                         msg = "Main sequence channel was full, using emergency channel (may allocate)!",
                         %self.channel_name,
