@@ -63,7 +63,7 @@ impl<T> ImportantSenderFromRtToNormalThread<T> {
         if let Err(e) = self.bounded_normal_sender.try_send(msg) {
             match e {
                 TrySendError::Full(msg) => {
-                    tracing::error!(
+                    tracing::warn!(
                         msg = "Main sequence channel was full, using emergency channel (may allocate)!",
                         %self.channel_name,
                     );
