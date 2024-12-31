@@ -24,6 +24,7 @@ use std::sync::{Arc, OnceLock};
 
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 
+use crate::base::notification;
 use crate::infrastructure::data::InstanceData;
 use crate::infrastructure::plugin::helgobox_plugin_editor::HelgoboxPluginEditor;
 use crate::infrastructure::plugin::instance_shell::InstanceShell;
@@ -403,8 +404,7 @@ impl HelgoboxPlugin {
     }
 
     fn init_instance_shell(&self) -> anyhow::Result<()> {
-        let processor_context = ProcessorContext::from_host(self.host)
-            .context("couldn't build processor context, called too early.")?;
+        let processor_context = ProcessorContext::from_host(self.host)?;
         let instance_shell = InstanceShell::new(
             self.instance_id,
             processor_context,
@@ -451,8 +451,9 @@ impl HelgoboxPlugin {
         }
         match index {
             INIT_INSTANCE_SHELL => {
-                self.init_instance_shell()
-                    .expect("couldn't init instance shell");
+                if let Err(e) = self.init_instance_shell() {
+                    notification::alert(e.to_string());
+                }
                 return 0;
             }
             _ => {}
