@@ -111,22 +111,23 @@ git-fetch-with-cli = true
 
 === Windows
 
-In the following you will find the complete instructions for Windows 10, including Rust setup.
-Points where you have to consider the target architecture (REAPER 32-bit vs. 64-bit) are marked with :star:.
+In the following, you will find the complete instructions for Windows 10/11, including Rust setup.
+Points where you have to consider the target architecture (for example, REAPER 32-bit vs. 64-bit) are marked with :star:.
 
 . Enable "Developer mode" in the Windows settings (this is needed because ReaLearn uses link:https://stackoverflow.com/a/59761201[Symlinks within its Git repository])
-. Setup "Build tools for Visual Studio" (I think you need at least Visual Studio 2019)
+. Setup "Visual Studio" (currently tested with version 2022)
 * Rust uses native build toolchains.
 On Windows, it's necessary to use the MSVC (Microsoft Visual Studio C++) toolchain because REAPER plug-ins only work with that.
-* https://visualstudio.microsoft.com/downloads/[Visual Studio downloads] → All downloads → Tools for Visual Studio 2019
- → Build Tools for Visual Studio 2019
+* https://visualstudio.microsoft.com/downloads/[Visual Studio downloads] → All downloads → Tools for Visual Studio 2022
+ → Build Tools for Visual Studio 2022
 * Start it and follow the installer instructions
 * Required components
 ** Workloads tab
-** "C++ build tools" (large box on the left)
-** Make sure "Windows 10 SDK" is checked on the right side (usually it is)
+*** "C++ build tools" (large box on the left)
+*** Make sure "Windows 10 SDK" is checked on the right side (usually it is)
+*** If on Windows ARM64: Make sure "C++ Clang-Tools" is checked on the right side (normally not checked!, currently necessary for compilation of `ring` dependency)
 ** Language packs
-** English
+*** English
 . Setup Rust
 * https://www.rust-lang.org/tools/install[Download] and execute `rustup-init.exe`
 * Accept the defaults
