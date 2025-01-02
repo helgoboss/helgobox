@@ -577,6 +577,10 @@ const VST_CACHE_FILE: &str = {
         {
             "reaper-vstplugins.ini"
         }
+        #[cfg(target_arch = "aarch64")]
+        {
+            "reaper-vstplugins64arwmin.ini"
+        }
     }
     #[cfg(target_os = "linux")]
     {
@@ -620,6 +624,10 @@ const CLAP_CACHE_FILE: &str = {
         #[cfg(target_arch = "x86")]
         {
             "reaper-clap-win32"
+        }
+        #[cfg(target_arch = "aarch64")]
+        {
+            "reaper-clap-winarm64"
         }
     }
     #[cfg(target_os = "linux")]
