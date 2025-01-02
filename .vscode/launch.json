@@ -2,18 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Portable macOS",
+            "name": "Unix Portable",
             "type": "lldb",
             "request": "launch",
-            "program": "/Users/helgoboss/Downloads/portable-reaper/REAPER64.app/Contents/MacOS/REAPER",
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "Portable Linux",
-            "type": "lldb",
-            "request": "launch",
-            "program": "/home/helgoboss/opt/REAPER/reaper",
+            "program": "${userHome}/opt/REAPER/reaper",
             "args": [],
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.vscode/launch.env"
