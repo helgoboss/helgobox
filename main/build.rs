@@ -46,10 +46,10 @@ fn generate_gui_dialogs(
 fn compile_eel() {
     let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
     let asm_object_file = if cfg!(target_os = "windows") {
-        if target_arch == "x86_64" {
-            Some("lib/WDL/WDL/eel2/asm-nseel-x64.obj")
-        } else {
-            None
+        match target_arch.as_str() {
+            "x86_64" => Some("lib/WDL/WDL/eel2/asm-nseel-x64.obj"),
+            "arm64ec" => Some("lib/WDL/WDL/eel2/asm-nseel-arm64ec.obj"),
+            _ => None
         }
     } else if cfg!(target_os = "macos") {
         if target_arch == "x86_64" {
