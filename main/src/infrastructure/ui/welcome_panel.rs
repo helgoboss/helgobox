@@ -109,11 +109,11 @@ impl View for WelcomePanel {
         // Text 1
         let text_1 = window.require_control(root::ID_SETUP_INTRO_TEXT_1);
         text_1.set_cached_font(large_font);
-        text_1.set_text("Helgobox has been successfully installed!");
+        text_1.set_text("Helgobox has been\nsuccessfully installed!");
         // Text 2
         let text_2 = window.require_control(root::ID_SETUP_INTRO_TEXT_2);
         text_2.set_cached_font(medium_font);
-        text_2.set_text("Consider the following options to optimize your user experience:");
+        text_2.set_text("Consider the following options\nto optimize your user experience:");
         // Text 3
         let text_3 = window.require_control(root::ID_SETUP_TIP_TEXT);
         let arrow = symbols::arrow_right_symbol();
