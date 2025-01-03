@@ -78,7 +78,7 @@ pub fn say(feedback_value: SpeechSourceFeedbackValue) -> Result<(), Box<dyn Erro
     #[cfg(target_os = "linux")]
     {
         let _ = feedback_value;
-        Err("not yet supported on Linux".into())
+        Err("speech source not yet supported on Linux".into())
     }
 }
 

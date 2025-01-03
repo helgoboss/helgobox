@@ -87,7 +87,7 @@ fn eagerly_load_plugin_lib(context: &PluginContext) -> Result<Library> {
     #[cfg(target_os = "linux")]
     {
         // Linux only: Run SWELL entry point of library (on Windows, SWELL is not necessary, and on
-        // macOS, SWELL is obtained in a different way)
+        // macOS, SWELL is obtained differently)
         let swell_dll_main: Symbol<SwellDllMain> = unsafe { plugin_library.get(b"SWELL_dllMain")? };
         unsafe {
             swell_dll_main(

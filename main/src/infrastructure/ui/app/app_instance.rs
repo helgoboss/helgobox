@@ -119,7 +119,7 @@ impl AppInstance for DummyAppInstance {
     }
 
     fn start_or_show(&mut self, _owning_window: Window, _location: Option<String>) -> Result<()> {
-        bail!("not implemented for Linux")
+        bail!("Linux support for the Helgobox App (including the Playtime user interface) is currently at stage 1! That means the Helgobox App can't yet run embedded within REAPER, but it's possible to use it as a separate program that connects to REAPER (\"remote mode\").\n\nRead the instructions at https://bit.ly/3W51oEe to learn more about this temporary workaround. Subscribe to https://bit.ly/3BQvjcH to follow the development progress of Linux support stage 2.")
     }
 
     fn hide(&mut self) -> Result<()> {
