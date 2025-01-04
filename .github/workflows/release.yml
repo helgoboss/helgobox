@@ -138,7 +138,7 @@ jobs:
           command: build
           args: --features "${{ matrix.features }}" --profile ${{ matrix.profile }} --target ${{ matrix.target }}
           use-cross: ${{ matrix.use-cross }}
-      # Upload
+      # Upload to artifact
       - name: Upload plug-in and extension to artifact
         uses: actions/upload-artifact@v4
         with:
@@ -149,6 +149,19 @@ jobs:
             target/${{ matrix.target }}/${{ matrix.profile }}/helgobox.pdb
             target/${{ matrix.target }}/${{ matrix.profile }}/deps/libhelgobox.dylib.dSYM/
             target/${{ matrix.target }}/${{ matrix.profile }}/libhelgobox-debug.so
+      # Windows: Upload PDB to Sentry
+      - name: Upload PDB
+        if: startsWith(matrix.os, 'windows-')
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          # Install Sentry CLI
+          curl -sL https://sentry.io/get-cli/ | bash
+
+          # Upload
+          sentry-cli debug-files upload --auth-token $SENTRY_AUTH_TOKEN -o $SENTRY_ORG -p $SENTRY_PROJECT "target/${{ matrix.target }}/${{ matrix.profile }}/helgobox.pdb"
 
   create-release:
     name: Publish release
@@ -276,12 +289,34 @@ jobs:
       #          asset_name: helgobox-linux-aarch64.so
       #          asset_content_type: application/octet-stream
       # Upload Linux armv7 artifacts
-#      - name: Upload linux-armv7 release artifact
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./linux-armv7/libhelgobox.so
-#          asset_name: helgobox-linux-armv7.so
-#          asset_content_type: application/octet-stream
+  #      - name: Upload linux-armv7 release artifact
+  #        uses: actions/upload-release-asset@v1
+  #        env:
+  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #        with:
+  #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+  #          asset_path: ./linux-armv7/libhelgobox.so
+  #          asset_name: helgobox-linux-armv7.so
+  #          asset_content_type: application/octet-stream
+
+  create-sentry-release:
+    name: Create Sentry release
+    needs: create-release
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    steps:
+      # Checkout (necessary for Sentry to get info)
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      # Create Sentry release (optional)
+      - name: Create Sentry release
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: production
+          version: ${GITHUB_REF#refs/tags/v}
