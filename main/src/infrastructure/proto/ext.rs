@@ -1,5 +1,5 @@
 use enumflags2::BitFlags;
-use reaper_high::Reaper;
+use reaper_high::{FxChainContext, Reaper};
 use reaper_medium::{EnumPitchShiftModesResult, PlayState, ReaperStr, ReaperString};
 
 use helgobox_api::runtime::{ControllerPreset, LicenseInfo, MainPreset, ValidatedLicense};
@@ -9,24 +9,26 @@ use crate::domain::CompartmentKind;
 use crate::infrastructure::data::{
     ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager, LicenseManager,
 };
-use crate::infrastructure::plugin::InstanceShell;
+use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
+use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
-    event_reply, occasional_global_update, occasional_instance_update,
+    event_reply, fx_chain_location, occasional_global_update, occasional_instance_update,
     qualified_occasional_unit_update, ArrangementPlayState, AudioInputChannel, AudioInputChannels,
-    CellAddress, Compartment, ContinuousColumnUpdate, ContinuousMatrixUpdate,
-    GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply,
+    CellAddress, Compartment, ContinuousColumnUpdate, ContinuousMatrixUpdate, Empty,
+    FxChainLocation, FxLocation, GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply,
     GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply,
     GetOccasionalGlobalUpdatesReply, GetOccasionalInstanceUpdatesReply,
     GetOccasionalMatrixUpdatesReply, GetOccasionalPlaytimeEngineUpdatesReply,
     GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply, GetOccasionalTrackUpdatesReply,
-    GetOccasionalUnitUpdatesReply, HostColorScheme, MidiDeviceStatus, MidiInputDevice,
-    MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
-    OccasionalInstanceUpdate, OccasionalMatrixUpdate, OccasionalPlaytimeEngineUpdate,
-    PitchShiftMode, PitchShiftModes, PitchShiftSubMode, QualifiedContinuousSlotUpdate,
-    QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
-    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate,
-    ResampleMode, ResampleModes, RgbColor, Scope, Severity, SlotAddress, Unit, Units, Warning,
-    Warnings,
+    GetOccasionalUnitUpdatesReply, HelgoboxInstance, HelgoboxInstanceData, HelgoboxInstances,
+    HostColorScheme, MidiDeviceStatus, MidiInputDevice, MidiInputDevices, MidiOutputDevice,
+    MidiOutputDevices, OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalMatrixUpdate,
+    OccasionalPlaytimeEngineUpdate, PitchShiftMode, PitchShiftModes, PitchShiftSubMode,
+    ProjectLocation, QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate,
+    QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate,
+    QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate, ResampleMode, ResampleModes,
+    RgbColor, Scope, Severity, SlotAddress, TrackFxChainLocation, TrackLocation, Unit, Units,
+    Warning, Warnings,
 };
 use crate::infrastructure::server::data::get_controller_routing;
 
@@ -121,6 +123,10 @@ impl occasional_global_update::Update {
         let json =
             serde_json::to_string(&event).expect("couldn't represent global info event as JSON");
         Self::InfoEvent(json)
+    }
+
+    pub fn instances() -> Self {
+        Self::Instances(HelgoboxInstances::discover())
     }
 
     pub fn midi_input_devices() -> Self {
@@ -218,6 +224,70 @@ impl occasional_global_update::Update {
         let json =
             serde_json::to_string(&license_info).expect("couldn't represent license info as JSON");
         Self::LicenseInfo(json)
+    }
+}
+
+impl HelgoboxInstances {
+    pub fn discover() -> Self {
+        Self {
+            devices: BackboneShell::get().with_instance_shell_infos(|infos| {
+                infos
+                    .iter()
+                    .filter_map(|info| {
+                        let instance_shell = info.instance_shell.upgrade()?;
+                        let main_unit_model = instance_shell.main_unit_shell().model().clone();
+                        let main_unit_model = main_unit_model.borrow();
+                        let data = HelgoboxInstanceData {
+                            id: info.instance_id.into(),
+                            key: main_unit_model.unit_key().to_string(),
+                            tags: main_unit_model
+                                .tags
+                                .get_ref()
+                                .iter()
+                                .map(|t| t.to_string())
+                                .collect(),
+                        };
+                        let fx = info.processor_context.containing_fx();
+                        let fx_chain_location = match fx.chain().context() {
+                            FxChainContext::Monitoring => {
+                                fx_chain_location::Location::MonitoringFx(Empty {})
+                            }
+                            FxChainContext::Track { track, is_input_fx } => {
+                                let project = track.project();
+                                let project_location = ProjectLocation {
+                                    path: project.file().map(|f| f.to_string()),
+                                    index: project.index().ok()?,
+                                };
+                                let track_location = TrackLocation {
+                                    project: Some(project_location),
+                                    id: track.guid().to_string_without_braces(),
+                                    index: track.index()?,
+                                };
+                                fx_chain_location::Location::TrackFx(TrackFxChainLocation {
+                                    track: Some(track_location),
+                                    input_fx: *is_input_fx,
+                                })
+                            }
+                            // Not supported anyway
+                            FxChainContext::Take(_) => return None,
+                        };
+                        let fx_chain_location = FxChainLocation {
+                            location: Some(fx_chain_location),
+                        };
+                        let fx_location = FxLocation {
+                            fx_chain: Some(fx_chain_location),
+                            id: fx.get_or_query_guid().ok()?.to_string_without_braces(),
+                            index: fx.index(),
+                        };
+                        let helgobox_instance = HelgoboxInstance {
+                            data: Some(data),
+                            fx: Some(fx_location),
+                        };
+                        Some(helgobox_instance)
+                    })
+                    .collect()
+            }),
+        }
     }
 }
 

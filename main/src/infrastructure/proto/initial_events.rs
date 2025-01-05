@@ -16,6 +16,8 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
             .collect()
     }
     let global_updates = [
+        // TODO-high CONTINUE Notify about instance list updates
+        Update::instances(),
         Update::midi_input_devices(),
         Update::midi_output_devices(),
         Update::host_color_scheme(),
