@@ -55,7 +55,7 @@ use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
     get_text_from_clipboard, menus, serialize_data_object, serialize_data_object_to_json,
-    serialize_data_object_to_lua, stream_deck_tool, DataObject, GroupFilter, GroupPanel,
+    serialize_data_object_to_lua, stream_deck_tool, AppPage, DataObject, GroupFilter, GroupPanel,
     IndependentPanelManager, LuaCompartmentCommonScriptEngine, MappingRowsPanel, PlainTextEngine,
     ScriptEditorInput, SearchExpression, SerializationFormat, SharedIndependentPanelManager,
     SharedMainState, SimpleScriptEditorPanel, SourceFilter, UntaggedDataObject,
@@ -2421,7 +2421,7 @@ impl HeaderPanel {
     fn show_projection_in_app(&self) {
         let unit_id = self.session().borrow().unit_id();
         self.instance_panel()
-            .start_or_show_app_instance(Some(format!("/projection/{unit_id}")));
+            .start_or_show_app_instance(Some(AppPage::Projection(unit_id)));
     }
 
     fn show_app(&self) {

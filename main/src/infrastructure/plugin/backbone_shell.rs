@@ -2976,6 +2976,7 @@ mod playtime_impl {
     use crate::infrastructure::data::LicenseManager;
     use crate::infrastructure::plugin::{BackboneShell, NewInstanceOutcome};
     use crate::infrastructure::ui::util::open_in_browser;
+    use crate::infrastructure::ui::AppPage;
     use anyhow::Context;
     use base::future_util::millis;
     use base::metrics_util::{record_duration, record_occurrence};
@@ -3126,7 +3127,7 @@ mod playtime_impl {
             .insert_owned_clip_matrix_if_necessary()?;
         instance_shell
             .panel()
-            .start_show_or_hide_app_instance(Some("/playtime".to_string()));
+            .start_show_or_hide_app_instance(Some(AppPage::Playtime));
         Ok(())
     }
 
@@ -3166,7 +3167,7 @@ mod playtime_impl {
                         .context("instance not found")?;
                     instance_shell
                         .panel()
-                        .start_show_or_hide_app_instance(Some("/playtime".to_string()));
+                        .start_show_or_hide_app_instance(Some(AppPage::Playtime));
                 } else {
                     create_new_instance_in_project(project, "Playtime").await?;
                     enable_playtime_for_first_helgobox_instance_and_show_it()?;
@@ -3176,7 +3177,7 @@ mod playtime_impl {
                 let instance_panel = BackboneShell::get()
                     .find_instance_panel_by_instance_id(instance_id)
                     .context("Instance not found")?;
-                instance_panel.start_show_or_hide_app_instance(Some("/playtime".to_string()));
+                instance_panel.start_show_or_hide_app_instance(Some(AppPage::Playtime));
             }
         }
         Ok(())

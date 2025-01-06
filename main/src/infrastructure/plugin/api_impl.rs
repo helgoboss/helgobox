@@ -1,4 +1,5 @@
 use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::ui::AppPage;
 use anyhow::Context;
 use helgobox_api::runtime::{register_helgobox_api, HelgoboxApi};
 use reaper_high::{OrCurrentProject, Project, Reaper};
@@ -65,7 +66,7 @@ fn show_or_hide_playtime(instance_id: c_int) -> anyhow::Result<()> {
     let instance_panel = BackboneShell::get()
         .find_instance_panel_by_instance_id(instance_id.into())
         .context("Instance not found")?;
-    instance_panel.start_show_or_hide_app_instance(Some("/playtime".to_string()));
+    instance_panel.start_show_or_hide_app_instance(Some(AppPage::Playtime));
     Ok(())
 }
 

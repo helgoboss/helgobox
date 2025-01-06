@@ -10,7 +10,6 @@ use crate::infrastructure::data::{
     ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager, LicenseManager,
 };
 use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
-use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
     event_reply, fx_chain_location, occasional_global_update, occasional_instance_update,
     qualified_occasional_unit_update, ArrangementPlayState, AudioInputChannel, AudioInputChannels,
@@ -230,7 +229,7 @@ impl occasional_global_update::Update {
 impl HelgoboxInstances {
     pub fn discover() -> Self {
         Self {
-            devices: BackboneShell::get().with_instance_shell_infos(|infos| {
+            instances: BackboneShell::get().with_instance_shell_infos(|infos| {
                 infos
                     .iter()
                     .filter_map(|info| {

@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::{build_unit_label, util, UnitPanel};
+use crate::infrastructure::ui::{build_unit_label, util, AppPage, UnitPanel};
 use anyhow::Context;
 use reaper_medium::Hbrush;
 use std::cell::{Cell, OnceCell, RefCell};
@@ -60,19 +60,19 @@ impl InstancePanel {
         }
     }
 
-    pub fn start_or_show_app_instance(&self, location: Option<String>) {
+    pub fn start_or_show_app_instance(&self, page: Option<AppPage>) {
         let result = self
             .app_instance
             .borrow_mut()
-            .start_or_show(reaper_main_window(), location);
+            .start_or_show(reaper_main_window(), page);
         crate::base::notification::notify_user_on_anyhow_error(result);
     }
 
-    pub fn start_show_or_hide_app_instance(&self, location: Option<String>) {
+    pub fn start_show_or_hide_app_instance(&self, page: Option<AppPage>) {
         if self.app_instance.borrow_mut().is_visible() {
             self.hide_app_instance();
         } else {
-            self.start_or_show_app_instance(location);
+            self.start_or_show_app_instance(page);
         }
     }
 

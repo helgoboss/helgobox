@@ -1546,7 +1546,7 @@ pub struct TrackMidiInput {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HelgoboxInstances {
     #[prost(message, repeated, tag = "1")]
-    pub devices: ::prost::alloc::vec::Vec<HelgoboxInstance>,
+    pub instances: ::prost::alloc::vec::Vec<HelgoboxInstance>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

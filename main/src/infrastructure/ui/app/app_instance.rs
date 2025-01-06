@@ -1,4 +1,4 @@
-use crate::domain::InstanceId;
+use crate::domain::{InstanceId, UnitId};
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::{
     event_reply, occasional_global_update, reply, EventReply, GetOccasionalGlobalUpdatesReply,
@@ -26,7 +26,7 @@ pub trait AppInstance: Debug {
 
     fn is_visible(&self) -> bool;
 
-    fn start_or_show(&mut self, owning_window: Window, location: Option<String>) -> Result<()>;
+    fn start_or_show(&mut self, owning_window: Window, location: Option<AppPage>) -> Result<()>;
 
     fn hide(&mut self) -> Result<()>;
 
@@ -118,7 +118,7 @@ impl AppInstance for DummyAppInstance {
         false
     }
 
-    fn start_or_show(&mut self, _owning_window: Window, _location: Option<String>) -> Result<()> {
+    fn start_or_show(&mut self, _owning_window: Window, _page: Option<AppPage>) -> Result<()> {
         bail!("Linux support for the Helgobox App (including the Playtime user interface) is currently at stage 1! That means the Helgobox App can't yet run embedded within REAPER, but it's possible to use it as a separate program that connects to REAPER (\"remote mode\").\n\nRead the instructions at https://bit.ly/3W51oEe to learn more about this temporary workaround. Subscribe to https://bit.ly/3BQvjcH to follow the development progress of Linux support stage 2.")
     }
 
@@ -141,6 +141,22 @@ impl AppInstance for DummyAppInstance {
     }
 
     fn notify_app_is_in_text_entry_mode(&mut self, _is_in_text_entry_mode: bool) {}
+}
+
+pub enum AppPage {
+    Projection(UnitId),
+    Playtime,
+}
+
+impl AppPage {
+    pub fn location(&self) -> String {
+        match self {
+            AppPage::Playtime => "/instance/.host/playtime".to_string(),
+            AppPage::Projection(unit_id) => {
+                format!("/instance/.host/unit/{unit_id}/projection")
+            }
+        }
+    }
 }
 
 /// App will run in its own window.
@@ -198,11 +214,11 @@ impl AppInstance for StandaloneAppInstance {
         }
     }
 
-    fn start_or_show(&mut self, _owning_window: Window, location: Option<String>) -> Result<()> {
+    fn start_or_show(&mut self, _owning_window: Window, page: Option<AppPage>) -> Result<()> {
         let app_library = BackboneShell::get_app_library()?;
         if let Some(running_state) = &self.running_state {
             app_library.show_app_instance(None, running_state.common_state.app_handle)?;
-            if let Some(location) = location {
+            if let Some(page) = page {
                 // Hmmm, yeah ...
                 let _ = self.send(&Reply {
                     value: Some(reply::Value::EventReply(EventReply {
@@ -210,7 +226,7 @@ impl AppInstance for StandaloneAppInstance {
                             GetOccasionalGlobalUpdatesReply {
                                 global_updates: vec![OccasionalGlobalUpdate {
                                     update: Some(occasional_global_update::Update::GoToLocation(
-                                        location,
+                                        page.location(),
                                     )),
                                 }],
                             },
@@ -220,7 +236,9 @@ impl AppInstance for StandaloneAppInstance {
             }
             return Ok(());
         }
-        let start_location = location.unwrap_or_else(|| "/".to_string());
+        let start_location = page
+            .map(|p| p.location())
+            .unwrap_or_else(|| "/".to_string());
         let app_handle = app_library.start_app_instance(None, self.instance_id, start_location)?;
         let running_state = StandaloneAppRunningState {
             common_state: CommonAppRunningState {
