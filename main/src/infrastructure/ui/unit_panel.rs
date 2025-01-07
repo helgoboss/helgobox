@@ -8,6 +8,7 @@ use reaper_high::Reaper;
 use std::cell::RefCell;
 use std::fmt;
 
+use crate::application::SessionProp::UnitName;
 use crate::application::{
     get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, SessionCommand,
     SessionProp, SessionUi, UnitModel, VirtualFxType, WeakUnitModel,
@@ -21,7 +22,8 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
 use crate::infrastructure::server::http::{
-    send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
+    send_projection_feedback_to_subscribed_clients, send_sessions_to_subscribed_clients,
+    send_updated_controller_routing,
 };
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
@@ -41,7 +43,7 @@ type _MainPanel = UnitPanel;
 pub struct UnitPanel {
     instance_id: InstanceId,
     view: ViewContext,
-    session: WeakUnitModel,
+    unit_model: WeakUnitModel,
     instance_panel: WeakView<InstancePanel>,
     header_panel: SharedView<HeaderPanel>,
     mapping_rows_panel: SharedView<MappingRowsPanel>,
@@ -63,7 +65,7 @@ impl UnitPanel {
             instance_id,
             view: Default::default(),
             state: state.clone(),
-            session: session.clone(),
+            unit_model: session.clone(),
             instance_panel: instance_panel.clone(),
             header_panel: HeaderPanel::new(
                 session.clone(),
@@ -197,7 +199,7 @@ impl UnitPanel {
     }
 
     fn do_with_session<R>(&self, f: impl FnOnce(&UnitModel) -> R) -> Result<R, &'static str> {
-        match self.session.upgrade() {
+        match self.unit_model.upgrade() {
             None => Err("session not available anymore"),
             Some(session) => Ok(f(&session.borrow())),
         }
@@ -207,7 +209,7 @@ impl UnitPanel {
         &self,
         f: impl FnOnce(&mut UnitModel) -> R,
     ) -> Result<R, &'static str> {
-        match self.session.upgrade() {
+        match self.unit_model.upgrade() {
             None => Err("session not available anymore"),
             Some(session) => Ok(f(&mut session.borrow_mut())),
         }
@@ -263,12 +265,6 @@ impl UnitPanel {
             self.when(session.everything_changed(), |view| {
                 view.invalidate_all_controls();
             });
-            self.when(
-                session.tags.changed().merge(session.unit_key.changed()),
-                |view| {
-                    view.invalidate_status_1_text();
-                },
-            );
             let instance_state = session.unit().borrow();
             self.when(
                 instance_state.global_control_and_feedback_state_changed(),
@@ -339,24 +335,27 @@ impl UnitPanel {
             .notify_about_instance_info_event(self.instance_id, event);
     }
 
-    fn handle_unit_name_changed(&self) {
-        if let Ok(shell) = self.instance_panel().shell() {
-            // At the time when this method is called, the unit is still borrowed, so the proto hub can't create
-            // an overview over all units.
-            // TODO-medium It would be better if we would send around tiny events here and collect
-            //  them from the event loop.
-            let _ =
-                Global::task_support().do_later_in_main_thread_from_main_thread_asap(move || {
-                    BackboneShell::get()
-                        .proto_hub()
-                        .notify_instance_units_changed(&shell);
-                });
-        }
-    }
-
     fn handle_affected_own(self: SharedView<Self>, affected: Affected<SessionProp>) {
         use Affected::*;
         use SessionProp::*;
+        // Handle even if closed
+        match affected {
+            One(UnitName) => {
+                if let Ok(shell) = self.instance_panel().shell() {
+                    BackboneShell::get()
+                        .proto_hub()
+                        .notify_instance_units_changed(&shell);
+                }
+            }
+            One(UnitKey) => {
+                // Actually, the instances are only affected if the main unit key is changed, but
+                // so what.
+                BackboneShell::get().proto_hub().notify_instances_changed();
+                send_sessions_to_subscribed_clients();
+            }
+            _ => {}
+        }
+        // Handle only if open
         if !self.is_open() {
             return;
         }
@@ -366,6 +365,9 @@ impl UnitPanel {
             }
             One(UnitName) => {
                 let _ = self.invalidate_unit_button();
+            }
+            One(UnitKey) => {
+                self.invalidate_status_1_text();
             }
             Multiple => {
                 self.invalidate_all_controls();
@@ -453,7 +455,7 @@ impl UnitPanel {
             session.change_with_notification(
                 SessionCommand::SetUnitName(unit_name),
                 None,
-                self.session.clone(),
+                self.unit_model.clone(),
             );
         })?;
         // Take care of unit key
@@ -468,7 +470,11 @@ impl UnitPanel {
                 return Ok(());
             }
             self.do_with_session_mut(|session| {
-                session.unit_key.set(new_unit_key);
+                session.change_with_notification(
+                    SessionCommand::SetUnitKey(new_unit_key),
+                    None,
+                    self.unit_model.clone(),
+                );
             })?;
         }
         Ok(())
@@ -594,10 +600,6 @@ impl SessionUi for Weak<UnitPanel> {
         BackboneShell::get()
             .proto_hub()
             .notify_everything_in_unit_has_changed(unit_model.instance_id(), unit_model.unit_id());
-    }
-
-    fn handle_unit_name_changed(&self) {
-        upgrade_panel(self).handle_unit_name_changed();
     }
 
     fn handle_global_control_and_feedback_state_changed(&self) {

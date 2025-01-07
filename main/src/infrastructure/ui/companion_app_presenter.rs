@@ -3,7 +3,7 @@
 #![allow(clippy::useless_let_if_seq)]
 use askama::Template;
 
-use crate::application::{SharedUnitModel, WeakUnitModel};
+use crate::application::{Affected, SessionProp, SharedUnitModel, WeakUnitModel};
 use crate::base::when;
 use crate::infrastructure::plugin::BackboneShell;
 
@@ -35,6 +35,19 @@ impl CompanionAppPresenter {
         let shared = Rc::new(m);
         shared.register_listeners();
         shared
+    }
+
+    pub fn handle_affected(&self, affected: &Affected<SessionProp>, _initiator: Option<u32>) {
+        use crate::application::Affected::One;
+        use crate::application::SessionProp::UnitKey;
+        match affected {
+            One(UnitKey) => {
+                if self.app_info_requested.get() {
+                    self.update_app_info();
+                }
+            }
+            _ => {}
+        }
     }
 
     pub fn show_app_info(&self) {
@@ -114,7 +127,6 @@ impl CompanionAppPresenter {
         when(
             app.changed()
                 .merge(app.server().borrow().changed())
-                .merge(self.session().borrow().unit_key.changed())
                 .take_until(self.party_is_over()),
         )
         .with(Rc::downgrade(self))

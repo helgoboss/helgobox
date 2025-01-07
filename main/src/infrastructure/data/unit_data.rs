@@ -690,9 +690,6 @@ impl UnitData {
         )?;
         // Mutation
         let migration_descriptor = MigrationDescriptor::new(self.version.as_ref());
-        if let Some(id) = &self.id {
-            session.unit_key.set_without_notification(id.clone())
-        };
         session.lives_on_upper_floor.set(self.lives_on_upper_floor);
         session
             .send_feedback_only_if_armed
@@ -848,6 +845,9 @@ impl UnitData {
         session.tags.set_without_notification(self.tags.clone());
         session.set_instance_preset_link_config(self.instance_preset_link_config.clone());
         session.set_use_unit_preset_links_only(self.use_instance_preset_links_only);
+        if let Some(id) = &self.id {
+            let _ = session.change(SessionCommand::SetUnitKey(id.clone()));
+        };
         let _ = session.change(SessionCommand::SetUnitName(self.name.clone()));
         let _ = session.change(SessionCommand::SetInstanceTrack(
             self.instance_track.clone(),

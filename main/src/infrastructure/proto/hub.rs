@@ -61,6 +61,10 @@ impl ProtoHub {
         });
     }
 
+    pub fn notify_instances_changed(&self) {
+        self.send_occasional_global_updates(|| [occasional_global_update::Update::instances()]);
+    }
+
     pub fn notify_midi_input_devices_changed(&self) {
         self.send_occasional_global_updates(|| {
             [occasional_global_update::Update::midi_input_devices()]

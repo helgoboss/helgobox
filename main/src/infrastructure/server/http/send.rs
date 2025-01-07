@@ -201,16 +201,12 @@ pub fn keep_informing_clients_about_session_events(shared_session: &SharedUnitMo
     .do_async(|session, _| {
         let _ = send_updated_active_controller(&session.borrow());
     });
-    when(
-        session
-            .everything_changed()
-            .merge(session.unit_key.changed()),
-    )
-    .with(Rc::downgrade(shared_session))
-    .do_async(|session, _| {
-        send_sessions_to_subscribed_clients();
-        let session = session.borrow();
-        let _ = send_updated_active_controller(&session);
-        let _ = send_updated_controller_routing(&session);
-    });
+    when(session.everything_changed())
+        .with(Rc::downgrade(shared_session))
+        .do_async(|session, _| {
+            send_sessions_to_subscribed_clients();
+            let session = session.borrow();
+            let _ = send_updated_active_controller(&session);
+            let _ = send_updated_controller_routing(&session);
+        });
 }

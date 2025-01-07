@@ -189,6 +189,8 @@ impl HeaderPanel {
     }
 
     pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
+        self.companion_app_presenter
+            .handle_affected(affected, initiator);
         if !self.is_open() {
             return;
         }

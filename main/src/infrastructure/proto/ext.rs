@@ -50,7 +50,7 @@ impl occasional_instance_update::Update {
             let unit_model = unit_model.borrow();
             Unit {
                 id: unit_model.unit_id().into(),
-                key: unit_model.unit_key.get_ref().clone(),
+                key: unit_model.unit_key().to_string(),
                 name: unit_model.name().map(|n| n.to_string()),
             }
         });

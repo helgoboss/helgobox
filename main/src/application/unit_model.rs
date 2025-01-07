@@ -64,7 +64,6 @@ pub trait SessionUi {
     fn handle_internal_info_event(&self, event: &InternalInfoEvent);
     fn handle_external_info_event(&self, event: InstanceInfoEvent);
     fn handle_everything_changed(&self, unit_model: &UnitModel);
-    fn handle_unit_name_changed(&self);
     fn handle_global_control_and_feedback_state_changed(&self);
     fn handle_affected(
         &self,
@@ -88,7 +87,7 @@ pub struct UnitModel {
     /// Persisted and can be user-customized. Should be
     /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
     /// session will be picked. Most relevant for HTTP/WS API.
-    pub unit_key: Prop<String>,
+    unit_key: String,
     pub name: Option<String>,
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
@@ -255,7 +254,7 @@ impl UnitModel {
             .map(|au| au.controller_id.clone())
             .unwrap_or_else(|| nanoid::nanoid!(8));
         let mut model = Self {
-            unit_key: prop(initial_unit_key),
+            unit_key: initial_unit_key,
             instance_id,
             unit_id,
             let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),
@@ -344,7 +343,7 @@ impl UnitModel {
     }
 
     pub fn name_or_key(&self) -> &str {
-        self.name.as_deref().unwrap_or(self.unit_key.get_ref())
+        self.name.as_deref().unwrap_or(&self.unit_key)
     }
 
     pub fn auto_unit(&self) -> Option<&AutoUnitData> {
@@ -402,7 +401,7 @@ impl UnitModel {
     }
 
     pub fn unit_key(&self) -> &str {
-        self.unit_key.get_ref()
+        &self.unit_key
     }
 
     pub fn instance_track_descriptor(&self) -> &TrackDescriptor {
@@ -1109,6 +1108,10 @@ impl UnitModel {
                 self.name = unit_name;
                 Some(One(SessionProp::UnitName))
             }
+            C::SetUnitKey(unit_key) => {
+                self.unit_key = unit_key;
+                Some(One(SessionProp::UnitKey))
+            }
             C::SetInstanceTrack(api_desc) => {
                 let virtual_track =
                     domain::TrackDescriptor::from_api(api_desc.clone()).unwrap_or_default();
@@ -1277,9 +1280,6 @@ impl UnitModel {
                     use SessionProp::*;
                     let mut session = session.borrow_mut();
                     match &affected {
-                        One(UnitName) => {
-                            session.ui().handle_unit_name_changed();
-                        }
                         One(WantsKeyboardInput | StreamDeckDeviceId) => {
                             session.sync_settings();
                         }
@@ -2444,7 +2444,7 @@ impl UnitModel {
             - Controller mapping subscription count: {}\n\
             ",
             self.unit_id,
-            self.unit_key.get_ref(),
+            &self.unit_key,
             self.mappings[CompartmentKind::Main].len(),
             self.mapping_subscriptions[CompartmentKind::Main].len(),
             self.groups.len(),
@@ -3029,6 +3029,7 @@ pub fn reaper_supports_global_midi_filter() -> bool {
 #[allow(dead_code)]
 pub enum SessionCommand {
     SetUnitName(Option<String>),
+    SetUnitKey(String),
     SetInstanceTrack(TrackDescriptor),
     SetInstanceFx(FxDescriptor),
     SetWantsKeyboardInput(bool),
@@ -3039,6 +3040,7 @@ pub enum SessionCommand {
 
 pub enum SessionProp {
     UnitName,
+    UnitKey,
     InstanceTrack,
     InstanceFx,
     WantsKeyboardInput,

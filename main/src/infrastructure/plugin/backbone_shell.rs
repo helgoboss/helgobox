@@ -1459,6 +1459,7 @@ impl BackboneShell {
         self.control_surface_main_task_sender.0.send_complaining(
             RealearnControlSurfaceMainTask::AddInstance(instance_id, instance),
         );
+        self.proto_hub.notify_instances_changed();
     }
 
     pub fn unregister_instance(&self, instance_id: InstanceId) {
@@ -1474,6 +1475,7 @@ impl BackboneShell {
         });
         self.audio_hook_task_sender
             .send_complaining(NormalAudioHookTask::RemoveRealTimeInstance(instance_id));
+        self.proto_hub.notify_instances_changed();
     }
 
     pub fn register_unit(
