@@ -1554,7 +1554,7 @@ pub struct HelgoboxInstance {
     #[prost(message, optional, tag = "1")]
     pub data: ::core::option::Option<HelgoboxInstanceData>,
     #[prost(message, optional, tag = "2")]
-    pub fx: ::core::option::Option<FxLocation>,
+    pub fx: ::core::option::Option<FxLocationInfo>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1571,57 +1571,72 @@ pub struct HelgoboxInstanceData {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FxLocation {
+pub struct FxLocationInfo {
     /// Location of the containing FX chain.
     #[prost(message, optional, tag = "1")]
-    pub fx_chain: ::core::option::Option<FxChainLocation>,
+    pub fx_chain: ::core::option::Option<FxChainLocationInfo>,
     /// Unique ID of the FX.
     #[prost(string, tag = "2")]
     pub id: ::prost::alloc::string::String,
+    /// Index of FX within chain.
+    #[prost(uint32, tag = "3")]
+    pub index: u32,
+    /// FX name.
+    #[prost(string, tag = "4")]
+    pub name: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FxChainLocation {
-    #[prost(oneof = "fx_chain_location::Location", tags = "1, 2")]
-    pub location: ::core::option::Option<fx_chain_location::Location>,
+pub struct FxChainLocationInfo {
+    #[prost(oneof = "fx_chain_location_info::Location", tags = "1, 2")]
+    pub location: ::core::option::Option<fx_chain_location_info::Location>,
 }
-/// Nested message and enum types in `FxChainLocation`.
-pub mod fx_chain_location {
+/// Nested message and enum types in `FxChainLocationInfo`.
+pub mod fx_chain_location_info {
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Location {
         #[prost(message, tag = "1")]
-        TrackFx(super::TrackFxChainLocation),
+        TrackFx(super::TrackFxChainLocationInfo),
         #[prost(message, tag = "2")]
         MonitoringFx(super::Empty),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct TrackFxChainLocation {
+pub struct TrackFxChainLocationInfo {
     /// Location of the containing track.
     #[prost(message, optional, tag = "1")]
-    pub track: ::core::option::Option<TrackLocation>,
+    pub track: ::core::option::Option<TrackLocationInfo>,
     /// Whether it's the normal or input FX chain.
     #[prost(bool, tag = "2")]
     pub input_fx: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct TrackLocation {
+pub struct TrackLocationInfo {
     /// Location of the containing project.
     #[prost(message, optional, tag = "1")]
-    pub project: ::core::option::Option<ProjectLocation>,
+    pub project: ::core::option::Option<ProjectLocationInfo>,
     /// Unique ID of the track.
     #[prost(string, tag = "2")]
     pub id: ::prost::alloc::string::String,
+    /// Index of the track within the project.
+    #[prost(uint32, tag = "3")]
+    pub index: u32,
+    /// Track name.
+    #[prost(string, tag = "4")]
+    pub name: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ProjectLocation {
+pub struct ProjectLocationInfo {
     /// Index within the currently open project tabs.
     #[prost(uint32, tag = "1")]
     pub index: u32,
+    /// Project path (if saved).
+    #[prost(string, optional, tag = "2")]
+    pub path: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

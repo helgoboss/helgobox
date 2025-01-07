@@ -11,23 +11,23 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
 use crate::infrastructure::proto::{
-    event_reply, fx_chain_location, occasional_global_update, occasional_instance_update,
+    event_reply, fx_chain_location_info, occasional_global_update, occasional_instance_update,
     qualified_occasional_unit_update, ArrangementPlayState, AudioInputChannel, AudioInputChannels,
     CellAddress, Compartment, ContinuousColumnUpdate, ContinuousMatrixUpdate, Empty,
-    FxChainLocation, FxLocation, GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply,
-    GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply,
-    GetOccasionalGlobalUpdatesReply, GetOccasionalInstanceUpdatesReply,
-    GetOccasionalMatrixUpdatesReply, GetOccasionalPlaytimeEngineUpdatesReply,
-    GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply, GetOccasionalTrackUpdatesReply,
-    GetOccasionalUnitUpdatesReply, HelgoboxInstance, HelgoboxInstanceData, HelgoboxInstances,
-    HostColorScheme, MidiDeviceStatus, MidiInputDevice, MidiInputDevices, MidiOutputDevice,
-    MidiOutputDevices, OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalMatrixUpdate,
-    OccasionalPlaytimeEngineUpdate, PitchShiftMode, PitchShiftModes, PitchShiftSubMode,
-    ProjectLocation, QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate,
-    QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate,
-    QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate, ResampleMode, ResampleModes,
-    RgbColor, Scope, Severity, SlotAddress, TrackFxChainLocation, TrackLocation, Unit, Units,
-    Warning, Warnings,
+    FxChainLocationInfo, FxLocationInfo, GetContinuousColumnUpdatesReply,
+    GetContinuousMatrixUpdatesReply, GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply,
+    GetOccasionalColumnUpdatesReply, GetOccasionalGlobalUpdatesReply,
+    GetOccasionalInstanceUpdatesReply, GetOccasionalMatrixUpdatesReply,
+    GetOccasionalPlaytimeEngineUpdatesReply, GetOccasionalRowUpdatesReply,
+    GetOccasionalSlotUpdatesReply, GetOccasionalTrackUpdatesReply, GetOccasionalUnitUpdatesReply,
+    HelgoboxInstance, HelgoboxInstanceData, HelgoboxInstances, HostColorScheme, MidiDeviceStatus,
+    MidiInputDevice, MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
+    OccasionalInstanceUpdate, OccasionalMatrixUpdate, OccasionalPlaytimeEngineUpdate,
+    PitchShiftMode, PitchShiftModes, PitchShiftSubMode, ProjectLocationInfo,
+    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
+    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
+    QualifiedOccasionalUnitUpdate, ResampleMode, ResampleModes, RgbColor, Scope, Severity,
+    SlotAddress, TrackFxChainLocationInfo, TrackLocationInfo, Unit, Units, Warning, Warnings,
 };
 use crate::infrastructure::server::data::get_controller_routing;
 
@@ -249,31 +249,38 @@ impl HelgoboxInstances {
                         let fx = info.processor_context.containing_fx();
                         let fx_chain_location = match fx.chain().context() {
                             FxChainContext::Monitoring => {
-                                fx_chain_location::Location::MonitoringFx(Empty {})
+                                fx_chain_location_info::Location::MonitoringFx(Empty {})
                             }
                             FxChainContext::Track { track, is_input_fx } => {
                                 let project = track.project();
-                                let project_location = ProjectLocation {
+                                let project_location = ProjectLocationInfo {
                                     index: project.index().ok()?,
+                                    path: project.file().map(|f| f.into_string()),
                                 };
-                                let track_location = TrackLocation {
+                                let track_location = TrackLocationInfo {
                                     project: Some(project_location),
                                     id: track.guid().to_string_without_braces(),
+                                    index: track.index()?,
+                                    name: track.name()?.to_string(),
                                 };
-                                fx_chain_location::Location::TrackFx(TrackFxChainLocation {
-                                    track: Some(track_location),
-                                    input_fx: *is_input_fx,
-                                })
+                                fx_chain_location_info::Location::TrackFx(
+                                    TrackFxChainLocationInfo {
+                                        track: Some(track_location),
+                                        input_fx: *is_input_fx,
+                                    },
+                                )
                             }
                             // Not supported anyway
                             FxChainContext::Take(_) => return None,
                         };
-                        let fx_chain_location = FxChainLocation {
+                        let fx_chain_location = FxChainLocationInfo {
                             location: Some(fx_chain_location),
                         };
-                        let fx_location = FxLocation {
+                        let fx_location = FxLocationInfo {
                             fx_chain: Some(fx_chain_location),
                             id: fx.get_or_query_guid().ok()?.to_string_without_braces(),
+                            index: fx.index(),
+                            name: fx.name().to_string(),
                         };
                         let helgobox_instance = HelgoboxInstance {
                             data: Some(data),
