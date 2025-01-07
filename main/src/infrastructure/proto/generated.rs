@@ -1578,9 +1578,6 @@ pub struct FxLocation {
     /// Unique ID of the FX.
     #[prost(string, tag = "2")]
     pub id: ::prost::alloc::string::String,
-    /// Index of the FX within the containing FX chain.
-    #[prost(uint32, tag = "3")]
-    pub index: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1618,18 +1615,12 @@ pub struct TrackLocation {
     /// Unique ID of the track.
     #[prost(string, tag = "2")]
     pub id: ::prost::alloc::string::String,
-    /// Index of the track within the containing project.
-    #[prost(uint32, tag = "3")]
-    pub index: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ProjectLocation {
-    /// Project path, if already saved.
-    #[prost(string, optional, tag = "1")]
-    pub path: ::core::option::Option<::prost::alloc::string::String>,
     /// Index within the currently open project tabs.
-    #[prost(uint32, tag = "2")]
+    #[prost(uint32, tag = "1")]
     pub index: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

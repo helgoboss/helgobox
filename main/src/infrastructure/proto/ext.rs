@@ -254,13 +254,11 @@ impl HelgoboxInstances {
                             FxChainContext::Track { track, is_input_fx } => {
                                 let project = track.project();
                                 let project_location = ProjectLocation {
-                                    path: project.file().map(|f| f.to_string()),
                                     index: project.index().ok()?,
                                 };
                                 let track_location = TrackLocation {
                                     project: Some(project_location),
                                     id: track.guid().to_string_without_braces(),
-                                    index: track.index()?,
                                 };
                                 fx_chain_location::Location::TrackFx(TrackFxChainLocation {
                                     track: Some(track_location),
@@ -276,7 +274,6 @@ impl HelgoboxInstances {
                         let fx_location = FxLocation {
                             fx_chain: Some(fx_chain_location),
                             id: fx.get_or_query_guid().ok()?.to_string_without_braces(),
-                            index: fx.index(),
                         };
                         let helgobox_instance = HelgoboxInstance {
                             data: Some(data),
