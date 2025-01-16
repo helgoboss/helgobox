@@ -4075,9 +4075,9 @@ dependencies = [
 
 [[package]]
 name = "lua-src"
-version = "546.0.2"
+version = "547.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2da0daa7eee611a4c30c8f5ee31af55266e26e573971ba9336d2993e2da129b2"
+checksum = "1edaf29e3517b49b8b746701e5648ccb5785cde1c119062cbabbc5d5cd115e42"
 dependencies = [
  "cc 1.1.10",
 ]
@@ -4094,9 +4094,9 @@ dependencies = [
 
 [[package]]
 name = "luau0-src"
-version = "0.9.1+luau625"
+version = "0.11.2+luau653"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39df4ee5bd067cb2363b9f9e5eed0f1cf326fc80508af8ac037eed5b15459c4a"
+checksum = "02313a53daf1fae25e82f7e7ca56180b72d1f08c514426672877cd957298201c"
 dependencies = [
  "cc 1.1.10",
 ]
@@ -4312,24 +4312,27 @@ dependencies = [
 
 [[package]]
 name = "mlua"
-version = "0.9.7"
-source = "git+https://github.com/mlua-rs/mlua.git?rev=59c9abbac76b7ec60c470c94698dfb29f6683b2e#59c9abbac76b7ec60c470c94698dfb29f6683b2e"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea43c3ffac2d0798bd7128815212dd78c98316b299b7a902dabef13dc7b6b8d"
 dependencies = [
  "bstr 1.9.0",
+ "either",
  "erased-serde",
  "libloading 0.8.0",
  "mlua-sys",
  "num-traits",
- "once_cell",
- "rustc-hash 1.1.0",
+ "parking_lot",
+ "rustc-hash 2.1.0",
  "serde",
  "serde-value",
 ]
 
 [[package]]
 name = "mlua-sys"
-version = "0.6.0"
-source = "git+https://github.com/mlua-rs/mlua.git?rev=59c9abbac76b7ec60c470c94698dfb29f6683b2e#59c9abbac76b7ec60c470c94698dfb29f6683b2e"
+version = "0.6.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63a11d485edf0f3f04a508615d36c7d50d299cf61a7ee6d3e2530651e0a31771"
 dependencies = [
  "cc 1.1.10",
  "cfg-if",

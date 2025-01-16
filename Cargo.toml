@@ -83,7 +83,7 @@ num_enum = "0.7.2"
 nom = "7.0.0"
 semver = { version = "1.0.17", features = ["serde"] }
 enumset = "1.0.12"
-mlua = { git = "https://github.com/mlua-rs/mlua.git", rev = "59c9abbac76b7ec60c470c94698dfb29f6683b2e", features = ["vendored", "luau", "serialize"] }
+mlua = { version = "0.10.2", features = ["vendored", "luau", "serialize"] }
 chrono = "0.4.11"
 dirs = "5.0.1"
 libloading = "0.8"
