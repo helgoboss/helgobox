@@ -16,7 +16,6 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
             .collect()
     }
     let global_updates = [
-        // TODO-high CONTINUE Notify about instance list updates
         Update::instances(),
         Update::midi_input_devices(),
         Update::midi_output_devices(),
@@ -51,23 +50,7 @@ pub fn create_initial_instance_updates(
     let reaper_version = Reaper::get().version();
     let reaper_revision = reaper_version.revision();
     let mut warnings = vec![];
-    // Check minimum REAPER version
-    if cfg!(feature = "playtime") && reaper_revision < MIN_REAPER_VERSION_FOR_PLAYTIME {
-        let msg = format!("You are using REAPER version {reaper_revision}, which is not optimal for running Playtime. You may experience issues of all kinds (timing, keyboard control, ...)! For an optimal experience, please upgrade to at least REAPER version {MIN_REAPER_VERSION_FOR_PLAYTIME}!");
-        warnings.push(Update::warning(Severity::High, Some(Scope::Playtime), msg))
-    }
-    // Check REAPER preference "Stop/repeat playback at and of project"
-    if let Ok(var) = Reaper::get().get_preference_ref::<i32>("stopprojlen") {
-        let stop_at_end = *var;
-        if stop_at_end > 0 {
-            let msg = "You have enabled the REAPER preference \"Options → Settings... → Audio → Playback → Stop/repeat playback at end of project\". This prevents Playtime from playing along with your REAPER arrangement if the arrangement is empty or ends prematurely. To ensure smooth operation, we highly recommend disabling this option.";
-            warnings.push(Update::warning(
-                Severity::High,
-                Some(Scope::Playtime),
-                msg.to_string(),
-            ))
-        }
-    }
+    // Check macOS throttle mouse settings
     if cfg!(target_os = "macos") {
         if let Ok(var) = Reaper::get().get_preference_ref::<i32>("osxdisplayoptions") {
             let flags = *var as u32;
@@ -80,7 +63,48 @@ pub fn create_initial_instance_updates(
                     Severity::Low,
                     Some(Scope::Playtime),
                     msg.to_string(),
-                ))
+                ));
+            }
+        }
+    }
+    // Playtime checks
+    if cfg!(feature = "playtime") {
+        // Check platform support
+        if cfg!(target_os = "linux") {
+            let msg = "Playtime for Linux is a work in progress! Recording and playback performance are not optimized yet. That's also the reason why you get the thread priority warning.";
+            warnings.push(Update::warning(
+                Severity::Medium,
+                Some(Scope::Playtime),
+                msg.to_string(),
+            ));
+        }
+        #[cfg(feature = "playtime")]
+        {
+            if playtime_clip_engine::thread_util::setting_thread_prios_failed() {
+                // TODO-high CONTINUE Add hint that the reason could be permission issues as soon as experimental Linux support complete.
+                let msg = "Setting thread priorities was not successful! This means that clip playback and recording performance will not be optimal!";
+                warnings.push(Update::warning(
+                    Severity::High,
+                    Some(Scope::Playtime),
+                    msg.to_string(),
+                ));
+            }
+        }
+        // Check minimum REAPER version
+        if reaper_revision < MIN_REAPER_VERSION_FOR_PLAYTIME {
+            let msg = format!("You are using REAPER version {reaper_revision}, which is not optimal for running Playtime. You may experience issues of all kinds (timing, keyboard control, ...)! For an optimal experience, please upgrade to at least REAPER version {MIN_REAPER_VERSION_FOR_PLAYTIME}!");
+            warnings.push(Update::warning(Severity::High, Some(Scope::Playtime), msg));
+        }
+        // Check REAPER preference "Stop/repeat playback at and of project"
+        if let Ok(var) = Reaper::get().get_preference_ref::<i32>("stopprojlen") {
+            let stop_at_end = *var;
+            if stop_at_end > 0 {
+                let msg = "You have enabled the REAPER preference \"Options → Settings... → Audio → Playback → Stop/repeat playback at end of project\". This prevents Playtime from playing along with your REAPER arrangement if the arrangement is empty or ends prematurely. To ensure smooth operation, we highly recommend disabling this option.";
+                warnings.push(Update::warning(
+                    Severity::High,
+                    Some(Scope::Playtime),
+                    msg.to_string(),
+                ));
             }
         }
     }
