@@ -128,3 +128,5 @@ modules.xml
 *.user
 tree.txt
 *.env
+
+.DS_Store
