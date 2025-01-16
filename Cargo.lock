@@ -4316,6 +4316,7 @@ version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea43c3ffac2d0798bd7128815212dd78c98316b299b7a902dabef13dc7b6b8d"
 dependencies = [
+ "anyhow",
  "bstr 1.9.0",
  "either",
  "erased-serde",

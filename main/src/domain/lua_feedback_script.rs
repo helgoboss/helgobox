@@ -11,22 +11,22 @@ use std::cell::RefCell;
 use std::error::Error;
 
 #[derive(Copy, Clone, Debug, Default)]
-pub struct AdditionalLuaFeedbackScriptInput<'a, 'lua> {
-    pub compartment_lua: Option<&'a mlua::Value<'lua>>,
+pub struct AdditionalLuaFeedbackScriptInput<'a> {
+    pub compartment_lua: Option<&'a mlua::Value>,
 }
 
 #[derive(Debug)]
-pub struct LuaFeedbackScript<'lua> {
-    lua: &'lua SafeLua,
-    function: Function<'lua>,
-    env: Table<'lua>,
-    context_key: Value<'lua>,
+pub struct LuaFeedbackScript<'a> {
+    lua: &'a SafeLua,
+    function: Function,
+    env: Table,
+    context_key: Value,
 }
 
 unsafe impl<'a> Send for LuaFeedbackScript<'a> {}
 
-impl<'lua> LuaFeedbackScript<'lua> {
-    pub fn compile(lua: &'lua SafeLua, lua_script: &str) -> anyhow::Result<Self> {
+impl<'a> LuaFeedbackScript<'a> {
+    pub fn compile(lua: &'a SafeLua, lua_script: &str) -> anyhow::Result<Self> {
         ensure!(!lua_script.trim().is_empty(), "script empty");
         let env = lua.create_fresh_environment(false)?;
         let function = lua.compile_as_function("Feedback script", lua_script, env.clone())?;
@@ -42,7 +42,7 @@ impl<'lua> LuaFeedbackScript<'lua> {
     fn feedback_internal(
         &self,
         input: FeedbackScriptInput,
-        additional_input: <LuaFeedbackScript<'lua> as FeedbackScript>::AdditionalInput,
+        additional_input: <LuaFeedbackScript<'a> as FeedbackScript<'a>>::AdditionalInput,
     ) -> anyhow::Result<FeedbackScriptOutput> {
         let lua = self.lua.as_ref();
         let value = lua.scope(|scope| {
@@ -97,8 +97,8 @@ pub fn create_lua_feedback_script_runtime(_lua: &Lua) -> mlua::Value {
 
 struct LuaPropValue(PropValue);
 
-impl<'lua> IntoLua<'lua> for LuaPropValue {
-    fn into_lua(self, lua: &'lua Lua) -> mlua::Result<Value<'lua>> {
+impl IntoLua for LuaPropValue {
+    fn into_lua(self, lua: &Lua) -> mlua::Result<Value> {
         match self.0 {
             PropValue::Normalized(p) => p.get().into_lua(lua),
             PropValue::Index(i) => i.into_lua(lua),
@@ -115,8 +115,8 @@ impl<'lua> IntoLua<'lua> for LuaPropValue {
     }
 }
 
-impl<'a, 'lua: 'a> FeedbackScript<'a> for LuaFeedbackScript<'lua> {
-    type AdditionalInput = AdditionalLuaFeedbackScriptInput<'a, 'lua>;
+impl<'a> FeedbackScript<'a> for LuaFeedbackScript<'a> {
+    type AdditionalInput = AdditionalLuaFeedbackScriptInput<'a>;
 
     fn feedback(
         &self,

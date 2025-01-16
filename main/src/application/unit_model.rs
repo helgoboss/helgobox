@@ -3097,10 +3097,7 @@ impl RealearnControlSurfaceMainTaskSender {
 
 const SESSION_GONE: &str = "session gone";
 
-fn compile_common_lua(
-    compartment: CompartmentKind,
-    code: &str,
-) -> anyhow::Result<mlua::Value<'static>> {
+fn compile_common_lua(compartment: CompartmentKind, code: &str) -> anyhow::Result<mlua::Value> {
     let lua = unsafe { Backbone::main_thread_lua() };
     let env = lua.create_fresh_environment(false)?;
     let require = lua.as_ref().create_function(move |lua, path: String| {

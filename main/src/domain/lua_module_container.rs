@@ -49,7 +49,7 @@ where
         normalized_path: Option<String>,
         display_name: String,
         code: &str,
-    ) -> anyhow::Result<Value<'lua>> {
+    ) -> anyhow::Result<Value> {
         execute_as_module(
             lua,
             normalized_path,
@@ -92,7 +92,7 @@ fn find_and_execute_module<'lua>(
     finder: impl LuaModuleFinder + Clone + 'static,
     accumulator: SharedAccumulator,
     required_path: &str,
-) -> anyhow::Result<Value<'lua>> {
+) -> anyhow::Result<Value> {
     // Validate
     let root_info = || format!("\n\nModule root path: {}", finder.module_root_path());
     let path = Utf8Path::new(required_path);
@@ -168,7 +168,7 @@ fn execute_as_module<'lua>(
     code: &str,
     finder: Result<impl LuaModuleFinder + Clone + 'static, &'static str>,
     accumulator: SharedAccumulator,
-) -> anyhow::Result<Value<'lua>> {
+) -> anyhow::Result<Value> {
     let env = create_fresh_environment(lua, true)?;
     let require = create_require_function(lua, finder, accumulator.clone())?;
     env.set("require", require)?;
@@ -207,7 +207,7 @@ fn create_require_function<'lua>(
     lua: &'lua Lua,
     finder: Result<impl LuaModuleFinder + Clone + 'static, &'static str>,
     accumulator: SharedAccumulator,
-) -> anyhow::Result<Function<'lua>> {
+) -> anyhow::Result<Function> {
     let require = lua.create_function_mut(move |lua, required_path: String| {
         let finder = finder.clone().map_err(mlua::Error::runtime)?;
         let value =

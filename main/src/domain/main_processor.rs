@@ -87,7 +87,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
 struct Basics<EH: DomainEventHandler> {
     instance_id: InstanceId,
     unit_id: UnitId,
-    common_lua: EnumMap<CompartmentKind, Option<mlua::Value<'static>>>,
+    common_lua: EnumMap<CompartmentKind, Option<mlua::Value>>,
     unit_container: &'static dyn UnitContainer,
     settings: BasicSettings,
     control_is_globally_enabled: bool,
@@ -2935,7 +2935,7 @@ pub struct BasicSettings {
 
 #[derive(Clone, Debug, Default)]
 pub struct CompartmentSettings {
-    pub common_lua: Option<mlua::Value<'static>>,
+    pub common_lua: Option<mlua::Value>,
 }
 
 #[derive(

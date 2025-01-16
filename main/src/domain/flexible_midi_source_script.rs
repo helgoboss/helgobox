@@ -9,7 +9,7 @@ pub enum FlexibleMidiSourceScript<'lua> {
 }
 
 impl<'a, 'lua: 'a> MidiSourceScript<'a> for FlexibleMidiSourceScript<'lua> {
-    type AdditionalInput = AdditionalLuaMidiSourceScriptInput<'a, 'lua>;
+    type AdditionalInput = AdditionalLuaMidiSourceScriptInput<'a>;
 
     fn execute(
         &self,

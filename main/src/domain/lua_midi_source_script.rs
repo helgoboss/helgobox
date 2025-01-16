@@ -8,17 +8,17 @@ use mlua::{Function, IntoLua, Lua, LuaSerdeExt, Table, Value};
 use std::borrow::Cow;
 
 #[derive(Copy, Clone, Debug, Default)]
-pub struct AdditionalLuaMidiSourceScriptInput<'a, 'lua> {
-    pub compartment_lua: Option<&'a mlua::Value<'lua>>,
+pub struct AdditionalLuaMidiSourceScriptInput<'a> {
+    pub compartment_lua: Option<&'a mlua::Value>,
 }
 
 #[derive(Debug)]
 pub struct LuaMidiSourceScript<'lua> {
     lua: &'lua SafeLua,
-    function: Function<'lua>,
-    env: Table<'lua>,
-    y_key: Value<'lua>,
-    context_key: Value<'lua>,
+    function: Function,
+    env: Table,
+    y_key: Value,
+    context_key: Value,
 }
 
 unsafe impl<'a> Send for LuaMidiSourceScript<'a> {}
@@ -46,7 +46,7 @@ struct ScriptContext {
 }
 
 impl<'a, 'lua: 'a> MidiSourceScript<'a> for LuaMidiSourceScript<'lua> {
-    type AdditionalInput = AdditionalLuaMidiSourceScriptInput<'a, 'lua>;
+    type AdditionalInput = AdditionalLuaMidiSourceScriptInput<'a>;
 
     fn execute(
         &self,

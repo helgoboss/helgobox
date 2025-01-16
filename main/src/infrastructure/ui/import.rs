@@ -371,7 +371,7 @@ fn execute_lua_import_script<'a>(
     code: &str,
     active_compartment: CompartmentKind,
     limit_execution_time: bool,
-) -> anyhow::Result<mlua::Value<'a>> {
+) -> anyhow::Result<mlua::Value> {
     if limit_execution_time {
         lua.start_execution_time_limit_countdown();
     }

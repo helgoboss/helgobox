@@ -28,7 +28,7 @@ type ScriptType = CloneAsDefault<Option<FlexibleMidiSourceScript<'static>>>;
 pub type MidiSource = helgoboss_learn::MidiSource<ScriptType>;
 
 impl<'a> MidiSourceScript<'a> for ScriptType {
-    type AdditionalInput = AdditionalLuaMidiSourceScriptInput<'a, 'static>;
+    type AdditionalInput = AdditionalLuaMidiSourceScriptInput<'a>;
 
     fn execute(
         &self,

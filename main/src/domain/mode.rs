@@ -7,7 +7,7 @@ use helgoboss_learn::{FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput,
 use std::borrow::Cow;
 use std::error::Error;
 
-pub type RealearnModeContext<'a> = ModeContext<AdditionalLuaFeedbackScriptInput<'a, 'static>>;
+pub type RealearnModeContext<'a> = ModeContext<AdditionalLuaFeedbackScriptInput<'a>>;
 
 /// See [`crate::domain::MidiSource`] for an explanation of the feedback script wrapping.
 type FeedbackScriptType = CloneAsDefault<Option<LuaFeedbackScript<'static>>>;
@@ -23,7 +23,7 @@ impl FeedbackScriptType {
 }
 
 impl<'a> FeedbackScript<'a> for FeedbackScriptType {
-    type AdditionalInput = AdditionalLuaFeedbackScriptInput<'a, 'static>;
+    type AdditionalInput = AdditionalLuaFeedbackScriptInput<'a>;
 
     fn feedback(
         &self,

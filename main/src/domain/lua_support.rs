@@ -48,8 +48,8 @@ impl SafeLua {
         &'a self,
         name: &str,
         code: &str,
-        env: Table<'a>,
-    ) -> anyhow::Result<Function<'a>> {
+        env: Table,
+    ) -> anyhow::Result<Function> {
         let chunk = self
             .0
             .load(code)
@@ -65,8 +65,8 @@ impl SafeLua {
         &'a self,
         display_name: String,
         code: &str,
-        env: Table<'a>,
-    ) -> anyhow::Result<Value<'a>> {
+        env: Table,
+    ) -> anyhow::Result<Value> {
         compile_and_execute(&self.0, display_name, code, env)
     }
 
@@ -107,8 +107,8 @@ pub fn compile_and_execute<'a>(
     lua: &'a Lua,
     display_name: String,
     code: &str,
-    env: Table<'a>,
-) -> anyhow::Result<Value<'a>> {
+    env: Table,
+) -> anyhow::Result<Value> {
     let lua_chunk = lua
         .load(code)
         .set_name(display_name)
@@ -147,7 +147,7 @@ fn build_safe_lua_env<'a>(
     lua: &'a Lua,
     original_env: Table,
     allow_side_effects: bool,
-) -> anyhow::Result<Table<'a>> {
+) -> anyhow::Result<Table> {
     let safe_env = lua.create_table()?;
     for var in SAFE_LUA_VARS {
         copy_var_to_table(lua, &safe_env, &original_env, var)?;
@@ -169,7 +169,7 @@ fn copy_var_to_table(
     if let Some(dot_index) = var.find('.') {
         // Nested variable
         let parent_var = &var[0..dot_index];
-        let nested_dest_table = if let Ok(t) = dest_table.get::<_, Table>(parent_var) {
+        let nested_dest_table = if let Ok(t) = dest_table.get(parent_var) {
             t
         } else {
             let new_table = lua.create_table()?;
