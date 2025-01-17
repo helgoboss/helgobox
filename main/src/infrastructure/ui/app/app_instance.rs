@@ -122,7 +122,8 @@ impl AppInstance for DummyAppInstance {
 
     fn start_or_show(&mut self, _owning_window: Window, _page: Option<AppPage>) -> Result<()> {
         let msg =
-            "Linux support for the Helgobox App (including the Playtime user interface) is currently at stage 1! That means it can't yet run embedded within REAPER, but it's possible to run it as a separate program that connects to REAPER (\"remote mode\").\n\
+            "Linux support for the Helgobox App (including the Playtime user interface) is currently at stage 1!\n\
+            That means it can't yet run embedded within REAPER, but it's possible to run it as a separate program that connects to REAPER (\"remote mode\").\n\
             \n\
             Do you want to open the instructions?"
             ;
