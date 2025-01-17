@@ -49,7 +49,7 @@ fn compile_eel() {
         match target_arch.as_str() {
             "x86_64" => Some("lib/WDL/WDL/eel2/asm-nseel-x64.obj"),
             "arm64ec" => Some("lib/WDL/WDL/eel2/asm-nseel-arm64ec.obj"),
-            _ => None
+            _ => None,
         }
     } else if cfg!(target_os = "macos") {
         if target_arch == "x86_64" {
