@@ -38,7 +38,7 @@ pub use initial_playtime_events::*;
 /// to the app. This includes the Protobuf/gRPC API and things related to embedding (such as the
 /// way how the host callback works).
 ///
-/// It's important to get this right in order to get good error messages from customers. Knowing
-/// that they just have an incompatible version mix (e.g. due to manual installing) makes it
+/// It's important to get this right to get good error messages from customers. Knowing
+/// that they just have an incompatible version mix (e.g., due to manual installing) makes it
 /// trivial to respond to bug reports.
-pub const HOST_API_VERSION: &str = "14.0.0";
+pub const HOST_API_VERSION: &str = "15.0.0";
