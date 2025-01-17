@@ -10,5 +10,18 @@ For example, you could place one instance on the monitoring FX chain and two ins
 [[instance-id]]
 == Instance ID
 
-A randomly assigned ID that uniquely identifies a particular <<instance>>.
-Will most likely change after a restart of REAPER!
+A *randomly assigned*, *non-persistent* identifier that identifies a particular <<instance>> and is *guaranteed to be unique* within one REAPER session.
+
+CAUTION: This ID can change after a restart of REAPER! If you are looking for something that doesn't change, use the <<instance-key>>.
+
+[[instance-key]]
+== Instance key
+
+A *user-defined*, *persistent* identifier that identifies a particular <<instance>>.
+The instance key gets relevant if you want to connect to an instance from an xref:app.adoc[] running in xref:app.adoc#app-remote-mode[].
+
+You can change the instance key of an instance by changing the xref:realearn::further-concepts/unit.adoc#unit-key[] of the instance's xref:realearn::key-concepts.adoc#unit[main unit] -- they are the same.
+
+
+.Make your instance keys unique!
+CAUTION: Because the instance key is user-defined, uniqueness can't be guaranteed. For example, if you just copy and paste a Helgobox FX instance, you end up with two instances that have the same key. You should avoid this.

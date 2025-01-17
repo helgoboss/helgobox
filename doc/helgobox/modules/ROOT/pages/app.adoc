@@ -3,3 +3,73 @@
 ____
 include::partial$app-desc.adoc[]
 ____
+
+You can run the app in two ways: *Embedded* or *Remote*
+
+[[app-embedded-mode]]
+== Embedded mode
+
+Each Helgobox instance can display its own xref:app.adoc[] window, directly embedded into REAPER:
+
+. Open the xref:plug-in.adoc[]
+. Press menu:Menu[Show App]
+
+Embedded mode is the recommended way to run the app, offering seamless integration with REAPER.
+
+[[app-remote-mode]]
+== Remote mode
+
+There's an additional way to use the app: To run it as a separate program that connects with REAPER over a network connection.
+
+=== Use cases
+
+Running the app in remote mode opens up interesting possibilities.
+
+Crash protection::
+You can start the app on the same machine, but outside of REAPER.
+If it crashes for some reason, only the app itself will crash.
+REAPER and the xref:plug-in.adoc[] will continue running. It's similar to running plug-ins in REAPER in bridged mode. This could be interesting for live scenarios.
+
+Additional views::
+You can open additional app windows on the same machine and connect them to the same xref:key-concepts.adoc#instance[]. This gives you multiple views on the same instance.
+
+Performance optimization::
+You can run the app on an extra computer and connect it to REAPER on the main machine. This way, you can be sure that the app doesn't take any valuable processing power away from REAPER and the xref:plug-in.adoc[].
+
+Touch screen operation::
+Maybe your main machine is a powerful Mac mini standing somewhere further away from you. You could take a Windows tablet (and in the future an iOS or Android tablet) and run the app there, connecting to your main machine.
+
+=== How to do it
+
+==== Starting the server
+
+To allow connections to Helgobox from computers in the same network, you need to start the xref:plug-in/user-interface/menu-bar.adoc#server[Helgobox Server].
+
+. Open the xref:plug-in.adoc[]
+. Press menu:Menu[Server > Enable and start!]
+
+This needs to be done only once.
+
+==== Starting the app
+
+Just like the plug-in, the app is part of the Helgobox installation and is located in your REAPER resource directory:
+
+. Open the xref:plug-in.adoc[]
+. Press menu:Menu[Server > Open app folder]
+. Start the executable:
+[horizontal]
+Windows:: `helgobox.exe`
+macOS:: `helgobox`
+Linux:: `helgobox`
+
+By default, the app connects to the xref:plug-in.adoc[] running on the same machine. You can change this by running the app with xref:app/user-interface/cli.adoc[command line arguments].
+
+.Copying the app directory somewhere else
+[CAUTION]
+====
+You may copy the app directory to another location or even to another computer. However, you should renew your copy whenever you update Helgobox! An update often contains both a new version of the xref:plug-in.adoc[] **and** a new version of the xref:app.adoc[].
+
+If you connect the app to a plug-in and the versions don't match, you will see the following error message:
+
+> Host API version doesn't match
+====

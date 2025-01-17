@@ -1,0 +1,58 @@
+= Command line interface
+
+When running in xref:app.adoc#app-remote-mode[], the app session can optionally be configured using command line arguments.
+
+== Synopsis
+
+*helgobox* [_OPTIONS_]
+
+== Options
+
+--connection=<URL>::
+URL that decides how the app connects to the xref:plug-in.adoc[].
++
+
+.Connection examples
+[cols="1,2"]
+|===
+|
+`grpc:://localhost:39051` +
+`grpc:://127.0.0.1:39051`
+|
+Connects to the plug-in running on the same machine, assuming a xref:configuration-files.adoc#realearn-ini[standard server configuration] (`server_grpc_port=39051`).
+
+This is the default if the connection option is omitted.
+
+|
+`grpc:://winpc:39051` +
+`grpc:://192.168.1.47:39051`
+|
+Connects to the plug-in running on the machine with the host name `winpc` or the IP address 192.168.1.47.
+|===
+
+--location::
+Path that decides which page is shown initially.
++
+This is not a file system path. It's comparable to the path of a URL that you would see in a web browser's address bar.
++
+
+.Location examples
+[cols="1,2"]
+|===
+|
+`/instance/apc/projection`
+|
+Opens the xref:realearn::user-interface/projection.adoc[projection page] for the xref:key-concepts.adoc#instance[] with xref:key-concepts.adoc#instance-key[] `apc`.
+
+|
+`/instance/3/playtime`
+|
+Opens the xref:playtime::user-interface.adoc[Playtime] page for the xref:key-concepts.adoc#instance[] with xref:key-concepts.adoc#instance-id[] *3*.
+
+Numbers are always interpreted as instance IDs and strings as instance keys. Normally, you want to use an xref:key-concepts.adoc#instance-key[instance key] to refer to the desired instance, because instance IDs are likely to change after restarting REAPER.
+
+
+|===
+
+--help::
+Displays an overview of all supported command line options.

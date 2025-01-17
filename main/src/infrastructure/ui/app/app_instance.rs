@@ -4,13 +4,15 @@ use crate::infrastructure::proto::{
     event_reply, occasional_global_update, reply, EventReply, GetOccasionalGlobalUpdatesReply,
     OccasionalGlobalUpdate, ProtoReceivers, Reply,
 };
+use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::AppHandle;
 use anyhow::{anyhow, bail, Context, Result};
 use base::hash_util::NonCryptoHashMap;
 use fragile::Fragile;
 use once_cell::sync::Lazy;
 use prost::Message;
-use reaper_medium::Hwnd;
+use reaper_high::Reaper;
+use reaper_medium::{Hwnd, MessageBoxResult, MessageBoxType};
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -119,7 +121,19 @@ impl AppInstance for DummyAppInstance {
     }
 
     fn start_or_show(&mut self, _owning_window: Window, _page: Option<AppPage>) -> Result<()> {
-        bail!("Linux support for the Helgobox App (including the Playtime user interface) is currently at stage 1! That means the Helgobox App can't yet run embedded within REAPER, but it's possible to use it as a separate program that connects to REAPER (\"remote mode\").\n\nRead the instructions at https://bit.ly/3W51oEe to learn more about this temporary workaround. Subscribe to https://bit.ly/3BQvjcH to follow the development progress of Linux support stage 2.")
+        let msg =
+            "Linux support for the Helgobox App (including the Playtime user interface) is currently at stage 1! That means it can't yet run embedded within REAPER, but it's possible to run it as a separate program that connects to REAPER (\"remote mode\").\n\
+            \n\
+            Do you want to open the instructions?"
+            ;
+        let result =
+            Reaper::get()
+                .medium_reaper()
+                .show_message_box(msg, "Helgobox", MessageBoxType::YesNo);
+        if result == MessageBoxResult::Yes {
+            open_in_browser("https://docs.helgoboss.org/helgobox/goto#app-remote-mode");
+        };
+        Ok(())
     }
 
     fn hide(&mut self) -> Result<()> {

@@ -13,5 +13,6 @@
 *** xref:app/user-interface/navigation-bar.adoc[]
 *** xref:app/user-interface/settings-dialog.adoc[]
 *** xref:app/user-interface/keyboard-shortcuts.adoc[]
+*** xref:app/user-interface/cli.adoc[]
 * xref:reaper-actions.adoc[]
 * xref:configuration-files.adoc[]

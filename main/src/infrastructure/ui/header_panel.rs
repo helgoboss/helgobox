@@ -775,6 +775,7 @@ impl HeaderPanel {
                             MainMenuAction::ToggleServer,
                         ),
                         item("Add firewall rule", MainMenuAction::AddFirewallRule),
+                        item("Open app folder", MainMenuAction::OpenAppFolder),
                     ],
                 ),
                 menu(
@@ -873,6 +874,7 @@ impl HeaderPanel {
                     };
                 }
             }
+            MainMenuAction::OpenAppFolder => self.open_app_folder(),
             MainMenuAction::ToggleUseUnitPresetLinksOnly => {
                 self.toggle_use_unit_preset_links_only()
             }
@@ -2440,6 +2442,12 @@ impl HeaderPanel {
         self.notify_user_on_error(result);
     }
 
+    fn open_app_folder(&self) {
+        let path = BackboneShell::app_binary_base_dir_path();
+        let result = open_in_file_manager(path.as_std_path()).map_err(|e| e.into());
+        self.notify_user_on_error(result);
+    }
+
     fn continue_after_project_independence_check(&self) -> bool {
         let mappings_have_project_references = {
             let compartment = self.active_compartment();
@@ -3186,6 +3194,7 @@ enum MainMenuAction {
     ToggleUpperFloorMembership,
     SetStayActiveWhenProjectInBackground(StayActiveWhenProjectInBackground),
     ToggleServer,
+    OpenAppFolder,
     ToggleBackgroundColors,
     ToggleUseUnitPresetLinksOnly,
     AddFirewallRule,

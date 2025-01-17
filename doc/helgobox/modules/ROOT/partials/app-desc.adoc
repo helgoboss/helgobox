@@ -1,2 +1,2 @@
 A complement to the xref:plug-in.adoc[] which provides a modern user interface.
-It runs embedded in REAPER and in the future also as a separate mobile app (iOS, Android).
+It runs embedded in REAPER or as a separate program that connects to REAPER. Mobile versions for iOS and Android are planned.

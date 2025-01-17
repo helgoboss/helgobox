@@ -1,11 +1,8 @@
 = User interface
 
-Each Helgobox instance can display its own xref:app.adoc[] window, embedded into REAPER:
-
-. Open the xref:plug-in.adoc[]
-. Press menu:Menu[Show App]
+Unlike the xref:plug-in.adoc[], the App offers a modern and fancy user interface.
+At the moment, it primarily provides the user interface for xref:playtime::introduction.adoc[Playtime], but it will contain more stuff in the future.
 
 .App window
 image::generated/screenshots/main/home-screen.png[]
 
-At the moment, the app primarily provides the user interface for xref:playtime::introduction.adoc[Playtime], but it will contain more stuff in the future.

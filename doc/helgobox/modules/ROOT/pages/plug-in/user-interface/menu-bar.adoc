@@ -20,12 +20,16 @@ Shows the xref:helgobox::app.adoc[] associated with this xref:helgobox::key-conc
 Closes the xref:helgobox::app.adoc[] associated with this xref:helgobox::key-concepts.adoc#instance[].
 
 [[server]] Server::
-Helgobox features a built-in server which allows the old ReaLearn Companion App (and in the future also the xref:helgobox::app.adoc[]) to connect to Helgobox.
+Helgobox features a built-in server which allows the xref:app.adoc[] (and the old ReaLearn Companion App) to connect to Helgobox.
 The server runs globally, not per instance!
 
-Enable and start!::: This starts the server and makes sure it will automatically be started next time you use Helgobox.
+[[enable-and-start-server]] Enable and start!::: This starts the server and makes sure it will automatically be started next time you use Helgobox.
+
 Disable and stop!::: This stops the server and makes sure it will not be started next time you use Helgobox.
-Add firewall rule::: Attempts to add a firewall rule for making the server accessible from other devices or displays instructions how to do it.
+
+Add firewall rule::: Attempts to add a firewall rule for making the server accessible from other devices or displays instructions on how to do it.
+
+Open app folder::: Opens the folder which contains the xref:app.adoc[] (in case you want to run it in xref:app.adoc#app-remote-mode[]).
 
 [[export-to-clipboard]]
 == Export to clipboard button

@@ -27,7 +27,7 @@ Helgobox itself maintains the following files:
 
 `Helgoboss/Server/certificates`:: Contains a list of certificates and corresponding private keys in order to allow encrypted communication with ReaLearn Companion and App.
 
-`Helgoboss/ReaLearn/realearn.ini`:: Very basic global configuration.
+[[realearn-ini]] `Helgoboss/ReaLearn/realearn.ini`:: Very basic global configuration.
 The reference to ReaLearn is there just for historical reasons.
 Most properties in here affect Helgobox as a whole.
 +
