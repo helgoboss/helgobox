@@ -366,8 +366,8 @@ fn verify_no_recursive_tables_internal(
     Ok(())
 }
 
-fn execute_lua_import_script<'a>(
-    lua: &'a SafeLua,
+fn execute_lua_import_script(
+    lua: &SafeLua,
     code: &str,
     active_compartment: CompartmentKind,
     limit_execution_time: bool,

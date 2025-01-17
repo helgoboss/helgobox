@@ -8,7 +8,6 @@ use reaper_high::Reaper;
 use std::cell::RefCell;
 use std::fmt;
 
-use crate::application::SessionProp::UnitName;
 use crate::application::{
     get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, SessionCommand,
     SessionProp, SessionUi, UnitModel, VirtualFxType, WeakUnitModel,
@@ -28,7 +27,7 @@ use crate::infrastructure::server::http::{
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use anyhow::Context;
-use base::{Global, SoundPlayer};
+use base::SoundPlayer;
 use helgobox_allocator::undesired_allocation_count;
 use helgobox_api::runtime::InstanceInfoEvent;
 use rxrust::prelude::*;

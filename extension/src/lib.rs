@@ -22,6 +22,7 @@ type ReaperPluginEntry = unsafe extern "C" fn(
     rec: *mut ::reaper_low::raw::reaper_plugin_info_t,
 ) -> ::std::os::raw::c_int;
 
+#[cfg(target_os = "linux")]
 type SwellDllMain = unsafe extern "C" fn(
     hinstance: reaper_low::raw::HINSTANCE,
     reason: u32,

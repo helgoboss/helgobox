@@ -44,8 +44,8 @@ impl SafeLua {
     }
 
     /// Compiles as a function with return value (for later execution).
-    pub fn compile_as_function<'a>(
-        &'a self,
+    pub fn compile_as_function(
+        &self,
         name: &str,
         code: &str,
         env: Table,
@@ -61,8 +61,8 @@ impl SafeLua {
     }
 
     /// Compiles and executes the given code in one go (shouldn't be used for repeated execution!).
-    pub fn compile_and_execute<'a>(
-        &'a self,
+    pub fn compile_and_execute(
+        &self,
         display_name: String,
         code: &str,
         env: Table,
@@ -103,8 +103,8 @@ pub fn create_fresh_environment(lua: &Lua, allow_side_effects: bool) -> anyhow::
 }
 
 /// Compiles and executes the given code in one go (shouldn't be used for repeated execution!).
-pub fn compile_and_execute<'a>(
-    lua: &'a Lua,
+pub fn compile_and_execute(
+    lua: &Lua,
     display_name: String,
     code: &str,
     env: Table,
@@ -143,8 +143,8 @@ impl Error for RealearnScriptError {}
 ///
 /// Setting `allow_side_effects` unlocks a few more vars, but only use that if you boot up a
 /// fresh Lua state for each execution.
-fn build_safe_lua_env<'a>(
-    lua: &'a Lua,
+fn build_safe_lua_env(
+    lua: &Lua,
     original_env: Table,
     allow_side_effects: bool,
 ) -> anyhow::Result<Table> {

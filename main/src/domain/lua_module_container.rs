@@ -43,9 +43,9 @@ where
         Self { finder }
     }
 
-    pub fn execute_as_module<'lua>(
+    pub fn execute_as_module(
         &self,
-        lua: &'lua Lua,
+        lua: &Lua,
         normalized_path: Option<String>,
         display_name: String,
         code: &str,
@@ -87,8 +87,8 @@ impl Accumulator {
 
 type SharedAccumulator = Rc<RefCell<Accumulator>>;
 
-fn find_and_execute_module<'lua>(
-    lua: &'lua Lua,
+fn find_and_execute_module(
+    lua: &Lua,
     finder: impl LuaModuleFinder + Clone + 'static,
     accumulator: SharedAccumulator,
     required_path: &str,
@@ -161,8 +161,8 @@ pub fn lua_module_path_without_ext(path: &str) -> &str {
         .unwrap_or(path)
 }
 
-fn execute_as_module<'lua>(
-    lua: &'lua Lua,
+fn execute_as_module(
+    lua: &Lua,
     normalized_path: Option<String>,
     display_name: String,
     code: &str,
@@ -203,8 +203,8 @@ fn execute_as_module<'lua>(
     // }
 }
 
-fn create_require_function<'lua>(
-    lua: &'lua Lua,
+fn create_require_function(
+    lua: &Lua,
     finder: Result<impl LuaModuleFinder + Clone + 'static, &'static str>,
     accumulator: SharedAccumulator,
 ) -> anyhow::Result<Function> {
