@@ -155,12 +155,13 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        shell: powershell
         run: |
           # Install Sentry CLI
           npm install -g @sentry/cli
 
           # Upload
-          sentry-cli debug-files upload --auth-token $SENTRY_AUTH_TOKEN -o $SENTRY_ORG -p $SENTRY_PROJECT "target/${{ matrix.target }}/${{ matrix.profile }}/helgobox.pdb"
+          sentry-cli debug-files upload --auth-token $env:SENTRY_AUTH_TOKEN -o $env:SENTRY_ORG -p $env:SENTRY_PROJECT "target/${{ matrix.target }}/${{ matrix.profile }}/helgobox.pdb"
 
   create-release:
     name: Publish release
