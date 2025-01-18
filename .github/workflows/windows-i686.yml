@@ -31,7 +31,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.77.2-i686-pc-windows-msvc
+          toolchain: 1.79.0-i686-pc-windows-msvc
           target: i686-pc-windows-msvc
           override: true
       - name: cargo build

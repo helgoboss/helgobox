@@ -15,7 +15,7 @@ jobs:
         include:
           - artifact: windows-x86_64
             os: windows-latest
-            toolchain: 1.77.2-x86_64-pc-windows-msvc
+            toolchain: 1.79.0-x86_64-pc-windows-msvc
             lib-file-name: helgobox.dll
             extension-file-name: reaper_helgobox.dll
             target: x86_64-pc-windows-msvc

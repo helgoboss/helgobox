@@ -200,8 +200,8 @@ debug = 2
 
 [profile.release-strip]
 inherits = "release"
-# We use this profile on Linux and macOS only. On Windows, we build with older Rust version 1.77.2
-# in order to support Windows 7. This old version strips away too much due to an implementation
+# We use this profile on Linux and macOS only. To support Windows 7, we should build with Rust
+# version 1.77.2 on Windows. This old version strips away too much due to an implementation
 # error in rustc:
 #
 #     "Prior to 1.79, this unintentionally disabled the generation of *.pdb files on MSVC, resulting

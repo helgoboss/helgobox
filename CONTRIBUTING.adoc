@@ -135,7 +135,7 @@ On Windows, it's necessary to use the MSVC (Microsoft Visual Studio C++) toolcha
 +
 [source,shell]
 ----
-rustup default 1.77.2-x86_64-pc-windows-msvc
+rustup default 1.79.0-x86_64-pc-windows-msvc
 ----
 . Download and install https://git-scm.com/download/win[Git for Windows]
 . Clone the ReaLearn Git repository
