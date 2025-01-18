@@ -276,7 +276,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./linux-x86_64/libreaper_helgobox.so
-          asset_name: reaper_helgobox-linux-x86_64.dll
+          asset_name: reaper_helgobox-linux-x86_64.so
           asset_content_type: application/octet-stream
       # Upload Linux aarch64 artifacts
       - name: Upload linux-aarch64 release artifact 1
