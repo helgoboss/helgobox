@@ -59,7 +59,7 @@ Just like the plug-in, the app is part of the Helgobox installation and is locat
 . Start the executable:
 [horizontal]
 Windows:: `helgobox.exe`
-macOS:: `helgobox`
+macOS:: `Contents/MacOS/helgobox`
 Linux:: `helgobox`
 
 By default, the app connects to the xref:plug-in.adoc[] running on the same machine. You can change this by running the app with xref:app/user-interface/cli.adoc[command line arguments].

@@ -1,8 +1,8 @@
-ifdef::pdf-theme[[[slot-import-selected-item,Import selected item into slot]]]
-ifndef::pdf-theme[[[slot-import-selected-item,Import selected item into slot]]]
-== Import selected item into slot
+ifdef::pdf-theme[[[slot-import-selected-item,Import selected item(s) into slot]]]
+ifndef::pdf-theme[[[slot-import-selected-item,Import selected item(s) into slot]]]
+== Import selected item(s) into slot
 
 
 
-Creates a clip that resembles the currently selected REAPER item and adds it to this slot.
+Creates a clip that resembles the currently selected REAPER item and adds it to this slot. If you selected more than one item, the corresponding clips will end up in the slots below.
 

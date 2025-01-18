@@ -16,3 +16,7 @@ include::partial$generated/elements/navbar/enable-disable-global-control.adoc[]
 See xref:realearn::further-concepts/instance.adoc#auto-units[].
 
 include::partial$generated/elements/navbar/show-helgobox-plugin.adoc[]
+
+include::partial$generated/elements/navbar/pick-instance.adoc[]
+
+This is only displayed if you run the app in xref:app.adoc#app-remote-mode[].

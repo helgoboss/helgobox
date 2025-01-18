@@ -1,8 +1,8 @@
-ifdef::pdf-theme[[[title-bar-purchase-playtime,👍 Purchase & Activate]]]
-ifndef::pdf-theme[[[title-bar-purchase-playtime,👍 Purchase & Activate image:playtime::generated/screenshots/elements/title-bar/purchase-playtime.png[width=50, pdfwidth=8mm]]]]
-== 👍 Purchase & Activate
+ifdef::pdf-theme[[[title-bar-purchase-playtime,Purchase & Activate]]]
+ifndef::pdf-theme[[[title-bar-purchase-playtime,Purchase & Activate image:playtime::generated/screenshots/elements/title-bar/purchase-playtime.png[width=50, pdfwidth=8mm]]]]
+== Purchase & Activate
 
-image::playtime::generated/screenshots/elements/title-bar/purchase-playtime.png[👍 Purchase & Activate, role="related thumb right", float=right]
+image::playtime::generated/screenshots/elements/title-bar/purchase-playtime.png[Purchase & Activate, role="related thumb right", float=right]
 
 This shows further information on how you can purchase Playtime and lets you enter the license key.
 

@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[navbar-pick-instance,Pick another instance]]]
+ifndef::pdf-theme[[[navbar-pick-instance,Pick another instance image:helgobox::generated/screenshots/elements/navbar/pick-instance.png[width=50, pdfwidth=8mm]]]]
+== Pick another instance
+
+image::helgobox::generated/screenshots/elements/navbar/pick-instance.png[Pick another instance, role="related thumb right", float=right]
+
+Lets you pick another Helgobox instance.
+
