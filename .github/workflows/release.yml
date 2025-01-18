@@ -148,16 +148,16 @@ jobs:
             target/${{ matrix.target }}/${{ matrix.profile }}/helgobox.pdb
             target/${{ matrix.target }}/${{ matrix.profile }}/deps/libhelgobox.dylib.dSYM/
             target/${{ matrix.target }}/${{ matrix.profile }}/libhelgobox-debug.so
-      # Windows: Upload PDB to Sentry
+      # Windows x64: Upload PDB to Sentry
       - name: Upload PDB
-        if: startsWith(matrix.os, 'windows-')
+        if: startsWith(matrix.artifact, 'windows-x86_64')
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         run: |
           # Install Sentry CLI
-          curl -sL https://sentry.io/get-cli/ | bash
+          npm install -g @sentry/cli
 
           # Upload
           sentry-cli debug-files upload --auth-token $SENTRY_AUTH_TOKEN -o $SENTRY_ORG -p $SENTRY_PROJECT "target/${{ matrix.target }}/${{ matrix.profile }}/helgobox.pdb"
