@@ -1,9 +1,12 @@
 = Helgobox Plug-In
 
+.What is the Helgobox Plug-In?
 ____
 include::partial$plug-in-desc.adoc[]
 It is complemented by the xref:app.adoc[].
 ____
+
+== Adding a new plug-in instance
 
 The plug-in is fired up just like any other VST instrument in REAPER: By adding an instance of it to an FX chain:
 
@@ -12,3 +15,13 @@ The plug-in is fired up just like any other VST instrument in REAPER: By adding 
 . Double-click entry "VSTi: Helgobox - ReaLearn & Playtime (Helgoboss)"
 
 Initially, you see the xref:plug-in/user-interface.adoc[plug-in window].
+
+== Opening an existing plug-in instance
+
+To open an existing plug-in instance:
+
+1. Scroll to the REAPER track which contains the instance.
+2. Press the btn:[FX] button of that track. This opens the track's FX chain.
+3. Click on the Helgobox FX instance.
+
+You will see the xref:plug-in/user-interface.adoc[plug-in window] again.

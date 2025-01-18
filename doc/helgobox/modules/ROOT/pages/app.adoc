@@ -1,20 +1,23 @@
 = Helgobox App
 
+.What is the Helgobox App?
 ____
 include::partial$app-desc.adoc[]
 ____
+
+Have you created an xref:key-concepts.adoc#instance[] of the xref:plug-in.adoc[] already? Good. Then you can connect to it with the _Helgobox App_.
 
 You can run the app in two ways: *Embedded* or *Remote*
 
 [[app-embedded-mode]]
 == Embedded mode
 
-Each Helgobox instance can display its own xref:app.adoc[] window, directly embedded into REAPER:
+Each Helgobox xref:key-concepts.adoc#instance[] can display its own xref:app.adoc[] window, directly embedded into REAPER:
 
-. Open the xref:plug-in.adoc[]
+. Open the desired xref:plug-in.adoc[] instance
 . Press menu:Menu[Show App]
 
-Embedded mode is the recommended way to run the app, offering seamless integration with REAPER.
+Embedded mode is the recommended way to run the app. It offers seamless integration with REAPER.
 
 [[app-remote-mode]]
 == Remote mode
@@ -39,7 +42,12 @@ You can run the app on an extra computer and connect it to REAPER on the main ma
 Touch screen operation::
 Maybe your main machine is a powerful Mac mini standing somewhere further away from you. You could take a Windows tablet (and in the future an iOS or Android tablet) and run the app there, connecting to your main machine.
 
+Running Playtime on Linux (temporarily)::
+Playtime's Linux support is currently limited to remote mode. Embedded mode is still in the works.
+
 === How to do it
+
+Here's what you need to do to run the app in remote mode.
 
 ==== Starting the server
 
@@ -48,21 +56,26 @@ To allow connections to Helgobox from computers in the same network, you need to
 . Open the xref:plug-in.adoc[]
 . Press menu:Menu[Server > Enable and start!]
 
-This needs to be done only once.
+You need to do this only once. Next time you start REAPER and Helgobox, the server will start automatically!
 
 ==== Starting the app
 
 Just like the plug-in, the app is part of the Helgobox installation and is located in your REAPER resource directory:
 
-. Open the xref:plug-in.adoc[]
+. Open an arbitrary instance of the xref:plug-in.adoc[]
++
+.Hello, Playtime for Linux testers!
+TIP: If you are here because you want to try Playtime for Linux *Stage 1*, pressing the image:playtime::screenshots/playtime-toolbar-icon.png[Playtime,width=50, pdfwidth=8mm] button should already have created a "Playtime" track for you, along with a xref:plug-in.adoc[] instance. Simply open that existing one!
 . Press menu:Menu[Server > Open app folder]
-. Start the executable:
+. Start the app executable:
 [horizontal]
 Windows:: `helgobox.exe`
 macOS:: `Contents/MacOS/helgobox`
 Linux:: `helgobox`
 
-By default, the app connects to the xref:plug-in.adoc[] running on the same machine. You can change this by running the app with xref:app/user-interface/cli.adoc[command line arguments].
+By default, the app connects to the REAPER process running on the _same machine_ (to the xref:plug-in/user-interface/menu-bar.adoc#server[Helgobox Server] running in that process, to be accurate). You can change that by running the app with special xref:app/user-interface/cli.adoc[command line arguments].
+
+Also by default, the app connects to the first xref:key-concepts.adoc#instance[] running in that REAPER process. You can switch to another instance (within the same process) by pressing  the xref:app/user-interface/navigation-bar.adoc#navbar-pick-instance[] button or by running the app with special xref:app/user-interface/cli.adoc[command line arguments].
 
 .Copying the app directory somewhere else
 [CAUTION]
