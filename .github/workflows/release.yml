@@ -61,22 +61,21 @@ jobs:
             os: ubuntu-20.04
             toolchain: 1.81.0-x86_64-unknown-linux-gnu
             lib-file-name: libhelgobox.so
-            extension-file-name: "not-yet-supported"
+            extension-file-name: libreaper_helgobox.so
             target: x86_64-unknown-linux-gnu
             use-cross: false
             profile: release-strip
             features: "playtime,licensing"
             macosx_deployment_target: ""
-    #          - artifact: linux-aarch64
-    #            os: ubuntu-22.04
-    #            toolchain: 1.81.0-x86_64-unknown-linux-gnu
-    #            lib-file-name: libhelgobox.so
-    #            extension-file-name: ""
-    #            target: aarch64-unknown-linux-gnu
-    #            use-cross: true
-    #            profile: release-strip
-    #            features: "playtime,licensing"
-    #            macosx_deployment_target: ""
+          - artifact: linux-aarch64
+            os: ubuntu-22.04-arm
+            toolchain: 1.81.0-aarch64-unknown-linux-gnu
+            lib-file-name: libhelgobox.so
+            extension-file-name: libreaper_helgobox.so
+            target: aarch64-unknown-linux-gnu
+            profile: release-strip
+            features: "playtime,licensing"
+            macosx_deployment_target: ""
     #          - artifact: linux-armv7
     #            os: ubuntu-22.04
     #            toolchain: 1.81.0-x86_64-unknown-linux-gnu
@@ -260,7 +259,7 @@ jobs:
           asset_name: reaper_helgobox-macos-aarch64.dylib
           asset_content_type: application/octet-stream
       # Upload Linux x86_64 artifacts
-      - name: Upload linux-x86_64 release artifact
+      - name: Upload linux-x86_64 release artifact 1
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -279,15 +278,24 @@ jobs:
           asset_name: reaper_helgobox-linux-x86_64.dll
           asset_content_type: application/octet-stream
       # Upload Linux aarch64 artifacts
-      #      - name: Upload linux-aarch64 release artifact
-      #        uses: actions/upload-release-asset@v1
-      #        env:
-      #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #        with:
-      #          upload_url: ${{ steps.create_release.outputs.upload_url }}
-      #          asset_path: ./linux-aarch64/libhelgobox.so
-      #          asset_name: helgobox-linux-aarch64.so
-      #          asset_content_type: application/octet-stream
+      - name: Upload linux-aarch64 release artifact 1
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./linux-aarch64/libhelgobox.so
+          asset_name: helgobox-linux-aarch64.so
+          asset_content_type: application/octet-stream
+      - name: Upload linux-aarch64 release artifact 2
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./linux-aarch64/libreaper_helgobox.so
+          asset_name: reaper_helgobox-linux-aarch64.so
+          asset_content_type: application/octet-stream
       # Upload Linux armv7 artifacts
   #      - name: Upload linux-armv7 release artifact
   #        uses: actions/upload-release-asset@v1
