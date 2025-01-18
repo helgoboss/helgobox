@@ -142,6 +142,7 @@ Here's how you can install the latest stable Helgobox version:
 ** ReaPack will show you a summary at the end, which tells you whether a new Helgobox version has been installed.
 . Restart REAPER
 
+[[pre-releases]]
 == Testing new features and improvements
 
 If you want to get access to cutting-edge but untested versions of Helgobox, you can install Helgobox pre-releases.
