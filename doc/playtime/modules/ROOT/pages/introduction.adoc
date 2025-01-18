@@ -3,7 +3,7 @@
 include::helgobox::partial$intro-header.adoc[]
 
 |===
-|Last update of text: |`2024-12-21 (v2.17.0)`
+|Last update of text: |`2024-01-18 (v2.18.0-pre.1)`
 |Last update of screenshots: |`2024-12-21 (v2.17.0)`
 |===
 

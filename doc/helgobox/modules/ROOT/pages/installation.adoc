@@ -33,7 +33,7 @@ You need to install via ReaPack!**
 === Linux
 
 * ReaLearn runs on Linux, except for a few minor features
-* Playtime doesn't run on Linux yet!
+* Playtime only runs in xref:app.adoc#app-remote-mode[] so far!
 * **Installation via installer is not supported.
 You need to install via ReaPack!**
 * Needs glibc version 2.31 or later (e.g. Ubuntu 20)

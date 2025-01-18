@@ -6,4 +6,4 @@ image::generated/screenshots/main/about.png[]
 
 The version number displayed here is the version of the xref:app.adoc[], not the one of the controlled xref:plug-in.adoc[]! _App_ and _plug-in_ are often updated together, but that's not always the case. They can evolve independently.
 
-In the future, the app will be available as a standalone app, then this distinction will make more sense.
+The app version number is most relevant when running the app in xref:app.adoc#app-remote-mode[].
