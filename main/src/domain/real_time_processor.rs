@@ -133,11 +133,10 @@ impl RealTimeProcessor {
     /// This should be regularly called by audio hook in normal mode.
     pub fn run_from_audio_hook_all(
         &mut self,
-        block_props: AudioBlockProps,
         might_be_rebirth: bool,
         timestamp: ControlEventTimestamp,
     ) {
-        self.run_from_audio_hook_essential(block_props, might_be_rebirth);
+        self.run_from_audio_hook_essential(might_be_rebirth);
         self.run_from_audio_hook_control_and_learn(timestamp);
     }
 
@@ -194,14 +193,7 @@ impl RealTimeProcessor {
     /// The rebirth parameter is `true` if this could be the first audio cycle after an "unplanned"
     /// downtime of the audio device. It could also be just a downtime related to opening the
     /// project itself, which we detect to some degree. See the code that reacts to this parameter.
-    pub fn run_from_audio_hook_essential(
-        &mut self,
-        block_props: AudioBlockProps,
-        might_be_rebirth: bool,
-    ) {
-        // Increase MIDI clock calculator's sample counter
-        self.midi_clock_calculator
-            .increase_sample_counter_by(block_props.block_length as u64);
+    pub fn run_from_audio_hook_essential(&mut self, might_be_rebirth: bool) {
         if might_be_rebirth {
             self.request_full_sync_and_discard_tasks_if_successful();
         }
@@ -285,17 +277,6 @@ impl RealTimeProcessor {
                     }
                 }
                 UpdateTargetsPartially(compartment, mut target_updates) => {
-                    // Also log sample count in order to be sure about invocation order
-                    // (timestamp is not accurate enough on e.g. selection changes).
-                    // TODO-low We should use an own logger and always log the sample count
-                    //  automatically.
-                    permit_alloc(|| {
-                        debug!(
-                            "Update target activations in {} at {} samples...",
-                            compartment,
-                            self.midi_clock_calculator.current_sample_count()
-                        );
-                    });
                     // Apply updates
                     for update in target_updates.iter_mut() {
                         if let Some(m) = self.mappings[compartment].get_mut(&update.id) {
@@ -340,7 +321,6 @@ impl RealTimeProcessor {
                         debug!("Updating sample rate");
                     });
                     self.sample_rate = sample_rate;
-                    self.midi_clock_calculator.update_sample_rate(sample_rate);
                 }
                 StartLearnSource {
                     allow_virtual_sources,
@@ -580,10 +560,11 @@ impl RealTimeProcessor {
                 MatchOutcome::Unmatched
             }
             Timing => {
-                // Timing clock messages are treated special (calculates BPM).
+                // Timing clock messages are treated special (calculates BPM). Matching each tick with
+                // mappings would be a waste of resources. We know they come in very densely.
                 // This is control-only, we never learn it.
                 if self.control_is_globally_enabled {
-                    if let Some(bpm) = self.midi_clock_calculator.feed(event.payload().offset()) {
+                    if let Some(bpm) = self.midi_clock_calculator.feed(event.timestamp()) {
                         let source_value = MidiSourceValue::<RawShortMessage>::Tempo(bpm);
                         self.control_midi(
                             event.with_payload(MidiEvent::new(

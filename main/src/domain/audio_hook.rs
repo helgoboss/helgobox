@@ -336,7 +336,7 @@ impl RealearnAudioHook {
             } => {
                 for (_, p) in self.real_time_processors.iter() {
                     p.lock_recover()
-                        .run_from_audio_hook_essential(block_props, might_be_rebirth);
+                        .run_from_audio_hook_essential(might_be_rebirth);
                 }
                 for dev in Reaper::get().midi_input_devices() {
                     dev.with_midi_input(|mi| {
@@ -387,7 +387,7 @@ impl RealearnAudioHook {
             // stop doing so synchronously if the plug-in is
             // gone.
             let mut guard = p.lock_recover();
-            guard.run_from_audio_hook_all(block_props, might_be_rebirth, start_of_block_timestamp);
+            guard.run_from_audio_hook_all(might_be_rebirth, start_of_block_timestamp);
             if guard.control_is_globally_enabled() {
                 if let MidiControlInput::Device(dev_id) = guard.midi_control_input() {
                     midi_dev_id_is_used[dev_id.get() as usize] = true;
