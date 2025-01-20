@@ -2896,13 +2896,13 @@ impl View for HeaderPanel {
                 self.update_let_unmatched_events_through()
             }
             root::ID_PRESET_DELETE_BUTTON => {
-                self.delete_active_preset().unwrap();
+                self.notify_user_on_anyhow_error(self.delete_active_preset());
             }
             root::ID_PRESET_SAVE_AS_BUTTON => {
-                self.save_as_preset().unwrap();
+                self.notify_user_on_anyhow_error(self.save_as_preset());
             }
             root::ID_PRESET_SAVE_BUTTON => {
-                self.save_active_preset().unwrap();
+                self.notify_user_on_anyhow_error(self.save_active_preset());
             }
             root::ID_PROJECTION_BUTTON => {
                 self.show_projection();
