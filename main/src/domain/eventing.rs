@@ -134,5 +134,5 @@ pub trait DomainEventHandler: Debug {
     }
 
     /// Returns `true` if another preset is being loaded.
-    fn auto_load_different_preset_if_necessary(&self) -> Result<bool, &'static str>;
+    fn auto_load_different_preset_if_necessary(&self) -> anyhow::Result<bool>;
 }

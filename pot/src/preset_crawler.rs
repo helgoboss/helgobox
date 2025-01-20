@@ -226,6 +226,8 @@ where
     F: Fn() + 'static,
 {
     let reaper_resource_dir = Reaper::get().resource_path();
+    // No need to fall back to chunk-based FX info because Pot is experimental, and we can assume it's used
+    // with recent REAPER versions.
     let fx_info = args.fx.info()?;
     let plugin_id = get_plugin_id_from_fx_info(&fx_info);
     let mut mouse = EnigoMouse::new();

@@ -2243,7 +2243,9 @@ impl HeaderPanel {
                     .upgrade()
                     .context("instance panel gone")?;
                 let instance_shell = instance_panel.shell()?;
-                let data = instance_shell.create_data();
+                let data = instance_shell
+                    .create_data()
+                    .context("couldn't acquire instance data")?;
                 let data_object =
                     DataObject::Instance(BackboneShell::create_envelope(Box::new(data)));
                 let json = serialize_data_object_to_json(data_object).unwrap();

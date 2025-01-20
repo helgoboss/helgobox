@@ -149,6 +149,11 @@ impl PluginParameters for InstanceParameterContainer {
             .upgrade()
             .expect("instance shell gone")
             .save()
+            // If acquiring the data was not possible (reentrancy issue), we panic! Reasons:
+            // 1. We don't want it to silently save *nothing*. REAPER doesn't complain if we return empty vec (0).
+            // 2. And second, we need to know about such situations (error report), to be able to
+            //    fix the root reentrancy issue.
+            .expect("could not acquire Helgobox plug-in data")
     }
 
     fn load_bank_data(&self, data: &[u8]) {

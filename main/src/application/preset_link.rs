@@ -3,7 +3,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 
 use derive_more::Display;
-use reaper_high::Fx;
+use reaper_high::{Fx, FxInfo};
 use std::fmt;
 use std::fmt::Formatter;
 use strum::EnumIter;
@@ -112,14 +112,13 @@ impl fmt::Display for FxId {
 }
 
 impl FxId {
-    pub fn from_fx(fx: &Fx, most_relevant_only: bool) -> Result<FxId, &'static str> {
-        let fx_info = fx.info()?;
+    pub fn from_fx(fx: &Fx, fx_info: &FxInfo, most_relevant_only: bool) -> FxId {
         let mut fx_id = FxId {
             name: fx_info.effect_name.trim().to_string(),
             ..Default::default()
         };
         if !fx_id.name.is_empty() && most_relevant_only {
-            return Ok(fx_id);
+            return fx_id;
         }
         fx_id.file_name = fx_info
             .file_name
@@ -128,13 +127,13 @@ impl FxId {
             .trim()
             .to_string();
         if !fx_id.file_name.is_empty() && most_relevant_only {
-            return Ok(fx_id);
+            return fx_id;
         }
         fx_id.preset_name = fx
             .preset_name()
             .map(|s| s.to_str().trim().to_string())
             .unwrap_or_default();
-        Ok(fx_id)
+        fx_id
     }
 
     pub fn name(&self) -> &str {

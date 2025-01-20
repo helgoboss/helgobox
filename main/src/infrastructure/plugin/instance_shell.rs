@@ -400,9 +400,17 @@ impl InstanceShell {
     /// This must not lock any data that's accessed from real-time threads.
     ///
     /// Must be called from the main thread.
-    pub fn save(&self) -> Vec<u8> {
-        let instance_data = self.create_data();
-        serde_json::to_vec(&instance_data).expect("couldn't serialize instance data")
+    ///
+    /// # Errors
+    ///
+    /// This fails if the instance is already mutably borrowed (reentrancy issue).
+    pub fn save(&self) -> anyhow::Result<Vec<u8>> {
+        let instance_data = self
+            .create_data()
+            .context("couldn't create instance data")?;
+        let bytes =
+            serde_json::to_vec(&instance_data).context("couldn't serialize instance data")?;
+        Ok(bytes)
     }
 
     fn remove_auto_unit_if_requirements_met(
@@ -437,7 +445,10 @@ impl InstanceShell {
         }
     }
 
-    pub fn create_data(&self) -> InstanceData {
+    /// # Errors
+    ///
+    /// This fails if the instance is already mutably borrowed (reentrancy issue).
+    pub fn create_data(&self) -> anyhow::Result<InstanceData> {
         let additional_unit_datas =
             blocking_read_lock(&self.additional_unit_shells, "create_instance_data")
                 .iter()
@@ -451,8 +462,9 @@ impl InstanceShell {
                 })
                 .collect();
         let instance = self.instance.get().borrow();
-        InstanceData {
-            main_unit: UnitData::from_model(&self.main_unit_shell.model().borrow()),
+        let unit_model = self.main_unit_shell.model().try_borrow()?;
+        let data = InstanceData {
+            main_unit: UnitData::from_model(&unit_model),
             additional_units: additional_unit_datas,
             settings: self.settings.get().borrow().clone(),
             pot_state: instance.save_pot_unit(),
@@ -470,7 +482,8 @@ impl InstanceShell {
                 None
             },
             custom_data: instance.custom_data().clone(),
-        }
+        };
+        Ok(data)
     }
 
     /// Restores instance shell state from the given serialized data.

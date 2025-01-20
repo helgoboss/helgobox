@@ -310,6 +310,7 @@ impl Fx {
     pub fn from_engine(fx: &reaper_high::Fx) -> Self {
         Self {
             name: fx.name().to_string(),
+            // No need to fall back to chunk-based FX info because Playtime doesn't support old REAPER versions anyway.
             instrument: fx
                 .info()
                 .map(|info| info.sub_type_expression.ends_with('i'))

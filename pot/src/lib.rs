@@ -1752,6 +1752,8 @@ fn ensure_fx_has_correct_type(
             }
         }
         Some(fx) => {
+            // No need to fall back to chunk-based FX info because Pot is experimental, and we can assume it's used
+            // with recent REAPER versions.
             let fx_info = fx.info()?;
             if fx_info.id == plugin_id.content_formatted_for_reaper() {
                 // This is the right plug-in type. Leave as is.

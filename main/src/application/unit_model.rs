@@ -34,6 +34,7 @@ use std::cell::{OnceCell, Ref, RefCell};
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::domain;
+use anyhow::Context;
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use core::iter;
 use helgoboss_learn::{AbsoluteMode, ControlResult, ControlValue, UnitValue};
@@ -2921,23 +2922,23 @@ impl DomainEventHandler for WeakUnitModel {
         Ok(())
     }
 
-    fn auto_load_different_preset_if_necessary(&self) -> Result<bool, &'static str> {
-        let session = self.upgrade().ok_or("session not existing anymore")?;
-        let mut session = session
-            .try_borrow_mut()
-            .map_err(|_| "session already borrowed")?;
-        if session.auto_load_mode.get() != AutoLoadMode::UnitFx {
-            return Ok(false);
-        }
-        let fx_id = {
-            let unit = session.unit.borrow();
+    fn auto_load_different_preset_if_necessary(&self) -> anyhow::Result<bool> {
+        let unit_model = self.upgrade().context("unit model not existing anymore")?;
+        let unit_fx = {
+            let mut unit_model = unit_model
+                .try_borrow_mut()
+                .context("unit model already borrowed")?;
+            if unit_model.auto_load_mode.get() != AutoLoadMode::UnitFx {
+                return Ok(false);
+            }
+            let unit = unit_model.unit.borrow();
             let unit_fx_descriptor = unit.instance_fx_descriptor();
             let unit_fx = unit_fx_descriptor
-                .resolve(session.extended_context(), CompartmentKind::Main)
+                .resolve(unit_model.extended_context(), CompartmentKind::Main)
                 .unwrap_or_default()
                 .into_iter()
                 .next();
-            let unit_fx = unit_fx.filter(|unit_fx| {
+            unit_fx.filter(|unit_fx| {
                 if matches!(&unit_fx_descriptor.fx, VirtualFx::LastFocused) {
                     // Unit FX refers to the last-focused FX. We need to make a few more checks.
                     unit_fx.window_is_open() && unit_fx.window_has_focus()
@@ -2945,10 +2946,13 @@ impl DomainEventHandler for WeakUnitModel {
                     // Unit FX is something else than the last-focused FX. Load linked preset!
                     true
                 }
-            });
-            unit_fx.as_ref().and_then(|f| FxId::from_fx(f, false).ok())
+            })
         };
-        let loaded = session.auto_load_preset_linked_to_fx(fx_id);
+        let fx_id = unit_fx.and_then(|fx| {
+            let fx_info = fx.info().or_else(|_| fx.info_from_chunk()).ok()?;
+            Some(FxId::from_fx(&fx, &fx_info, false))
+        });
+        let loaded = unit_model.borrow_mut().auto_load_preset_linked_to_fx(fx_id);
         Ok(loaded)
     }
 }
