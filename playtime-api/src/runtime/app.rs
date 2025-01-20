@@ -17,10 +17,18 @@ pub enum InfoEvent {
 }
 
 impl InfoEvent {
+    /// Creates an info event with a generic message. This is displayed as toast in the app.
     pub fn generic(message: impl Into<String>) -> Self {
         Self::Generic(GenericInfoEvent {
             message: message.into(),
         })
+    }
+
+    /// Creates an info event that would ideally be treated like a warning on the app side.
+    pub fn warning(message: impl Into<String>) -> Self {
+        // In the future, this could set a special error flag, so that it could be displayed
+        // in a different way in the app.
+        Self::generic(message)
     }
 }
 
