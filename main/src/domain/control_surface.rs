@@ -719,7 +719,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             let reference_pos = if project.is_playing() {
                 project.play_position_latency_compensated()
             } else {
-                project.edit_cursor_position()
+                project.edit_cursor_position().unwrap_or_default()
             };
             if self.record_possible_beat_change(project, reference_pos) {
                 let event = AdditionalFeedbackEvent::BeatChanged(BeatChangedEvent {

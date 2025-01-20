@@ -258,7 +258,10 @@ impl SeekTarget {
     }
 
     fn internal_display_info(&self) -> (PositionInSeconds, SeekInfo) {
-        let pos = self.project.play_or_edit_cursor_position();
+        let pos = self
+            .project
+            .play_or_edit_cursor_position()
+            .unwrap_or_default();
         let info = get_seek_info(self.project, self.options, true);
         (pos - info.start_pos, info)
     }
@@ -280,7 +283,9 @@ impl<'a> Target<'a> for SeekTarget {
         let val = current_value_of_seek(
             self.project,
             self.options,
-            self.project.play_or_edit_cursor_position(),
+            self.project
+                .play_or_edit_cursor_position()
+                .unwrap_or_default(),
         );
         Some(AbsoluteValue::Continuous(val))
     }

@@ -225,7 +225,9 @@ impl<'a> Target<'a> for GoToBookmarkTarget {
             self.project,
             self.bookmark_type,
             self.index,
-            self.project.play_or_edit_cursor_position(),
+            self.project
+                .play_or_edit_cursor_position()
+                .unwrap_or_default(),
         );
         Some(AbsoluteValue::Continuous(val))
     }
