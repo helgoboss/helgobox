@@ -17,14 +17,14 @@ Please check below system requirements before attempting to install Helgobox!
 [[windows]]
 === Windows
 
-* ReaLearn needs Windows 7 or later
-* Playtime needs Windows 8 or later
+* xref:plug-in.adoc[] needs Windows 7 or later
+* xref:app.adoc[] needs Windows 8 or later
 
 [[macos]]
 === macOS
 
-* ReaLearn needs macOS 10.12 or later
-* Playtime needs macOS 10.15 or later
+* xref:plug-in.adoc[] needs macOS 10.12 or later
+* xref:app.adoc[] needs macOS 10.15 or later
 * For macOS 10.14 or later, all below-mentioned installation options should work
 * **For macOS 10.13 or earlier, installation via installer is not supported.
 You need to install via ReaPack!**
@@ -32,11 +32,10 @@ You need to install via ReaPack!**
 [[linux]]
 === Linux
 
-* ReaLearn runs on Linux, except for a few minor features
-* Playtime only runs in xref:app.adoc#app-remote-mode[] so far!
+* xref:plug-in.adoc[] needs glibc version 2.31
+* xref:app.adoc[] needs glibc version 2.35 and only runs in xref:app.adoc#app-remote-mode[] so far!
 * **Installation via installer is not supported.
 You need to install via ReaPack!**
-* Needs glibc version 2.31 or later (e.g. Ubuntu 20)
 * Needs libxdo.
 You can install it like this:
 +
