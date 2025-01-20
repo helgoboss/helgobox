@@ -637,7 +637,8 @@ impl PlaytimeProtoRequestHandler {
                 .normal_fx_chain()
                 .fx_by_index(req.fx_index)
                 .context("no FX at that index")?;
-            fx.show_in_floating_window();
+            fx.show_in_floating_window()
+                .map_err(|e| Status::unknown(e.to_string()))?;
             Ok(())
         })
     }

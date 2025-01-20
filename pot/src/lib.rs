@@ -1625,10 +1625,10 @@ fn load_audio_preset(
                 if window_is_open_now {
                     if !fx.window_has_focus() {
                         fx.hide_floating_window()?;
-                        fx.show_in_floating_window();
+                        fx.show_in_floating_window()?;
                     }
                 } else {
-                    fx.show_in_floating_window();
+                    fx.show_in_floating_window()?;
                 }
                 // Load into RS5k
                 load_media_in_last_focused_rs5k(path)?;
@@ -1675,7 +1675,7 @@ fn load_preset_single_fx(
         .unwrap_or(false);
     let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx, protected_fx)?;
     let outcome = f(&output.fx)?;
-    window_behavior.open_or_close(&output.fx, fx_was_open_before, output.op);
+    window_behavior.open_or_close(&output.fx, fx_was_open_before, output.op)?;
     let outcome = LoadPresetOutcome {
         fx: output.fx,
         banks: outcome.banks,
@@ -1714,7 +1714,7 @@ fn load_preset_multi_fx(
     }
     let fx = f()?;
     for fx in destination.chain.fxs() {
-        window_behavior.open_or_close(&fx, fx_was_open_before, FxEnsureOp::Replaced);
+        window_behavior.open_or_close(&fx, fx_was_open_before, FxEnsureOp::Replaced)?;
     }
     let outcome = LoadPresetOutcome { fx, banks: vec![] };
     Ok(outcome)
@@ -1855,38 +1855,44 @@ pub enum LoadPresetWindowBehavior {
 }
 
 impl LoadPresetWindowBehavior {
-    pub fn open_or_close(&self, fx: &Fx, was_open_before: bool, op: FxEnsureOp) {
+    pub fn open_or_close(
+        &self,
+        fx: &Fx,
+        was_open_before: bool,
+        op: FxEnsureOp,
+    ) -> anyhow::Result<()> {
         let now_is_open = fx.window_is_open();
         match self {
             LoadPresetWindowBehavior::NeverShow => {
                 if now_is_open {
-                    fx.hide_floating_window().unwrap();
+                    fx.hide_floating_window()?;
                 }
             }
             LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShown => {
                 if !was_open_before && now_is_open {
-                    fx.hide_floating_window().unwrap();
+                    fx.hide_floating_window()?;
                 } else if was_open_before && !now_is_open {
-                    fx.show_in_floating_window();
+                    fx.show_in_floating_window()?;
                 }
             }
             LoadPresetWindowBehavior::AlwaysShow => {
                 if !now_is_open {
-                    fx.show_in_floating_window();
+                    fx.show_in_floating_window()?;
                 }
             }
             LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShownOrNewlyAdded => {
                 if op == FxEnsureOp::Added {
                     if !now_is_open {
-                        fx.show_in_floating_window()
+                        fx.show_in_floating_window()?;
                     }
                 } else if !was_open_before && now_is_open {
-                    fx.hide_floating_window().unwrap();
+                    fx.hide_floating_window()?;
                 } else if was_open_before && !now_is_open {
-                    fx.show_in_floating_window();
+                    fx.show_in_floating_window()?;
                 }
             }
         }
+        Ok(())
     }
 }
 

@@ -2028,7 +2028,8 @@ impl UnitModel {
     }
 
     pub fn show_in_floating_window(&self) {
-        self.processor_context()
+        let _ = self
+            .processor_context()
             .containing_fx()
             .show_in_floating_window();
     }

@@ -329,7 +329,7 @@ impl ProtoRequestHandler {
                     instance
                         .processor_context()
                         .containing_fx()
-                        .show_in_floating_window();
+                        .show_in_floating_window()?;
                 }
                 TriggerInstanceAction::CloseApp => {
                     instance.panel().stop_app_instance();

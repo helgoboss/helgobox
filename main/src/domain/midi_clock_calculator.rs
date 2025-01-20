@@ -2,12 +2,10 @@ use crate::domain::ControlEventTimestamp;
 use reaper_common_types::Bpm;
 use simple_moving_average::{SumTreeSMA, SMA};
 use std::convert::TryInto;
-use tracing::warn;
 
 #[derive(Debug)]
 pub struct MidiClockCalculator {
     previous_timestamp: Option<ControlEventTimestamp>,
-    previous_bpm: Option<f64>,
     moving_avg_calculator: SumTreeSMA<f64, f64, 10>,
 }
 
@@ -15,7 +13,6 @@ impl Default for MidiClockCalculator {
     fn default() -> Self {
         Self {
             previous_timestamp: None,
-            previous_bpm: None,
             moving_avg_calculator: SumTreeSMA::new(),
         }
     }

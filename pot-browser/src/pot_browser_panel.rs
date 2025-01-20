@@ -760,7 +760,7 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                         .on_hover_text("Shows the FX")
                                         .clicked()
                                     {
-                                        fx.show_in_floating_window();
+                                        let _ = fx.show_in_floating_window();
                                     }
                                 }
                             },

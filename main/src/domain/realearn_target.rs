@@ -67,7 +67,7 @@ pub trait RealearnTarget {
     fn open(&self, context: ControlContext) {
         let _ = context;
         if let Some(fx) = self.fx() {
-            fx.show_in_floating_window();
+            let _ = fx.show_in_floating_window();
             return;
         }
         if let Some(track) = self.track() {

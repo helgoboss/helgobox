@@ -122,14 +122,14 @@ impl RealearnTarget for BrowseFxsTarget {
                     self.fx_chain.hide_all_floating_windows();
                 }
                 Chain => {
-                    self.fx_chain.hide();
+                    self.fx_chain.hide()?;
                 }
             },
             Some(fx_index) => match self.display_type {
                 FloatingWindow => {
                     for (i, fx) in self.fx_chain.index_based_fxs().enumerate() {
                         if i == fx_index as usize {
-                            fx.show_in_floating_window();
+                            fx.show_in_floating_window()?;
                         } else {
                             fx.hide_floating_window()?;
                         }

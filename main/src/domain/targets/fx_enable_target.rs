@@ -59,9 +59,9 @@ impl RealearnTarget for FxEnableTarget {
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         if value.to_unit_value()?.is_zero() {
-            self.fx.disable();
+            self.fx.disable()?;
         } else {
-            self.fx.enable();
+            self.fx.enable()?;
         }
         Ok(HitResponse::processed_with_effect())
     }

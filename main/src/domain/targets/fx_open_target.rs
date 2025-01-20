@@ -67,13 +67,13 @@ impl RealearnTarget for FxOpenTarget {
                     self.fx.hide_floating_window()?;
                 }
                 Chain => {
-                    self.fx.chain().hide();
+                    self.fx.chain().hide()?;
                 }
             }
         } else {
             match self.display_type {
                 FloatingWindow => {
-                    self.fx.show_in_floating_window();
+                    self.fx.show_in_floating_window()?;
                 }
                 Chain => {
                     self.fx.show_in_chain()?;

@@ -1473,7 +1473,7 @@ mod macos_impl {
         load_realearn_preset(&realearn, include_str!("presets/screenshots.json"));
         moment().await;
         // Then
-        realearn.outcome.fx.show_in_floating_window();
+        realearn.outcome.fx.show_in_floating_window().unwrap();
         let instance_shell = realearn.outcome.instance_shell;
         let main_unit_shell = instance_shell.main_unit_shell();
         let shooter =

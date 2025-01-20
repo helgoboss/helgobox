@@ -2656,9 +2656,9 @@ impl UnitContainer for BackboneShell {
                 let enable = if args.is_enable { flag } else { !flag };
                 let fx = context.containing_fx();
                 if enable {
-                    fx.enable();
+                    let _ = fx.enable();
                 } else {
-                    fx.disable();
+                    let _ = fx.disable();
                 }
             }
         }

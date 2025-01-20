@@ -56,7 +56,7 @@ impl RealearnTarget for FxOnlineTarget {
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         let online = !value.to_unit_value()?.is_zero();
-        self.fx.set_online(online);
+        self.fx.set_online(online)?;
         Ok(HitResponse::processed_with_effect())
     }
 

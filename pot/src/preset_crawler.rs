@@ -284,7 +284,7 @@ where
             }
         }
         // Click "Next preset" button
-        args.fx.show_in_floating_window();
+        args.fx.show_in_floating_window()?;
         mouse.set_cursor_position(args.next_preset_cursor_pos)?;
         moment().await;
         mouse.press(MouseButton::Left)?;
