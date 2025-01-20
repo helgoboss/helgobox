@@ -14,7 +14,6 @@ use rxrust::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::error::Error;
 use std::ptr::null;
 use std::rc::Rc;
 use std::time::Duration;

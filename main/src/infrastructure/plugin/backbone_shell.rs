@@ -532,15 +532,15 @@ impl BackboneShell {
     }
 
     pub fn show_welcome_screen_if_necessary(&self) {
-        let showed_already = {
+        {
             let mut config = self.config.borrow_mut();
-            let value = mem::replace(&mut config.main.showed_welcome_screen, 1);
-            config.save().unwrap();
-            value == 1
+            let showed_already = mem::replace(&mut config.main.showed_welcome_screen, 1) == 1;
+            if showed_already {
+                return;
+            }
+            notification::warn_user_on_anyhow_error(config.save());
         };
-        if !showed_already {
-            Self::show_welcome_screen();
-        }
+        Self::show_welcome_screen();
     }
 
     pub fn detailed_version_label() -> &'static str {
@@ -1139,7 +1139,7 @@ impl BackboneShell {
     fn change_config<R>(&self, op: impl FnOnce(&mut BackboneConfig) -> R) -> R {
         let mut config = self.config.borrow_mut();
         let result = op(&mut config);
-        config.save().unwrap();
+        notification::warn_user_on_anyhow_error(config.save());
         self.notify_changed();
         result
     }
@@ -2221,19 +2221,24 @@ pub struct BackboneConfig {
 }
 
 impl BackboneConfig {
-    pub fn load() -> Result<BackboneConfig, String> {
-        let ini_content = fs::read_to_string(Self::config_file_path())
-            .map_err(|_| "couldn't read config file".to_string())?;
-        let config = serde_ini::from_str(&ini_content).map_err(|e| format!("{e:?}"))?;
+    pub fn load() -> anyhow::Result<BackboneConfig> {
+        let ini_content =
+            fs::read_to_string(Self::config_file_path()).context("couldn't read config file")?;
+        let config = serde_ini::from_str(&ini_content)?;
         Ok(config)
     }
 
-    pub fn save(&self) -> Result<(), &'static str> {
-        let ini_content = serde_ini::to_string(self).map_err(|_| "couldn't serialize config")?;
-        let config_file_path = Self::config_file_path();
-        fs::create_dir_all(config_file_path.parent().unwrap())
-            .expect("couldn't create config directory");
-        fs::write(config_file_path, ini_content).map_err(|_| "couldn't write config file")?;
+    pub fn save(&self) -> anyhow::Result<()> {
+        let ini_content = serde_ini::to_string(self).context("couldn't serialize config")?;
+        let config_file = Self::config_file_path();
+        let config_file_dir = config_file.parent().unwrap();
+        fs::create_dir_all(config_file_dir).with_context(|| {
+            format!(
+                "Couldn't create configuration directory '{config_file_dir}'. Make sure that REAPER has write access to this directory!"
+            )
+        })?;
+        fs::write(&config_file, ini_content)
+            .with_context(|| format!("Couldn't write config file '{config_file}'. Make sure that REAPER has write access to this file!"))?;
         Ok(())
     }
 
