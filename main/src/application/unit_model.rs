@@ -34,7 +34,7 @@ use std::cell::{OnceCell, Ref, RefCell};
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::domain;
-use anyhow::Context;
+use anyhow::{ensure, Context};
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use core::iter;
 use helgoboss_learn::{AbsoluteMode, ControlResult, ControlValue, UnitValue};
@@ -620,14 +620,21 @@ impl UnitModel {
         });
     }
 
-    pub fn activate_auto_load_mode(&mut self, mode: AutoLoadMode) {
+    pub fn activate_auto_load_mode(&mut self, mode: AutoLoadMode) -> anyhow::Result<()> {
         // Memorize or clear current preset ID for fallback purposes
         self.auto_load_fallback_preset_id = match mode {
             AutoLoadMode::Off => None,
-            AutoLoadMode::UnitFx => self.active_main_preset_id.clone(),
+            AutoLoadMode::UnitFx => {
+                ensure!(
+                    Reaper::get().version().revision() >= "6.37",
+                    "Auto-load needs at least REAPER version 6.37!"
+                );
+                self.active_main_preset_id.clone()
+            }
         };
         // Set auto-load mode
         self.auto_load_mode.set(mode);
+        Ok(())
     }
 
     pub fn main_preset_is_auto_loaded(&self) -> bool {
@@ -2925,7 +2932,7 @@ impl DomainEventHandler for WeakUnitModel {
     fn auto_load_different_preset_if_necessary(&self) -> anyhow::Result<bool> {
         let unit_model = self.upgrade().context("unit model not existing anymore")?;
         let unit_fx = {
-            let mut unit_model = unit_model
+            let unit_model = unit_model
                 .try_borrow_mut()
                 .context("unit model already borrowed")?;
             if unit_model.auto_load_mode.get() != AutoLoadMode::UnitFx {
@@ -2948,10 +2955,7 @@ impl DomainEventHandler for WeakUnitModel {
                 }
             })
         };
-        let fx_id = unit_fx.and_then(|fx| {
-            let fx_info = fx.info().or_else(|_| fx.info_from_chunk()).ok()?;
-            Some(FxId::from_fx(&fx, &fx_info, false))
-        });
+        let fx_id = unit_fx.and_then(|fx| FxId::from_fx(&fx, false).ok());
         let loaded = unit_model.borrow_mut().auto_load_preset_linked_to_fx(fx_id);
         Ok(loaded)
     }

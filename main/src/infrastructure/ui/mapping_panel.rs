@@ -1,3 +1,4 @@
+use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
 use derive_more::Display;
 use helgoboss_midi::{Channel, ShortMessageType, U7};
@@ -13,6 +14,7 @@ use rxrust::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::error::Error;
 use std::ptr::null;
 use std::rc::Rc;
 use std::time::Duration;
@@ -987,8 +989,20 @@ impl MappingPanel {
         session.change_mapping_from_ui_expert(&mut mapping, val, initiator, self.session.clone());
     }
 
-    fn handle_target_line_4_button_press(&self) -> Result<(), &'static str> {
-        let mapping = self.displayed_mapping().ok_or("no mapping set")?;
+    fn notify_user_on_anyhow_error(&self, result: anyhow::Result<()>) {
+        if let Err(e) = result {
+            self.notify_user_about_anyhow_error(e);
+        }
+    }
+
+    fn notify_user_about_anyhow_error(&self, e: anyhow::Error) {
+        self.view
+            .require_window()
+            .alert("ReaLearn", format!("{e:#}"));
+    }
+
+    fn handle_target_line_4_button_press(&self) -> anyhow::Result<()> {
+        let mapping = self.displayed_mapping().context("no mapping set")?;
         let target_type = mapping.borrow().target_model.target_type();
         match target_type {
             ReaperTargetType::Action => {
@@ -1002,11 +1016,7 @@ impl MappingPanel {
                 let section_id = SectionId::new(action_scope.section_id());
                 // TODO-low Add this to reaper-high with rxRust
                 if reaper.low().pointers().PromptForAction.is_none() {
-                    self.view.require_window().alert(
-                        "ReaLearn",
-                        "Please update to REAPER >= 6.12 in order to pick actions!",
-                    );
-                    return Ok(());
+                    bail!("Please update to REAPER >= 6.12 in order to pick actions!");
                 }
                 reaper.prompt_for_action_create(initial_action, section_id);
                 let shared_mapping = self.mapping();
@@ -1086,7 +1096,7 @@ impl MappingPanel {
                     } => {
                         let session = BackboneShell::get()
                             .find_unit_model_by_key(&session_id)
-                            .ok_or("session not found")?;
+                            .context("session not found")?;
                         let mapping_id = {
                             mapping_key.and_then(|key| {
                                 session.borrow().find_mapping_id_by_key(compartment, &key)
@@ -7271,7 +7281,7 @@ impl View for MappingPanel {
                 let _ = self.handle_target_line_3_button_press();
             }
             root::ID_TARGET_LINE_4_BUTTON => {
-                let _ = self.handle_target_line_4_button_press();
+                self.notify_user_on_anyhow_error(self.handle_target_line_4_button_press());
             }
             root::ID_TARGET_VALUE_OFF_BUTTON => {
                 let _ = self.read(|p| p.hit_target_special(false));

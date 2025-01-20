@@ -1966,7 +1966,11 @@ impl HeaderPanel {
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid preset auto-load mode");
-        self.session().borrow_mut().activate_auto_load_mode(mode);
+        let result = self.session().borrow_mut().activate_auto_load_mode(mode);
+        if let Err(e) = result {
+            self.invalidate_preset_auto_load_mode_combo_box();
+            self.notify_user_about_anyhow_error(e);
+        }
     }
 
     fn mappings_are_read_only(&self) -> bool {

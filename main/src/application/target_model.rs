@@ -1363,9 +1363,12 @@ impl TargetModel {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<FxSnapshot, &'static str> {
-        let fx = self.with_context(context, compartment).first_fx()?;
-        let fx_info = fx.info().or_else(|_| fx.info_from_chunk())?;
+    ) -> anyhow::Result<FxSnapshot> {
+        let fx = self
+            .with_context(context, compartment)
+            .first_fx()
+            .map_err(anyhow::Error::msg)?;
+        let fx_info = fx.info()?;
         let fx_snapshot = FxSnapshot {
             fx_type: if fx_info.sub_type_expression.is_empty() {
                 fx_info.type_expression

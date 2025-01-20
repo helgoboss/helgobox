@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use derive_more::Display;
 use reaper_high::{Fx, FxInfo};
+use reaper_medium::ReaperStr;
 use std::fmt;
 use std::fmt::Formatter;
 use strum::EnumIter;
@@ -112,7 +113,22 @@ impl fmt::Display for FxId {
 }
 
 impl FxId {
-    pub fn from_fx(fx: &Fx, fx_info: &FxInfo, most_relevant_only: bool) -> FxId {
+    pub fn from_fx(fx: &Fx, most_relevant_only: bool) -> anyhow::Result<FxId> {
+        let fx_info = fx.info()?;
+        let preset_name = fx.preset_name();
+        let fx_id = Self::from_fx_info_and_preset_name(
+            &fx_info,
+            preset_name.as_deref(),
+            most_relevant_only,
+        );
+        Ok(fx_id)
+    }
+
+    pub fn from_fx_info_and_preset_name(
+        fx_info: &FxInfo,
+        preset_name: Option<&ReaperStr>,
+        most_relevant_only: bool,
+    ) -> FxId {
         let mut fx_id = FxId {
             name: fx_info.effect_name.trim().to_string(),
             ..Default::default()
@@ -120,17 +136,11 @@ impl FxId {
         if !fx_id.name.is_empty() && most_relevant_only {
             return fx_id;
         }
-        fx_id.file_name = fx_info
-            .file_name
-            .to_str()
-            .ok_or("invalid FX file name")?
-            .trim()
-            .to_string();
+        fx_id.file_name = fx_info.file_name.to_string_lossy().trim().to_string();
         if !fx_id.file_name.is_empty() && most_relevant_only {
             return fx_id;
         }
-        fx_id.preset_name = fx
-            .preset_name()
+        fx_id.preset_name = preset_name
             .map(|s| s.to_str().trim().to_string())
             .unwrap_or_default();
         fx_id
