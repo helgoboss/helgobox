@@ -889,12 +889,30 @@ impl BackboneShell {
     /// real-time processor, whatever cleanup work is necessary, we can do right here because we
     /// are in main thread already.
     fn unregister_unit_main_processor(&self, unit_id: UnitId) {
-        self.temporarily_reclaim_control_surface_ownership(|control_surface| {
+        let result = self.temporarily_reclaim_control_surface_ownership(|control_surface| {
             // Remove main processor.
             control_surface
                 .middleware_mut()
-                .remove_main_processor(unit_id);
+                .remove_main_processor(unit_id)
         });
+        // Removing the main processor can fail if the removal of that ReaLearn instance was triggered by
+        // ReaLearn itself (possibly by another instance) ... Sentry example ID: 0be87e420ee041538000e8628d941741.
+        // Reentrancy! We can't simply leave it at that because this would mean that the main processor is still in the
+        // list, so it would keep working without the plug-in being around anymore ... that would be super strange.
+        // That's why we remove the main processor asynchronously as a fallback. A quick-and-dirty solution, yes.
+        // TODO-medium This is ugly, to be honest. Ideally, we would have another solution:
+        // a) A non-shared list of owned main processors + a shared list of weak main processors references.
+        //    Then we could infallibly remove the owned main processors right here because we don't need to borrow.
+        //    Code which uses the shared list of weak main processors can throw out the dead references at some point.
+        //    Having the weak processor references in that list a bit longer doesn't hurt. They will just be skipped.
+        // b) We would execute relevant targets (mainly "Project: Invoke REAPER action") asynchronously, that is, in
+        //    the next main loop cycle. Then the main processors wouldn't be borrowed during the actual action
+        //    execution. However, that would need a bit more testing.
+        // c) Or always remove asynchronously. But that would also need some careful testing.
+        if result.is_err() {
+            self.control_surface_main_task_sender
+                .remove_main_processor(unit_id);
+        }
     }
 
     pub fn feedback_audio_hook_task_sender(
@@ -942,14 +960,14 @@ impl BackboneShell {
         &self.proto_hub
     }
 
-    fn temporarily_reclaim_control_surface_ownership(
+    fn temporarily_reclaim_control_surface_ownership<R>(
         &self,
-        f: impl FnOnce(&mut RealearnControlSurface),
-    ) {
-        let next_state = match self.state.replace(AppState::Suspended) {
+        f: impl FnOnce(&mut RealearnControlSurface) -> R,
+    ) -> R {
+        let (result, next_state) = match self.state.replace(AppState::Suspended) {
             AppState::Sleeping(mut s) => {
-                f(&mut s.control_surface);
-                AppState::Sleeping(s)
+                let result = f(&mut s.control_surface);
+                (result, AppState::Sleeping(s))
             }
             AppState::Awake(s) => {
                 let mut session = Reaper::get().medium_session();
@@ -959,7 +977,7 @@ impl BackboneShell {
                         .expect("control surface was not registered")
                 };
                 // Execute necessary operations
-                f(&mut control_surface);
+                let result = f(&mut control_surface);
                 // Give it back to REAPER.
                 let control_surface_handle = session
                     .plugin_register_add_csurf_inst(control_surface)
@@ -970,11 +988,12 @@ impl BackboneShell {
                     accelerator_handle: s.accelerator_handle,
                     async_deallocation_thread: s.async_deallocation_thread,
                 };
-                AppState::Awake(awake_state)
+                (result, AppState::Awake(awake_state))
             }
             _ => panic!("Backbone was neither in sleeping nor in awake state"),
         };
         self.state.replace(next_state);
+        result
     }
 
     /// Spawns the given future on the Helgobox async runtime.

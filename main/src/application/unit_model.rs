@@ -3083,6 +3083,11 @@ pub struct RealearnControlSurfaceMainTaskSender(
 );
 
 impl RealearnControlSurfaceMainTaskSender {
+    pub fn remove_main_processor(&self, unit_id: UnitId) {
+        self.0
+            .send_complaining(RealearnControlSurfaceMainTask::RemoveMainProcessor(unit_id));
+    }
+
     pub fn capture_targets(
         &self,
         instance_id: Option<UnitId>,

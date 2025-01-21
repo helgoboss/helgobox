@@ -96,9 +96,8 @@ pub trait ControlSurfaceEventHandler: Debug {
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     AddInstance(InstanceId, WeakInstance),
-    // Removing instances and main processors is done synchronously by temporarily regaining ownership of the
-    // control surface from REAPER.
     AddMainProcessor(MainProcessor<EH>),
+    RemoveMainProcessor(UnitId),
     StartCapturingTargets(Option<UnitId>, TargetCaptureSender),
     StopCapturingTargets(Option<UnitId>),
     StartCapturingOsc(OscCaptureSender),
@@ -324,10 +323,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.instances.remove(&id);
     }
 
-    pub fn remove_main_processor(&mut self, id: UnitId) {
+    pub fn remove_main_processor(&mut self, id: UnitId) -> anyhow::Result<()> {
         self.main_processors
-            .borrow_mut()
+            .try_borrow_mut()?
             .retain(|p| p.unit_id() != id);
+        Ok(())
     }
 
     pub fn set_osc_input_devices(&mut self, devs: Vec<OscInputDevice>) {
@@ -445,6 +445,12 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
                 AddMainProcessor(p) => {
                     self.main_processors.borrow_mut().push(p);
+                }
+                RemoveMainProcessor(unit_id) => {
+                    self.main_processors
+                        .try_borrow_mut()
+                        .expect("asynchronous removal of main processor also failed")
+                        .retain(|p| p.unit_id() != unit_id);
                 }
                 StartCapturingTargets(instance_id, sender) => {
                     self.target_capture_senders.insert(instance_id, sender);
