@@ -258,9 +258,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         let timestamp = ControlEventTimestamp::from_main_thread();
         #[cfg(debug_assertions)]
         {
-            // TODO-high-playtime-refactoring This is propagated using main processors but it's a global event. We
+            // TODO-medium-playtime-refactoring This is propagated using main processors but it's a global event. We
             //  should use the global control surface event handler for this! Or ShutdownDetectionPanel? After all,
-            //  this is not needed in the domain!
+            //  this is not needed in the domain! But not urgent. It's enabled in dev builds only.
             let current_undesired_allocation_count =
                 helgobox_allocator::undesired_allocation_count();
             if current_undesired_allocation_count != self.last_undesired_allocation_count {
@@ -862,6 +862,25 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
     fn run(&mut self) {
+        // Already-borrowed / reentrancy check
+        if self.main_processors.try_borrow_mut().is_err() {
+            // Main processors area already borrowed! That's possible in some rare cases.
+            // In any case, we need to skip processing. Otherwise, mutable borrow panics would occur!
+            //
+            // Example:
+            // - Preferences => Audio => Recording: Set "Prompt to save/delete/rename new files" to "on stop"
+            // - Add mapping that maps key "S" to transport stop action
+            // - Start playback
+            // - User presses key "S"
+            // - RealearnAccelerator borrows the main processors mutably to process the "S" key press to
+            // - Mapping triggers transport stop
+            // - REAPER shows the modal dialog (prompt)
+            // - The main loop continues running on top of the function stack, continuously invoking the run() function
+            // - BOOM
+            tracing::warn!("Main processors borrowed already. Skipping processing.");
+            return;
+        }
+        // Run
         measure_time("helgobox.control_surface.run", || {
             self.run_internal();
         });

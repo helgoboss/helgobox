@@ -1604,6 +1604,7 @@ pub enum PlaytimeMatrixAction {
     MidiAutoQuantizationOnOffState,
     #[display(fmt = "Smart record")]
     SmartRecord,
+    // TODO-high CONTINUE Simplify wording!
     #[display(fmt = "Play ignited or enable silence mode")]
     #[serde(alias = "EnterSilenceModeOrPlayIgnited")]
     PlayIgnitedOrEnterSilenceMode,
