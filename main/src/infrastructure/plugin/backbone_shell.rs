@@ -512,11 +512,14 @@ impl BackboneShell {
         }
     }
 
+    /// Called when static is destroyed (REAPER exit or - on Windows if configured - complete VST
+    /// unload if extension not loaded, just VST)
     pub fn dispose(&mut self) {
         // Shutdown async runtime
         tracing::info!("Shutting down async runtime...");
         if let Some(async_runtime) = self.async_runtime.take() {
-            async_runtime.shutdown_timeout(Duration::from_secs(1));
+            // 1 second timeout caused a freeze sometimes (Windows)
+            async_runtime.shutdown_background();
         }
         tracing::info!("Async runtime shut down successfully");
         // This is ugly but we need it on Windows where getting the current thread can lead to
