@@ -161,7 +161,7 @@ type _App = BackboneShell;
 pub struct BackboneShell {
     /// This should always be set except in the destructor.
     ///
-    /// The only reason why this is optinaal is, because we need to take ownership of the runtime when the shell is
+    /// The only reason why this is optional is, because we need to take ownership of the runtime when the shell is
     /// dropped.
     async_runtime: Option<Runtime>,
     /// RAII

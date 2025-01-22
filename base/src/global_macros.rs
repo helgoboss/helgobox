@@ -35,7 +35,10 @@ macro_rules! make_available_globally_in_main_thread_on_demand {
                 unsafe {
                     INIT_INSTANCE.call_once(|| {
                         INSTANCE = Some(create_instance());
-                        reaper_low::register_plugin_destroy_hook(|| INSTANCE = None);
+                        reaper_low::register_plugin_destroy_hook(reaper_low::PluginDestroyHook {
+                            name: stringify!($instance_struct),
+                            callback: || INSTANCE = None,
+                        });
                     });
                 }
             }
@@ -74,7 +77,10 @@ macro_rules! make_available_globally_in_any_non_rt_thread {
                 unsafe {
                     INIT_INSTANCE.call_once(|| {
                         INSTANCE = Some(Default::default());
-                        reaper_low::register_plugin_destroy_hook(|| INSTANCE = None);
+                        reaper_low::register_plugin_destroy_hook(reaper_low::PluginDestroyHook {
+                            name: stringify!($instance_struct),
+                            callback: || INSTANCE = None,
+                        });
                     });
                     INSTANCE.as_ref().unwrap()
                 }

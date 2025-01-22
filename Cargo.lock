@@ -4409,7 +4409,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0df7ac00c4672f9d5aece54ee3347520b7e20f158656c7db2e6de01902eb7a6c"
 dependencies = [
  "darling 0.13.4",
- "proc-macro-crate 1.3.1",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -4607,16 +4607,6 @@ dependencies = [
 
 [[package]]
 name = "num_enum"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca565a7df06f3d4b485494f25ba05da1435950f4dc263440eda7a6fa9b8e36e4"
-dependencies = [
- "derivative",
- "num_enum_derive 0.4.3",
-]
-
-[[package]]
-name = "num_enum"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9bd055fb730c4f8f4f57d45d35cd6b3f0980535b056dc7ff119cee6a66ed6f"
@@ -4636,23 +4626,11 @@ dependencies = [
 
 [[package]]
 name = "num_enum_derive"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffa5a33ddddfee04c0283a7653987d634e880347e96b5b2ed64de07efb59db9d"
-dependencies = [
- "proc-macro-crate 0.1.5",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "num_enum_derive"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "486ea01961c4a818096de679a8b740b26d9033146ac5291b1c98557658f8cdd9"
 dependencies = [
- "proc-macro-crate 1.3.1",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -4664,7 +4642,7 @@ version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "681030a937600a36906c185595136d26abfebb4aa9c65701cefcaf8578bb982b"
 dependencies = [
- "proc-macro-crate 1.3.1",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn 2.0.58",
@@ -5285,15 +5263,6 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-crate"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d6ea3c4595b96363c13943497db34af4460fb474a95c43f4446ad341b8c9785"
-dependencies = [
- "toml 0.5.8",
-]
-
-[[package]]
-name = "proc-macro-crate"
 version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f4c021e1093a56626774e81216a4ce732a735e5bad4868a03f3ed65ca0c3919"
@@ -5658,7 +5627,6 @@ dependencies = [
 [[package]]
 name = "reaper-common-types"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4e3878a327b8e4cf1176218b960ea93d17d61399"
 dependencies = [
  "hex-literal",
  "nutype",
@@ -5669,18 +5637,15 @@ dependencies = [
 [[package]]
 name = "reaper-fluent"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4e3878a327b8e4cf1176218b960ea93d17d61399"
 dependencies = [
  "fragile",
  "reaper-low",
  "reaper-medium",
- "thiserror",
 ]
 
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4e3878a327b8e4cf1176218b960ea93d17d61399"
 dependencies = [
  "backtrace",
  "base64 0.13.0",
@@ -5693,8 +5658,6 @@ dependencies = [
  "enumflags2",
  "futures",
  "helgoboss-midi",
- "itertools 0.10.5",
- "num_enum 0.4.3",
  "once_cell",
  "pathdiff",
  "reaper-low",
@@ -5703,7 +5666,6 @@ dependencies = [
  "regex",
  "sentry",
  "serde",
- "serde_yaml",
  "tracing",
  "winapi",
 ]
@@ -5711,13 +5673,14 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4e3878a327b8e4cf1176218b960ea93d17d61399"
 dependencies = [
  "c_str_macro",
  "cc 1.1.10",
  "derive_more",
  "downcast-rs",
+ "fragile",
  "libc",
+ "tracing",
  "vst",
  "winapi",
 ]
@@ -5725,7 +5688,6 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4e3878a327b8e4cf1176218b960ea93d17d61399"
 dependencies = [
  "darling 0.10.2",
  "quote",
@@ -5735,9 +5697,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4e3878a327b8e4cf1176218b960ea93d17d61399"
 dependencies = [
- "c_str_macro",
  "camino",
  "derive_more",
  "enumflags2",
@@ -5745,7 +5705,6 @@ dependencies = [
  "libc",
  "reaper-common-types",
  "reaper-low",
- "reaper-macros",
  "ref-cast",
  "serde",
  "tracing",
@@ -5756,14 +5715,11 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4e3878a327b8e4cf1176218b960ea93d17d61399"
 dependencies = [
- "crossbeam-channel",
  "helgoboss-midi",
  "reaper-high",
  "reaper-medium",
  "rxrust",
- "tracing",
 ]
 
 [[package]]
@@ -6053,7 +6009,6 @@ checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
 [[package]]
 name = "rppxml-parser"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4e3878a327b8e4cf1176218b960ea93d17d61399"
 dependencies = [
  "splitty",
 ]
