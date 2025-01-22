@@ -1,4 +1,5 @@
 use base::hash_util::NonCryptoHashMap;
+use reaper_low::module_is_attached;
 use std::any::TypeId;
 use std::collections::hash_map::Entry;
 use std::fmt::Debug;
@@ -45,6 +46,9 @@ impl<S> SpamFilter<S> {
     }
 
     fn include_event(&self, event: &Event) -> bool {
+        if !module_is_attached() {
+            return false;
+        }
         if event.metadata().fields().field("spam").is_none() {
             return true;
         }
