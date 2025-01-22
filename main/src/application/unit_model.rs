@@ -2173,6 +2173,14 @@ impl UnitModel {
     /// This returns an early `false` if the desired preset is already active.
     fn auto_load_preset(&mut self, preset_id: Option<String>) -> bool {
         if self.active_main_preset_id == preset_id {
+            // Desired preset loaded already
+            return false;
+        }
+        if preset_id.is_none()
+            && self.auto_load_fallback_preset_id.is_some()
+            && self.active_main_preset_id == self.auto_load_fallback_preset_id
+        {
+            // Fallback preset loaded already
             return false;
         }
         let instruction = self.take_auto_load_preset_load_instruction(preset_id);
