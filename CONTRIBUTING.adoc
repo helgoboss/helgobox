@@ -137,6 +137,7 @@ On Windows, it's necessary to use the MSVC (Microsoft Visual Studio C++) toolcha
 ----
 rustup default 1.79.0-x86_64-pc-windows-msvc
 ----
+. If you want to regenerate bindings (usually not necessary): Download and install LLVM from https://github.com/llvm/llvm-project/releases (look for something like `LLVM-*-win64.exe`)
 . Download and install https://git-scm.com/download/win[Git for Windows]
 . Clone the ReaLearn Git repository
 +
