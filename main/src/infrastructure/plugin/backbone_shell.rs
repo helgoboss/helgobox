@@ -71,7 +71,7 @@ use once_cell::sync::Lazy;
 use reaper_high::{
     ChangeEvent, Fx, Guid, MiddlewareControlSurface, PluginInfo, Project, Reaper, Track,
 };
-use reaper_low::{raw, PluginContext, Swell};
+use reaper_low::{raw, register_plugin_destroy_hook, PluginContext, PluginDestroyHook, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
     AccelMsg, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
@@ -119,7 +119,18 @@ fn plugin_main(context: PluginContext) -> Result<(), Box<dyn std::error::Error>>
 }
 
 pub fn init_backbone_shell(context: PluginContext) {
-    BackboneShell::make_available_globally(|| BackboneShell::init(context));
+    BackboneShell::make_available_globally(|| {
+        let backbone_shell = BackboneShell::init(context);
+        register_plugin_destroy_hook(PluginDestroyHook {
+            name: "BackboneShell",
+            callback: || {
+                let backbone_shell = BackboneShell::get();
+                let _ = backbone_shell.go_to_sleep();
+                backbone_shell.dispose();
+            },
+        });
+        backbone_shell
+    });
     BackboneShell::get().show_welcome_screen_if_necessary();
 }
 
@@ -161,9 +172,9 @@ type _App = BackboneShell;
 pub struct BackboneShell {
     /// This should always be set except in the destructor.
     ///
-    /// The only reason why this is optional is, because we need to take ownership of the runtime when the shell is
+    /// The only reason why this is optional is that we need to take ownership of the runtime when the shell is
     /// dropped.
-    async_runtime: Option<Runtime>,
+    async_runtime: RefCell<Option<Runtime>>,
     /// RAII
     _tracing_hook: Option<TracingHook>,
     /// RAII
@@ -178,7 +189,6 @@ pub struct BackboneShell {
     server: SharedRealearnServer,
     config: RefCell<BackboneConfig>,
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
-    party_is_over_subject: LocalSubject<'static, (), ()>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
     instance_event_sender: SenderToNormalThread<QualifiedInstanceEvent>,
     #[cfg(feature = "playtime")]
@@ -478,7 +488,7 @@ impl BackboneShell {
         let shutdown_detection_panel = SharedView::new(HiddenHelperPanel::new());
         shutdown_detection_panel.clone().open(reaper_main_window());
         BackboneShell {
-            async_runtime: Some(async_runtime),
+            async_runtime: RefCell::new(Some(async_runtime)),
             _tracing_hook: tracing_hook,
             _metrics_hook: metrics_hook,
             state: RefCell::new(AppState::Sleeping(sleeping_state)),
@@ -491,7 +501,6 @@ impl BackboneShell {
             server: Rc::new(RefCell::new(server)),
             config: RefCell::new(config),
             sessions_changed_subject,
-            party_is_over_subject: Default::default(),
             control_surface_main_task_sender,
             instance_event_sender,
             #[cfg(feature = "playtime")]
@@ -514,17 +523,18 @@ impl BackboneShell {
 
     /// Called when static is destroyed (REAPER exit or - on Windows if configured - complete VST
     /// unload if extension not loaded, just VST)
-    pub fn dispose(&mut self) {
+    pub fn dispose(&self) {
         // Shutdown async runtime
         tracing::info!("Shutting down async runtime...");
-        if let Some(async_runtime) = self.async_runtime.take() {
-            // 1 second timeout caused a freeze sometimes (Windows)
-            async_runtime.shutdown_background();
+        if let Ok(mut async_runtime) = self.async_runtime.try_borrow_mut() {
+            if let Some(async_runtime) = async_runtime.take() {
+                // 1 second timeout caused a freeze sometimes (Windows)
+                async_runtime.shutdown_background();
+            }
         }
         tracing::info!("Async runtime shut down successfully");
         let _ = Reaper::get().go_to_sleep();
         self.message_panel.close();
-        self.party_is_over_subject.next(());
         let _ = unregister_api();
     }
 
@@ -665,10 +675,15 @@ impl BackboneShell {
         }
     }
 
-    fn async_runtime(&self) -> &Runtime {
-        self.async_runtime
+    fn with_async_runtime<R>(&self, f: impl FnOnce(&Runtime) -> R) -> anyhow::Result<R> {
+        let runtime = self
+            .async_runtime
+            .try_borrow()
+            .context("async runtime already borrowed")?;
+        let runtime = runtime
             .as_ref()
-            .expect("async runtime dropped already")
+            .context("async runtime already destroyed")?;
+        Ok(f(runtime))
     }
 
     /// Executed whenever the first Helgobox instance is loaded.
@@ -715,10 +730,12 @@ impl BackboneShell {
         );
         // Activate server
         if self.config.borrow().server_is_enabled() {
-            self.server()
-                .borrow_mut()
-                .start(self.async_runtime(), self.create_services())
-                .unwrap_or_else(warn_about_failed_server_start);
+            let _ = self.with_async_runtime(|runtime| {
+                self.server()
+                    .borrow_mut()
+                    .start(runtime, self.create_services())
+                    .unwrap_or_else(warn_about_failed_server_start);
+            });
         }
         let mut session = Reaper::get().medium_session();
         // Action hooks
@@ -774,25 +791,23 @@ impl BackboneShell {
     }
 
     // Executed whenever the last ReaLearn instance goes away.
-    pub fn go_to_sleep(&self) {
+    pub fn go_to_sleep(&self) -> anyhow::Result<()> {
         let prev_state = self.state.replace(AppState::GoingToSleep);
-        let awake_state = if let AppState::Awake(s) = prev_state {
-            s
-        } else {
-            panic!("App was not awake when trying to go to sleep");
+        let AppState::Awake(awake_state) = prev_state else {
+            bail!("App was not awake when trying to go to sleep");
         };
         let mut session = Reaper::get().medium_session();
         debug!("Unregistering ReaLearn control surface and audio hook...");
         let (accelerator, mut control_surface, audio_hook) = unsafe {
             let accelerator = session
                 .plugin_register_remove_accelerator(awake_state.accelerator_handle)
-                .expect("accelerator was not registered");
+                .context("accelerator was not registered")?;
             let control_surface = session
                 .plugin_register_remove_csurf_inst(awake_state.control_surface_handle)
-                .expect("control surface was not registered");
+                .context("control surface was not registered")?;
             let audio_hook = session
                 .audio_reg_hardware_hook_remove(awake_state.audio_hook_handle)
-                .expect("control surface was not registered");
+                .context("control surface was not registered")?;
             (accelerator, control_surface, audio_hook)
         };
         // Close OSC connections
@@ -813,7 +828,7 @@ impl BackboneShell {
         let async_deallocation_receiver = awake_state
             .async_deallocation_thread
             .join()
-            .expect("couldn't join deallocation thread");
+            .map_err(|_| anyhow!("couldn't join deallocation thread"))?;
         // Finally go to sleep
         let sleeping_state = SleepingState {
             control_surface,
@@ -822,6 +837,7 @@ impl BackboneShell {
             async_deallocation_receiver,
         };
         self.state.replace(AppState::Sleeping(sleeping_state));
+        Ok(())
     }
 
     /// Attention: The real-time processor is removed *async*! That means it can still be called
@@ -1006,7 +1022,8 @@ impl BackboneShell {
     where
         R: Send + 'static,
     {
-        self.async_runtime().spawn(f)
+        self.with_async_runtime(|runtime| runtime.spawn(f))
+            .expect("async runtime not available")
     }
 
     pub fn license_manager(&self) -> &SharedLicenseManager {
@@ -1071,12 +1088,15 @@ impl BackboneShell {
     }
 
     pub fn start_server_persistently(&self) -> Result<(), String> {
-        let start_result = self
-            .server
-            .borrow_mut()
-            .start(self.async_runtime(), self.create_services());
-        self.change_config(BackboneConfig::enable_server);
-        start_result
+        let res = self.with_async_runtime(|runtime| {
+            let start_result = self
+                .server
+                .borrow_mut()
+                .start(runtime, self.create_services());
+            self.change_config(BackboneConfig::enable_server);
+            start_result
+        });
+        res.unwrap_or_else(|e| Err(e.to_string()))
     }
 
     pub fn stop_server_persistently(&self) {
@@ -1088,7 +1108,9 @@ impl BackboneShell {
         // Persistence
         self.change_config(|c| c.set_send_errors_to_dev(value));
         // Actual behavior
-        set_send_errors_to_dev_internal(value, self.async_runtime());
+        let _ = self.with_async_runtime(|runtime| {
+            set_send_errors_to_dev_internal(value, runtime);
+        });
     }
 
     pub fn set_show_errors_in_console_persistently(&self, value: bool) {

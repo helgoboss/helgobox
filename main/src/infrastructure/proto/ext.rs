@@ -1,6 +1,6 @@
 use enumflags2::BitFlags;
 use reaper_high::{FxChainContext, Reaper};
-use reaper_medium::{EnumPitchShiftModesResult, PlayState, ReaperStr, ReaperString};
+use reaper_medium::{EnumPitchShiftModesResult, PlayState, ReaperStr};
 
 use helgobox_api::runtime::{ControllerPreset, LicenseInfo, MainPreset, ValidatedLicense};
 
