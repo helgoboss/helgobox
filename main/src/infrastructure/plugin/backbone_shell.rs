@@ -33,7 +33,7 @@ use crate::infrastructure::ui::{
 };
 use base::default_util::is_default;
 use base::{
-    make_available_globally_in_main_thread_on_demand, panic_util, spawn_in_main_thread, Global,
+    make_available_globally_in_main_thread_on_demand, spawn_in_main_thread, Global,
     NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
 };
 
@@ -522,16 +522,10 @@ impl BackboneShell {
             async_runtime.shutdown_background();
         }
         tracing::info!("Async runtime shut down successfully");
-        // This is ugly but we need it on Windows where getting the current thread can lead to
-        // "use of std::thread::current() is not possible after the thread's local data has been destroyed"
-        // when exiting REAPER. The following code essentially ignores this.
-        // See https://github.com/rust-lang/rust/issues/110708
-        panic_util::ignore_panics(|| {
-            let _ = Reaper::get().go_to_sleep();
-            self.message_panel.close();
-            self.party_is_over_subject.next(());
-            let _ = unregister_api();
-        });
+        let _ = Reaper::get().go_to_sleep();
+        self.message_panel.close();
+        self.party_is_over_subject.next(());
+        let _ = unregister_api();
     }
 
     pub fn show_welcome_screen_if_necessary(&self) {
