@@ -302,6 +302,8 @@ impl AppInstance for StandaloneAppInstance {
         let join_handle = BackboneShell::get().spawn_in_async_runtime(async move {
             receivers
                 .keep_processing_updates(instance_id, &|event_reply| {
+                    // TODO-high CONTINUE We need to find a mechanism to check whether the app library is still loaded
+                    //  and hasn't been unloaded by the OS in the meantime (on REAPER exit)
                     let reply = Reply {
                         value: Some(reply::Value::EventReply(event_reply)),
                     };
@@ -409,6 +411,7 @@ fn send_to_app(app_callback: AppCallback, reply: &Reply) {
     // doesn't execute on the same thread. It will execute the code asynchronously in another
     // thread and at that point the data still needs to be valid.
     let raw_ptr = Box::into_raw(boxed_slice);
+    // TODO-high CONTINUE This leads to a User-mode data execution prevention (DEP) violation when Playtime is running and exiting REAPER
     unsafe {
         app_callback(raw_ptr as *const _, length as _);
     }

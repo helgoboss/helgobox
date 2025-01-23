@@ -56,7 +56,9 @@ pub struct InstanceShell {
 impl Drop for InstanceShell {
     fn drop(&mut self) {
         tracing::debug!("Dropping InstanceShell...");
-        BackboneShell::get().unregister_instance(self.instance_id);
+        if BackboneShell::is_loaded() {
+            BackboneShell::get().unregister_instance(self.instance_id);
+        }
     }
 }
 

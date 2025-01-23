@@ -260,7 +260,9 @@ impl Drop for UnitShell {
     fn drop(&mut self) {
         debug!("Dropping UnitShell {}...", self.id);
         let session = self.model.get();
-        BackboneShell::get().unregister_unit(self.id);
+        if BackboneShell::is_loaded() {
+            BackboneShell::get().unregister_unit(self.id);
+        }
         debug!(
             "{} pointers are still referring to this session",
             Rc::strong_count(session)

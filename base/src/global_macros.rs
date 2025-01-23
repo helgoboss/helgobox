@@ -3,6 +3,7 @@
 macro_rules! make_available_globally_in_main_thread_on_demand {
     ($instance_struct:path) => {
         // This is safe (see https://doc.rust-lang.org/std/sync/struct.Once.html#examples-1).
+        // TODO-high CONTINUE Use new once_cell-like stuff in std instead
         static mut INSTANCE: Option<$instance_struct> = None;
 
         impl $instance_struct {
@@ -11,9 +12,17 @@ macro_rules! make_available_globally_in_main_thread_on_demand {
                 unsafe {
                     INIT_INSTANCE.call_once(|| {
                         INSTANCE = Some(create_instance());
-                        reaper_low::register_plugin_destroy_hook(|| INSTANCE = None);
+                        reaper_low::register_plugin_destroy_hook(reaper_low::PluginDestroyHook {
+                            name: stringify!($instance_struct),
+                            callback: || INSTANCE = None,
+                        });
                     });
                 }
+            }
+
+            /// Whether this instance is (already/still) loaded.
+            pub fn is_loaded() -> bool {
+                unsafe { INSTANCE.is_some() }
             }
 
             /// Panics if not in main thread.
@@ -50,7 +59,10 @@ macro_rules! make_available_globally_in_any_non_rt_thread {
                 unsafe {
                     INIT_INSTANCE.call_once(|| {
                         INSTANCE = Some(Default::default());
-                        reaper_low::register_plugin_destroy_hook(|| INSTANCE = None);
+                        reaper_low::register_plugin_destroy_hook(reaper_low::PluginDestroyHook {
+                            name: stringify!($instance_struct),
+                            callback: || INSTANCE = None,
+                        });
                     });
                     INSTANCE.as_ref().unwrap()
                 }

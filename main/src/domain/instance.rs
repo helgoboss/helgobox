@@ -70,7 +70,9 @@ pub trait InstanceHandler: fmt::Debug {
 
 impl Drop for Instance {
     fn drop(&mut self) {
-        Backbone::get().unregister_instance(&self.id);
+        if Backbone::is_loaded() {
+            Backbone::get().unregister_instance(&self.id);
+        }
     }
 }
 

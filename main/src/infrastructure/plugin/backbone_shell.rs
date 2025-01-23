@@ -33,7 +33,7 @@ use crate::infrastructure::ui::{
 };
 use base::default_util::is_default;
 use base::{
-    make_available_globally_in_main_thread_on_demand, panic_util, spawn_in_main_thread, Global,
+    make_available_globally_in_main_thread_on_demand, spawn_in_main_thread, Global,
     NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
 };
 
@@ -161,7 +161,7 @@ type _App = BackboneShell;
 pub struct BackboneShell {
     /// This should always be set except in the destructor.
     ///
-    /// The only reason why this is optinaal is, because we need to take ownership of the runtime when the shell is
+    /// The only reason why this is optional is, because we need to take ownership of the runtime when the shell is
     /// dropped.
     async_runtime: Option<Runtime>,
     /// RAII
@@ -512,23 +512,20 @@ impl BackboneShell {
         }
     }
 
+    /// Called when static is destroyed (REAPER exit or - on Windows if configured - complete VST
+    /// unload if extension not loaded, just VST)
     pub fn dispose(&mut self) {
         // Shutdown async runtime
         tracing::info!("Shutting down async runtime...");
         if let Some(async_runtime) = self.async_runtime.take() {
-            async_runtime.shutdown_timeout(Duration::from_secs(1));
+            // 1 second timeout caused a freeze sometimes (Windows)
+            async_runtime.shutdown_background();
         }
         tracing::info!("Async runtime shut down successfully");
-        // This is ugly but we need it on Windows where getting the current thread can lead to
-        // "use of std::thread::current() is not possible after the thread's local data has been destroyed"
-        // when exiting REAPER. The following code essentially ignores this.
-        // See https://github.com/rust-lang/rust/issues/110708
-        panic_util::ignore_panics(|| {
-            let _ = Reaper::get().go_to_sleep();
-            self.message_panel.close();
-            self.party_is_over_subject.next(());
-            let _ = unregister_api();
-        });
+        let _ = Reaper::get().go_to_sleep();
+        self.message_panel.close();
+        self.party_is_over_subject.next(());
+        let _ = unregister_api();
     }
 
     pub fn show_welcome_screen_if_necessary(&self) {
