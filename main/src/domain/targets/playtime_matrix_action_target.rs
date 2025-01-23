@@ -133,7 +133,7 @@ mod playtime_impl {
                     }
                     matrix.trigger_smart_record(true)?;
                 }
-                PlaytimeMatrixAction::PlayIgnitedOrEnterSilenceMode => {
+                PlaytimeMatrixAction::StartOrStopPlayback => {
                     if value.is_on() {
                         matrix.play_all_ignited();
                     } else {
@@ -322,7 +322,7 @@ mod playtime_impl {
                     }
                     _ => (false, None),
                 },
-                PlaytimeMatrixAction::PlayIgnitedOrEnterSilenceMode
+                PlaytimeMatrixAction::StartOrStopPlayback
                 | PlaytimeMatrixAction::SilenceModeOnOffState => match evt {
                     CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SilenceModeChanged) => {
                         (true, None)
@@ -346,7 +346,7 @@ mod playtime_impl {
             let supports_rt_control = matches!(
                 self.action,
                 Stop | SmartRecord
-                    | PlayIgnitedOrEnterSilenceMode
+                    | StartOrStopPlayback
                     | SilenceModeOnOffState
                     | Panic
                     | TapTempo
@@ -408,7 +408,7 @@ mod playtime_impl {
                             matrix.sequencer().status() == SequencerStatus::Recording
                                 || matrix.num_really_recording_clips() > 0
                         }
-                        PlaytimeMatrixAction::PlayIgnitedOrEnterSilenceMode => {
+                        PlaytimeMatrixAction::StartOrStopPlayback => {
                             !matrix.is_in_silence_mode()
                         }
                         PlaytimeMatrixAction::SilenceModeOnOffState => matrix.is_in_silence_mode(),
@@ -461,7 +461,7 @@ mod playtime_impl {
                     let forward_to_main_thread = !matrix.maybe_stop_tempo_detection_recording();
                     Ok(forward_to_main_thread)
                 }
-                PlayIgnitedOrEnterSilenceMode => {
+                StartOrStopPlayback => {
                     if value.is_on() {
                         matrix.play_all_ignited();
                     } else {
@@ -505,7 +505,7 @@ mod playtime_impl {
             let matrix = matrix.lock();
             let bool_value = match self.action {
                 Stop => matrix.is_stoppable(),
-                PlayIgnitedOrEnterSilenceMode => !matrix.is_in_silence_mode(),
+                StartOrStopPlayback => !matrix.is_in_silence_mode(),
                 SilenceModeOnOffState => matrix.is_in_silence_mode(),
                 SmartRecord => {
                     // Only relevant for feedback
@@ -550,7 +550,7 @@ mod playtime_impl {
             | SilenceModeOnOffState
             | SequencerRecordOnOffState
             | SequencerPlayOnOffState
-            | PlayIgnitedOrEnterSilenceMode => {
+            | StartOrStopPlayback => {
                 (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
             }
         }

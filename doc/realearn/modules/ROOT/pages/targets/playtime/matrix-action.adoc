@@ -33,7 +33,7 @@ When hit with an _on_ value, enables xref:playtime::user-interface/inspector/mat
 Smart record::
 When hit with an _on_ value, triggers the xref:playtime::user-interface/toolbar.adoc#toolbar-smart-record[] function. If this leads to the stop of a xref:playtime::further-concepts/matrix.adoc#feature-tempo-detection[], the operation can be carried out in real-time.
 
-Play ignited or enable silence mode::
+Start or stop playback::
 When hit with an _on_ value, this starts Playtime playback and plays all xref:playtime::further-concepts/slot.adoc#ignited-slot[ignited] slots. Otherwise, this stops Playtime playback. This basically resembles the xref:playtime::user-interface/toolbar.adoc#toolbar-start-stop-playback[] button. This action supports real-time invocation.
 
 Enable/disable silence mode::
