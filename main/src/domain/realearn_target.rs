@@ -450,7 +450,7 @@ pub struct RealTimeControlContext<'a> {
     pub _p: &'a (),
 }
 
-impl<'a> RealTimeControlContext<'a> {
+impl RealTimeControlContext<'_> {
     #[cfg(feature = "playtime")]
     pub fn clip_matrix(&self) -> Result<playtime_clip_engine::rt::SharedRtMatrix, &'static str> {
         let instance = self.instance.upgrade().ok_or("real-time instance gone")?;
@@ -463,13 +463,13 @@ impl<'a> RealTimeControlContext<'a> {
     }
 }
 
-impl<'a> TransformationInputProvider<AdditionalTransformationInput> for RealTimeControlContext<'a> {
+impl TransformationInputProvider<AdditionalTransformationInput> for RealTimeControlContext<'_> {
     fn additional_input(&self) -> AdditionalTransformationInput {
         AdditionalTransformationInput::default()
     }
 }
 
-impl<'a> ControlContext<'a> {
+impl ControlContext<'_> {
     pub fn instance(&self) -> &SharedInstance {
         self.instance
     }
@@ -509,7 +509,7 @@ pub struct MappingControlContext<'a> {
     pub coming_from_real_time: bool,
 }
 
-impl<'a> TransformationInputProvider<AdditionalTransformationInput> for MappingControlContext<'a> {
+impl TransformationInputProvider<AdditionalTransformationInput> for MappingControlContext<'_> {
     fn additional_input(&self) -> AdditionalTransformationInput {
         AdditionalTransformationInput {
             y_last: self

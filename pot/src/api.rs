@@ -671,7 +671,7 @@ pub fn unescape_pipes(escaped: &str) -> String {
 
 pub struct PipeEscaped<'a>(pub &'a str);
 
-impl<'a> Display for PipeEscaped<'a> {
+impl Display for PipeEscaped<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         for c in self.0.chars() {
             if c == '|' {

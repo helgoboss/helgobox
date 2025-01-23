@@ -31,7 +31,7 @@ impl VirtualTarget {
     }
 }
 
-impl<'a> Target<'a> for VirtualTarget {
+impl Target<'_> for VirtualTarget {
     type Context = ();
 
     fn current_value(&self, _: ()) -> Option<AbsoluteValue> {

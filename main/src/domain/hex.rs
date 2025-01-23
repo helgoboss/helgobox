@@ -12,7 +12,7 @@ pub fn format_as_pretty_hex(bytes: &[u8]) -> String {
 
 pub struct DisplayAsPrettyHex<'a>(pub &'a [u8]);
 
-impl<'a> Display for DisplayAsPrettyHex<'a> {
+impl Display for DisplayAsPrettyHex<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for (i, b) in self.0.iter().enumerate() {
             if i > 0 {

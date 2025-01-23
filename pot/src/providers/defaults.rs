@@ -38,7 +38,7 @@ impl DefaultsDatabase {
     fn query_presets_internal<'a>(
         &'a self,
         filter_input: &'a FilterInput,
-    ) -> impl Iterator<Item = (usize, &PluginCommon)> + 'a {
+    ) -> impl Iterator<Item = (usize, &'a PluginCommon)> + 'a {
         let matches = !filter_input.filters.wants_user_presets_only();
         if !matches {
             return Either::Left(iter::empty());
@@ -136,7 +136,7 @@ struct DefaultSearchInput<'a> {
     entry: &'a PluginCommon,
 }
 
-impl<'a> SearchInput for DefaultSearchInput<'a> {
+impl SearchInput for DefaultSearchInput<'_> {
     fn preset_name(&self) -> &str {
         PRESET_NAME
     }

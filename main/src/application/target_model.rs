@@ -289,7 +289,7 @@ impl GetProcessingRelevance for TargetProp {
     }
 }
 
-impl<'a> Change<'a> for TargetModel {
+impl Change<'_> for TargetModel {
     type Command = TargetCommand;
     type Prop = TargetProp;
 
@@ -3065,7 +3065,7 @@ impl TargetModel {
 
 pub struct TargetModelFormatVeryShort<'a>(pub &'a TargetModel);
 
-impl<'a> Display for TargetModelFormatVeryShort<'a> {
+impl Display for TargetModelFormatVeryShort<'_> {
     /// Produces a short single-line name which is for example used to derive the automatic name.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0.category {
@@ -3290,7 +3290,7 @@ const NONE_LABEL: &str = "<None>";
 
 const MAPPING_LABEL: &str = "Mapping: ";
 
-impl<'a> Display for TargetModelFormatMultiLine<'a> {
+impl Display for TargetModelFormatMultiLine<'_> {
     /// Produces a multi-line description of the target.
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use TargetCategory::*;
@@ -3545,7 +3545,7 @@ pub struct TargetModelWithContext<'a> {
     compartment: CompartmentKind,
 }
 
-impl<'a> TargetModelWithContext<'a> {
+impl TargetModelWithContext<'_> {
     /// Creates a target based on this model's properties and the current REAPER state.
     ///
     /// This returns a target regardless of the activation conditions of the target. Example:
@@ -4528,7 +4528,7 @@ pub struct ResolvedConcreteTrackInstruction<'a> {
     track: Option<Track>,
 }
 
-impl<'a> ResolvedConcreteTrackInstruction<'a> {
+impl ResolvedConcreteTrackInstruction<'_> {
     pub fn virtual_track_type(&self) -> VirtualTrackType {
         use ConcreteTrackInstruction::*;
         match &self.instruction {
@@ -4603,7 +4603,7 @@ pub struct ResolvedConcreteFxInstruction<'a> {
     fx: Option<Fx>,
 }
 
-impl<'a> ResolvedConcreteFxInstruction<'a> {
+impl ResolvedConcreteFxInstruction<'_> {
     pub fn virtual_fx_type(&self) -> VirtualFxType {
         use ConcreteFxInstruction::*;
         match self.instruction {

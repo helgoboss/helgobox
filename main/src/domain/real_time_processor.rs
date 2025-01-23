@@ -246,7 +246,7 @@ impl RealTimeProcessor {
                     if self.processor_feedback_is_effectively_on() {
                         let was_on_before = self.mappings[compartment]
                             .get(&m.id())
-                            .map_or(false, |m| m.feedback_is_effectively_on());
+                            .is_some_and(|m| m.feedback_is_effectively_on());
                         let is_on_now = m.feedback_is_effectively_on();
                         self.send_lifecycle_midi_diff(&m, was_on_before, is_on_now)
                     }
@@ -1150,7 +1150,7 @@ pub enum Caller<'a> {
     AudioHook,
 }
 
-impl<'a> Caller<'a> {
+impl Caller<'_> {
     pub fn is_vst(&self) -> bool {
         matches!(self, Self::Vst(_))
     }

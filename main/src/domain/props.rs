@@ -65,7 +65,7 @@ impl<'a> MappingPropProvider<'a> {
     }
 }
 
-impl<'a> PropProvider for MappingPropProvider<'a> {
+impl PropProvider for MappingPropProvider<'_> {
     fn get_prop_value(&self, key: &str) -> Option<PropValue> {
         match key.parse::<Props>().ok() {
             Some(props) => {

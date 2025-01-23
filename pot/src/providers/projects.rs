@@ -59,7 +59,7 @@ impl ProjectDatabase {
     fn query_presets_internal<'a>(
         &'a self,
         filter_input: &'a FilterInput,
-    ) -> impl Iterator<Item = (usize, &PresetEntry)> + 'a {
+    ) -> impl Iterator<Item = (usize, &'a PresetEntry)> + 'a {
         let matches = !filter_input.filters.wants_factory_presets_only();
         if !matches {
             return Either::Left(iter::empty());
@@ -400,7 +400,7 @@ struct ProjectSearchInput<'a> {
     preset_entry: &'a PresetEntry,
 }
 
-impl<'a> SearchInput for ProjectSearchInput<'a> {
+impl SearchInput for ProjectSearchInput<'_> {
     fn preset_name(&self) -> &str {
         &self.preset_entry.track_preset.preset_name
     }

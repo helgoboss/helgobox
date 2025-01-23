@@ -22,7 +22,7 @@ pub struct ResourceInfo {
 /// Useful if you want to preview the dialogs in Visual Studio.
 pub struct ResourceInfoAsCHeaderCode<'a>(pub &'a ResourceInfo);
 
-impl<'a> Display for ResourceInfoAsCHeaderCode<'a> {
+impl Display for ResourceInfoAsCHeaderCode<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for id in &self.0.named_ids {
             writeln!(f, "#define {} {}", id.name, id.value)?;
@@ -37,7 +37,7 @@ impl<'a> Display for ResourceInfoAsCHeaderCode<'a> {
 /// the C header file to Rust.
 pub struct ResourceInfoAsRustCode<'a>(pub &'a ResourceInfo);
 
-impl<'a> Display for ResourceInfoAsRustCode<'a> {
+impl Display for ResourceInfoAsRustCode<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // Write module opener
         f.write_str("pub mod root {\n")?;
@@ -186,7 +186,7 @@ impl<'a> DialogScalingAsRustCode<'a> {
     }
 }
 
-impl<'a> Display for DialogScalingAsRustCode<'a> {
+impl Display for DialogScalingAsRustCode<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         writeln!(
             f,
@@ -236,7 +236,7 @@ impl<'a> ScopeAsRustCode<'a> {
     }
 }
 
-impl<'a> Display for ScopeAsRustCode<'a> {
+impl Display for ScopeAsRustCode<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut write_os = |os: &str, scaling: &DialogScaling| -> fmt::Result {
             let attr = format!("#[cfg(target_os = {})]", Quoted(os));
@@ -276,7 +276,7 @@ pub fn rect(x: u32, y: u32, width: u32, height: u32) -> Rect {
     Rect::new(x, y, width, height)
 }
 
-impl<'a> ScopedContext<'a> {
+impl ScopedContext<'_> {
     pub fn default_dialog(&self) -> Dialog {
         self.context.default_dialog()
     }

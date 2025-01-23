@@ -21,7 +21,7 @@ pub struct LuaMidiSourceScript<'lua> {
     context_key: Value,
 }
 
-unsafe impl<'a> Send for LuaMidiSourceScript<'a> {}
+unsafe impl Send for LuaMidiSourceScript<'_> {}
 
 impl<'lua> LuaMidiSourceScript<'lua> {
     pub fn compile(lua: &'lua SafeLua, lua_script: &str) -> anyhow::Result<Self> {

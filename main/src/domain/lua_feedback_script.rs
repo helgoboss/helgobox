@@ -23,7 +23,7 @@ pub struct LuaFeedbackScript<'a> {
     context_key: Value,
 }
 
-unsafe impl<'a> Send for LuaFeedbackScript<'a> {}
+unsafe impl Send for LuaFeedbackScript<'_> {}
 
 impl<'a> LuaFeedbackScript<'a> {
     pub fn compile(lua: &'a SafeLua, lua_script: &str) -> anyhow::Result<Self> {

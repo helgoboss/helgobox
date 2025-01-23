@@ -106,7 +106,7 @@ impl RealTimeInstance {
 struct VstChannelInputs<'a>(vst::buffer::Inputs<'a, f64>);
 
 #[cfg(feature = "playtime")]
-impl<'a> playtime_clip_engine::rt::fx_hook::ChannelInputs for VstChannelInputs<'a> {
+impl playtime_clip_engine::rt::fx_hook::ChannelInputs for VstChannelInputs<'_> {
     fn channel_count(&self) -> usize {
         self.0.len()
     }

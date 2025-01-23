@@ -3180,7 +3180,7 @@ pub struct BasicSourceFeedbackLogger<'a, EH: DomainEventHandler> {
     mapping_id: QualifiedMappingId,
 }
 
-impl<'a, EH: DomainEventHandler> SourceFeedbackLogger for BasicSourceFeedbackLogger<'a, EH> {
+impl<EH: DomainEventHandler> SourceFeedbackLogger for BasicSourceFeedbackLogger<'_, EH> {
     fn log(&self, entry: FeedbackLogEntry) {
         let event = SourceFeedbackEvent {
             id: self.mapping_id,

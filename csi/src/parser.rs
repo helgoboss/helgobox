@@ -255,7 +255,7 @@ mod util {
 
     pub fn capability_msg_opt_msg<'a>(
         name: &'static str,
-    ) -> impl FnMut(&'a str) -> Res<(RawShortMessage, Option<RawShortMessage>)> {
+    ) -> impl FnMut(&'a str) -> Res<'a, (RawShortMessage, Option<RawShortMessage>)> {
         preceded(
             tag(name),
             tuple((
@@ -267,7 +267,7 @@ mod util {
 
     pub fn capability_msg_msg<'a>(
         name: &'static str,
-    ) -> impl FnMut(&'a str) -> Res<(RawShortMessage, RawShortMessage)> {
+    ) -> impl FnMut(&'a str) -> Res<'a, (RawShortMessage, RawShortMessage)> {
         preceded(
             tag(name),
             tuple((
@@ -277,17 +277,19 @@ mod util {
         )
     }
 
-    pub fn capability_index<'a>(name: &'static str) -> impl FnMut(&'a str) -> Res<u8> {
+    pub fn capability_index<'a>(name: &'static str) -> impl FnMut(&'a str) -> Res<'a, u8> {
         map_res(preceded(tuple((tag(name), space1)), digit1), |s: &str| {
             s.parse::<u8>()
         })
     }
 
-    pub fn capability_empty<'a>(name: &'static str) -> impl FnMut(&'a str) -> Res<()> {
+    pub fn capability_empty<'a>(name: &'static str) -> impl FnMut(&'a str) -> Res<'a, ()> {
         value((), tag(name))
     }
 
-    pub fn capability_msg<'a>(name: &'static str) -> impl FnMut(&'a str) -> Res<RawShortMessage> {
+    pub fn capability_msg<'a>(
+        name: &'static str,
+    ) -> impl FnMut(&'a str) -> Res<'a, RawShortMessage> {
         preceded(tag(name), preceded(space1, short_midi_msg))
     }
 }

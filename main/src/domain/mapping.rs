@@ -1375,7 +1375,7 @@ pub enum MainSourceMessage<'a> {
     StreamDeck(StreamDeckMessage),
 }
 
-impl<'a> MainSourceMessage<'a> {
+impl MainSourceMessage<'_> {
     /// Extracts data if this kind of message supports source learning, filtering etc., otherwise
     /// returns `None`.
     pub fn create_capture_result(&self) -> Option<MessageCaptureResult> {
@@ -2175,7 +2175,7 @@ impl<'a, T> WithControlContext<'a, T> {
     }
 }
 
-impl<'a> ValueFormatter for WithControlContext<'a, CompoundMappingTarget> {
+impl ValueFormatter for WithControlContext<'_, CompoundMappingTarget> {
     fn format_value(&self, value: UnitValue, f: &mut Formatter) -> fmt::Result {
         f.write_str(
             &self
@@ -2193,7 +2193,7 @@ impl<'a> ValueFormatter for WithControlContext<'a, CompoundMappingTarget> {
     }
 }
 
-impl<'a> ValueParser for WithControlContext<'a, CompoundMappingTarget> {
+impl ValueParser for WithControlContext<'_, CompoundMappingTarget> {
     fn parse_value(&self, text: &str) -> Result<UnitValue, &'static str> {
         self.value.parse_as_value(text, self.control_context)
     }
@@ -2840,7 +2840,7 @@ pub struct FeedbackLogEntry<'a> {
     feedback_value: &'a FeedbackValue<'a>,
 }
 
-impl<'a> Display for FeedbackLogEntry<'a> {
+impl Display for FeedbackLogEntry<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.feedback_value.fmt(f)
     }

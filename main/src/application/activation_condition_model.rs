@@ -42,7 +42,7 @@ pub struct ActivationConditionModel {
     mapping_id: Option<MappingId>,
 }
 
-impl<'a> Change<'a> for ActivationConditionModel {
+impl Change<'_> for ActivationConditionModel {
     type Command = ActivationConditionCommand;
     type Prop = ActivationConditionProp;
 

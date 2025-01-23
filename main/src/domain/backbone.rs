@@ -150,7 +150,7 @@ pub struct LastTouchedTargetFilter<'a> {
     pub touch_cause: TargetTouchCause,
 }
 
-impl<'a> LastTouchedTargetFilter<'a> {
+impl LastTouchedTargetFilter<'_> {
     pub fn matches(&self, event: &TargetTouchEvent) -> bool {
         // Check touch cause
         match self.touch_cause {

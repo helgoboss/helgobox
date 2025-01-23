@@ -125,7 +125,7 @@ impl PartialEq for MappingModel {
     }
 }
 
-impl<'a> Change<'a> for MappingModel {
+impl Change<'_> for MappingModel {
     type Command = MappingCommand;
     type Prop = MappingProp;
 
@@ -632,7 +632,7 @@ pub struct MappingModelWithContext<'a> {
     context: ExtendedProcessorContext<'a>,
 }
 
-impl<'a> MappingModelWithContext<'a> {
+impl MappingModelWithContext<'_> {
     /// Returns if the absolute make sense under the current conditions.
     ///
     /// Conditions are:

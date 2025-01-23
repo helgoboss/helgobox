@@ -501,7 +501,7 @@ impl FxDescriptor {
                     Owned(T),
                     Borrowed(&'a T),
                 }
-                impl<'a, T> MaybeOwned<'a, T> {
+                impl<T> MaybeOwned<'_, T> {
                     fn get(&self) -> &T {
                         match self {
                             MaybeOwned::Owned(o) => o,
@@ -1209,6 +1209,7 @@ impl ExpressionEvaluator {
                 }
             }
         };
+        #[allow(unexpected_cfgs)]
         let val = eval_compiled_ref!(&self.instruction, &self.slab, &mut cb);
         Ok(val)
     }

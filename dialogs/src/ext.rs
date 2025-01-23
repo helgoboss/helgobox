@@ -1,6 +1,6 @@
 use crate::base::*;
 
-impl<'a> ScopedContext<'a> {
+impl ScopedContext<'_> {
     pub fn checkbox(&self, caption: Caption, id: Id, rect: Rect) -> Control {
         use Style::*;
         // We want to completely ignore the given checkbox height, but we want it to scale.

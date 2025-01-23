@@ -70,7 +70,7 @@ impl RealearnTarget for DummyTarget {
     }
 }
 
-impl<'a> Target<'a> for DummyTarget {
+impl Target<'_> for DummyTarget {
     type Context = ();
 
     fn current_value(&self, _context: ()) -> Option<AbsoluteValue> {

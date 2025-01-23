@@ -98,7 +98,7 @@ impl PluginId {
 /// Example: `1967946098` for a VST2 plug-in ID.
 pub struct PluginIdContentInReaperFormat<'a>(pub &'a PluginId);
 
-impl<'a> Display for PluginIdContentInReaperFormat<'a> {
+impl Display for PluginIdContentInReaperFormat<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self.0 {
             PluginId::Clap { clap_id } => clap_id.fmt(f),
@@ -119,7 +119,7 @@ impl<'a> Display for PluginIdContentInReaperFormat<'a> {
 /// Example: `vst|1967946098` for a VST2 plug-in ID.
 pub struct PluginIdInPipeFormat<'a>(pub &'a PluginId);
 
-impl<'a> Display for PluginIdInPipeFormat<'a> {
+impl Display for PluginIdInPipeFormat<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let kind = self.0.kind();
         let kind = kind.as_ref();

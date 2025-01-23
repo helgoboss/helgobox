@@ -178,7 +178,7 @@ impl Default for ModeModel {
     }
 }
 
-impl<'a> Change<'a> for ModeModel {
+impl Change<'_> for ModeModel {
     type Command = ModeCommand;
     type Prop = ModeProp;
 

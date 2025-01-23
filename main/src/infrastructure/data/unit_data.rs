@@ -305,6 +305,7 @@ pub struct UnitData {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 enum AutoLoadFallbackData {
     Compartment(CompartmentModelData),
     Preset(String),
@@ -961,7 +962,7 @@ fn get_parameter_data_map(
         .collect()
 }
 
-impl<'a> ModelToDataConversionContext for CompartmentInSession<'a> {
+impl ModelToDataConversionContext for CompartmentInSession<'_> {
     fn non_default_group_key_by_id(&self, group_id: GroupId) -> Option<GroupKey> {
         let group = self.session.find_group_by_id(self.compartment, group_id)?;
         Some(group.borrow().key().clone())
@@ -975,7 +976,7 @@ impl<'a> ModelToDataConversionContext for CompartmentInSession<'a> {
     }
 }
 
-impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
+impl DataToModelConversionContext for CompartmentInSession<'_> {
     fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId> {
         let group = self.session.find_group_by_key(self.compartment, key)?;
         Some(group.borrow().id())
@@ -986,7 +987,7 @@ impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
     }
 }
 
-impl<'a> ApiToDataConversionContext for CompartmentInSession<'a> {
+impl ApiToDataConversionContext for CompartmentInSession<'_> {
     fn compartment(&self) -> CompartmentKind {
         self.compartment
     }

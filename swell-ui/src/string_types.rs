@@ -5,7 +5,7 @@ use std::os::raw::c_char;
 
 pub struct SwellStringArg<'a>(Cow<'a, CStr>);
 
-impl<'a> SwellStringArg<'a> {
+impl SwellStringArg<'_> {
     pub fn as_ptr(&self) -> *const c_char {
         self.0.as_ptr()
     }
@@ -32,7 +32,7 @@ impl<'a> From<&'a str> for SwellStringArg<'a> {
     }
 }
 
-impl<'a> From<String> for SwellStringArg<'a> {
+impl From<String> for SwellStringArg<'_> {
     fn from(s: String) -> Self {
         // Doesn't require copying because we own the string now
         SwellStringArg(

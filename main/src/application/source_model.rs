@@ -115,7 +115,7 @@ impl GetProcessingRelevance for SourceProp {
     }
 }
 
-impl<'a> Change<'a> for SourceModel {
+impl Change<'_> for SourceModel {
     type Command = SourceCommand;
     type Prop = SourceProp;
 

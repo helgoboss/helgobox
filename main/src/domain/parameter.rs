@@ -164,7 +164,7 @@ struct SettingAndValue<'a> {
     value: RawParamValue,
 }
 
-impl<'a> Display for SettingAndValue<'a> {
+impl Display for SettingAndValue<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let effective_value = self.setting.convert_to_value(self.value);
         if let EffectiveParamValue::Discrete(v) = effective_value {

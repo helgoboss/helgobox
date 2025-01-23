@@ -854,7 +854,6 @@ impl Window {
         /// zorder is used to set taborder,
         /// note HWND_BOTTOM should be drawn as the first (to be the last in zorder),
         /// and so it is the first child (and so the first in taborder)
-
         /// to check: I have not found HWND_xxx constants in reaper-low bindings...
         const HWND_BOTTOM: raw::HWND = 0x1 as raw::HWND;
         unsafe {

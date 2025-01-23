@@ -351,7 +351,7 @@ impl RealearnTarget for MidiSendTarget {
     }
 }
 
-impl<'a> Target<'a> for MidiSendTarget {
+impl Target<'_> for MidiSendTarget {
     type Context = ();
 
     fn current_value(&self, _context: ()) -> Option<AbsoluteValue> {

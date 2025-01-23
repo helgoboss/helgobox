@@ -47,7 +47,7 @@ impl IniDatabase {
     fn query_presets_internal<'a>(
         &'a self,
         filter_input: &'a FilterInput,
-    ) -> impl Iterator<Item = (usize, &PresetEntry)> + 'a {
+    ) -> impl Iterator<Item = (usize, &'a PresetEntry)> + 'a {
         let matches = !filter_input.filters.wants_factory_presets_only();
         if !matches {
             return Either::Left(iter::empty());
@@ -304,7 +304,7 @@ struct IniSearchInput<'a> {
     preset_entry: &'a PresetEntry,
 }
 
-impl<'a> SearchInput for IniSearchInput<'a> {
+impl SearchInput for IniSearchInput<'_> {
     fn preset_name(&self) -> &str {
         &self.preset_entry.preset_name
     }

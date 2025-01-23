@@ -783,7 +783,7 @@ impl UnitModel {
     fn active_virtual_controller_mappings<'a>(
         &'a self,
         instance_state: &'a Unit,
-    ) -> impl Iterator<Item = &SharedMapping> {
+    ) -> impl Iterator<Item = &'a SharedMapping> {
         self.mappings(CompartmentKind::Controller).filter(move |m| {
             let m = m.borrow();
             if !m.control_is_enabled() {
