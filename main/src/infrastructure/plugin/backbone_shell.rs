@@ -287,11 +287,11 @@ impl BackboneShell {
         let _ = rustls::crypto::ring::default_provider().install_default();
         // We need Swell already without VST plug-in instance to populate the extension menu. As soon as an instance
         // exists, we also need it for all the native GUI stuff.
-        Swell::make_available_globally(Swell::load(context));
+        let _ = Swell::make_available_globally(Swell::load(context));
         // We need access to REAPER as soon as possible, of course
         // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
         //  so not a big deal. Still, maybe could be improved?
-        Reaper::setup_with_defaults(context, create_plugin_info());
+        let _ = Reaper::setup_with_defaults(context, create_plugin_info());
         // The API contains functions that must be around without any VST plug-in instance being active
         register_api().expect("couldn't register API");
         // Senders and receivers are initialized here but used only when awake. Yes, they already consume memory

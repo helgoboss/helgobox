@@ -1,11 +1,13 @@
 use crossbeam_channel::{Receiver, Sender};
+use fragile::Fragile;
 use reaper_high::{
-    FutureMiddleware, FutureSupport, MainTaskMiddleware, MainThreadTask, Reaper, TaskSupport,
+    FutureMiddleware, FutureSupport, MainTaskMiddleware, MainThreadTask, TaskSupport,
     DEFAULT_MAIN_THREAD_TASK_BULK_SIZE,
 };
 use reaper_rx::{ActionRx, ActionRxProvider, ControlSurfaceRx, MainRx};
+use std::sync::LazyLock;
 
-make_available_globally_in_any_non_rt_thread!(Global);
+static INSTANCE: LazyLock<Global> = LazyLock::new(Global::default);
 
 /// Spawns the given future in the main thread.
 ///
@@ -17,7 +19,7 @@ pub fn spawn_in_main_thread(
 }
 
 pub struct Global {
-    main_rx: MainRx,
+    main_rx: Fragile<MainRx>,
     task_support: TaskSupport,
     future_support: FutureSupport,
     task_sender: Sender<MainThreadTask>,
@@ -56,13 +58,22 @@ impl Default for Global {
 }
 
 impl Global {
+    pub fn get() -> &'static Self {
+        assert!(
+            !reaper_high::Reaper::get()
+                .medium_reaper()
+                .is_in_real_time_audio(),
+            "this function must not be called in a real-time thread"
+        );
+        &INSTANCE
+    }
+
     // This is kept static just for allowing easy observable subscription from everywhere. For
     // pushing to the subjects, static access is not necessary.
 
     // Don't use from real-time thread!
     pub fn control_surface_rx() -> &'static ControlSurfaceRx {
-        Reaper::get().require_main_thread();
-        Global::get().main_rx.control_surface()
+        Global::get().main_rx.get().control_surface()
     }
 
     // This really needs to be kept static for pushing to the subjects because hook commands can't
@@ -70,8 +81,7 @@ impl Global {
     //
     // Don't use from real-time thread!
     pub fn action_rx() -> &'static ActionRx {
-        Reaper::get().require_main_thread();
-        Global::get().main_rx.action()
+        Global::get().main_rx.get().action()
     }
 
     /// Allows you to schedule tasks for execution on the main thread from anywhere.

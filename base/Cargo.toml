@@ -35,6 +35,7 @@ camino.workspace = true
 indexmap.workspace = true
 futures.workspace = true
 tokio.workspace = true
+fragile.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # For not letting device_query panic when macOS accessibility permissions not granted
