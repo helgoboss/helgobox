@@ -42,7 +42,7 @@ impl View for HiddenHelperPanel {
         // Executing the plug-in destroy hooks here has the advantage that arbitrary tear-down
         // code can be run. The code that can be called on Windows when dropping everything when the
         // DLL gets detached is limited (if not following this rule, panics may occur and that
-        // would abort REAPER in a crashy way because the panic occurs in drop).
+        // would abort REAPER because the panic occurs in drop).
         // Still, ideally, the tear-down code itself should be safe to execute on DLL_PROCESS_DETACH
         // as well.
         tracing::info!("Executing plug-in destroy hooks from hidden helper panel...");
