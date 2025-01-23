@@ -361,16 +361,13 @@ impl MidiDeviceStatus {
 }
 
 impl AudioInputChannels {
-    pub fn from_engine(channels: impl Iterator<Item = ReaperString>) -> Self {
+    pub fn from_engine(channels: impl Iterator<Item = String>) -> Self {
         Self {
             channels: channels
                 .enumerate()
                 .map(|(i, name)| AudioInputChannel {
                     index: i as u32,
-                    // Sentry error 0ea964e092fc467a8f56a7e3a466f029 revealed that we can't rely on
-                    // that string to be UTF-8 encoded.
-                    // TODO-high CONTINUE Don't expose as ReaperString in reaper-rs if Justin will not fix that
-                    name: name.into_inner().to_string_lossy().to_string(),
+                    name,
                 })
                 .collect(),
         }
