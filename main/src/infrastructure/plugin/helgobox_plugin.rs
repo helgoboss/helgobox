@@ -321,7 +321,9 @@ impl HelgoboxPlugin {
             || {
                 let _ = BackboneShell::get().wake_up();
                 || {
-                    BackboneShell::get().go_to_sleep();
+                    if BackboneShell::is_loaded() {
+                        BackboneShell::get().go_to_sleep();
+                    }
                 }
             },
         )

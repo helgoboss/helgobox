@@ -27,6 +27,7 @@ macro_rules! make_available_globally_in_main_thread {
 macro_rules! make_available_globally_in_main_thread_on_demand {
     ($instance_struct:path) => {
         // This is safe (see https://doc.rust-lang.org/std/sync/struct.Once.html#examples-1).
+        // TODO-high CONTINUE Use new once_cell-like stuff in std instead
         static mut INSTANCE: Option<$instance_struct> = None;
 
         impl $instance_struct {
@@ -41,6 +42,11 @@ macro_rules! make_available_globally_in_main_thread_on_demand {
                         });
                     });
                 }
+            }
+
+            /// Whether this instance is (already/still) loaded.
+            pub fn is_loaded() -> bool {
+                unsafe { INSTANCE.is_some() }
             }
 
             /// Panics if not in main thread.
