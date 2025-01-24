@@ -69,25 +69,14 @@ pub fn create_initial_instance_updates(
     }
     // Playtime checks
     if cfg!(feature = "playtime") {
-        // Check platform support
-        if cfg!(target_os = "linux") {
-            let msg = "Playtime for Linux is a work in progress! Recording and playback performance are not optimized yet. That's also the reason why you get the thread priority warning.";
-            warnings.push(Update::warning(
-                Severity::Medium,
-                Some(Scope::Playtime),
-                msg.to_string(),
-            ));
-        }
         #[cfg(feature = "playtime")]
         {
             if playtime_clip_engine::thread_util::setting_thread_prios_failed() {
-                // TODO-high CONTINUE Add hint that the reason could be permission issues as soon as experimental Linux support complete.
-                let msg = "Setting thread priorities was not successful! This means that clip playback and recording performance will not be optimal!";
-                warnings.push(Update::warning(
-                    Severity::High,
-                    Some(Scope::Playtime),
-                    msg.to_string(),
-                ));
+                let mut msg = "Setting thread priorities was not successful! This means that clip playback and recording performance will not be optimal!".to_string();
+                if cfg!(target_os = "linux") && reaper_revision < "7.30+dev0116" {
+                    msg += " This issue should disappear as soon as you update to the upcoming REAPER version 7.31+.";
+                }
+                warnings.push(Update::warning(Severity::High, Some(Scope::Playtime), msg));
             }
         }
         // Check minimum REAPER version
