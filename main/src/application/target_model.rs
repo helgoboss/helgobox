@@ -3058,7 +3058,10 @@ impl TargetModel {
     pub fn action_name_label(&self) -> Cow<str> {
         match self.resolved_available_action().ok() {
             None => "-".into(),
-            Some(a) => a.name().expect("should be available").into_string().into(),
+            Some(a) => a
+                .name()
+                .map(|n| n.to_string().into())
+                .unwrap_or_else(|_| "<Failed to get action name>".into()),
         }
     }
 }
