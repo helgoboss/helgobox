@@ -524,6 +524,7 @@ impl BackboneShell {
     /// Called when static is destroyed (REAPER exit or - on Windows if configured - complete VST
     /// unload if extension not loaded, just VST)
     pub fn dispose(&self) {
+        println!("Disposing BackboneShell...");
         // Shutdown async runtime
         tracing::info!("Shutting down async runtime...");
         if let Ok(mut async_runtime) = self.async_runtime.try_borrow_mut() {

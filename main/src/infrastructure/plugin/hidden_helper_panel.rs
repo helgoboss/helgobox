@@ -39,14 +39,24 @@ impl View for HiddenHelperPanel {
     fn on_destroy(self: SharedView<Self>, _window: Window) {
         // Switch lights off. Essential to call this here and not later on drop!
         BackboneShell::get().shutdown();
-        // Executing the plug-in destroy hooks here has the advantage that arbitrary tear-down
-        // code can be run. The code that can be called on Windows when dropping everything when the
-        // DLL gets detached is limited (if not following this rule, panics may occur and that
-        // would abort REAPER because the panic occurs in drop).
-        // Still, ideally, the tear-down code itself should be safe to execute on DLL_PROCESS_DETACH
-        // as well.
-        tracing::info!("Executing plug-in destroy hooks from hidden helper panel...");
-        reaper_low::execute_plugin_destroy_hooks();
+        if cfg!(target_os = "windows") {
+            // On Windows, we traditionally executed destroy hooks. Mainly because REAPER for
+            // Windows provides the preference "VST => Allow complete unload of VST plug-ins".
+            // On other OS, this option is not available. Therefore, cleaning up highly static
+            // resources is not really necessary or even possible.
+            // Well, even on Windows, lately "complete unload" leads to crashes. Not sure why.
+            // But anyway, we still try our best.
+            //
+            // We execute those hooks latest on DLL_PROCESS_DETACH.
+            // But executing the plug-in destroy hooks **here already** has the advantage that arbitrary tear-down
+            // code can be run. The code that can be called on Windows when dropping everything when the
+            // DLL gets detached is limited (if not following this rule, panics may occur and that
+            // would abort REAPER because the panic occurs in drop).
+            // Still, ideally, the tear-down code itself should be safe to execute on DLL_PROCESS_DETACH
+            // as well.
+            tracing::info!("Executing plug-in destroy hooks from hidden helper panel...");
+            reaper_low::execute_plugin_destroy_hooks();
+        }
     }
 
     fn timer(&self, id: usize) -> bool {
