@@ -3517,7 +3517,7 @@ export type PlaytimeMatrixAction =
 	| "ClickOnOffState"
 	| "MidiAutoQuantizationOnOffState"
 	| "SmartRecord"
-	| "PlayIgnitedOrEnterSilenceMode"
+	| "StartOrStopPlayback"
 	| "SilenceModeOnOffState"
 	| "Panic"
 	| "SequencerRecordOnOffState"
