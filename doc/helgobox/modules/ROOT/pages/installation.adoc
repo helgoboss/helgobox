@@ -32,8 +32,8 @@ You need to install via ReaPack!**
 [[linux]]
 === Linux
 
-* xref:plug-in.adoc[] needs glibc version 2.31
-* xref:app.adoc[] needs glibc version 2.35 and only runs in xref:app.adoc#app-remote-mode[] so far!
+* On x64 architecture: Needs at least glibc v2.31 (for example, Ubuntu 20+, Debian 11+)
+* On arm64 architecture: Needs at least glibc v2.35 (for example, Ubuntu 22+, Debian 12+)
 * **Installation via installer is not supported.
 You need to install via ReaPack!**
 * Needs libxdo.
