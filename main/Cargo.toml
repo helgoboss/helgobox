@@ -1,6 +1,6 @@
 [package]
 name = "helgobox"
-version = "2.18.0-pre.1"
+version = "2.18.0-pre.2"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2021"
 build = "build.rs"
