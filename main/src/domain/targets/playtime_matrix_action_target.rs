@@ -345,11 +345,7 @@ mod playtime_impl {
             use PlaytimeMatrixAction::*;
             let supports_rt_control = matches!(
                 self.action,
-                Stop | SmartRecord
-                    | StartOrStopPlayback
-                    | SilenceModeOnOffState
-                    | Panic
-                    | TapTempo
+                Stop | SmartRecord | StartOrStopPlayback | SilenceModeOnOffState | Panic | TapTempo
             );
             if !supports_rt_control {
                 return None;
@@ -408,9 +404,7 @@ mod playtime_impl {
                             matrix.sequencer().status() == SequencerStatus::Recording
                                 || matrix.num_really_recording_clips() > 0
                         }
-                        PlaytimeMatrixAction::StartOrStopPlayback => {
-                            !matrix.is_in_silence_mode()
-                        }
+                        PlaytimeMatrixAction::StartOrStopPlayback => !matrix.is_in_silence_mode(),
                         PlaytimeMatrixAction::SilenceModeOnOffState => matrix.is_in_silence_mode(),
                         PlaytimeMatrixAction::Panic => {
                             return None;
@@ -550,9 +544,7 @@ mod playtime_impl {
             | SilenceModeOnOffState
             | SequencerRecordOnOffState
             | SequencerPlayOnOffState
-            | StartOrStopPlayback => {
-                (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
-            }
+            | StartOrStopPlayback => (ControlType::AbsoluteContinuous, TargetCharacter::Switch),
         }
     }
 
