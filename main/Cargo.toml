@@ -5,7 +5,7 @@ authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2021"
 build = "build.rs"
 license = "GPL-3.0"
-rust-version = "1.79.0"
+rust-version = "1.84.0"
 publish = false
 
 [features]

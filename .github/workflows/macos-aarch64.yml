@@ -35,7 +35,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.81.0
+          toolchain: 1.84.0
           target: aarch64-apple-darwin
           override: true
       - name: cargo build

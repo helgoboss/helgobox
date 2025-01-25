@@ -135,7 +135,7 @@ On Windows, it's necessary to use the MSVC (Microsoft Visual Studio C++) toolcha
 +
 [source,shell]
 ----
-rustup default 1.79.0-x86_64-pc-windows-msvc
+rustup default 1.84.0-x86_64-pc-windows-msvc
 ----
 . If you want to regenerate bindings (usually not necessary): Download and install LLVM from https://github.com/llvm/llvm-project/releases (look for something like `LLVM-*-win64.exe`)
 . Download and install https://git-scm.com/download/win[Git for Windows]
@@ -178,7 +178,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (defau
 source $HOME/.cargo/env
 
 # Set the correct toolchain default
-rustup default 1.81.0-x86_64-unknown-linux-gnu
+rustup default 1.84.0-x86_64-unknown-linux-gnu
 
 # Clone ReaLearn repository
 git clone https://github.com/helgoboss/helgobox.git
@@ -223,7 +223,7 @@ The Rust installation script should provide you with the necessary instructions 
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (default)
 source $HOME/.cargo/env
-rustup default 1.81.0-x86_64-apple-darwin
+rustup default 1.84.0-x86_64-apple-darwin
 
 # Clone ReaLearn
 cd Downloads
@@ -490,7 +490,8 @@ After modifying this file, you need to execute the following command in the proj
 
 == License check
 
-It's important to make sure that the licenses of all dependencies are compatible with the final license. We use link:https://github.com/EmbarkStudios/cargo-deny[cargo-deny] for this.
+It's important to make sure that the licenses of all dependencies are compatible with the final license.
+We use link:https://github.com/EmbarkStudios/cargo-deny[cargo-deny] for this.
 
 Installation:
 
@@ -508,7 +509,8 @@ cargo deny check licenses
 
 == License report
 
-It's important to make sure that the licenses of all dependencies are compatible with the final license. We use link:https://github.com/EmbarkStudios/cargo-deny[cargo-deny] for this.
+It's important to make sure that the licenses of all dependencies are compatible with the final license.
+We use link:https://github.com/EmbarkStudios/cargo-deny[cargo-deny] for this.
 
 Installation:
 

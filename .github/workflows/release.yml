@@ -15,7 +15,7 @@ jobs:
         include:
           - artifact: windows-x86_64
             os: windows-latest
-            toolchain: 1.79.0-x86_64-pc-windows-msvc
+            toolchain: 1.84.0-x86_64-pc-windows-msvc
             lib-file-name: helgobox.dll
             extension-file-name: reaper_helgobox.dll
             target: x86_64-pc-windows-msvc
@@ -25,7 +25,7 @@ jobs:
             macosx_deployment_target: ""
           - artifact: windows-i686
             os: windows-latest
-            toolchain: 1.81.0-i686-pc-windows-msvc
+            toolchain: 1.84.0-i686-pc-windows-msvc
             lib-file-name: helgobox.dll
             extension-file-name: reaper_helgobox.dll
             target: i686-pc-windows-msvc
@@ -35,7 +35,7 @@ jobs:
             macosx_deployment_target: ""
           - artifact: macos-x86_64
             os: macos-latest
-            toolchain: 1.81.0-x86_64-apple-darwin
+            toolchain: 1.84.0-x86_64-apple-darwin
             lib-file-name: libhelgobox.dylib
             extension-file-name: libreaper_helgobox.dylib
             target: x86_64-apple-darwin
@@ -48,7 +48,7 @@ jobs:
             macosx_deployment_target: "10.9"
           - artifact: macos-aarch64
             os: macos-latest
-            toolchain: 1.81.0-x86_64-apple-darwin
+            toolchain: 1.84.0-x86_64-apple-darwin
             lib-file-name: libhelgobox.dylib
             extension-file-name: libreaper_helgobox.dylib
             target: aarch64-apple-darwin
@@ -59,7 +59,7 @@ jobs:
             macosx_deployment_target: "11.0"
           - artifact: linux-x86_64
             os: ubuntu-20.04
-            toolchain: 1.81.0-x86_64-unknown-linux-gnu
+            toolchain: 1.84.0-x86_64-unknown-linux-gnu
             lib-file-name: libhelgobox.so
             extension-file-name: libreaper_helgobox.so
             target: x86_64-unknown-linux-gnu
@@ -69,7 +69,7 @@ jobs:
             macosx_deployment_target: ""
           - artifact: linux-aarch64
             os: ubuntu-22.04-arm
-            toolchain: 1.81.0-aarch64-unknown-linux-gnu
+            toolchain: 1.84.0-aarch64-unknown-linux-gnu
             lib-file-name: libhelgobox.so
             extension-file-name: libreaper_helgobox.so
             target: aarch64-unknown-linux-gnu
@@ -78,7 +78,7 @@ jobs:
             macosx_deployment_target: ""
     #          - artifact: linux-armv7
     #            os: ubuntu-22.04
-    #            toolchain: 1.81.0-x86_64-unknown-linux-gnu
+    #            toolchain: 1.84.0-x86_64-unknown-linux-gnu
     #            lib-file-name: libhelgobox.so
     #            extension-file-name: ""
     #            target: armv7-unknown-linux-gnueabihf
