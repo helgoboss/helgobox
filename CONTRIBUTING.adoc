@@ -162,6 +162,31 @@ rename playtime-clip-engine-placeholder playtime-clip-engine
 cargo build --features egui
 ----
 
+==== Windows 7 support is gone and its future is uncertain
+
+Helgobox 2.16.15 brought back Windows 7 support, which has gone missing at some point before that.
+This was primarily achieved by producing the Windows build using the last official Rust version that supported Windows 7, namely Rust 1.77.2.
+
+However, it turned out that it's very hard to stick with that version.
+It means having to give up on new Rust features.
+But most importantly, it means updating dependencies is not possible if they raise their MSRV (minimal supported Rust version).
+A high price to pay for a rarely used OS.
+
+An alternative would be to use the tier 3 target `x86_64-win7-windows-msvc`.
+Compilation works using the `RUSTC_BOOTSTRAP` hack:
+
+.PowerShell
+[source]
+----
+$env:RUSTC_BOOTSTRAP=1
+# For compiling indexmap
+$env:CARGO_FEATURE_STD=1
+cargo build -Z build-std --release --target x86_64-win7-windows-msvc
+----
+
+However, linking fails because `windows.lib` can't be opened.
+Probably related to https://www.reddit.com/r/rust/comments/1dikeq6/compiling_for_win7_missing_windows0485lib/[this] and https://github.com/rust-lang/rust/issues/128218#issuecomment-2251864932[this] issue. If -- and only if -- users are genuinely interested in a working Windows 7 build of ReaLearn, I would look into it a bit further.
+
 === Linux
 
 Complete instructions to build ReaLearn from a _fresh_ Ubuntu 18.04.3 LTS installation, including Rust setup:
