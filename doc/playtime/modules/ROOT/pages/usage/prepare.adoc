@@ -10,7 +10,7 @@ Playtime runs within REAPER, so at first you need to start REAPER.
 
 If you haven't done it already, you should let REAPER know which audio and MIDI devices you are planning to use with it, because Playtime will use them as well!
 
-. Open the REAPER preferences via menu:Options[Settings...]
+. Open the REAPER preferences via menu:Options[Preferences/Settings...]
 . In the section menu:Audio[Device], configure your audio input and output.
 . In the section menu:Audio[MIDI Inputs], configure your MIDI input devices, such as music keyboards.
 . In the section menu:Audio[MIDI Outputs], configure your MIDI output devices, such as hardware synthesizers.

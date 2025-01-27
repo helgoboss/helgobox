@@ -33,7 +33,7 @@ That also means that the track's _input_ FX chain will not have any effect on th
 You can work around this limitation by using *Loopback* channels instead of input FX.
 
 TIP: Selecting *Loopback* channels as audio input doesn't automatically enable them!
-Make sure that the REAPER setting *Virtual loopback audio hardware channels* in menu:Options[Settings... > Audio] is high enough!
+Make sure that the REAPER setting *Virtual loopback audio hardware channels* in menu:Options[Preferences/Settings... > Audio] is high enough!
 
 NOTE: This directly sets the input of the corresponding REAPER track.
 Although technically not necessary for recording because Playtime doesn't use REAPER's track recording facility, it is important for input monitoring.

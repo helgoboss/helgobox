@@ -58,7 +58,7 @@ pub fn create_initial_instance_updates(
             let swipe_flag = flags & 128 > 0;
             let move_flag = flags & 256 > 0;
             if !wheel_flag || !swipe_flag || !move_flag {
-                let msg = "At least one of the checkboxes in the REAPER preference \"Options → Settings... → General → Advanced UI/system tweaks... → Throttle mouse-events\" is not enabled. This will cause temporary user interface lags in REAPER and Playtime while using the mouse or touchpad in REAPER, e.g. when adjusting the track volume. Enabling all checkboxes will improve your REAPER experience in general, not just when using Playtime!";
+                let msg = "At least one of the checkboxes in the REAPER preference \"Options → Preferences/Settings... → General → Advanced UI/system tweaks... → Throttle mouse-events\" is not enabled. This will cause temporary user interface lags in REAPER and Playtime while using the mouse or touchpad in REAPER, e.g. when adjusting the track volume. Enabling all checkboxes will improve your REAPER experience in general, not just when using Playtime!";
                 warnings.push(Update::warning(
                     Severity::Low,
                     Some(Scope::Playtime),
@@ -88,7 +88,7 @@ pub fn create_initial_instance_updates(
         if let Ok(var) = Reaper::get().get_preference_ref::<i32>("stopprojlen") {
             let stop_at_end = *var;
             if stop_at_end > 0 {
-                let msg = "You have enabled the REAPER preference \"Options → Settings... → Audio → Playback → Stop/repeat playback at end of project\". This prevents Playtime from playing along with your REAPER arrangement if the arrangement is empty or ends prematurely. To ensure smooth operation, we highly recommend disabling this option.";
+                let msg = "You have enabled the REAPER preference \"Options → Preferences/Settings... → Audio → Playback → Stop/repeat playback at end of project\". This prevents Playtime from playing along with your REAPER arrangement if the arrangement is empty or ends prematurely. To ensure smooth operation, we highly recommend disabling this option.";
                 warnings.push(Update::warning(
                     Severity::High,
                     Some(Scope::Playtime),

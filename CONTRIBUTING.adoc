@@ -185,7 +185,8 @@ cargo build -Z build-std --release --target x86_64-win7-windows-msvc
 ----
 
 However, linking fails because `windows.lib` can't be opened.
-Probably related to https://www.reddit.com/r/rust/comments/1dikeq6/compiling_for_win7_missing_windows0485lib/[this] and https://github.com/rust-lang/rust/issues/128218#issuecomment-2251864932[this] issue. If -- and only if -- users are genuinely interested in a working Windows 7 build of ReaLearn, I would look into it a bit further.
+Probably related to https://www.reddit.com/r/rust/comments/1dikeq6/compiling_for_win7_missing_windows0485lib/[this] and https://github.com/rust-lang/rust/issues/128218#issuecomment-2251864932[this] issue.
+If -- and only if -- users are genuinely interested in a working Windows 7 build of ReaLearn, I would look into it a bit further.
 
 === Linux
 
@@ -597,7 +598,7 @@ but don't submit yet!
 
 === Windows: ReaLearn DLL doesn't unload
 
-In REAPER for Windows it's possible to enable complete unload of VST plug-ins (Preferences -> Plug-ins -> VST -> Allow complete unload of VST plug-ins).
+In REAPER for Windows it's possible to enable complete unload of VST plug-ins (Options -> Settings/Preferences -> Plug-ins -> VST -> Allow complete unload of VST plug-ins).
 This also affects ReaLearn.
 Removing the last ReaLearn instance should work with and without this flag enabled, it's important to test this.
 

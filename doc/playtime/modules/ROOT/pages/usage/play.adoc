@@ -49,7 +49,7 @@ Maybe you want to play the clip with a lower volume when hitting the key softly 
 ====
 Triggering clips via MIDI happens in real-time! As with any other instrument plug-in that you use in REAPER, the latency depends on the block size set in REAPER.
 
-So if you use xref:key-concepts.adoc#clip-start-timing[] xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[] and set the block size in REAPER menu:Options[Settings... > Device] low enough (e.g. 256 samples), you will not perceive any delay between pressing the key and hearing the sound.
+So if you use xref:key-concepts.adoc#clip-start-timing[] xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[] and set the block size in REAPER menu:Options[Preferences/Settings... > Device] low enough (e.g. 256 samples), you will not perceive any delay between pressing the key and hearing the sound.
 ====
 
 .Is Playtime a sampler?
