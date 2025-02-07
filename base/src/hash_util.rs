@@ -1,13 +1,13 @@
 use indexmap::{IndexMap, IndexSet};
 use std::collections::{HashMap, HashSet};
 use std::hash::{BuildHasher, Hash, Hasher};
-use xxhash_rust::xxh3::{Xxh3, Xxh3Builder};
+use xxhash_rust::xxh3::{Xxh3Default, Xxh3DefaultBuilder};
 
 /// The default choice for hashing in Helgobox.
-pub type NonCryptoHashBuilder = Xxh3Builder;
+pub type NonCryptoHashBuilder = Xxh3DefaultBuilder;
 
 /// The default choice for hashing in Helgobox.
-pub type NonCryptoHasher = Xxh3;
+pub type NonCryptoHasher = Xxh3Default;
 
 /// The default choice for hash maps in Helgobox.
 pub type NonCryptoHashMap<K, V> = HashMap<K, V, NonCryptoHashBuilder>;
@@ -93,7 +93,7 @@ impl PersistentHash {
 }
 
 #[derive(Default)]
-pub struct PersistentHasher(Xxh3);
+pub struct PersistentHasher(Xxh3Default);
 
 impl PersistentHasher {
     pub fn new() -> Self {
