@@ -230,7 +230,7 @@ pub struct UnitData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub clip_matrix: Option<ClipMatrixRefData>,
+    pub clip_matrix: Option<playtime_api::persistence::FlexibleMatrix>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -327,13 +327,6 @@ impl AutoLoadFallbackData {
 
 fn focused_fx_descriptor() -> FxDescriptor {
     FxDescriptor::Focused
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ClipMatrixRefData {
-    Own(Box<playtime_api::persistence::FlexibleMatrix>),
-    Foreign(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]

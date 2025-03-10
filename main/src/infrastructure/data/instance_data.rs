@@ -1,8 +1,9 @@
-use crate::infrastructure::data::{ClipMatrixRefData, UnitData};
+use crate::infrastructure::data::UnitData;
 use anyhow::Context;
 use base::default_util::{deserialize_null_default, is_default};
 use base::hash_util::NonCryptoHashMap;
 use helgobox_api::persistence::InstanceSettings;
+use playtime_api::persistence::FlexibleMatrix;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -27,7 +28,7 @@ pub struct InstanceData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub clip_matrix: Option<ClipMatrixRefData>,
+    pub clip_matrix: Option<FlexibleMatrix>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",

@@ -8,7 +8,7 @@ use crate::infrastructure::plugin::unit_shell::UnitShell;
 use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::UnitPanel;
-use anyhow::{bail, Context};
+use anyhow::Context;
 use base::hash_util::NonCryptoHashMap;
 use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock};
 use fragile::Fragile;
@@ -476,9 +476,7 @@ impl InstanceShell {
             clip_matrix: {
                 #[cfg(feature = "playtime")]
                 {
-                    instance.clip_matrix().map(|matrix| {
-                        crate::infrastructure::data::ClipMatrixRefData::Own(Box::new(matrix.save()))
-                    })
+                    instance.clip_matrix().map(|matrix| matrix.save())
                 }
                 #[cfg(not(feature = "playtime"))]
                 None
@@ -531,18 +529,11 @@ impl InstanceShell {
         // Playtime matrix
         #[cfg(feature = "playtime")]
         {
-            if let Some(matrix_ref) = instance_data.clip_matrix {
-                match matrix_ref {
-                    crate::infrastructure::data::ClipMatrixRefData::Own(m) => {
-                        let mut instance = self.instance().borrow_mut();
-                        self.clone()
-                            .get_or_insert_owned_clip_matrix(&mut instance)?
-                            .load(*m)?;
-                    }
-                    crate::infrastructure::data::ClipMatrixRefData::Foreign(_) => {
-                        bail!("Referring to the Playtime matrix of another instance is not supported anymore!");
-                    }
-                };
+            if let Some(m) = instance_data.clip_matrix {
+                let mut instance = self.instance().borrow_mut();
+                self.clone()
+                    .get_or_insert_owned_clip_matrix(&mut instance)?
+                    .load(m)?;
             } else {
                 instance.borrow_mut().set_clip_matrix(None);
             }
