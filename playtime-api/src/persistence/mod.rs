@@ -1102,7 +1102,6 @@ pub struct Row {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// An optional tempo associated with this row.
-    // TODO-high-playtime-after-release
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tempo: Option<Bpm>,
     /// An optional time signature associated with this row.
