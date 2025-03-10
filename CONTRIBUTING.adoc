@@ -582,7 +582,7 @@ This serves mainly as a checklist for Helgobox's author.
 *** Integrate the generated index by copying everything from `&lt;category name=&quot;Extensions&quot;&gt;` and pasting it to the
 https://github.com/helgoboss/reaper-packages/blob/master/index.xml[helgoboss ReaPack index] without overwriting the preset categories on the top of the file.
 *** Don't push the index yet!
-** Author a REAPER forum ReaLearn thread entry with help of https://www.helgoboss.org/projects/realearn/reaper-forum.txt[/projects/realearn/reaper-forum.txt]
+** Create a REAPER forum ReaLearn thread entry with help of https://www.helgoboss.org/projects/realearn/reaper-forum.txt[/projects/realearn/reaper-forum.txt]
 but don't submit yet!
 ** Download the user guide by requesting https://www.helgoboss.org/projects/realearn/user-guide[/projects/realearn/user-guide].
 ** Copy the corresponding changelog entry in markdown format by requesting https://www.helgoboss.org/projects/realearn/changelog.md[/projects/realearn/changelog.md].
@@ -593,6 +593,7 @@ but don't submit yet!
 . Push the https://github.com/helgoboss/reaper-packages/blob/master/index.xml[helgoboss ReaPack index].
 . Submit the REAPER forum ReaLearn thread entry.
 . Check if synchronization of the ReaPack repository works.
+. Update website's `config.yaml` latest versions (for update notifications)
 
 == Troubleshooting
 

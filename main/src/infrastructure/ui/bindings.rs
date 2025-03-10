@@ -317,9 +317,10 @@ pub mod root {
     pub const ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON: u32 = 30246;
     pub const ID_SETUP_SEND_ERRORS_TO_DEV: u32 = 30247;
     pub const ID_SETUP_SHOW_ERRORS_IN_CONSOLE: u32 = 30248;
-    pub const ID_SETUP_COMMENT: u32 = 30249;
-    pub const ID_SETUP_TIP_TEXT: u32 = 30250;
-    pub const ID_SETUP_PANEL_OK: u32 = 30251;
-    pub const ID_COLOR_PANEL: u32 = 30252;
-    pub const ID_HIDDEN_PANEL: u32 = 30253;
+    pub const ID_SETUP_NOTIFY_ABOUT_UPDATES: u32 = 30249;
+    pub const ID_SETUP_COMMENT: u32 = 30250;
+    pub const ID_SETUP_TIP_TEXT: u32 = 30251;
+    pub const ID_SETUP_PANEL_OK: u32 = 30252;
+    pub const ID_COLOR_PANEL: u32 = 30253;
+    pub const ID_HIDDEN_PANEL: u32 = 30254;
 }

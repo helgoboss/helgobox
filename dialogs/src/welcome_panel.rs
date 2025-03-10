@@ -39,6 +39,11 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
                 ids.named_id("ID_SETUP_SHOW_ERRORS_IN_CONSOLE"),
                 context.rect(60, 150, 150, 8),
             ),
+            context.checkbox(
+                "Notify about updates",
+                ids.named_id("ID_SETUP_NOTIFY_ABOUT_UPDATES"),
+                context.rect(60, 165, 150, 8),
+            ),
             ctext(
                 "Comment",
                 ids.named_id("ID_SETUP_COMMENT"),

@@ -30,7 +30,7 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
         Update::controller_config(&BackboneShell::get().controller_manager().borrow()),
         Update::license_info(&BackboneShell::get().license_manager().borrow()),
     ];
-    create(global_updates.into_iter())
+    create(global_updates.into_iter().chain(Update::update_info()))
 }
 
 pub fn create_initial_instance_updates(

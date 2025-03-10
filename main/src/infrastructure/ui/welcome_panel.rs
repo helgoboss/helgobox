@@ -48,12 +48,20 @@ impl WelcomePanel {
         self.invalidate_controls();
     }
 
+    fn toggle_notify_about_updates(&self) {
+        let shell = BackboneShell::get();
+        let value = shell.config().notify_about_updates();
+        shell.set_notify_about_updates_persistently(!value);
+        self.invalidate_controls();
+    }
+
     fn invalidate_controls(&self) {
         if custom_toolbar_api_is_available() {
             self.invalidate_toolbar_checkboxes();
         }
         let send_errors_to_dev = BackboneShell::get().config().send_errors_to_dev();
         let show_errors_in_console = BackboneShell::get().config().show_errors_in_console();
+        let notify_about_updates = BackboneShell::get().config().notify_about_updates();
         let comment = match (send_errors_to_dev, show_errors_in_console) {
             (false, false) => {
                 Some("Please consider checking at least one of the error checkboxes, as it helps to improve Helgobox!")
@@ -67,6 +75,9 @@ impl WelcomePanel {
         self.view
             .require_control(root::ID_SETUP_SHOW_ERRORS_IN_CONSOLE)
             .set_checked(show_errors_in_console);
+        self.view
+            .require_control(root::ID_SETUP_NOTIFY_ABOUT_UPDATES)
+            .set_checked(notify_about_updates);
         self.view
             .require_control(root::ID_SETUP_COMMENT)
             .set_text_or_hide(comment);
@@ -135,6 +146,9 @@ impl View for WelcomePanel {
             }
             root::ID_SETUP_SHOW_ERRORS_IN_CONSOLE => {
                 self.toggle_show_errors_in_console();
+            }
+            root::ID_SETUP_NOTIFY_ABOUT_UPDATES => {
+                self.toggle_notify_about_updates();
             }
             root::ID_SETUP_PANEL_OK => self.close(),
             // IDCANCEL is escape button

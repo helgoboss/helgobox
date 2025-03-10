@@ -130,16 +130,39 @@ If not, you probably changed the configuration at some point.
 
 TIP: If none of these suggestions help, please link:https://github.com/helgoboss/helgobox/issues/new/choose[please report a bug]!
 
+[[updating-helgobox]]
 == Updating Helgobox
 
 Helgobox development moves fast!
-In order to take advantage of latest features, improvements and fixes, you should check the link:https://www.helgoboss.org/projects/helgobox[Helgobox homepage] for updates from time to time.
+To take advantage of the latest features, improvements and fixes, you should check the link:https://www.helgoboss.org/projects/helgobox[Helgobox homepage] for updates from time to time.
 
 Here's how you can install the latest stable Helgobox version:
 
 . Run menu:Extensions[ReaPack > Synchronize packages]
 ** ReaPack will show you a summary at the end, which tells you whether a new Helgobox version has been installed.
 . Restart REAPER
+
+If <<installer,supported on your system>>, you can alternatively just run the link:https://www.helgoboss.org/projects/helgobox#download[Helgobox installer app] again.
+
+[[downgrading-helgobox]]
+== Downgrading Helgobox
+
+Downgrading is easily possible via ReaPack as well.
+
+.Be careful when saving projects after updates or downgrades!
+[CAUTION]
+====
+It is not guaranteed that projects saved with newer versions can still be opened with older versions of Helgobox! Even if it works, saving a project with that older version might overwrite changes that you made in the newer version. That's why Helgobox will warn you in this case.
+
+If your project is crucial, it is recommended to make a backup before re-saving it with another version.
+====
+
+. menu:Extensions[ReaPack > Browse packages...]
+. Right-click the package {package-name} and navigate to the submenu menu:Versions[]
+. Select the desired old version
+. Press btn:[OK] or btn:[Apply]
+. Restart REAPER
+
 
 [[pre-releases]]
 == Testing new features and improvements

@@ -9,7 +9,7 @@ use crate::domain::CompartmentKind;
 use crate::infrastructure::data::{
     ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager, LicenseManager,
 };
-use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
+use crate::infrastructure::plugin::{BackboneShell, HelgoboxRemoteConfig, InstanceShell};
 use crate::infrastructure::proto::{
     event_reply, fx_chain_location_info, occasional_global_update, occasional_instance_update,
     qualified_occasional_unit_update, ArrangementPlayState, AudioInputChannel, AudioInputChannels,
@@ -27,7 +27,8 @@ use crate::infrastructure::proto::{
     QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
     QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
     QualifiedOccasionalUnitUpdate, ResampleMode, ResampleModes, RgbColor, Scope, Severity,
-    SlotAddress, TrackFxChainLocationInfo, TrackLocationInfo, Unit, Units, Warning, Warnings,
+    SlotAddress, TrackFxChainLocationInfo, TrackLocationInfo, Unit, Units, UpdateInfo, Warning,
+    Warnings,
 };
 use crate::infrastructure::server::data::get_controller_routing;
 
@@ -122,6 +123,11 @@ impl occasional_global_update::Update {
         let json =
             serde_json::to_string(&event).expect("couldn't represent global info event as JSON");
         Self::InfoEvent(json)
+    }
+
+    pub fn update_info() -> Option<Self> {
+        let remote_config = BackboneShell::remote_config()?;
+        Some(Self::UpdateInfo(UpdateInfo::from_engine(remote_config)))
     }
 
     pub fn instances() -> Self {
@@ -290,6 +296,15 @@ impl HelgoboxInstances {
                     })
                     .collect()
             }),
+        }
+    }
+}
+
+impl UpdateInfo {
+    pub fn from_engine(config: &HelgoboxRemoteConfig) -> Self {
+        Self {
+            latest_host_version: config.plugin.latest_version.to_string(),
+            latest_app_version: config.app.latest_version.to_string(),
         }
     }
 }

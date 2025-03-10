@@ -47,6 +47,7 @@ use crate::infrastructure::plugin::dynamic_toolbar::{
 };
 use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
 use crate::infrastructure::plugin::hidden_helper_panel::HiddenHelperPanel;
+use crate::infrastructure::plugin::remote_config::HelgoboxRemoteConfig;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::plugin::{
     built_info, controller_detection, sentry, update_auto_units_async, SharedInstanceShell,
@@ -87,7 +88,7 @@ use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::rc::{Rc, Weak};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
 use std::{fs, mem};
@@ -312,8 +313,13 @@ impl BackboneShell {
             Default::default()
         });
         // Init error reporting
-        set_send_errors_to_dev_internal(config.send_errors_to_dev(), &async_runtime);
-        set_show_errors_in_console_internal(config.show_errors_in_console());
+        Reaper::get().set_report_crashes_to_sentry(config.send_errors_to_dev());
+        Reaper::get().set_log_crashes_to_console(config.show_errors_in_console());
+        // Fetch remote config if update notifications or error reporting enabled
+        if config.wants_remote_config() {
+            let also_init_sentry = config.send_errors_to_dev();
+            async_runtime.spawn(fetch_remote_config(also_init_sentry));
+        }
         // Create channels
         let (control_surface_main_task_sender, control_surface_main_task_receiver) =
             SenderToNormalThread::new_unbounded_channel("control surface main tasks");
@@ -537,6 +543,14 @@ impl BackboneShell {
         let _ = Reaper::get().go_to_sleep();
         self.message_panel.close();
         let _ = unregister_api();
+    }
+
+    /// Returns the remote configuration once it has been successfully fetched.
+    ///
+    /// The remote configuration will only be fetched on start and only if either update notification or
+    /// error-reporting-to-dev is enabled in the local config.
+    pub fn remote_config() -> Option<&'static HelgoboxRemoteConfig> {
+        HELGOBOX_REMOTE_CONFIG.get()
     }
 
     pub fn show_welcome_screen_if_necessary(&self) {
@@ -1108,17 +1122,21 @@ impl BackboneShell {
     pub fn set_send_errors_to_dev_persistently(&self, value: bool) {
         // Persistence
         self.change_config(|c| c.set_send_errors_to_dev(value));
-        // Actual behavior
-        let _ = self.with_async_runtime(|runtime| {
-            set_send_errors_to_dev_internal(value, runtime);
-        });
+        // It's okay to initialize Sentry after restart only
+        Reaper::get().set_report_crashes_to_sentry(value);
     }
 
     pub fn set_show_errors_in_console_persistently(&self, value: bool) {
         // Persistence
         self.change_config(|c| c.set_show_errors_in_console(value));
         // Actual behavior
-        set_show_errors_in_console_internal(value);
+        Reaper::get().set_log_crashes_to_console(value);
+    }
+
+    pub fn set_notify_about_updates_persistently(&self, value: bool) {
+        // Persistence
+        self.change_config(|c| c.set_notify_about_updates(value));
+        // It's okay if this takes effect after restart!
     }
 
     pub fn toggle_background_colors(&self) {
@@ -2281,6 +2299,10 @@ impl BackboneConfig {
         Ok(())
     }
 
+    pub fn wants_remote_config(&self) -> bool {
+        self.send_errors_to_dev() || self.notify_about_updates()
+    }
+
     pub fn send_errors_to_dev(&self) -> bool {
         self.main.send_errors_to_dev > 0
     }
@@ -2295,6 +2317,14 @@ impl BackboneConfig {
 
     pub fn set_show_errors_in_console(&mut self, value: bool) {
         self.main.show_errors_in_console = value.into();
+    }
+
+    pub fn notify_about_updates(&self) -> bool {
+        self.main.notify_about_updates > 0
+    }
+
+    pub fn set_notify_about_updates(&mut self, value: bool) {
+        self.main.notify_about_updates = value.into();
     }
 
     pub fn enable_server(&mut self) {
@@ -2374,6 +2404,11 @@ struct MainConfig {
         skip_serializing_if = "is_default_show_errors_in_console"
     )]
     show_errors_in_console: u8,
+    #[serde(
+        default = "default_notify_about_updates",
+        skip_serializing_if = "is_default_notify_about_updates"
+    )]
+    notify_about_updates: u8,
 }
 
 const DEFAULT_SERVER_HTTP_PORT: u16 = 39080;
@@ -2383,6 +2418,9 @@ const DEFAULT_BACKGROUND_COLORS_ENABLED: u8 = 1;
 const DEFAULT_SHOW_ERRORS_IN_CONSOLE: u8 = 1;
 /// For existing installations, we don't enable this (would change behavior).
 const DEFAULT_SEND_ERRORS_TO_DEV: u8 = 0;
+/// We enable this for existing installations as well, because our primary goal is to reduce
+/// reports about errors that have already been fixed.
+const DEFAULT_NOTIFY_ABOUT_UPDATES: u8 = 1;
 
 fn default_background_colors_enabled() -> u8 {
     DEFAULT_BACKGROUND_COLORS_ENABLED
@@ -2396,8 +2434,16 @@ fn default_show_errors_in_console() -> u8 {
     DEFAULT_SHOW_ERRORS_IN_CONSOLE
 }
 
+fn default_notify_about_updates() -> u8 {
+    DEFAULT_NOTIFY_ABOUT_UPDATES
+}
+
 fn is_default_show_errors_in_console(v: &u8) -> bool {
     *v == DEFAULT_SHOW_ERRORS_IN_CONSOLE
+}
+
+fn is_default_notify_about_updates(v: &u8) -> bool {
+    *v == DEFAULT_NOTIFY_ABOUT_UPDATES
 }
 
 fn default_send_errors_to_dev() -> u8 {
@@ -2451,9 +2497,11 @@ impl Default for MainConfig {
             companion_web_app_url: default_companion_web_app_url(),
             showed_welcome_screen: 0,
             background_colors_enabled: default_background_colors_enabled(),
-            show_errors_in_console: 1,
+            //
+            show_errors_in_console: default_show_errors_in_console(),
             // For new installations, this is an opt-out. The welcome screen will be shown for sure, so that's okay.
             send_errors_to_dev: 1,
+            notify_about_updates: default_notify_about_updates(),
         }
     }
 }
@@ -3246,14 +3294,21 @@ fn create_plugin_info() -> PluginInfo {
     }
 }
 
-fn set_send_errors_to_dev_internal(value: bool, async_runtime: &Runtime) {
-    Reaper::get().set_report_crashes_to_sentry(value);
-    // Activate sentry if necessary
-    if value {
-        async_runtime.spawn(sentry::init_sentry(create_plugin_info()));
+async fn fetch_remote_config(also_init_sentry: bool) {
+    if let Err(e) = fetch_remote_config_internal(also_init_sentry).await {
+        tracing::warn!(msg = "Couldn't fetch remote config", ?e)
     }
 }
 
-fn set_show_errors_in_console_internal(value: bool) {
-    Reaper::get().set_log_crashes_to_console(value);
+async fn fetch_remote_config_internal(also_init_sentry: bool) -> anyhow::Result<()> {
+    let remote_config = HelgoboxRemoteConfig::fetch().await?;
+    if also_init_sentry {
+        if let Err(e) = sentry::init_sentry(&create_plugin_info(), &remote_config.sentry) {
+            tracing::warn!(msg = "Couldn't init Sentry", ?e)
+        }
+    }
+    let _ = HELGOBOX_REMOTE_CONFIG.set(remote_config);
+    Ok(())
 }
+
+static HELGOBOX_REMOTE_CONFIG: OnceLock<HelgoboxRemoteConfig> = OnceLock::new();

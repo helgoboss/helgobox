@@ -15,6 +15,8 @@ mod actions;
 mod ini_util;
 pub use actions::*;
 mod controller_detection;
+mod remote_config;
+pub use remote_config::*;
 mod sentry;
 
 pub mod dynamic_toolbar;
