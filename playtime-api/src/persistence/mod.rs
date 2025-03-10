@@ -32,7 +32,7 @@ use chrono::NaiveDateTime;
 use derive_more::Display;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_common_types::{Bpm, Db, DurationInBeats, DurationInSeconds, Semitones};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use strum::EnumIter;
 
 use crate::runtime::CellAddress;
@@ -240,11 +240,24 @@ impl Default for ContentQuantizationSettings {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize)]
 #[serde(untagged)]
 pub enum FlexibleMatrix {
     Unsigned(Box<Matrix>),
     Signed(SignedMatrix),
+}
+
+// We implement serializer on our own because #[serde(untagged)] produces error messages that are not helpful at all.
+impl<'de> Deserialize<'de> for FlexibleMatrix {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Signed matrices are still an unused feature in March 2025. We can add support for its deserialization later.
+        // At the moment, deserializing the unsigned matrix directly (ignoring the possibility that it could be a
+        // signed matrix) is the fastest path to good error messages.
+        Ok(Self::Unsigned(Box::new(Matrix::deserialize(deserializer)?)))
+    }
 }
 
 impl Default for FlexibleMatrix {
