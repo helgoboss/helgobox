@@ -863,9 +863,6 @@ impl EvenQuantization {
         if denominator == 0 {
             return Err("denominator must be > 0".into());
         }
-        if numerator > 1 && denominator > 1 {
-            return Err("if numerator > 1, denominator must be 1".into());
-        }
         let q = Self {
             numerator,
             denominator,
