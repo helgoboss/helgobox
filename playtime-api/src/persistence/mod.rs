@@ -821,6 +821,7 @@ pub struct ClipPlayStopTimingOverride {
 ///
 /// "Even" in the sense that it's not swing or dotted.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(try_from = "RawEvenQuantization")]
 pub struct EvenQuantization {
     numerator: u32,
     denominator: u32,
@@ -832,6 +833,20 @@ impl Default for EvenQuantization {
             numerator: 1,
             denominator: 1,
         }
+    }
+}
+
+#[derive(Deserialize)]
+struct RawEvenQuantization {
+    numerator: u32,
+    denominator: u32,
+}
+
+impl TryFrom<RawEvenQuantization> for EvenQuantization {
+    type Error = PlaytimeApiError;
+
+    fn try_from(value: RawEvenQuantization) -> PlaytimeApiResult<Self> {
+        EvenQuantization::new(value.numerator, value.denominator)
     }
 }
 
