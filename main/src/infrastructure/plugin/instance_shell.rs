@@ -632,7 +632,7 @@ impl InstanceShell {
     pub fn insert_owned_clip_matrix_if_necessary(self: SharedInstanceShell) -> anyhow::Result<()> {
         #[cfg(not(feature = "playtime"))]
         {
-            bail!("Playtime feature not available")
+            anyhow::bail!("Playtime feature not available")
         }
         #[cfg(feature = "playtime")]
         {
@@ -657,7 +657,7 @@ impl InstanceShell {
         #[cfg(not(feature = "playtime"))]
         {
             let _ = matrix;
-            bail!("Playtime feature not enabled");
+            anyhow::bail!("Playtime feature not enabled");
         }
         #[cfg(feature = "playtime")]
         {
