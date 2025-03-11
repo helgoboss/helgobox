@@ -804,7 +804,7 @@ fn to_status(err: anyhow::Error) -> Status {
 ///
 /// This doesn't necessarily need to match the `HOST_API_VERSION`, it's too different things.
 /// In practice, it might be equal or similar because host (plug-in) and app are developed tightly together.
-pub const MIN_APP_API_VERSION: Version = Version::new(15, 0, 0);
+pub const MIN_APP_API_VERSION: Version = Version::new(16, 0, 0);
 
 #[cfg(not(feature = "playtime"))]
 fn playtime_not_available() -> Result<(), Status> {
