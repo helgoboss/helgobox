@@ -1041,7 +1041,7 @@ fn copy_mapping_object(
         )),
     };
     let text = serialize_data_object(data_object, format)?;
-    copy_text_to_clipboard(text);
+    copy_text_to_clipboard(text)?;
     Ok(())
 }
 

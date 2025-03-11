@@ -806,7 +806,7 @@ impl HeaderPanel {
         match result {
             MainMenuAction::None => {}
             MainMenuAction::CopyListedMappingsAsJson => {
-                self.copy_listed_mappings_as_json().unwrap();
+                self.notify_user_on_anyhow_error(self.copy_listed_mappings_as_json());
             }
             MainMenuAction::AutoNameListedMappings => self.auto_name_listed_mappings(),
             MainMenuAction::NameListedMappingsAfterSource => {
@@ -828,7 +828,7 @@ impl HeaderPanel {
                 self.paste_replace_all_in_group(mapping_datas)
             }
             MainMenuAction::CopyListedMappingsAsLua(style) => {
-                self.copy_listed_mappings_as_lua(style).unwrap()
+                self.copy_listed_mappings_as_lua(style)?
             }
             MainMenuAction::PasteFromLuaReplaceAllInGroup(text) => {
                 self.paste_from_lua_replace_all_in_group(&text);
@@ -995,20 +995,17 @@ impl HeaderPanel {
         Ok(())
     }
 
-    fn copy_listed_mappings_as_json(&self) -> Result<(), Box<dyn Error>> {
+    fn copy_listed_mappings_as_json(&self) -> anyhow::Result<()> {
         let data_object = self.get_listened_mappings_as_data_object();
         let json = serialize_data_object_to_json(data_object)?;
-        copy_text_to_clipboard(json);
+        copy_text_to_clipboard(json)?;
         Ok(())
     }
 
-    fn copy_listed_mappings_as_lua(
-        &self,
-        conversion_style: ConversionStyle,
-    ) -> Result<(), Box<dyn Error>> {
+    fn copy_listed_mappings_as_lua(&self, conversion_style: ConversionStyle) -> anyhow::Result<()> {
         let data_object = self.get_listened_mappings_as_data_object();
         let json = serialize_data_object_to_lua(data_object, conversion_style)?;
-        copy_text_to_clipboard(json);
+        copy_text_to_clipboard(json)?;
         Ok(())
     }
 
@@ -2276,7 +2273,7 @@ impl HeaderPanel {
                 let data_object =
                     DataObject::Instance(BackboneShell::create_envelope(Box::new(data)));
                 let json = serialize_data_object_to_json(data_object).unwrap();
-                copy_text_to_clipboard(json);
+                copy_text_to_clipboard(json)?;
             }
             MenuAction::ExportUnit(_) => {
                 let session = self.session();
@@ -2284,7 +2281,7 @@ impl HeaderPanel {
                 let data_object =
                     DataObject::Unit(BackboneShell::create_envelope(Box::new(session_data)));
                 let json = serialize_data_object_to_json(data_object).unwrap();
-                copy_text_to_clipboard(json);
+                copy_text_to_clipboard(json)?;
             }
             MenuAction::ExportClipMatrix(format) => {
                 #[cfg(not(feature = "playtime"))]
@@ -2303,7 +2300,7 @@ impl HeaderPanel {
                     let envelope = BackboneShell::create_envelope(Box::new(matrix));
                     let data_object = DataObject::ClipMatrix(envelope);
                     let text = serialize_data_object(data_object, format)?;
-                    copy_text_to_clipboard(text);
+                    copy_text_to_clipboard(text)?;
                 }
             }
             MenuAction::ExportCompartment(format) => {
@@ -2317,7 +2314,7 @@ impl HeaderPanel {
                     CompartmentKind::Main => DataObject::MainCompartment(envelope),
                 };
                 let text = serialize_data_object(data_object, format)?;
-                copy_text_to_clipboard(text);
+                copy_text_to_clipboard(text)?;
             }
         };
         Ok(())

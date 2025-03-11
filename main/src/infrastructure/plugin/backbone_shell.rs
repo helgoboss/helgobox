@@ -3164,7 +3164,7 @@ mod playtime_impl {
                 item: &dyn playtime_clip_engine::PlaytimeItem,
             ) -> anyhow::Result<()> {
                 let text = crate::infrastructure::ui::lua_serializer::to_string(item)?;
-                crate::infrastructure::ui::copy_text_to_clipboard(text);
+                crate::infrastructure::ui::copy_text_to_clipboard(text)?;
                 Ok(())
             }
 

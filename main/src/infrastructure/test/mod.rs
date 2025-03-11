@@ -1,3 +1,4 @@
+use crate::base::notification::notify_user_on_anyhow_error;
 use crate::domain::{FinalSourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
 use crate::infrastructure::plugin::{BackboneShell, NewInstanceOutcome, SET_STATE_PARAM_NAME};
 use approx::assert_abs_diff_eq;
@@ -32,8 +33,10 @@ impl Test {
 
     pub async fn test(&mut self) {
         #[cfg(target_os = "macos")]
-        self.step("Take screenshots", macos_impl::take_screenshots())
+        let screenshot_result = self
+            .step("Take screenshots", macos_impl::take_screenshots())
             .await;
+        notify_user_on_anyhow_error(screenshot_result);
         self.step("Basics", basics()).await;
         self.step("(N)RPN", nrpn_test()).await;
         self.step(
@@ -1450,6 +1453,7 @@ mod macos_impl {
     use crate::domain::CompartmentKind;
     use crate::infrastructure::plugin::UnitShell;
     use crate::infrastructure::ui::copy_text_to_clipboard;
+    use anyhow::Context;
     use std::borrow::Cow;
     use std::cell::Ref;
     use std::fs;
@@ -1458,7 +1462,7 @@ mod macos_impl {
     use swell_ui::Window;
     use xcap::image::{imageops, DynamicImage};
 
-    pub async fn take_screenshots() {
+    pub async fn take_screenshots() -> anyhow::Result<()> {
         // Given
         let realearn = setup().await;
         let project = realearn.track().project();
@@ -1481,7 +1485,7 @@ mod macos_impl {
         // Main panel
         let main_panel_window = Window::from_hwnd(realearn.outcome.fx.floating_window().unwrap());
         let main_panel_image = shooter.capture(main_panel_window).await;
-        shooter.save_image(&main_panel_image, "main-panel");
+        shooter.save_image(&main_panel_image, "main-panel")?;
         let main_panel_parts = [
             ("main-panel-input-output", (14, 110, 714, 124)),
             ("main-panel-menu-bar", (720, 112, 774, 66)),
@@ -1495,7 +1499,7 @@ mod macos_impl {
             ("main-panel-bottom", (10, 1224, 1482, 120)),
         ];
         for (name, crop) in main_panel_parts {
-            shooter.save_image_part(&main_panel_image, name, crop);
+            shooter.save_image_part(&main_panel_image, name, crop)?;
         }
         // Mapping panel
         let mapping = main_unit_model(main_unit_shell)
@@ -1510,7 +1514,7 @@ mod macos_impl {
             .edit_mapping(&mapping);
         let mapping_window = mapping_panel.view_context().require_window();
         let mapping_image = shooter.capture(mapping_window).await;
-        shooter.save_image(&mapping_image, "mapping-panel");
+        shooter.save_image(&mapping_image, "mapping-panel")?;
         let mapping_panel_parts = [
             ("mapping-panel-general", (4, 52, 1434, 190)),
             ("mapping-panel-source", (0, 240, 558, 462)),
@@ -1519,16 +1523,21 @@ mod macos_impl {
             ("mapping-panel-bottom", (2, 1370, 1438, 172)),
         ];
         for (name, crop) in mapping_panel_parts {
-            shooter.save_image_part(&mapping_image, name, crop);
+            shooter.save_image_part(&mapping_image, name, crop)?;
         }
         // Group panel
-        let group_panel = main_unit_shell.panel().header_panel().edit_group().unwrap();
+        let group_panel = main_unit_shell
+            .panel()
+            .header_panel()
+            .edit_group()
+            .context("edit group")?;
         let group_window = group_panel.view_context().require_window();
-        shooter.save(group_window, "group-panel").await;
+        shooter.save(group_window, "group-panel").await?;
         group_panel.close();
         // Log and copy screenshot directory
         log(format!("Screenshot directory: {:?}\n", &shooter.dir));
-        copy_text_to_clipboard(shooter.dir.to_string_lossy().to_string());
+        copy_text_to_clipboard(shooter.dir.to_string_lossy().to_string())?;
+        Ok(())
     }
 
     fn main_unit_model(main_unit_shell: &UnitShell) -> Ref<UnitModel> {
@@ -1545,9 +1554,10 @@ mod macos_impl {
             Self { dir }
         }
 
-        pub async fn save(&self, window: Window, name: &str) {
+        pub async fn save(&self, window: Window, name: &str) -> anyhow::Result<()> {
             let img = self.capture(window).await;
-            self.save_image(&img, name);
+            self.save_image(&img, name)?;
+            Ok(())
         }
 
         pub async fn capture(&self, window: Window) -> DynamicImage {
@@ -1567,19 +1577,23 @@ mod macos_impl {
             img: &DynamicImage,
             name: &str,
             (x, y, width, height): (u32, u32, u32, u32),
-        ) {
+        ) -> anyhow::Result<()> {
             let cropped_img = img.crop_imm(x, y, width, height);
-            self.save_image(&cropped_img, name);
+            self.save_image(&cropped_img, name)
+                .context("save image part")?;
+            Ok(())
         }
 
-        pub fn save_image(&self, img: &DynamicImage, name: &str) {
+        pub fn save_image(&self, img: &DynamicImage, name: &str) -> anyhow::Result<()> {
             const MAX_DIM: u32 = 900;
             let img = if img.height() > MAX_DIM || img.width() > MAX_DIM {
                 Cow::Owned(img.resize(MAX_DIM, MAX_DIM, imageops::FilterType::Lanczos3))
             } else {
                 Cow::Borrowed(img)
             };
-            img.save(self.dir.join(format!("{name}.png"))).unwrap();
+            img.save(self.dir.join(format!("{name}.png")))
+                .context("save image")?;
+            Ok(())
         }
     }
 }
