@@ -27,6 +27,7 @@ use crate::infrastructure::ui::{
     get_text_from_clipboard, serialize_data_object, DataObject, IndependentPanelManager,
     MappingPanel, SerializationFormat, SharedMainState,
 };
+use anyhow::Context;
 use core::iter;
 use helgobox_api::persistence::{ApiObject, Envelope};
 use reaper_medium::Hbrush;
@@ -51,10 +52,10 @@ pub struct MappingRowPanel {
     source_color_panel: SharedView<ColorPanel>,
     target_color_panel: SharedView<ColorPanel>,
     row_index: u32,
-    // We use virtual scrolling in order to be able to show a large amount of rows without any
-    // performance issues. That means there's a fixed number of mapping rows and they just
-    // display different mappings depending on the current scroll position. If there are less
-    // mappings than the fixed number, some rows remain unused. In this case their mapping is
+    // We use virtual scrolling to be able to show a large number of rows without any
+    // performance issues. That means there's a fixed number of mapping rows, and they just
+    // display different mappings depending on the current scroll position. If there are fewer
+    // mappings than the fixed number, some rows remain unused. In this case, their mapping is
     // `None`, which will make the row hide itself.
     mapping: RefCell<Option<SharedMapping>>,
     // Fires when a mapping is about to change.
@@ -464,8 +465,15 @@ impl MappingRowPanel {
         self.mapping.clone().into_inner()
     }
 
-    fn require_qualified_mapping_id(&self) -> QualifiedMappingId {
-        self.require_mapping().borrow().qualified_id()
+    fn get_qualified_mapping_id(&self) -> anyhow::Result<QualifiedMappingId> {
+        let qualified_id = self
+            .mapping
+            .borrow()
+            .as_ref()
+            .context("row mapping not available")?
+            .borrow()
+            .qualified_id();
+        Ok(qualified_id)
     }
 
     fn edit_mapping(&self) -> SharedView<MappingPanel> {
@@ -501,39 +509,42 @@ impl MappingRowPanel {
         self.main_state.borrow().active_compartment.get()
     }
 
-    fn remove_mapping(&self) {
-        if !self
+    fn remove_mapping(&self) -> anyhow::Result<()> {
+        let user_confirmed = self
             .view
             .require_window()
-            .confirm("ReaLearn", "Do you really want to remove this mapping?")
-        {
-            return;
+            .confirm("ReaLearn", "Do you really want to remove this mapping?");
+        if !user_confirmed {
+            return Ok(());
         }
         self.session()
             .borrow_mut()
-            .remove_mapping(self.require_qualified_mapping_id());
+            .remove_mapping(self.get_qualified_mapping_id()?);
+        Ok(())
     }
 
-    fn duplicate_mapping(&self) {
+    fn duplicate_mapping(&self) -> anyhow::Result<()> {
         self.session()
             .borrow_mut()
-            .duplicate_mapping(self.require_qualified_mapping_id())
-            .unwrap();
+            .duplicate_mapping(self.get_qualified_mapping_id()?)
     }
 
-    fn toggle_learn_source(&self) {
+    fn toggle_learn_source(&self) -> anyhow::Result<()> {
+        let mapping_id = self.get_qualified_mapping_id()?;
         let shared_session = self.session();
         shared_session
             .borrow_mut()
-            .toggle_learning_source(self.session.clone(), self.require_qualified_mapping_id())
-            .expect("mapping must exist");
+            .toggle_learning_source(self.session.clone(), mapping_id)?;
+        Ok(())
     }
 
-    fn toggle_learn_target(&self) {
+    fn toggle_learn_target(&self) -> anyhow::Result<()> {
+        let mapping_id = self.get_qualified_mapping_id()?;
         let shared_session = self.session();
         shared_session
             .borrow_mut()
-            .toggle_learning_target(self.session.clone(), self.require_qualified_mapping_id());
+            .toggle_learning_target(self.session.clone(), mapping_id);
+        Ok(())
     }
 
     fn update_is_enabled(&self) {
@@ -934,10 +945,18 @@ impl View for MappingRowPanel {
             root::ID_DOWN_BUTTON => {
                 let _ = self.move_mapping_within_list(1);
             }
-            root::ID_MAPPING_ROW_REMOVE_BUTTON => self.remove_mapping(),
-            root::ID_MAPPING_ROW_DUPLICATE_BUTTON => self.duplicate_mapping(),
-            root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON => self.toggle_learn_source(),
-            root::ID_MAPPING_ROW_LEARN_TARGET_BUTTON => self.toggle_learn_target(),
+            root::ID_MAPPING_ROW_REMOVE_BUTTON => {
+                let _ = self.remove_mapping();
+            }
+            root::ID_MAPPING_ROW_DUPLICATE_BUTTON => {
+                let _ = self.duplicate_mapping();
+            }
+            root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON => {
+                let _ = self.toggle_learn_source();
+            }
+            root::ID_MAPPING_ROW_LEARN_TARGET_BUTTON => {
+                let _ = self.toggle_learn_target();
+            }
             root::ID_MAPPING_ROW_CONTROL_CHECK_BOX => self.update_control_is_enabled(),
             root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX => self.update_feedback_is_enabled(),
             _ => {}

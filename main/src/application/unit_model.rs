@@ -1755,7 +1755,7 @@ impl UnitModel {
         &mut self,
         session: WeakUnitModel,
         mapping_id: QualifiedMappingId,
-    ) -> Result<(), &'static str> {
+    ) -> anyhow::Result<()> {
         let currently_learning_mapping_id = self.unit.borrow().mapping_which_learns_source().get();
         if let Some(id) = currently_learning_mapping_id {
             if id == mapping_id {
@@ -1771,22 +1771,21 @@ impl UnitModel {
         session: WeakUnitModel,
         mapping_id: QualifiedMappingId,
         ignore_sources: Vec<CompoundMappingSource>,
-    ) -> Result<(), &'static str> {
-        if self
+    ) -> anyhow::Result<()> {
+        let is_learning_already = self
             .unit
             .borrow()
             .mapping_which_learns_source()
             .get_ref()
-            .is_some()
-        {
+            .is_some();
+        if is_learning_already {
             // Learning active already. Simply change the mapping that's going to be learned.
             self.unit
                 .borrow_mut()
                 .set_mapping_which_learns_source(Some(mapping_id));
-            Ok(())
-        } else {
-            self.start_learning_source_internal(session, mapping_id, true, ignore_sources)
+            return Ok(());
         }
+        self.start_learning_source_internal(session, mapping_id, true, ignore_sources)
     }
 
     fn start_learning_source_internal(
@@ -1795,7 +1794,7 @@ impl UnitModel {
         mapping_id: QualifiedMappingId,
         reenable_control_after_touched: bool,
         ignore_sources: Vec<CompoundMappingSource>,
-    ) -> Result<(), &'static str> {
+    ) -> anyhow::Result<()> {
         // Warn if settings are not good
         if self.control_input.get().is_midi_fx_input() {
             if let Some(track) = self.processor_context.track() {
@@ -1819,7 +1818,7 @@ impl UnitModel {
         let osc_arg_index_hint = {
             let mapping = self
                 .find_mapping_by_qualified_id(mapping_id)
-                .ok_or("mapping not found")?;
+                .context("mapping not found")?;
             let m = mapping.borrow();
             m.source_model.osc_arg_index()
         };
@@ -2021,12 +2020,12 @@ impl UnitModel {
         self.stop_learning_target();
     }
 
-    pub fn duplicate_mapping(&mut self, id: QualifiedMappingId) -> Result<(), &str> {
+    pub fn duplicate_mapping(&mut self, id: QualifiedMappingId) -> anyhow::Result<()> {
         let (index, mapping) = self.mappings[id.compartment]
             .iter()
             .enumerate()
             .find(|(_i, m)| m.borrow().id() == id.id)
-            .ok_or("mapping not found")?;
+            .context("mapping not found")?;
         let duplicate = mapping.borrow().duplicate();
         let duplicate_id = duplicate.id();
         self.mappings[id.compartment].insert(index + 1, share_mapping(duplicate));
