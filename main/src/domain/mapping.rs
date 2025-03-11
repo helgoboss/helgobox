@@ -181,7 +181,7 @@ impl MappingExtension {
 //  this can also be a controller mapping (a mapping in the controller compartment).
 #[derive(Debug)]
 pub struct MainMapping {
-    core: MappingCore,
+    pub core: MappingCore,
     // We need to clone this when producing feedback, pretty often ... so wrapping it in a Rc
     // saves us from doing too much copying and allocation that potentially slows down things
     // (albeit only marginally).
@@ -690,10 +690,16 @@ impl MainMapping {
         self.core.options.target_is_active
     }
 
-    /// Returns `true` if the mapping itself and the target is active.
+    /// Returns `true` if the mapping is active.
     ///
-    /// Doesn't check if explicitly enabled or disabled!
-    pub fn is_effectively_active(&self) -> bool {
+    /// A mapping is considered as active if all the following conditions are true:
+    ///
+    /// - The mapping is enabled
+    /// - The mapping is active, according to conditional activation ("Active" property of mapping)
+    /// - The target is active
+    ///
+    /// It doesn't check the control-enabled or feedback-enabled flags.
+    pub fn is_active(&self) -> bool {
         is_effectively_active(
             &self.core.options,
             &self.activation_state,
@@ -707,11 +713,11 @@ impl MainMapping {
 
     /// Returns `true` if mapping & target is active and control or feedback is enabled.
     pub fn is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && (self.control_is_enabled() || self.feedback_is_enabled())
+        self.is_active() && (self.control_is_enabled() || self.feedback_is_enabled())
     }
 
     pub fn control_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.control_is_enabled()
+        self.is_active() && self.control_is_enabled()
     }
 
     pub fn control_is_enabled(&self) -> bool {
@@ -1414,7 +1420,7 @@ pub struct RealTimeMapping {
     is_active: bool,
     /// Is `Some` if user-provided target data is complete.
     target_category: Option<UnresolvedTargetCategory>,
-    target_is_resolved: bool,
+    pub target_is_resolved: bool,
     /// Is `Some` if virtual or this target needs to be processed in real-time.
     pub resolved_target: Option<RealTimeCompoundMappingTarget>,
     pub lifecycle_midi_data: LifecycleMidiData,
@@ -1461,7 +1467,7 @@ impl RealTimeMapping {
     }
 
     pub fn control_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.control_is_enabled()
+        self.is_active() && self.control_is_enabled()
     }
 
     pub fn control_is_enabled(&self) -> bool {
@@ -1469,7 +1475,7 @@ impl RealTimeMapping {
     }
 
     pub fn feedback_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.core.options.feedback_is_effectively_enabled()
+        self.is_active() && self.core.options.feedback_is_effectively_enabled()
     }
 
     pub fn feedback_is_effectively_on_ignoring_mapping_activation(&self) -> bool {
@@ -1482,8 +1488,19 @@ impl RealTimeMapping {
             && self.core.options.feedback_is_effectively_enabled()
     }
 
-    fn is_effectively_active(&self) -> bool {
-        self.is_active && self.core.options.target_is_active
+    /// Returns `true` if the mapping is active.
+    ///
+    /// A mapping is considered as active if all the following conditions are true:
+    ///
+    /// - The mapping is enabled
+    /// - The mapping is active, according to conditional activation ("Active" property of mapping)
+    /// - The target is active
+    ///
+    /// It doesn't check the control-enabled or feedback-enabled flags.
+    pub fn is_active(&self) -> bool {
+        self.core.options.persistent_processing_state.is_enabled
+            && self.is_active
+            && self.core.options.target_is_active
     }
 
     fn is_effectively_active_ignoring_target_activation(&self) -> bool {
@@ -1538,31 +1555,6 @@ impl RealTimeMapping {
             enforce_rotate: self.core.mode.settings().rotate,
         }
     }
-
-    pub fn control_midi_virtualizing(
-        &mut self,
-        evt: ControlEvent<&MidiSourceValue<RawShortMessage>>,
-    ) -> Option<PartialControlMatch> {
-        if !self.target_is_resolved {
-            return None;
-        }
-        let control_value = if let CompoundMappingSource::Midi(s) = &self.core.source {
-            s.control(evt.payload())?
-        } else {
-            return None;
-        };
-        if let Some(RealTimeCompoundMappingTarget::Virtual(t)) = self.resolved_target.as_ref() {
-            match_partially(&mut self.core, t, evt.with_payload(control_value))
-                .map(PartialControlMatch::ProcessVirtual)
-        } else {
-            Some(PartialControlMatch::ProcessDirect(control_value))
-        }
-    }
-}
-
-pub enum PartialControlMatch {
-    ProcessVirtual(VirtualSourceValue),
-    ProcessDirect(ControlValue),
 }
 
 #[derive(Clone, Debug)]
@@ -1573,7 +1565,7 @@ pub struct MappingCore {
     pub source: CompoundMappingSource,
     pub mode: Mode,
     group_interaction: GroupInteraction,
-    options: ProcessorMappingOptions,
+    pub options: ProcessorMappingOptions,
     /// Used for preventing echo feedback.
     time_of_last_control: Option<Instant>,
     /// Invocation counter.
@@ -2619,7 +2611,7 @@ pub enum ExtendedSourceCharacter {
     VirtualContinuous,
 }
 
-fn match_partially(
+pub fn match_partially(
     core: &mut MappingCore,
     target: &VirtualTarget,
     control_event: ControlEvent<ControlValue>,
@@ -2718,7 +2710,9 @@ fn is_effectively_active(
     activation_state: &ActivationState,
     unresolved_target: Option<&UnresolvedCompoundMappingTarget>,
 ) -> bool {
-    activation_state.is_active() && target_is_effectively_active(options, unresolved_target)
+    options.persistent_processing_state.is_enabled
+        && activation_state.is_active()
+        && target_is_effectively_active(options, unresolved_target)
 }
 
 fn target_is_effectively_active(

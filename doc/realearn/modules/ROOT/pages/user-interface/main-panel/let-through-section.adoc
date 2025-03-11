@@ -4,8 +4,8 @@ image:realearn/screenshots/main-panel-let-through-checkboxes.png[Screenshot]
 
 See xref:further-concepts/unit.adoc#letting-through-events[].
 
-Matched:: If checked, even events matched by at least one mapping are let through.
+Matched events:: If checked, even MIDI events matched by at least one mapping are let through.
 If unchecked (default), such events are filtered out.
 
-Unmatched:: If checked (default), mappings that are not matched by any mappings are let through.
+Unmatched events:: If checked (default), MIDI events that are not matched by any mappings are let through.
 If unchecked, such events are filtered out.

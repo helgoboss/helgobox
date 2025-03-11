@@ -1,10 +1,10 @@
 use crate::domain::{
-    classify_midi_message, BasicSettings, CompartmentKind, CompoundMappingSource, ControlEvent,
-    ControlEventTimestamp, ControlLogEntry, ControlLogEntryKind, ControlMainTask, ControlMode,
-    ControlOptions, FeedbackSendBehavior, LifecycleMidiMessage, LifecyclePhase, MappingCore,
-    MappingId, MatchOutcome, MidiClockCalculator, MidiEvent, MidiMessageClassification,
-    MidiScanResult, MidiScanner, MidiTransformationContainer, NormalRealTimeToMainThreadTask,
-    OrderedMappingMap, OwnedIncomingMidiMessage, PartialControlMatch,
+    classify_midi_message, match_partially, BasicSettings, CompartmentKind, CompoundMappingSource,
+    ControlEvent, ControlEventTimestamp, ControlLogEntry, ControlLogEntryKind, ControlMainTask,
+    ControlMode, ControlOptions, FeedbackSendBehavior, LifecycleMidiMessage, LifecyclePhase,
+    MappingCore, MappingId, MatchOutcome, MidiClockCalculator, MidiEvent,
+    MidiMessageClassification, MidiScanResult, MidiScanner, MidiTransformationContainer,
+    NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
     PersistentMappingProcessingState, QualifiedMappingId, RealTimeCompoundMappingTarget,
     RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget, SampleOffset, UnitId,
     VirtualSourceValue, WeakRealTimeInstance,
@@ -875,14 +875,13 @@ impl RealTimeProcessor {
             self.mappings.as_mut_slice()
         {
             control_controller_mappings_midi(
+                &self.settings,
                 &self.control_main_task_sender,
                 &self.feedback_task_sender,
                 controller_mappings,
                 main_mappings,
                 value_event,
                 caller,
-                self.settings.midi_destination(),
-                LogOptions::from_basic_settings(&self.settings),
                 &self.instance,
                 is_rendering,
                 transformation_container,
@@ -906,41 +905,52 @@ impl RealTimeProcessor {
         is_rendering: bool,
         transformation_container: &mut Option<&mut MidiTransformationContainer>,
     ) -> MatchOutcome {
+        let match_inactive = self.settings.match_even_inactive_mappings;
         let compartment = CompartmentKind::Main;
         let mut match_outcome = MatchOutcome::Unmatched;
         for m in self.mappings[compartment]
             .values_mut()
+            // Consider only control-enabled real mappings.
             // The UI prevents creating main mappings with virtual targets but a JSON import
             // doesn't. Check again that it's a REAPER target.
-            .filter(|m| m.control_is_effectively_on() && m.has_reaper_target())
+            .filter(|m| m.core.options.control_is_enabled && m.has_reaper_target())
         {
-            if let CompoundMappingSource::Midi(s) = &m.source() {
-                let midi_event = source_value_event.payload();
-                if let Some(control_value) = s.control(midi_event.payload()) {
-                    let args = ProcessRtMappingArgs {
-                        main_task_sender: &self.control_main_task_sender,
-                        rt_feedback_sender: &self.feedback_task_sender,
-                        compartment,
-                        value_event: source_value_event
-                            .with_payload(MidiEvent::new(midi_event.offset(), control_value)),
-                        options: ControlOptions {
-                            enforce_send_feedback_after_control: false,
-                            mode_control_options: Default::default(),
-                            enforce_target_refresh: match_outcome.matched(),
-                            coming_from_real_time: true,
-                        },
-                        caller,
-                        midi_feedback_output: self.settings.midi_destination(),
-                        log_options: LogOptions::from_basic_settings(&self.settings),
-                        instance: &self.instance,
-                        is_rendering,
-                        transformation_container,
-                    };
-                    process_real_mapping(m, args);
-                    // It can't be consumed because we checked this before for all mappings.
-                    match_outcome = MatchOutcome::Matched;
-                }
+            let mapping_is_active = m.is_active();
+            if !mapping_is_active && !match_inactive {
+                continue;
             }
+            let CompoundMappingSource::Midi(s) = &m.source() else {
+                continue;
+            };
+            let midi_event = source_value_event.payload();
+            let Some(control_value) = s.control(midi_event.payload()) else {
+                continue;
+            };
+            // It can't be consumed because we checked this before for all mappings.
+            match_outcome = MatchOutcome::Matched;
+            if !mapping_is_active {
+                continue;
+            }
+            let args = ProcessRtMappingArgs {
+                main_task_sender: &self.control_main_task_sender,
+                rt_feedback_sender: &self.feedback_task_sender,
+                compartment,
+                value_event: source_value_event
+                    .with_payload(MidiEvent::new(midi_event.offset(), control_value)),
+                options: ControlOptions {
+                    enforce_send_feedback_after_control: false,
+                    mode_control_options: Default::default(),
+                    enforce_target_refresh: match_outcome.matched(),
+                    coming_from_real_time: true,
+                },
+                caller,
+                midi_feedback_output: self.settings.midi_destination(),
+                log_options: LogOptions::from_basic_settings(&self.settings),
+                instance: &self.instance,
+                is_rendering,
+                transformation_container,
+            };
+            process_real_mapping(m, args);
         }
         match_outcome
     }
@@ -1281,6 +1291,7 @@ pub enum MidiDestination {
 
 #[allow(clippy::too_many_arguments)]
 fn control_controller_mappings_midi(
+    settings: &BasicSettings,
     main_task_sender: &SenderToNormalThread<ControlMainTask>,
     rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
     // Mappings with virtual targets
@@ -1289,92 +1300,119 @@ fn control_controller_mappings_midi(
     main_mappings: &mut OrderedMappingMap<RealTimeMapping>,
     value_event: ControlEvent<MidiEvent<&MidiSourceValue<RawShortMessage>>>,
     caller: Caller,
-    midi_feedback_output: Option<MidiDestination>,
-    log_options: LogOptions,
     instance: &WeakRealTimeInstance,
     is_rendering: bool,
     transformation_container: &mut Option<&mut MidiTransformationContainer>,
 ) -> MatchOutcome {
+    let match_inactive = settings.match_even_inactive_mappings;
+    let midi_feedback_output = settings.midi_destination();
+    let log_options = LogOptions::from_basic_settings(settings);
     let mut match_outcome = MatchOutcome::Unmatched;
     let mut enforce_target_refresh = false;
+    let evt = flatten_control_midi_event(value_event);
     for m in controller_mappings
         .values_mut()
-        .filter(|m| m.control_is_effectively_on())
+        .filter(|m| m.core.options.control_is_enabled)
     {
-        if let Some(control_match) =
-            m.control_midi_virtualizing(flatten_control_midi_event(value_event))
-        {
-            use PartialControlMatch::*;
-            let child_match_outcome = match control_match {
-                ProcessVirtual(virtual_source_value) => {
-                    let virtual_match_outcome = control_main_mappings_virtual(
-                        main_task_sender,
-                        rt_feedback_sender,
-                        main_mappings,
-                        value_event.with_payload(MidiEvent::new(
-                            value_event.payload().offset(),
-                            virtual_source_value,
-                        )),
-                        ControlOptions {
-                            // We inherit "Send feedback after control" to the main processor if it's
-                            // enabled for the virtual mapping. That's the easy way to do it.
-                            // Downside: If multiple real control elements are mapped to one virtual
-                            // control element, "feedback after control" will be sent to all of those,
-                            // which is technically not necessary. It would be enough to just send it
-                            // to the one that was touched. However, it also doesn't really hurt.
-                            enforce_send_feedback_after_control: m.options().feedback_send_behavior
-                                == FeedbackSendBehavior::SendFeedbackAfterControl,
-                            mode_control_options: m.mode_control_options(),
-                            // Not important yet at this point because virtual targets can't affect
-                            // subsequent virtual targets.
-                            enforce_target_refresh: false,
-                            coming_from_real_time: true,
-                        },
-                        caller,
-                        midi_feedback_output,
-                        log_options,
-                        instance,
-                        is_rendering,
-                        transformation_container,
-                    );
-                    if log_options.virtual_input_logging_enabled {
-                        log_virtual_control_input(
-                            main_task_sender,
-                            value_event.with_payload(virtual_source_value),
-                            virtual_match_outcome,
-                        );
-                    }
-                    virtual_match_outcome
-                }
-                ProcessDirect(control_value) => {
-                    let args = ProcessRtMappingArgs {
-                        main_task_sender,
-                        rt_feedback_sender,
-                        compartment: CompartmentKind::Controller,
-                        value_event: value_event.with_payload(MidiEvent::new(
-                            value_event.payload().offset(),
-                            control_value,
-                        )),
-                        options: ControlOptions {
-                            enforce_send_feedback_after_control: false,
-                            mode_control_options: Default::default(),
-                            enforce_target_refresh,
-                            coming_from_real_time: true,
-                        },
-                        caller,
-                        midi_feedback_output,
-                        log_options,
-                        instance,
-                        is_rendering,
-                        transformation_container,
-                    };
-                    process_real_mapping(m, args);
-                    // We do this only for transactions of *real* target matches.
-                    enforce_target_refresh = true;
-                    MatchOutcome::Matched
-                }
+        let mapping_is_active = m.is_active();
+        if !mapping_is_active && !match_inactive {
+            continue;
+        }
+        let virtual_target =
+            if let Some(RealTimeCompoundMappingTarget::Virtual(t)) = m.resolved_target.as_ref() {
+                Some(t)
+            } else {
+                None
             };
-            match_outcome.upgrade_from(child_match_outcome);
+        if virtual_target.is_some() && !mapping_is_active {
+            // For mappings with virtual targets, the setting "Match even inactive mappings" isn't relevant.
+            // If such mappings are inactive, they will never be considered as matched. Only associated main mappings
+            // decide about the match result.
+            continue;
+        }
+        let CompoundMappingSource::Midi(s) = &m.core.source else {
+            continue;
+        };
+        let Some(control_value) = s.control(evt.payload()) else {
+            continue;
+        };
+        if let Some(virtual_target) = virtual_target {
+            // Virtual control
+            let Some(virtual_source_value) =
+                match_partially(&mut m.core, virtual_target, evt.with_payload(control_value))
+            else {
+                continue;
+            };
+            let virtual_match_outcome = control_main_mappings_virtual(
+                settings,
+                main_task_sender,
+                rt_feedback_sender,
+                main_mappings,
+                value_event.with_payload(MidiEvent::new(
+                    value_event.payload().offset(),
+                    virtual_source_value,
+                )),
+                ControlOptions {
+                    // We inherit "Send feedback after control" to the main processor if it's
+                    // enabled for the virtual mapping. That's the easy way to do it.
+                    // Downside: If multiple real control elements are mapped to one virtual
+                    // control element, "feedback after control" will be sent to all of those,
+                    // which is technically not necessary. It would be enough to just send it
+                    // to the one that was touched. However, it also doesn't really hurt.
+                    enforce_send_feedback_after_control: m.options().feedback_send_behavior
+                        == FeedbackSendBehavior::SendFeedbackAfterControl,
+                    mode_control_options: m.mode_control_options(),
+                    // Not important yet at this point because virtual targets can't affect
+                    // subsequent virtual targets.
+                    enforce_target_refresh: false,
+                    coming_from_real_time: true,
+                },
+                caller,
+                instance,
+                is_rendering,
+                transformation_container,
+            );
+            if log_options.virtual_input_logging_enabled {
+                log_virtual_control_input(
+                    main_task_sender,
+                    value_event.with_payload(virtual_source_value),
+                    virtual_match_outcome,
+                );
+            }
+            match_outcome.upgrade_from(virtual_match_outcome);
+        } else {
+            // Real control
+            match_outcome.upgrade_from(MatchOutcome::Matched);
+            if !mapping_is_active {
+                continue;
+            }
+            if !m.target_is_resolved {
+                continue;
+            }
+            let args = ProcessRtMappingArgs {
+                main_task_sender,
+                rt_feedback_sender,
+                compartment: CompartmentKind::Controller,
+                value_event: value_event.with_payload(MidiEvent::new(
+                    value_event.payload().offset(),
+                    control_value,
+                )),
+                options: ControlOptions {
+                    enforce_send_feedback_after_control: false,
+                    mode_control_options: Default::default(),
+                    enforce_target_refresh,
+                    coming_from_real_time: true,
+                },
+                caller,
+                midi_feedback_output,
+                log_options,
+                instance,
+                is_rendering,
+                transformation_container,
+            };
+            process_real_mapping(m, args);
+            // We do this only for transactions of *real* target matches.
+            enforce_target_refresh = true;
         }
     }
     match_outcome
@@ -1539,50 +1577,64 @@ fn forward_control_to_main_processor(
 
 #[allow(clippy::too_many_arguments)]
 fn control_main_mappings_virtual(
+    settings: &BasicSettings,
     main_task_sender: &SenderToNormalThread<ControlMainTask>,
     rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
     main_mappings: &mut OrderedMappingMap<RealTimeMapping>,
     value_event: ControlEvent<MidiEvent<VirtualSourceValue>>,
     options: ControlOptions,
     caller: Caller,
-    midi_feedback_output: Option<MidiDestination>,
-    log_options: LogOptions,
     instance: &WeakRealTimeInstance,
     is_rendering: bool,
     transformation_container: &mut Option<&mut MidiTransformationContainer>,
 ) -> MatchOutcome {
+    let midi_feedback_output = settings.midi_destination();
+    let log_options = LogOptions::from_basic_settings(settings);
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
+    let match_inactive = settings.match_even_inactive_mappings;
     let mut match_outcome = MatchOutcome::Unmatched;
+    let mut controlled_at_least_one = false;
     for m in main_mappings
         .values_mut()
-        .filter(|m| m.control_is_effectively_on())
+        // Consider only control-enabled main mappings
+        .filter(|m| m.core.options.control_is_enabled)
     {
-        if let CompoundMappingSource::Virtual(s) = &m.source() {
-            let midi_event = value_event.payload();
-            if let Some(control_value) = s.control(&midi_event.payload()) {
-                let args = ProcessRtMappingArgs {
-                    main_task_sender,
-                    rt_feedback_sender,
-                    compartment: CompartmentKind::Main,
-                    value_event: value_event
-                        .with_payload(MidiEvent::new(midi_event.offset(), control_value)),
-                    options: ControlOptions {
-                        enforce_target_refresh: match_outcome.matched(),
-                        ..options
-                    },
-                    caller,
-                    midi_feedback_output,
-                    log_options,
-                    instance,
-                    is_rendering,
-                    transformation_container,
-                };
-                process_real_mapping(m, args);
-                // If we find an associated main mapping, this is not just consumed, it's matched.
-                match_outcome = MatchOutcome::Matched;
-            }
+        let mapping_is_active = m.is_active();
+        if !mapping_is_active && !match_inactive {
+            continue;
         }
+        let CompoundMappingSource::Virtual(s) = &m.source() else {
+            continue;
+        };
+        let midi_event = value_event.payload();
+        let Some(control_value) = s.control(&midi_event.payload()) else {
+            continue;
+        };
+        // We found an associated main mapping, so it's not just consumed, it's matched.
+        match_outcome = MatchOutcome::Matched;
+        if !mapping_is_active {
+            continue;
+        }
+        let args = ProcessRtMappingArgs {
+            main_task_sender,
+            rt_feedback_sender,
+            compartment: CompartmentKind::Main,
+            value_event: value_event
+                .with_payload(MidiEvent::new(midi_event.offset(), control_value)),
+            options: ControlOptions {
+                enforce_target_refresh: controlled_at_least_one,
+                ..options
+            },
+            caller,
+            midi_feedback_output,
+            log_options,
+            instance,
+            is_rendering,
+            transformation_container,
+        };
+        process_real_mapping(m, args);
+        controlled_at_least_one = true;
     }
     match_outcome
 }

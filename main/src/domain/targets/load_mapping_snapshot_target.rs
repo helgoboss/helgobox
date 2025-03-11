@@ -203,7 +203,7 @@ impl LoadMappingSnapshotInstruction {
                 if self.scope.has_tags() && !m.has_any_tag(&self.scope.tags) {
                     return None;
                 }
-                if self.active_mappings_only && !m.is_effectively_active() {
+                if self.active_mappings_only && !m.is_active() {
                     return None;
                 }
                 let snapshot_value = get_snapshot_value(m).or_else(|| {

@@ -161,7 +161,7 @@ impl HitInstruction for TakeMappingSnapshotInstruction {
                 if self.scope.has_tags() && !m.has_any_tag(&self.scope.tags) {
                     return None;
                 }
-                if self.active_mappings_only && !m.is_effectively_active() {
+                if self.active_mappings_only && !m.is_active() {
                     return None;
                 }
                 let target_value = m.current_aggregated_target_value(context.control_context)?;

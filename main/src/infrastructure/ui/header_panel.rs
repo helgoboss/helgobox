@@ -607,6 +607,14 @@ impl HeaderPanel {
                     "Unit options",
                     vec![
                         item_with_opts(
+                            "Match even inactive mappings",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.match_even_inactive_mappings(),
+                            },
+                            MainMenuAction::ToggleMatchEvenInactiveMappings,
+                        ),
+                        item_with_opts(
                             "Send feedback only if track armed",
                             if session.containing_fx_is_in_input_fx_chain() {
                                 ItemOpts {
@@ -832,6 +840,9 @@ impl HeaderPanel {
                 let _ = edit_compartment_parameter(self.session(), compartment, range);
             }
             MainMenuAction::ToggleGlobalControl => self.toggle_global_control(),
+            MainMenuAction::ToggleMatchEvenInactiveMappings => {
+                self.toggle_match_even_inactive_mappings()
+            }
             MainMenuAction::ToggleRealInputLogging => self.toggle_real_input_logging(),
             MainMenuAction::ToggleVirtualInputLogging => self.toggle_virtual_input_logging(),
             MainMenuAction::ToggleRealOutputLogging => self.toggle_real_output_logging(),
@@ -1436,6 +1447,18 @@ impl HeaderPanel {
             .shell()
             .unwrap()
             .toggle_global_control();
+    }
+
+    fn toggle_match_even_inactive_mappings(&self) {
+        if let Some(session) = self.session.clone().upgrade() {
+            let mut session = session.borrow_mut();
+            let current_value = session.match_even_inactive_mappings();
+            session.change_with_notification(
+                SessionCommand::SetMatchEvenInactiveMappings(!current_value),
+                None,
+                self.session.clone(),
+            );
+        }
     }
 
     fn toggle_real_input_logging(&self) {
@@ -3197,6 +3220,7 @@ enum MainMenuAction {
     ToggleTargetControlLogging,
     ToggleSendFeedbackOnlyIfTrackArmed,
     ToggleResetFeedbackWhenReleasingSource,
+    ToggleMatchEvenInactiveMappings,
     ToggleUpperFloorMembership,
     SetStayActiveWhenProjectInBackground(StayActiveWhenProjectInBackground),
     ToggleServer,

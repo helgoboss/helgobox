@@ -71,9 +71,9 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ) + NOT_WS_TABSTOP,
         // Event filter
         ltext(
-            "Let through:",
+            "Let MIDI through:",
             ids.named_id("ID_LET_THROUGH_LABEL_TEXT"),
-            context.rect(270, 25, 42, 9),
+            context.rect(260, 25, 42, 9),
         ),
         context.checkbox(
             "Matched events",

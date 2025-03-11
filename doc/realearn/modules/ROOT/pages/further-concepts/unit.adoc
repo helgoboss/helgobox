@@ -1,7 +1,7 @@
 = Unit concepts
 
 [[letting-through-events]]
-== Letting through events
+== Letting through MIDI events
 
 ReaLearn by default "eats" incoming MIDI events for which there's at least one active mapping with that source.
 In other words, it doesn't forward MIDI events which are used to control a target parameter.
@@ -24,9 +24,7 @@ That means, ReaLearn can act as global MIDI filter.
 ** Also, MIDI events captured from a real MIDI device input are *never* forwarded to ReaLearn's FX output.
 +
 TIP: This global MIDI filter feature is only available in REAPER v6.36+.
-* If input is set to an OSC device
-** You won't see the checkboxes because they don't make sense for OSC.
-* The checkboxes don't have any effect on computer keyboard input.
+* The checkboxes don't have any effect on computer keyboard input or OSC.
 Keys are always passed through when doing text entry and never passed through if a mapping matches.
 
 [[auto-load]]

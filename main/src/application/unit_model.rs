@@ -102,6 +102,7 @@ pub struct UnitModel {
     pub reset_feedback_when_releasing_source: Prop<bool>,
     pub control_input: Prop<ControlInput>,
     wants_keyboard_input: bool,
+    match_even_inactive_mappings: bool,
     stream_deck_device_id: Option<StreamDeckDeviceId>,
     pub feedback_output: Prop<Option<FeedbackOutput>>,
     pub auto_load_mode: Prop<AutoLoadMode>,
@@ -211,6 +212,7 @@ pub mod session_defaults {
     pub const STAY_ACTIVE_WHEN_PROJECT_IN_BACKGROUND: StayActiveWhenProjectInBackground =
         StayActiveWhenProjectInBackground::OnlyIfBackgroundProjectIsRunning;
     pub const WANTS_KEYBOARD_INPUT: bool = false;
+    pub const MATCH_EVEN_INACTIVE_MAPPINGS: bool = false;
     pub const LIVES_ON_UPPER_FLOOR: bool = false;
     pub const SEND_FEEDBACK_ONLY_IF_ARMED: bool = false;
     pub const RESET_FEEDBACK_WHEN_RELEASING_SOURCE: bool = true;
@@ -274,6 +276,7 @@ impl UnitModel {
             ),
             control_input: prop(initial_input),
             wants_keyboard_input: session_defaults::WANTS_KEYBOARD_INPUT,
+            match_even_inactive_mappings: session_defaults::MATCH_EVEN_INACTIVE_MAPPINGS,
             stream_deck_device_id: None,
             feedback_output: prop(initial_output),
             auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
@@ -780,6 +783,10 @@ impl UnitModel {
         self.wants_keyboard_input
     }
 
+    pub fn match_even_inactive_mappings(&self) -> bool {
+        self.match_even_inactive_mappings
+    }
+
     fn active_virtual_controller_mappings<'a>(
         &'a self,
         instance_state: &'a Unit,
@@ -1150,6 +1157,10 @@ impl UnitModel {
                     .send_complaining(NormalMainTask::NotifyConditionsChanged);
                 Some(One(P::InstanceFx))
             }
+            C::SetMatchEvenInactiveMappings(value) => {
+                self.match_even_inactive_mappings = value;
+                Some(One(P::MatchEvenInactiveMappings))
+            }
             C::SetWantsKeyboardInput(value) => {
                 self.wants_keyboard_input = value;
                 Some(One(P::WantsKeyboardInput))
@@ -1288,7 +1299,9 @@ impl UnitModel {
                     use SessionProp::*;
                     let mut session = session.borrow_mut();
                     match &affected {
-                        One(WantsKeyboardInput | StreamDeckDeviceId) => {
+                        One(
+                            WantsKeyboardInput | StreamDeckDeviceId | MatchEvenInactiveMappings,
+                        ) => {
                             session.sync_settings();
                         }
                         One(InCompartment(compartment, One(Notes))) => {
@@ -2632,6 +2645,7 @@ impl UnitModel {
         let settings = BasicSettings {
             control_input: self.control_input(),
             wants_keyboard_input: self.wants_keyboard_input,
+            match_even_inactive_mappings: self.match_even_inactive_mappings,
             streamdeck_device_id: self.stream_deck_device_id,
             feedback_output: self.feedback_output(),
             real_input_logging_enabled: self.real_input_logging_enabled.get(),
@@ -3050,6 +3064,7 @@ pub enum SessionCommand {
     SetInstanceTrack(TrackDescriptor),
     SetInstanceFx(FxDescriptor),
     SetWantsKeyboardInput(bool),
+    SetMatchEvenInactiveMappings(bool),
     SetStreamDeckDevice(Option<StreamDeckDeviceId>),
     ChangeCompartment(CompartmentKind, CompartmentCommand),
     AdjustMappingModeIfNecessary(QualifiedMappingId),
@@ -3061,6 +3076,7 @@ pub enum SessionProp {
     InstanceTrack,
     InstanceFx,
     WantsKeyboardInput,
+    MatchEvenInactiveMappings,
     StreamDeckDeviceId,
     InCompartment(CompartmentKind, Affected<CompartmentProp>),
 }

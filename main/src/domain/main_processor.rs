@@ -1909,7 +1909,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             return;
         }
         let evt = evt.map_payload(MainSourceMessage::Reaper);
-        let (control_results, _) = self
+        let virtual_result = self
             .basics
             .process_controller_mappings_with_virtual_targets(
                 &mut self.collections.mappings_with_virtual_targets,
@@ -1917,7 +1917,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 evt,
                 &self.collections.parameters,
             );
-        for r in control_results {
+        for r in virtual_result.control_results {
             control_mapping_stage_three(
                 &self.basics,
                 &mut self.collections,
@@ -1983,7 +1983,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &mut self,
         evt: ControlEvent<MainSourceMessage>,
     ) -> MatchOutcome {
-        let (control_results, virtual_match_outcome) = self
+        let virtual_result = self
             .basics
             .process_controller_mappings_with_virtual_targets(
                 &mut self.collections.mappings_with_virtual_targets,
@@ -1991,7 +1991,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 evt,
                 &self.collections.parameters,
             );
-        for r in control_results {
+        for r in virtual_result.control_results {
             control_mapping_stage_three(
                 &self.basics,
                 &mut self.collections,
@@ -2001,7 +2001,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             )
         }
         let real_match_outcome = self.process_mappings_with_real_targets(evt);
-        virtual_match_outcome.merge_with(real_match_outcome)
+        virtual_result.match_outcome.merge_with(real_match_outcome)
     }
 
     /// This doesn't check if control enabled! You need to check before.
@@ -2080,6 +2080,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &mut self,
         evt: ControlEvent<MainSourceMessage>,
     ) -> MatchOutcome {
+        let match_inactive = self.basics.settings.match_even_inactive_mappings;
         let mut match_outcome = MatchOutcome::Unmatched;
         for compartment in CompartmentKind::enum_iter() {
             let mut enforce_target_refresh = false;
@@ -2087,10 +2088,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             let mut results = vec![];
             for m in self.collections.mappings[compartment]
                 .values_mut()
-                .filter(|m| m.control_is_effectively_on())
+                // Consider only control-enabled real mappings
+                .filter(|m| m.core.options.control_is_enabled)
             {
+                let mapping_is_active = m.is_active();
+                if !mapping_is_active && !match_inactive {
+                    continue;
+                }
                 let control_outcome = m.control_source(evt.payload());
                 match_outcome.upgrade_from(control_outcome.into());
+                if !mapping_is_active {
+                    continue;
+                }
                 let control_value = match control_outcome {
                     Some(ControlOutcome::Matched(v)) => v,
                     _ => continue,
@@ -2927,6 +2936,7 @@ pub struct BasicSettings {
     pub virtual_output_logging_enabled: bool,
     pub target_control_logging_enabled: bool,
     pub send_feedback_only_if_armed: bool,
+    pub match_even_inactive_mappings: bool,
     pub let_matched_events_through: bool,
     pub let_unmatched_events_through: bool,
     pub reset_feedback_when_releasing_source: bool,
@@ -3684,15 +3694,27 @@ impl<EH: DomainEventHandler> Basics<EH> {
         main_mappings: &mut OrderedMappingMap<MainMapping>,
         evt: ControlEvent<MainSourceMessage>,
         params: &PluginParams,
-    ) -> (Vec<ExtendedMappingControlResult>, MatchOutcome) {
+    ) -> ProcessVirtualResult {
         // Control
         let mut match_outcome = MatchOutcome::Unmatched;
         let mut extended_control_results: Vec<_> = mappings_with_virtual_targets
             .values_mut()
+            // For mappings with virtual targets, the setting "Match even inactive mappings" isn't relevant.
+            // If such mappings are inactive, they will never be considered as matched. Only associated main mappings
+            // decide about the match result.
             .filter(|m| m.control_is_effectively_on())
             .flat_map(|m| {
                 let virtual_source_value = match m.control_virtualizing(evt) {
+                    // When matched, the existence of associated main mappings will decide over the match result!
                     Some(ControlOutcome::Matched(v)) => v,
+                    // When unmatched or consumed, don't process further, but at least update match result.
+                    // I was wondering if it's inconsequential to allow virtual mappings without associated
+                    // main mappings be able to *consume* an event. I mean, even a *matching* virtual mapping
+                    // with associated main mappings might not get that power! But I came to the conclusion that it's
+                    // consequential. "Consume" means that e.g. an NRPN source eats an event which contains only
+                    // a partial message, to check if later events lead to the *complete* message. In the real-time
+                    // processor, we have the same behavior. It's not relevant whether the mapping actually leads to
+                    // some action or not.
                     unmatched_or_consumed => {
                         match_outcome.upgrade_from(unmatched_or_consumed.into());
                         return vec![];
@@ -3700,7 +3722,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 };
                 self.event_handler
                     .notify_mapping_matched(CompartmentKind::Controller, m.id());
-                let results = self.process_main_mappings_with_virtual_sources(
+                let virtual_result = self.process_main_mappings_with_virtual_sources(
                     main_mappings,
                     evt.with_payload(virtual_source_value),
                     ControlOptions {
@@ -3724,22 +3746,17 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     },
                     params,
                 );
-                let child_match_outcome = if results.is_empty() {
-                    MatchOutcome::Unmatched
-                } else {
-                    MatchOutcome::Matched
-                };
-                match_outcome.upgrade_from(child_match_outcome);
+                match_outcome.upgrade_from(virtual_result.match_outcome);
                 if self.settings.virtual_input_logging_enabled {
                     log_virtual_control_input(
                         self.unit_id,
                         format_control_input_with_match_result(
                             virtual_source_value,
-                            child_match_outcome,
+                            virtual_result.match_outcome,
                         ),
                     );
                 }
-                results
+                virtual_result.control_results
             })
             .collect();
         // Feedback
@@ -3750,7 +3767,10 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 .iter_mut()
                 .filter_map(|r| r.control_result.feedback_value.take()),
         );
-        (extended_control_results, match_outcome)
+        ProcessVirtualResult {
+            control_results: extended_control_results,
+            match_outcome,
+        }
     }
 
     /// Sends both direct and virtual-source feedback.
@@ -4039,45 +4059,60 @@ impl<EH: DomainEventHandler> Basics<EH> {
         evt: ControlEvent<VirtualSourceValue>,
         options: ControlOptions,
         params: &PluginParams,
-    ) -> Vec<ExtendedMappingControlResult> {
+    ) -> ProcessVirtualResult {
         // Controller mappings can't have virtual sources, so for now we only need to check
         // main mappings.
         let mut enforce_target_refresh = false;
-        main_mappings
+        let match_inactive = self.settings.match_even_inactive_mappings;
+        let mut match_outcome = MatchOutcome::Unmatched;
+        let control_results = main_mappings
             .values_mut()
-            .filter(|m| m.control_is_effectively_on())
+            // Consider only control-enabled main mappings
+            .filter(|m| m.core.options.control_is_enabled)
             .filter_map(|m| {
-                if let CompoundMappingSource::Virtual(s) = &m.source() {
-                    let control_value = s.control(&evt.payload())?;
-                    let control_event = evt.with_payload(control_value);
-                    let options = ControlOptions {
-                        enforce_target_refresh,
-                        ..options
-                    };
-                    let control_result = control_mapping_stage_one_and_two(
-                        self,
-                        params,
-                        m,
-                        control_event,
-                        options,
-                        ManualFeedbackProcessing::Off,
-                    );
-                    enforce_target_refresh = true;
-                    let extended_control_result = ExtendedMappingControlResult {
-                        control_result,
-                        compartment: m.compartment(),
-                        group_interaction_input: GroupInteractionInput {
-                            mapping_id: m.id(),
-                            group_interaction: m.group_interaction(),
-                            control_event,
-                        },
-                    };
-                    Some(extended_control_result)
-                } else {
-                    None
+                let mapping_is_active = m.is_active();
+                if !mapping_is_active && !match_inactive {
+                    return None;
                 }
+                let CompoundMappingSource::Virtual(s) = &m.source() else {
+                    return None;
+                };
+                let control_value = s.control(&evt.payload())?;
+                // We found an associated main mapping, so it's not just consumed, it's matched.
+                match_outcome = MatchOutcome::Matched;
+                if !mapping_is_active {
+                    return None;
+                }
+                let control_event = evt.with_payload(control_value);
+                let options = ControlOptions {
+                    enforce_target_refresh,
+                    ..options
+                };
+                let control_result = control_mapping_stage_one_and_two(
+                    self,
+                    params,
+                    m,
+                    control_event,
+                    options,
+                    ManualFeedbackProcessing::Off,
+                );
+                enforce_target_refresh = true;
+                let extended_control_result = ExtendedMappingControlResult {
+                    control_result,
+                    compartment: m.compartment(),
+                    group_interaction_input: GroupInteractionInput {
+                        mapping_id: m.id(),
+                        group_interaction: m.group_interaction(),
+                        control_event,
+                    },
+                };
+                Some(extended_control_result)
             })
-            .collect()
+            .collect();
+        ProcessVirtualResult {
+            control_results,
+            match_outcome,
+        }
     }
 }
 
@@ -4558,3 +4593,8 @@ pub struct KeyProcessingResult {
 }
 
 type UnusedSources = NonCryptoHashMap<CompoundMappingSourceAddress, CompoundFeedbackValue>;
+
+struct ProcessVirtualResult {
+    control_results: Vec<ExtendedMappingControlResult>,
+    match_outcome: MatchOutcome,
+}

@@ -106,6 +106,12 @@ pub struct UnitData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
+    match_even_inactive_mappings: bool,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     stream_deck_device_id: Option<StreamDeckDeviceId>,
     ///
     /// - `None` means "\<None>"
@@ -413,6 +419,7 @@ impl Default for UnitData {
                 session_defaults::RESET_FEEDBACK_WHEN_RELEASING_SOURCE,
             control_device_id: None,
             wants_keyboard_input: session_defaults::WANTS_KEYBOARD_INPUT,
+            match_even_inactive_mappings: session_defaults::MATCH_EVEN_INACTIVE_MAPPINGS,
             stream_deck_device_id: None,
             feedback_device_id: None,
             default_group: None,
@@ -504,6 +511,7 @@ impl UnitData {
                 }
             },
             wants_keyboard_input: session.wants_keyboard_input(),
+            match_even_inactive_mappings: session.match_even_inactive_mappings(),
             stream_deck_device_id: session.stream_deck_device_id(),
             feedback_device_id: {
                 session.feedback_output().map(|output| match output {
@@ -702,6 +710,9 @@ impl UnitData {
         ));
         let _ = session.change(SessionCommand::SetStreamDeckDevice(
             self.stream_deck_device_id,
+        ));
+        let _ = session.change(SessionCommand::SetMatchEvenInactiveMappings(
+            self.match_even_inactive_mappings,
         ));
         // Let events through or not
         {
