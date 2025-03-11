@@ -40,7 +40,10 @@ pub fn export_luau() {
         fn include_type(&self, simple_ident: &str) -> bool {
             !matches!(
                 simple_ident,
-                "FlexibleMatrix" | "PlaytimeApiError" | "PlaytimePersistenceRoot"
+                "FlexibleMatrix"
+                    | "PlaytimeApiError"
+                    | "PlaytimePersistenceRoot"
+                    | "RawEvenQuantization"
             )
         }
     }

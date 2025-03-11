@@ -1489,7 +1489,7 @@ mod macos_impl {
         let main_panel_parts = [
             ("main-panel-input-output", (14, 110, 714, 124)),
             ("main-panel-menu-bar", (720, 112, 774, 66)),
-            ("main-panel-let-through-checkboxes", (854, 168, 640, 66)),
+            ("main-panel-let-through-checkboxes", (820, 168, 660, 66)),
             ("main-panel-show-buttons", (2, 236, 1490, 62)),
             ("main-panel-preset", (2, 302, 1490, 62)),
             ("main-panel-group", (6, 362, 994, 62)),
