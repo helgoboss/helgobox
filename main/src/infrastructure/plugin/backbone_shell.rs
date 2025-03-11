@@ -2514,15 +2514,12 @@ fn build_detailed_version() -> String {
         ""
     };
     let date_info = if let Ok(d) = chrono::DateTime::parse_from_rfc2822(BUILT_TIME_UTC) {
-        d.format("%Y-%m-%d %H:%M:%S UTC").to_string()
+        d.format("%Y-%m-%d").to_string()
     } else {
         BUILT_TIME_UTC.to_string()
     };
     let debug_mark = if PROFILE == "debug" { "-debug" } else { "" };
-    let hash = GIT_COMMIT_HASH
-        .map(|h| h[0..6].to_string())
-        .unwrap_or_else(|| "unknown".to_string());
-    format!("v{PKG_VERSION}/{CFG_TARGET_ARCH}{debug_mark} rev {hash}{dirty_mark} ({date_info})")
+    format!("v{PKG_VERSION}/{CFG_TARGET_ARCH}{debug_mark}{dirty_mark} ({date_info})")
 }
 
 pub fn warn_about_failed_server_start(info: String) {

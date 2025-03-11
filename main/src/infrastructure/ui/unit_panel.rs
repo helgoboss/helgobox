@@ -5,9 +5,6 @@ use crate::infrastructure::ui::{
 
 use reaper_high::Reaper;
 
-use std::cell::RefCell;
-use std::fmt;
-
 use crate::application::{
     get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, SessionCommand,
     SessionProp, SessionUi, UnitModel, VirtualFxType, WeakUnitModel,
@@ -31,6 +28,10 @@ use base::SoundPlayer;
 use helgobox_allocator::undesired_allocation_count;
 use helgobox_api::runtime::InstanceInfoEvent;
 use rxrust::prelude::*;
+use semver::Version;
+use std::cell::RefCell;
+use std::fmt;
+use std::fmt::Write;
 use std::rc::{Rc, Weak};
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 
@@ -216,7 +217,7 @@ impl UnitPanel {
 
     fn invalidate_all_controls(&self) {
         self.invalidate_unit_button().unwrap();
-        self.invalidate_version_text();
+        let _ = self.invalidate_version_text();
         self.invalidate_status_1_text();
         self.invalidate_status_2_text();
     }
@@ -243,13 +244,22 @@ impl UnitPanel {
         Ok(())
     }
 
-    fn invalidate_version_text(&self) {
+    fn invalidate_version_text(&self) -> anyhow::Result<()> {
+        let mut text = String::new();
+        text.write_str("Helgobox ")?;
+        text.write_str(BackboneShell::detailed_version_label())?;
+        if let Some(remote_config) = BackboneShell::remote_config() {
+            if report_new_version(
+                BackboneShell::version(),
+                &remote_config.plugin.latest_version,
+            ) {
+                text.write_str(" [UPDATE AVAILABLE]")?;
+            }
+        }
         self.view
             .require_control(root::ID_MAIN_PANEL_VERSION_TEXT)
-            .set_text(format!(
-                "Helgobox {}",
-                BackboneShell::detailed_version_label()
-            ));
+            .set_text(text);
+        Ok(())
     }
 
     fn register_listeners(self: SharedView<Self>) {
@@ -642,4 +652,14 @@ fn build_unit_label_internal(
     let label = unit_model.name_or_key();
     write!(&mut s, ": {label}")?;
     Ok(s)
+}
+
+fn report_new_version(current: &Version, latest: &Version) -> bool {
+    if current >= latest {
+        return false;
+    }
+    if !latest.pre.is_empty() && current.pre.is_empty() {
+        return false;
+    }
+    true
 }
