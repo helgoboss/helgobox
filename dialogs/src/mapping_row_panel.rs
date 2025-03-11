@@ -25,12 +25,12 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         pushbutton(
             "Duplicate",
             ids.named_id("ID_MAPPING_ROW_DUPLICATE_BUTTON"),
-            context.rect(378, 13, 37, 14),
+            context.rect(379, 13, 37, 14),
         ) + NOT_WS_TABSTOP,
         pushbutton(
             "Remove",
             ids.named_id("ID_MAPPING_ROW_REMOVE_BUTTON"),
-            context.rect(416, 13, 31, 14),
+            context.rect(417, 13, 31, 14),
         ) + NOT_WS_TABSTOP,
         pushbutton(
             "Learn source",
@@ -41,7 +41,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         pushbutton(
             "Learn target",
             ids.named_id("ID_MAPPING_ROW_LEARN_TARGET_BUTTON"),
-            context.rect(394, 28, 53, 14),
+            context.rect(395, 28, 53, 14),
         ) + NOT_WS_TABSTOP,
         // Control/feedback checkboxes
         context.checkbox(

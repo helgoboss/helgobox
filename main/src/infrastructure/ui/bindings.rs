@@ -89,8 +89,8 @@ pub mod root {
     pub const ID_MAIN_COMPARTMENT_RADIO_BUTTON: u32 = 30016;
     pub const ID_PRESET_LABEL_TEXT: u32 = 30017;
     pub const ID_PRESET_BROWSE_BUTTON: u32 = 30018;
-    pub const ID_PRESET_SAVE_AS_BUTTON: u32 = 30019;
-    pub const ID_PRESET_SAVE_BUTTON: u32 = 30020;
+    pub const ID_PRESET_SAVE_BUTTON: u32 = 30019;
+    pub const ID_PRESET_SAVE_AS_BUTTON: u32 = 30020;
     pub const ID_PRESET_DELETE_BUTTON: u32 = 30021;
     pub const ID_AUTO_LOAD_LABEL_TEXT: u32 = 30022;
     pub const ID_AUTO_LOAD_COMBO_BOX: u32 = 30023;

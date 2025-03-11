@@ -73,7 +73,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ltext(
             "Let MIDI through:",
             ids.named_id("ID_LET_THROUGH_LABEL_TEXT"),
-            context.rect(260, 25, 42, 9),
+            context.rect(257, 25, 55, 9),
         ),
         context.checkbox(
             "Matched events",
@@ -117,19 +117,19 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ) + WS_GROUP,
         // Preset actions
         pushbutton(
-            "Save as...",
-            ids.named_id("ID_PRESET_SAVE_AS_BUTTON"),
-            context.rect(234, 66, 42, 14),
-        ) + WS_GROUP,
-        pushbutton(
             "Save",
             ids.named_id("ID_PRESET_SAVE_BUTTON"),
             context.rect(207, 66, 26, 14),
         ) + NOT_WS_TABSTOP,
         pushbutton(
+            "Save as...",
+            ids.named_id("ID_PRESET_SAVE_AS_BUTTON"),
+            context.rect(235, 66, 42, 14),
+        ) + WS_GROUP,
+        pushbutton(
             "Delete",
             ids.named_id("ID_PRESET_DELETE_BUTTON"),
-            context.rect(278, 66, 28, 14),
+            context.rect(279, 66, 28, 14),
         ) + NOT_WS_TABSTOP,
         // Auto-load
         ltext(
@@ -159,12 +159,12 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         pushbutton(
             "Remove",
             ids.named_id("ID_GROUP_DELETE_BUTTON"),
-            context.rect(234, 86, 42, 14),
+            context.rect(235, 86, 42, 14),
         ) + NOT_WS_TABSTOP,
         pushbutton(
             "Edit",
             ids.named_id("ID_GROUP_EDIT_BUTTON"),
-            context.rect(278, 86, 28, 14),
+            context.rect(279, 86, 28, 14),
         ) + NOT_WS_TABSTOP,
         pushbutton(
             "Notes",
@@ -203,18 +203,18 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         pushbutton(
             "X",
             ids.named_id("ID_CLEAR_SOURCE_FILTER_BUTTON"),
-            context.rect(388, 106, 11, 14),
+            context.rect(389, 106, 11, 14),
         ) + NOT_WS_TABSTOP,
         // Target filter
         pushbutton(
             "Filter target",
             ids.named_id("ID_FILTER_BY_TARGET_BUTTON"),
-            context.rect(406, 106, 45, 14),
+            context.rect(404, 106, 45, 14),
         ) + WS_GROUP,
         pushbutton(
             "X",
             ids.named_id("ID_CLEAR_TARGET_FILTER_BUTTON"),
-            context.rect(452, 106, 11, 14),
+            context.rect(450, 106, 11, 14),
         ) + NOT_WS_TABSTOP,
     ];
     let divider_controls = [

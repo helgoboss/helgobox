@@ -1,4 +1,4 @@
-= Let through section
+= Let MIDI through section
 
 image:realearn/screenshots/main-panel-let-through-checkboxes.png[Screenshot]
 
