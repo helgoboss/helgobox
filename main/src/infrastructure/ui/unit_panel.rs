@@ -229,13 +229,14 @@ impl UnitPanel {
 
     fn invalidate_unit_button(&self) -> anyhow::Result<()> {
         let instance_panel = self.instance_panel();
-        let instance_shell = instance_panel.shell().unwrap();
+        let instance_shell = instance_panel.shell()?;
         let unit_count = instance_shell.additional_unit_count() + 1;
         let unit_id = instance_panel.displayed_unit_id();
         let (index, unit_model) = instance_shell
             .find_unit_index_and_model_by_id(unit_id)
             .context("unit not found")?;
-        let label = build_unit_label(&unit_model.borrow(), index, Some(unit_count));
+        let unit_model = unit_model.try_borrow().context("borrow unit model")?;
+        let label = build_unit_label(&unit_model, index, Some(unit_count));
         self.view
             .require_control(root::IDC_UNIT_BUTTON)
             .set_text(label);
