@@ -2829,20 +2829,20 @@ impl DomainEventHandler for WeakUnitModel {
                 s.ui().celebrate_success()
             }
             CapturedIncomingMessage(event) => {
-                session.borrow_mut().captured_incoming_message(event);
+                session.try_borrow_mut()?.captured_incoming_message(event);
             }
             UpdatedOnMappings(on_mappings) => {
                 session
                     .try_borrow()?
                     .unit
-                    .borrow_mut()
+                    .try_borrow_mut()?
                     .set_on_mappings(on_mappings);
             }
             GlobalControlAndFeedbackStateChanged(state) => {
-                let session = session.borrow();
+                let session = session.try_borrow()?;
                 session
                     .unit
-                    .borrow_mut()
+                    .try_borrow_mut()?
                     .set_global_control_and_feedback_state(state);
                 session
                     .ui()
@@ -2850,9 +2850,9 @@ impl DomainEventHandler for WeakUnitModel {
             }
             UpdatedSingleMappingOnState(event) => {
                 session
-                    .borrow()
+                    .try_borrow()?
                     .unit
-                    .borrow_mut()
+                    .try_borrow_mut()?
                     .set_mapping_on(event.id, event.is_on);
             }
             TargetValueChanged(e) => {
@@ -2863,18 +2863,18 @@ impl DomainEventHandler for WeakUnitModel {
                 session.try_borrow()?.ui().target_value_changed(e);
             }
             UpdatedSingleParameterValue { index, value } => {
-                let mut session = session.borrow_mut();
+                let mut session = session.try_borrow_mut()?;
                 session.params.at_mut(index).set_raw_value(value);
                 session.ui().parameters_changed(&session);
             }
             UpdatedAllParameters(params) => {
-                let mut session = session.borrow_mut();
+                let mut session = session.try_borrow_mut()?;
                 session.params = params;
                 session.ui().parameters_changed(&session);
             }
             FullResyncRequested => {
                 debug!("FullResyncRequested received");
-                session.borrow_mut().full_sync();
+                session.try_borrow_mut()?.full_sync();
             }
             MidiDevicesChanged => {
                 session.try_borrow()?.ui().midi_devices_changed();
@@ -2959,7 +2959,10 @@ impl DomainEventHandler for WeakUnitModel {
             if unit_model.auto_load_mode.get() != AutoLoadMode::UnitFx {
                 return Ok(false);
             }
-            let unit = unit_model.unit.borrow();
+            let unit = unit_model
+                .unit
+                .try_borrow()
+                .context("unit already borrowed")?;
             let unit_fx_descriptor = unit.instance_fx_descriptor();
             let unit_fx = unit_fx_descriptor
                 .resolve(unit_model.extended_context(), CompartmentKind::Main)
@@ -2977,7 +2980,10 @@ impl DomainEventHandler for WeakUnitModel {
             })
         };
         let fx_id = unit_fx.and_then(|fx| FxId::from_fx(&fx, false).ok());
-        let loaded = unit_model.borrow_mut().auto_load_preset_linked_to_fx(fx_id);
+        let loaded = unit_model
+            .try_borrow_mut()
+            .context("unit model already borrowed")?
+            .auto_load_preset_linked_to_fx(fx_id);
         Ok(loaded)
     }
 }
