@@ -228,7 +228,13 @@ impl RealearnTarget for FxParameterTarget {
         match key {
             "fx_parameter.index" => Some(PropValue::Index(self.param.index())),
             "fx_parameter.name" => Some(PropValue::Text(
-                self.param.name().ok()?.into_string().into(),
+                self.param
+                    .name()
+                    .ok()?
+                    .into_inner()
+                    .to_string_lossy()
+                    .to_string()
+                    .into(),
             )),
             "fx_parameter.macro.name" => {
                 self.with_macro_param(|_, _, p| PropValue::Text(p.name.clone().into()))
