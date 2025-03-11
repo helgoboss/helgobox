@@ -661,7 +661,10 @@ impl MidiDeviceInquiryTask {
             };
             for evt in mi.get_read_buf() {
                 let msg = evt.message();
-                if msg.r#type() == ShortMessageType::SystemExclusiveStart {
+                let Ok(short) = msg.to_short_message() else {
+                    continue;
+                };
+                if short.r#type() == ShortMessageType::SystemExclusiveStart {
                     let reply_pattern = &MIDI_DEVICE_INQUIRY_REPLY_PATTERN;
                     let reply_pattern =
                         reply_pattern.get_or_init(create_device_inquiry_reply_pattern);

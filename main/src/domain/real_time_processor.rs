@@ -1713,10 +1713,11 @@ impl<'a> IncomingMidiMessage<'a> {
     }
 
     pub fn from_reaper(m: &'a reaper_medium::MidiMessage) -> Result<Self, &'static str> {
-        let res = if m.r#type() == ShortMessageType::SystemExclusiveStart {
+        let short = m.to_short_message().map_err(|_| "invalid short message")?;
+        let res = if short.r#type() == ShortMessageType::SystemExclusiveStart {
             Self::SysEx(m.as_slice())
         } else {
-            Self::Short(m.to_other())
+            Self::Short(short)
         };
         Ok(res)
     }
