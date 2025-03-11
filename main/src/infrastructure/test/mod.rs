@@ -1,4 +1,3 @@
-use crate::base::notification::notify_user_on_anyhow_error;
 use crate::domain::{FinalSourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
 use crate::infrastructure::plugin::{BackboneShell, NewInstanceOutcome, SET_STATE_PARAM_NAME};
 use approx::assert_abs_diff_eq;
@@ -33,10 +32,13 @@ impl Test {
 
     pub async fn test(&mut self) {
         #[cfg(target_os = "macos")]
-        let screenshot_result = self
-            .step("Take screenshots", macos_impl::take_screenshots())
-            .await;
-        notify_user_on_anyhow_error(screenshot_result);
+        {
+            use crate::base::notification::notify_user_on_anyhow_error;
+            let screenshot_result = self
+                .step("Take screenshots", macos_impl::take_screenshots())
+                .await;
+            notify_user_on_anyhow_error(screenshot_result);
+        }
         self.step("Basics", basics()).await;
         self.step("(N)RPN", nrpn_test()).await;
         self.step(
