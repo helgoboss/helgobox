@@ -451,20 +451,34 @@ impl InstanceShell {
     ///
     /// This fails if the instance is already mutably borrowed (reentrancy issue).
     pub fn create_data(&self) -> anyhow::Result<InstanceData> {
-        let additional_unit_datas =
-            blocking_read_lock(&self.additional_unit_shells, "create_instance_data")
-                .iter()
-                .filter_map(|us| {
-                    let model = us.model().borrow();
-                    if model.auto_unit().is_some() {
-                        // Auto units are not saved
-                        return None;
-                    }
-                    Some(UnitData::from_model(&model))
-                })
-                .collect();
-        let instance = self.instance.get().borrow();
-        let unit_model = self.main_unit_shell.model().try_borrow()?;
+        let additional_unit_datas = {
+            let mut additional_unit_datas = vec![];
+            let additional_unit_shells =
+                blocking_read_lock(&self.additional_unit_shells, "create_instance_data");
+            for us in additional_unit_shells.iter() {
+                let model = us
+                    .model()
+                    .try_borrow()
+                    .context("couldn't borrow additional unit model")?;
+                if model.auto_unit().is_some() {
+                    // Auto units are not saved
+                    continue;
+                }
+                let unit_data = UnitData::from_model(&model);
+                additional_unit_datas.push(unit_data);
+            }
+            additional_unit_datas
+        };
+        let instance = self
+            .instance
+            .get()
+            .try_borrow()
+            .context("couldn't borrow instance")?;
+        let unit_model = self
+            .main_unit_shell
+            .model()
+            .try_borrow()
+            .context("couldn't borrow main unit model")?;
         let data = InstanceData {
             main_unit: UnitData::from_model(&unit_model),
             additional_units: additional_unit_datas,
