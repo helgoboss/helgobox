@@ -3,8 +3,8 @@
 include::helgobox::partial$intro-header.adoc[]
 
 |===
-|Last update of text: |`2024-01-18 (v2.18.0-pre.1)`
-|Last update of screenshots: |`2024-12-21 (v2.17.0)`
+|Last update of text: |`2025-03-11 (v2.18.0-pre.3)`
+|Last update of screenshots: |`2025-03-11 (v2.18.0-pre.3)`
 |===
 
 link:https://www.helgoboss.org/projects/helgobox[Helgobox] is an add-on for link:https://www.reaper.fm[REAPER] that unites xref:products.adoc[a few creative tools] under one roof, most importantly link:https://www.helgoboss.org/projects/realearn[ReaLearn] and link:https://www.helgoboss.org/projects/playtime[Playtime].

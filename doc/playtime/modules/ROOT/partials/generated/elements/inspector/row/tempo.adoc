@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-row-tempo,Change tempo]]]
+ifndef::pdf-theme[[[inspector-row-tempo,Change tempo]]]
+=== Change tempo
+
+image::playtime::generated/screenshots/elements/inspector/row/tempo.png[Change tempo]
+
+Enable this if you want to change the project tempo when triggering this row.
+

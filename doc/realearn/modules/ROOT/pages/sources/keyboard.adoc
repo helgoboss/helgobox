@@ -18,4 +18,5 @@ Use xref:user-interface/mapping-panel/glue-section.adoc#fire-after-timeout-keep-
 * Key combinations are not supported.
 This is by design!
 Use xref:further-concepts/mapping.adoc#conditional-activation[] instead.
+* Matching keys are automatically consumed by ReaLearn, so that they will not reach the rest of REAPER (unless a text field is focused). Check out xref:user-interface/main-panel/menu-bar.adoc#match-even-inactive-mappings[] to fine-tune matching behavior.
 ====

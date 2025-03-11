@@ -55,3 +55,9 @@ Showing the error in the console in addition makes sure that you don't miss that
 
 
 IMPORTANT: Unless you have a live situation (in which case it might make sense to ignore errors), please tick at least one of the checkboxes. I can't fix bugs if I don't know about them! Thanks.
+
+== Checkbox "Notify about updates"
+
+By default, Helgobox checks on startup for available updates. If a more recent version is available, you will see a notification somewhere in the xref:helgobox::plug-in/user-interface.adoc[plug-in window] and the xref:app/user-interface.adoc[app window].
+
+If you don't want ReaLearn to check for updates, you can disable it here.

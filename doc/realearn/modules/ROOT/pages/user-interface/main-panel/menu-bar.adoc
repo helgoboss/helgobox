@@ -112,6 +112,13 @@ See section xref:further-concepts/compartment.adoc#compartment-wide-lua-code[].
 
 [[unit-options]] Unit options::
 
+[[match-even-inactive-mappings]] Match even inactive mappings:::
+By default, when encountering an incoming MIDI or keyboard event that matches at least one mapping, ReaLearn filters it out so that it doesn't reach other parts of REAPER anymore. Normally, xref:further-concepts/mapping.adoc#mapping-activation-state[inactive] mappings are not relevant here. Inactive mappings never match.
++
+Consider a mapping with a xref:targets/track.adoc[track target], for example. As long as the corresponding track exists, the target and its mapping are active. Each incoming MIDI event which triggers that target will be filtered out. But as soon as you remove that track, the target and its mapping turn inactive. Consequently, the same type of MIDI events will not be filtered out anymore.
++
+This behavior can be undesired. To get a more predictable MIDI and keyboard filtering behavior, you can enable this checkbox. If you do that, even inactive mappings will participate in matching. That way, temporarily inactive mappings will not let unwanted events "leak through".
+
 [[send-feedback-only-if-track-armed]] Send feedback only if track armed:::
 Here you can tell ReaLearn to only send feedback when the track is armed.
 +

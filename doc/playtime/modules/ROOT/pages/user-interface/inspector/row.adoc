@@ -5,3 +5,7 @@ You will see this when selecting a xref:user-interface/matrix-area.adoc#row-cell
 include::partial$generated/elements/inspector/row/basics.adoc[]
 
 include::partial$generated/elements/inspector/row/name.adoc[]
+
+include::partial$generated/elements/inspector/row/tempo.adoc[]
+
+WARNING: This is an experimental feature.

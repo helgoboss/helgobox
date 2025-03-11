@@ -9,3 +9,5 @@ If unchecked (default), such events are filtered out.
 
 Unmatched events:: If checked (default), MIDI events that are not matched by any mappings are let through.
 If unchecked, such events are filtered out.
+
+Check out xref:user-interface/main-panel/menu-bar.adoc#match-even-inactive-mappings[] to fine-tune matching behavior.
