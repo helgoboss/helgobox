@@ -981,7 +981,7 @@ impl UnitModel {
         mapping_ids: &[MappingId],
         group_id: GroupId,
         weak_session: WeakUnitModel,
-    ) -> Result<(), &'static str> {
+    ) -> anyhow::Result<()> {
         for mapping_id in mapping_ids.iter() {
             let id = QualifiedMappingId::new(compartment, *mapping_id);
             self.change_mapping_from_session(
@@ -2439,10 +2439,10 @@ impl UnitModel {
         &self,
         compartment: CompartmentKind,
         mapping_id: MappingId,
-    ) -> Result<(), &'static str> {
+    ) -> anyhow::Result<()> {
         let mapping = self
             .find_mapping_by_id(compartment, mapping_id)
-            .ok_or("mapping not found")?;
+            .context("mapping not found")?;
         debug!(
             "MappingModel struct size: {}",
             std::mem::size_of::<MappingModel>()

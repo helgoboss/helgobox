@@ -822,7 +822,7 @@ impl HeaderPanel {
                 self.make_targets_of_listed_mappings_non_sticky(track_mode, fx_mode);
             }
             MainMenuAction::MoveListedMappingsToGroup(group_id) => {
-                let _ = self.move_listed_mappings_to_group(group_id);
+                self.notify_user_on_anyhow_error(self.move_listed_mappings_to_group(group_id));
             }
             MainMenuAction::PasteReplaceAllInGroup(mapping_datas) => {
                 self.paste_replace_all_in_group(mapping_datas)
@@ -1163,14 +1163,14 @@ impl HeaderPanel {
         session.notify_everything_has_changed();
     }
 
-    fn move_listed_mappings_to_group(&self, group_id: Option<GroupId>) -> Result<(), &'static str> {
+    fn move_listed_mappings_to_group(&self, group_id: Option<GroupId>) -> anyhow::Result<()> {
         let group_id = group_id
             .or_else(|| self.add_group_internal().ok())
-            .ok_or("no group selected")?;
+            .context("no group selected")?;
         let compartment = self.active_compartment();
         let listed_mappings = self.get_listened_mappings(compartment);
         if listed_mappings.is_empty() {
-            return Err("mapping list empty");
+            bail!("mapping list empty");
         }
         if !self.view.require_window().confirm(
             "ReaLearn",
@@ -1179,7 +1179,7 @@ impl HeaderPanel {
                 listed_mappings.len()
             ),
         ) {
-            return Err("cancelled");
+            bail!("cancelled");
         }
         let session = self.session();
         let mut session = session.borrow_mut();

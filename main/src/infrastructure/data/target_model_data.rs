@@ -20,6 +20,7 @@ use crate::infrastructure::data::{
     VirtualControlElementIdData,
 };
 use crate::infrastructure::plugin::BackboneShell;
+use anyhow::Context;
 use base::default_util::{
     bool_true, deserialize_null_default, is_bool_true, is_default, is_none_or_some_default,
 };
@@ -661,7 +662,7 @@ impl TargetModelData {
         compartment: CompartmentKind,
         context: ExtendedProcessorContext,
         conversion_context: &impl DataToModelConversionContext,
-    ) -> Result<(), &'static str> {
+    ) -> anyhow::Result<()> {
         self.apply_to_model_flexible(
             model,
             Some(context),
@@ -683,7 +684,7 @@ impl TargetModelData {
         compartment: CompartmentKind,
         conversion_context: &impl DataToModelConversionContext,
         migration_descriptor: &MigrationDescriptor,
-    ) -> Result<(), &'static str> {
+    ) -> anyhow::Result<()> {
         use TargetCommand as C;
         let final_category = if self.category.is_allowed_in(compartment) {
             self.category
@@ -1870,9 +1871,13 @@ pub fn convert_target_value_to_api(value: AbsoluteValue) -> TargetValue {
     }
 }
 
-pub fn convert_target_value_to_model(value: &TargetValue) -> Result<AbsoluteValue, &'static str> {
+pub fn convert_target_value_to_model(value: &TargetValue) -> anyhow::Result<AbsoluteValue> {
     match value {
-        TargetValue::Unit { value } => Ok(AbsoluteValue::Continuous(UnitValue::try_from(*value)?)),
+        TargetValue::Unit { value } => Ok(AbsoluteValue::Continuous(
+            UnitValue::try_from(*value)
+                .map_err(anyhow::Error::msg)
+                .context("convert unit target value")?,
+        )),
         TargetValue::Discrete { value } => Ok(AbsoluteValue::Discrete(Fraction::new_max(*value))),
     }
 }

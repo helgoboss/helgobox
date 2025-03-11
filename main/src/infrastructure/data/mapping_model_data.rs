@@ -127,7 +127,7 @@ impl MappingModelData {
         conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
         version: Option<&Version>,
-    ) -> Result<MappingModel, &'static str> {
+    ) -> anyhow::Result<MappingModel> {
         self.to_model_flexible(
             compartment,
             &MigrationDescriptor::default(),
@@ -144,7 +144,7 @@ impl MappingModelData {
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
         conversion_context: &impl DataToModelConversionContext,
-    ) -> anyhow::Result<MappingModel, &'static str> {
+    ) -> anyhow::Result<MappingModel> {
         self.to_model_flexible(
             compartment,
             migration_descriptor,
@@ -166,7 +166,7 @@ impl MappingModelData {
         preset_version: Option<&Version>,
         conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
-    ) -> Result<MappingModel, &'static str> {
+    ) -> anyhow::Result<MappingModel> {
         let (key, id) = if let Some(key) = self.id.clone() {
             let id = conversion_context
                 .mapping_id_by_key(&key)
@@ -195,7 +195,7 @@ impl MappingModelData {
         conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
         version: Option<&Version>,
-    ) -> Result<(), &'static str> {
+    ) -> anyhow::Result<()> {
         self.apply_to_model_internal(
             &MigrationDescriptor::default(),
             version,
@@ -215,7 +215,7 @@ impl MappingModelData {
         conversion_context: &impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
         model: &mut MappingModel,
-    ) -> Result<(), &'static str> {
+    ) -> anyhow::Result<()> {
         use MappingCommand as P;
         model.change(P::SetName(self.name.clone()));
         model.change(P::SetTags(self.tags.clone()));

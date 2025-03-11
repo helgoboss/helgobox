@@ -20,6 +20,7 @@ use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_d
 
 use crate::base::notification;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
+use anyhow::Context;
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use helgobox_api::persistence::{
     FxDescriptor, MappingInSnapshot, MappingSnapshot, TrackDescriptor,
@@ -27,7 +28,6 @@ use helgobox_api::persistence::{
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -600,9 +600,8 @@ impl UnitData {
                 ));
             }
         }
-        if let Err(e) = self.apply_to_model_internal(&mut session, Rc::downgrade(shared_session)) {
-            notification::warn(e.to_string());
-        }
+        let result = self.apply_to_model_internal(&mut session, Rc::downgrade(shared_session));
+        notification::notify_user_on_anyhow_error(result);
         // Notify
         session.notify_everything_has_changed();
         session.notify_compartment_loaded(CompartmentKind::Main);
@@ -622,7 +621,7 @@ impl UnitData {
         &self,
         session: &mut UnitModel,
         weak_session: WeakUnitModel,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> anyhow::Result<()> {
         // Validation
         let params = self.create_params();
         let main_conversion_context = SimpleDataToModelConversionContext::from_session_or_random(
@@ -649,7 +648,7 @@ impl UnitData {
                     Midi(midi_dev_id_string) => {
                         let raw_midi_dev_id = midi_dev_id_string
                             .parse::<u8>()
-                            .map_err(|_| "invalid MIDI input device ID")?;
+                            .context("invalid MIDI input device ID")?;
                         let midi_dev_id = MidiInputDeviceId::new(raw_midi_dev_id);
                         (
                             ControlInput::Midi(MidiControlInput::Device(midi_dev_id)),
@@ -672,7 +671,7 @@ impl UnitData {
                         let midi_dev_id = midi_dev_id_string
                             .parse::<u8>()
                             .map(MidiOutputDeviceId::new)
-                            .map_err(|_| "invalid MIDI output device ID")?;
+                            .context("invalid MIDI output device ID")?;
                         FeedbackOutput::Midi(MidiDestination::Device(midi_dev_id))
                     }
                     Osc(osc_dev_id) => FeedbackOutput::Osc(*osc_dev_id),
@@ -808,7 +807,7 @@ impl UnitData {
         // Mappings
 
         let mut apply_mappings =
-            |compartment, mappings: &Vec<MappingModelData>| -> Result<(), &'static str> {
+            |compartment, mappings: &Vec<MappingModelData>| -> anyhow::Result<()> {
                 let mappings: Result<Vec<_>, _> = mappings
                     .iter()
                     .map(|m| {
@@ -1128,22 +1127,21 @@ fn convert_mapping_snapshots_to_model(
     api_snapshots: &[MappingSnapshot],
     active_snapshot_id_by_tag: &NonCryptoHashMap<Tag, MappingSnapshotId>,
     conversion_context: &impl DataToModelConversionContext,
-) -> Result<MappingSnapshotContainer, &'static str> {
-    let snapshots: Result<
+) -> anyhow::Result<MappingSnapshotContainer> {
+    let snapshots: anyhow::Result<
         NonCryptoHashMap<MappingSnapshotId, crate::domain::MappingSnapshot>,
-        &'static str,
     > = api_snapshots
         .iter()
         .map(|api_snapshot| {
-            let id: MappingSnapshotId = api_snapshot.id.parse()?;
-            let target_values: Result<NonCryptoHashMap<_, _>, &'static str> = api_snapshot
+            let id: MappingSnapshotId = api_snapshot.id.parse().map_err(anyhow::Error::msg)?;
+            let target_values: anyhow::Result<NonCryptoHashMap<_, _>> = api_snapshot
                 .mappings
                 .iter()
                 .map(|api_mapping| {
                     let mapping_key: MappingKey = api_mapping.id.clone().into();
                     let id: MappingId = conversion_context
                         .mapping_id_by_key(&mapping_key)
-                        .ok_or("couldn't find mapping with key")?;
+                        .context("couldn't find mapping with key")?;
                     let absolute_value = convert_target_value_to_model(&api_mapping.target_value)?;
                     Ok((id, absolute_value))
                 })

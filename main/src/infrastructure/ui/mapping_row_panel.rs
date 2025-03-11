@@ -13,10 +13,6 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::bindings::root::{
-    IDC_MAPPING_ROW_ENABLED_CHECK_BOX, ID_MAPPING_ROW_CONTROL_CHECK_BOX,
-    ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
-};
 use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::{
@@ -25,15 +21,14 @@ use crate::infrastructure::ui::util::{
 use crate::infrastructure::ui::{
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
     get_text_from_clipboard, serialize_data_object, DataObject, IndependentPanelManager,
-    MappingPanel, SerializationFormat, SharedMainState,
+    SerializationFormat, SharedMainState,
 };
-use anyhow::Context;
+use anyhow::{bail, Context};
 use core::iter;
 use helgobox_api::persistence::{ApiObject, Envelope};
 use reaper_medium::Hbrush;
 use rxrust::prelude::*;
-use std::cell::{Ref, RefCell};
-use std::error::Error;
+use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
@@ -457,8 +452,8 @@ impl MappingRowPanel {
             .merge(self.party_is_over_subject.borrow().clone())
     }
 
-    fn require_mapping(&self) -> Ref<SharedMapping> {
-        Ref::map(self.mapping.borrow(), |m| m.as_ref().unwrap())
+    fn get_mapping(&self) -> anyhow::Result<SharedMapping> {
+        self.optional_mapping().context("row mapping not available")
     }
 
     fn optional_mapping(&self) -> Option<SharedMapping> {
@@ -466,31 +461,24 @@ impl MappingRowPanel {
     }
 
     fn get_qualified_mapping_id(&self) -> anyhow::Result<QualifiedMappingId> {
-        let qualified_id = self
-            .mapping
-            .borrow()
-            .as_ref()
-            .context("row mapping not available")?
-            .borrow()
-            .qualified_id();
-        Ok(qualified_id)
+        Ok(self.get_mapping()?.borrow().qualified_id())
     }
 
-    fn edit_mapping(&self) -> SharedView<MappingPanel> {
+    fn edit_mapping(&self) -> anyhow::Result<()> {
         self.main_state.borrow_mut().stop_filter_learning();
-        self.panel_manager()
-            .borrow_mut()
-            .edit_mapping(self.require_mapping().deref())
+        let mapping = self.get_mapping()?;
+        self.panel_manager().borrow_mut().edit_mapping(&mapping);
+        Ok(())
     }
 
     fn panel_manager(&self) -> SharedIndependentPanelManager {
         self.panel_manager.upgrade().expect("panel manager gone")
     }
 
-    fn move_mapping_within_list(&self, increment: isize) -> Result<(), &'static str> {
+    fn move_mapping_within_list(&self, increment: isize) -> anyhow::Result<()> {
         // When we route keyboard input to ReaLearn and press space, it presses the "Up" button,
         // even if we don't display the rows. Don't know why, but suppress a panic here.
-        let mapping = self.optional_mapping().ok_or("row has no mapping")?;
+        let mapping = self.get_mapping()?;
         let within_same_group = self
             .main_state
             .borrow()
@@ -547,47 +535,54 @@ impl MappingRowPanel {
         Ok(())
     }
 
-    fn update_is_enabled(&self) {
+    fn update_is_enabled(&self) -> anyhow::Result<()> {
         let checked = self
             .view
-            .require_control(IDC_MAPPING_ROW_ENABLED_CHECK_BOX)
+            .require_control(root::IDC_MAPPING_ROW_ENABLED_CHECK_BOX)
             .is_checked();
-        self.change_mapping(MappingCommand::SetIsEnabled(checked));
+        self.change_mapping(MappingCommand::SetIsEnabled(checked))
     }
 
-    fn update_control_is_enabled(&self) {
+    fn update_control_is_enabled(&self) -> anyhow::Result<()> {
         let checked = self
             .view
-            .require_control(ID_MAPPING_ROW_CONTROL_CHECK_BOX)
+            .require_control(root::ID_MAPPING_ROW_CONTROL_CHECK_BOX)
             .is_checked();
-        self.change_mapping(MappingCommand::SetControlIsEnabled(checked));
+        self.change_mapping(MappingCommand::SetControlIsEnabled(checked))
     }
 
-    fn update_feedback_is_enabled(&self) {
+    fn update_feedback_is_enabled(&self) -> anyhow::Result<()> {
         let checked = self
             .view
-            .require_control(ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
+            .require_control(root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
             .is_checked();
-        self.change_mapping(MappingCommand::SetFeedbackIsEnabled(checked));
+        self.change_mapping(MappingCommand::SetFeedbackIsEnabled(checked))
     }
 
-    fn change_mapping(&self, cmd: MappingCommand) {
-        let mapping = self.require_mapping();
+    fn change_mapping(&self, cmd: MappingCommand) -> anyhow::Result<()> {
+        let mapping = self.get_mapping()?;
         let mut mapping = mapping.borrow_mut();
         UnitModel::change_mapping_from_ui_simple(self.session.clone(), &mut mapping, cmd, None);
+        Ok(())
     }
 
-    fn notify_user_on_error(&self, result: Result<(), Box<dyn Error>>) {
+    fn notify_user_on_anyhow_error(&self, result: anyhow::Result<()>) {
         if let Err(e) = result {
-            self.view.require_window().alert("ReaLearn", e.to_string());
+            self.notify_user_about_anyhow_error(e);
         }
     }
 
-    fn paste_from_lua_replace(&self, text: &str) -> Result<(), Box<dyn Error>> {
+    fn notify_user_about_anyhow_error(&self, e: anyhow::Error) {
+        self.view
+            .require_window()
+            .alert("ReaLearn", format!("{e:#}"));
+    }
+
+    fn paste_from_lua_replace(&self, text: &str) -> anyhow::Result<()> {
         let active_compartment = self.active_compartment();
         let api_object = deserialize_api_object_from_lua(text, active_compartment)?;
         if !matches!(api_object, ApiObject::Mapping(Envelope { value: _, .. })) {
-            return Err("There's more than one mapping in the clipboard.".into());
+            bail!("There's more than one mapping in the clipboard.");
         }
         let data_object = {
             let session = self.session();
@@ -599,12 +594,12 @@ impl MappingRowPanel {
         Ok(())
     }
 
-    fn paste_from_lua_insert_below(&self, text: &str) -> Result<(), Box<dyn Error>> {
+    fn paste_from_lua_insert_below(&self, text: &str) -> anyhow::Result<()> {
         let active_compartment = self.active_compartment();
         let api_object = deserialize_api_object_from_lua(text, active_compartment)?;
         let api_mappings = api_object
             .into_mappings()
-            .ok_or("Can only insert a list of mappings.")?;
+            .context("Can only insert a list of mappings.")?;
         let data_mappings = {
             let session = self.session();
             let session = session.borrow();
@@ -621,9 +616,8 @@ impl MappingRowPanel {
         )
     }
 
-    fn mapping_triple(&self) -> Result<MappingTriple, &'static str> {
-        let mapping = self.mapping.borrow();
-        let mapping = mapping.as_ref().ok_or("row contains no mapping")?;
+    fn mapping_triple(&self) -> anyhow::Result<MappingTriple> {
+        let mapping = self.get_mapping()?;
         let mapping = mapping.borrow();
         let triple = MappingTriple {
             compartment: mapping.compartment(),
@@ -633,7 +627,7 @@ impl MappingRowPanel {
         Ok(triple)
     }
 
-    fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
+    fn open_context_menu(&self, location: Point<Pixels>) -> anyhow::Result<()> {
         enum MenuAction {
             None,
             PasteObjectInPlace(DataObject),
@@ -655,7 +649,7 @@ impl MappingRowPanel {
             let shared_session = self.session();
             let session = shared_session.borrow();
             let mapping = self.mapping.borrow();
-            let mapping = mapping.as_ref().ok_or("row contains no mapping")?;
+            let mapping = mapping.as_ref().context("row contains no mapping")?;
             let mapping = mapping.borrow();
             let compartment = mapping.compartment();
             let text_from_clipboard = get_text_from_clipboard();
@@ -792,64 +786,48 @@ impl MappingRowPanel {
             .view
             .require_window()
             .open_popup_menu(pure_menu, location)
-            .ok_or("no entry selected")?;
+            .context("no entry selected")?;
         let triple = self.mapping_triple()?;
-        match result {
-            MenuAction::None => {}
+        let result = match result {
+            MenuAction::None => Ok(()),
             MenuAction::PasteObjectInPlace(obj) => {
-                let _ = paste_data_object_in_place(obj, self.session(), triple);
+                paste_data_object_in_place(obj, self.session(), triple)
             }
-            MenuAction::PasteFromLuaReplace(text) => {
-                self.notify_user_on_error(self.paste_from_lua_replace(&text));
-            }
-            MenuAction::PasteMappings(datas) => {
-                let result = paste_mappings(
-                    datas,
-                    self.session(),
-                    triple.compartment,
-                    Some(triple.mapping_id),
-                    triple.group_id,
-                );
-                self.notify_user_on_error(result);
-            }
-            MenuAction::PasteFromLuaInsertBelow(text) => {
-                self.notify_user_on_error(self.paste_from_lua_insert_below(&text));
-            }
-            MenuAction::CopyPart(obj_type) => {
-                copy_mapping_object(
-                    self.session(),
-                    triple.compartment,
-                    triple.mapping_id,
-                    obj_type,
-                    SerializationFormat::JsonDataObject,
-                )
-                .unwrap();
-            }
-            MenuAction::CopyMappingAsLua(style) => {
-                copy_mapping_object(
-                    self.session(),
-                    triple.compartment,
-                    triple.mapping_id,
-                    ObjectType::Mapping,
-                    SerializationFormat::LuaApiObject(style),
-                )
-                .unwrap();
-            }
-            MenuAction::MoveMappingToGroup(group_id) => {
-                let _ = move_mapping_to_group(
-                    self.session(),
-                    triple.compartment,
-                    triple.mapping_id,
-                    group_id,
-                );
-            }
-            MenuAction::LogDebugInfo => {
-                let _ = self
-                    .session()
-                    .borrow()
-                    .log_mapping(triple.compartment, triple.mapping_id);
-            }
-        }
+            MenuAction::PasteFromLuaReplace(text) => self.paste_from_lua_replace(&text),
+            MenuAction::PasteMappings(datas) => paste_mappings(
+                datas,
+                self.session(),
+                triple.compartment,
+                Some(triple.mapping_id),
+                triple.group_id,
+            ),
+            MenuAction::PasteFromLuaInsertBelow(text) => self.paste_from_lua_insert_below(&text),
+            MenuAction::CopyPart(obj_type) => copy_mapping_object(
+                self.session(),
+                triple.compartment,
+                triple.mapping_id,
+                obj_type,
+                SerializationFormat::JsonDataObject,
+            ),
+            MenuAction::CopyMappingAsLua(style) => copy_mapping_object(
+                self.session(),
+                triple.compartment,
+                triple.mapping_id,
+                ObjectType::Mapping,
+                SerializationFormat::LuaApiObject(style),
+            ),
+            MenuAction::MoveMappingToGroup(group_id) => move_mapping_to_group(
+                self.session(),
+                triple.compartment,
+                triple.mapping_id,
+                group_id,
+            ),
+            MenuAction::LogDebugInfo => self
+                .session()
+                .borrow()
+                .log_mapping(triple.compartment, triple.mapping_id),
+        };
+        self.notify_user_on_anyhow_error(result);
         Ok(())
     }
 
@@ -934,37 +912,24 @@ impl View for MappingRowPanel {
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
-        match resource_id {
+        let result = match resource_id {
             root::IDC_MAPPING_ROW_ENABLED_CHECK_BOX => self.update_is_enabled(),
-            root::ID_MAPPING_ROW_EDIT_BUTTON => {
-                self.edit_mapping();
-            }
-            root::ID_UP_BUTTON => {
-                let _ = self.move_mapping_within_list(-1);
-            }
-            root::ID_DOWN_BUTTON => {
-                let _ = self.move_mapping_within_list(1);
-            }
-            root::ID_MAPPING_ROW_REMOVE_BUTTON => {
-                let _ = self.remove_mapping();
-            }
-            root::ID_MAPPING_ROW_DUPLICATE_BUTTON => {
-                let _ = self.duplicate_mapping();
-            }
-            root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON => {
-                let _ = self.toggle_learn_source();
-            }
-            root::ID_MAPPING_ROW_LEARN_TARGET_BUTTON => {
-                let _ = self.toggle_learn_target();
-            }
+            root::ID_MAPPING_ROW_EDIT_BUTTON => self.edit_mapping(),
+            root::ID_UP_BUTTON => self.move_mapping_within_list(-1),
+            root::ID_DOWN_BUTTON => self.move_mapping_within_list(1),
+            root::ID_MAPPING_ROW_REMOVE_BUTTON => self.remove_mapping(),
+            root::ID_MAPPING_ROW_DUPLICATE_BUTTON => self.duplicate_mapping(),
+            root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON => self.toggle_learn_source(),
+            root::ID_MAPPING_ROW_LEARN_TARGET_BUTTON => self.toggle_learn_target(),
             root::ID_MAPPING_ROW_CONTROL_CHECK_BOX => self.update_control_is_enabled(),
             root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX => self.update_feedback_is_enabled(),
-            _ => {}
-        }
+            _ => Ok(()),
+        };
+        self.notify_user_on_anyhow_error(result);
     }
 
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) -> bool {
-        let _ = self.open_context_menu(location);
+        self.notify_user_on_anyhow_error(self.open_context_menu(location));
         true
     }
 
@@ -992,11 +957,11 @@ fn move_mapping_to_group(
     compartment: CompartmentKind,
     mapping_id: MappingId,
     group_id: Option<GroupId>,
-) -> Result<(), &'static str> {
+) -> anyhow::Result<()> {
     let cloned_session = session.clone();
     let group_id = group_id
         .or_else(move || add_group_via_dialog(cloned_session, compartment).ok())
-        .ok_or("no group selected")?;
+        .context("no group selected")?;
     session.borrow_mut().move_mappings_to_group(
         compartment,
         &[mapping_id],
@@ -1012,11 +977,11 @@ fn copy_mapping_object(
     mapping_id: MappingId,
     object_type: ObjectType,
     format: SerializationFormat,
-) -> Result<(), Box<dyn Error>> {
+) -> anyhow::Result<()> {
     let session = session.borrow();
     let mapping = session
         .find_mapping_by_id(compartment, mapping_id)
-        .ok_or("mapping not found")?;
+        .context("mapping not found")?;
     use ObjectType::*;
     let mapping = mapping.borrow();
     let compartment_in_session = session.compartment_in_session(compartment);
@@ -1057,11 +1022,11 @@ fn paste_data_object_in_place(
     data_object: DataObject,
     shared_session: SharedUnitModel,
     triple: MappingTriple,
-) -> Result<(), &'static str> {
+) -> anyhow::Result<()> {
     let mut session = shared_session.borrow_mut();
     let mapping = session
         .find_mapping_by_id(triple.compartment, triple.mapping_id)
-        .ok_or("mapping not found")?
+        .context("mapping not found")?
         .clone();
     BackboneShell::warn_if_envelope_version_higher(data_object.version());
     let mut mapping = mapping.borrow_mut();
@@ -1076,7 +1041,7 @@ fn paste_data_object_in_place(
                 } else {
                     let group = session
                         .find_group_by_id(triple.compartment, triple.group_id)
-                        .ok_or("couldn't find group")?;
+                        .context("couldn't find group")?;
                     group.borrow().key().clone()
                 }
             };
@@ -1113,7 +1078,7 @@ fn paste_data_object_in_place(
                 &compartment_in_session,
             );
         }
-        _ => return Err("can only paste mapping, source, mode and target in place"),
+        _ => bail!("can only paste mapping, source, mode and target in place"),
     };
     session.notify_mapping_has_changed(mapping.qualified_id(), Rc::downgrade(&shared_session));
     Ok(())
@@ -1128,12 +1093,12 @@ pub fn paste_mappings(
     compartment: CompartmentKind,
     below_mapping_id: Option<MappingId>,
     group_id: GroupId,
-) -> Result<(), Box<dyn Error>> {
+) -> anyhow::Result<()> {
     let mut session = session.borrow_mut();
     let index = if let Some(id) = below_mapping_id {
         session
             .find_mapping_and_index_by_id(compartment, id)
-            .ok_or("mapping not found")?
+            .context("mapping not found")?
             .0
     } else {
         session.mapping_count(compartment)
@@ -1144,7 +1109,7 @@ pub fn paste_mappings(
         } else {
             let group = session
                 .find_group_by_id(compartment, group_id)
-                .ok_or("couldn't find group")?;
+                .context("couldn't find group")?;
             let group = group.borrow();
             group.key().clone()
         }
