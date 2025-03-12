@@ -7,7 +7,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         id: ids.named_id("ID_SETUP_PANEL"),
         optional: true,
         caption: "Welcome to Helgobox!",
-        rect: context.rect(0, 0, 250, 260),
+        rect: context.rect(0, 0, 250, 280),
         styles: Styles(vec![
             // Places the window into the center by default
             DS_CENTER, // Displays a close button
@@ -47,16 +47,16 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ctext(
                 "Comment",
                 ids.named_id("ID_SETUP_COMMENT"),
-                context.rect(25, 170, 200, 25),
+                context.rect(25, 185, 200, 25),
             ),
             ctext(
                 "Tip",
                 ids.named_id("ID_SETUP_TIP_TEXT"),
-                context.rect(25, 200, 200, 25),
+                context.rect(25, 210, 200, 25),
             ),
             ok_button(
                 ids.named_id("ID_SETUP_PANEL_OK"),
-                context.rect(75, 225, 100, 14),
+                context.rect(75, 240, 100, 14),
             ),
         ],
         ..context.default_dialog()
