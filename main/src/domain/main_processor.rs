@@ -646,6 +646,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     /// This should be regularly called by the control surface, even during global target learning.
     pub fn run_essential(&mut self, timestamp: ControlEventTimestamp) {
+        if let Some(p) = self.basics.context.project() {
+            // Prevent possible "Project doesn't exist anymore" errors
+            if !p.is_available() {
+                return;
+            }
+        }
         self.process_normal_tasks_from_real_time_processor();
         self.process_normal_tasks_from_session(timestamp);
         self.process_parameter_tasks();
