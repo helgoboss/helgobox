@@ -278,16 +278,14 @@ mod playtime_impl {
     use reaper_high::OrCurrentProject;
 
     impl Instance {
-        /// Polls the Playtime matrix of this ReaLearn instance, if existing and only if it's an owned one
-        /// (not borrowed from another instance).
+        /// Polls the Playtime matrix of this ReaLearn instance.
         pub fn poll_owned_clip_matrix(
             &mut self,
         ) -> Vec<playtime_clip_engine::base::ClipMatrixEvent> {
             let Some(matrix) = self.playtime.clip_matrix.as_mut() else {
                 return vec![];
             };
-            let project = self.processor_context.project().or_current_project();
-            let events = matrix.poll(project);
+            let events = matrix.poll();
             self.handler
                 .clip_matrix_changed(self.id, matrix, &events, true);
             events
