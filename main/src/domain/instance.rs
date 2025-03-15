@@ -275,7 +275,6 @@ mod playtime_impl {
     };
     use anyhow::Context;
     use base::NamedChannelSender;
-    use reaper_high::OrCurrentProject;
 
     impl Instance {
         /// Polls the Playtime matrix of this ReaLearn instance.
