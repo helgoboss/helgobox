@@ -322,13 +322,16 @@ impl View for SimpleScriptEditorPanel {
         }
     }
 
+    /// REAPER for macOS introduced support for edit_control_changed (EN_CHANGE) notifications around version 6.81/7.0.
+    /// Before that, we could rely on key-up events only (which wouldn't capture pasting text). We leave this here
+    /// as backup for older REAPER versions. We could also do a version check instead, but updating content is not that
+    /// expensive.
     #[cfg(target_os = "macos")]
     fn key_up(self: SharedView<Self>, _key_code: u8) -> bool {
         self.update_content();
         true
     }
 
-    #[cfg(not(target_os = "macos"))]
     fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
         match resource_id {
             root::ID_YAML_EDIT_CONTROL => self.update_content(),
