@@ -164,7 +164,7 @@ Displays the number of milliseconds passed since ReaLearn was loaded:
 
 [source,lua]
 ----
-local millis = context.prop("global.realearn.time")
+local millis = context.prop("global.realearn.time") or 0
 return {
     feedback_event = {
         value = "" .. millis .. "ms"
