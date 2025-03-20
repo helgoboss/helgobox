@@ -63,7 +63,12 @@ impl Window {
     pub fn dark_mode_is_enabled() -> bool {
         #[cfg(target_os = "macos")]
         {
-            Swell::get().SWELL_osx_is_dark_mode(0)
+            let swell = Swell::get();
+            if swell.pointers().SWELL_osx_is_dark_mode.is_some() {
+                swell.SWELL_osx_is_dark_mode(0)
+            } else {
+                false
+            }
         }
         #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
