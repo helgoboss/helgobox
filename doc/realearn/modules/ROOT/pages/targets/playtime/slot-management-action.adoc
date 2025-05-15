@@ -36,3 +36,21 @@ Activate::
 Makes this slot the xref:playtime::further-concepts/matrix.adoc#active-cell[].
 
 include::partial$targets/playtime/slot-menu.adoc[]
+
+
+== Target-specific properties
+
+This target supports the following additional xref:further-concepts/target.adoc#target-property[target properties].
+
+[cols="m,1,3"]
+|===
+|Name|Type|Description
+
+|
+target.clip.name
+|
+String
+|
+Name of the first clip in the slot.
+
+|===
