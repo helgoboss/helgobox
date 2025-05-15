@@ -50,6 +50,8 @@ sudo apt-get install -y libxdo-dev
 ----
 sudo zypper install xdotool
 ----
+* Other dependencies that you might need to install manually, depending on your Linux distribution: `libx11`, `libstdc++`, `libudev`
+* If {plugin-name} isn't available after installation, REAPER failed to scan it. And that is most likely due to a missing dependency. In that case, please link:https://github.com/helgoboss/helgobox/issues/503#issuecomment-1320964181[try this to analyze the issue] and send the result to info@helgoboss.org.
 
 IMPORTANT: If you want to use a _Stream Deck_ controller with ReaLearn on Linux, xref:realearn::sources/stream-deck.adoc#linux[more setup] is necessary.
 
@@ -128,7 +130,7 @@ If not, you probably changed the configuration at some point.
 ** You can fix that by right-clicking {plugin-name} in the plug-in list and select menu:Run as[Native only (prevent bridging)].
 ** It's technically impossible to run Helgobox as a bridged plug-in!
 
-TIP: If none of these suggestions help, please link:https://github.com/helgoboss/helgobox/issues/new/choose[please report a bug]!
+TIP: If none of these suggestions help, link:https://github.com/helgoboss/helgobox/issues/new/choose[please report a bug]!
 
 [[updating-helgobox]]
 == Updating Helgobox
