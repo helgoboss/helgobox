@@ -540,7 +540,7 @@ impl MainMapping {
         context: ExtendedProcessorContext,
         control_context: ControlContext,
     ) {
-        let (targets, is_active) = self.resolve_target(context, control_context);
+        let (targets, is_active) = self.resolve_target(context, control_context, false);
         self.targets = targets;
         self.core.options.target_is_active = is_active;
         self.update_activation_from_params(context.params());
@@ -553,6 +553,7 @@ impl MainMapping {
         &mut self,
         context: ExtendedProcessorContext,
         control_context: ControlContext,
+        is_just_refresh: bool,
     ) -> (Vec<CompoundMappingTarget>, bool) {
         match self.unresolved_target.as_ref() {
             None => (vec![], false),
@@ -562,7 +563,9 @@ impl MainMapping {
                     // Successfully resolved.
                     if let Some(t) = resolved_targets.first() {
                         // We have at least one target, great!
-                        self.core.mode.update_from_target(t, control_context);
+                        self.core
+                            .mode
+                            .update_from_target(t, control_context, is_just_refresh);
                         let met = ut.conditions_are_met(&resolved_targets);
                         (resolved_targets, met)
                     } else {
@@ -627,7 +630,7 @@ impl MainMapping {
             }
         }
         let was_effectively_active_before = self.target_is_effectively_active();
-        let (targets, is_active) = self.resolve_target(context, control_context);
+        let (targets, is_active) = self.resolve_target(context, control_context, true);
         let target_changed = targets != self.targets;
         self.targets = targets;
         self.core.options.target_is_active = is_active;
@@ -916,9 +919,10 @@ impl MainMapping {
             .is_some_and(|t| t.can_be_affected_by_change_events());
 
         let mut fresh_targets = if enforce_target_refresh {
-            let (targets, conditions_are_met) = self.resolve_target(processor_context, context);
+            let (targets, conditions_are_met) =
+                self.resolve_target(processor_context, context, true);
             if !conditions_are_met {
-                // In this case we don't log and don't increase the invocation counter because
+                // In this case, we don't log and don't increase the invocation counter because
                 // the target is inactive - so the complete mapping is also considered inactive.
                 return MappingControlResult::default();
             }
