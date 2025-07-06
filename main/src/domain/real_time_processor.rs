@@ -915,6 +915,7 @@ impl RealTimeProcessor {
             // doesn't. Check again that it's a REAPER target.
             .filter(|m| m.core.options.control_is_enabled && m.has_reaper_target())
         {
+            let matched_already_before = match_outcome.matched();
             let mapping_is_active = m.is_active();
             if !mapping_is_active && !match_inactive {
                 continue;
@@ -927,30 +928,29 @@ impl RealTimeProcessor {
                 continue;
             };
             // It can't be consumed because we checked this before for all mappings.
-            match_outcome = MatchOutcome::Matched;
-            if !mapping_is_active {
-                continue;
+            if mapping_is_active {
+                let args = ProcessRtMappingArgs {
+                    main_task_sender: &self.control_main_task_sender,
+                    rt_feedback_sender: &self.feedback_task_sender,
+                    compartment,
+                    value_event: source_value_event
+                        .with_payload(MidiEvent::new(midi_event.offset(), control_value)),
+                    options: ControlOptions {
+                        enforce_send_feedback_after_control: false,
+                        mode_control_options: Default::default(),
+                        enforce_target_refresh: matched_already_before,
+                        coming_from_real_time: true,
+                    },
+                    caller,
+                    midi_feedback_output: self.settings.midi_destination(),
+                    log_options: LogOptions::from_basic_settings(&self.settings),
+                    instance: &self.instance,
+                    is_rendering,
+                    transformation_container,
+                };
+                process_real_mapping(m, args);
             }
-            let args = ProcessRtMappingArgs {
-                main_task_sender: &self.control_main_task_sender,
-                rt_feedback_sender: &self.feedback_task_sender,
-                compartment,
-                value_event: source_value_event
-                    .with_payload(MidiEvent::new(midi_event.offset(), control_value)),
-                options: ControlOptions {
-                    enforce_send_feedback_after_control: false,
-                    mode_control_options: Default::default(),
-                    enforce_target_refresh: match_outcome.matched(),
-                    coming_from_real_time: true,
-                },
-                caller,
-                midi_feedback_output: self.settings.midi_destination(),
-                log_options: LogOptions::from_basic_settings(&self.settings),
-                instance: &self.instance,
-                is_rendering,
-                transformation_container,
-            };
-            process_real_mapping(m, args);
+            match_outcome = MatchOutcome::Matched;
         }
         match_outcome
     }
