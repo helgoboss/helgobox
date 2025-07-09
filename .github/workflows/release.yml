@@ -11,9 +11,16 @@ jobs:
   build-release-artifacts:
     name: Build artifact
     runs-on: ${{ matrix.os }}
+    outputs:
+      release_artifact_1_src: ${{ steps.output_step.outputs.release_artifact_1_src }}
+      release_artifact_1_dst: ${{ steps.output_step.outputs.release_artifact_1_dst }}
+      release_artifact_2_src: ${{ steps.output_step.outputs.release_artifact_2_src }}
+      release_artifact_2_dst: ${{ steps.output_step.outputs.release_artifact_2_dst }}
+
     strategy:
       matrix:
         include:
+
           - artifact: windows-x86_64
             os: windows-2022
             rust-version: 1.84.0
@@ -23,6 +30,11 @@ jobs:
             profile: release
             features: "playtime,egui,licensing"
             macosx-deployment-target: ""
+            release-artifact-1-src: ./windows-x86_64/helgobox.dll
+            release-artifact-1-dst: helgobox-windows-x86_64.dll
+            release-artifact-2-src: ./windows-x86_64/reaper_helgobox.dll
+            release-artifact-2-dst: reaper_helgobox-windows-x86_64.dll
+
           - artifact: windows-i686
             os: windows-2022
             lib-file-name: helgobox.dll
@@ -30,7 +42,11 @@ jobs:
             target: i686-pc-windows-msvc
             profile: release-llvm-out-of-memory-fix
             features: "egui"
-            macosx-deployment-target: "11.0"
+            release-artifact-1-src: ./windows-i686/helgobox.dll
+            release-artifact-1-dst: helgobox-windows-i686.dll
+            release-artifact-2-src: ./windows-i686/reaper_helgobox.dll
+            release-artifact-2-dst: reaper_helgobox-windows-i686.dll
+
           - artifact: macos-x86_64
             os: macos-13
             lib-file-name: libhelgobox.dylib
@@ -42,6 +58,11 @@ jobs:
             # Writing 10.7 builds, but it won't run, for example, on 10.14 (weird)!
             # https://github.com/helgoboss/helgobox/issues/1384
             macosx-deployment-target: "10.9"
+            release-artifact-1-src: ./macos-x86_64/libhelgobox.dylib
+            release-artifact-1-dst: helgobox-macos-x86_64.vst.dylib
+            release-artifact-2-src: ./macos-x86_64/libreaper_helgobox.dylib
+            release-artifact-2-dst: reaper_helgobox-macos-x86_64.dylib
+
           - artifact: macos-aarch64
             os: macos-14
             lib-file-name: libhelgobox.dylib
@@ -51,6 +72,11 @@ jobs:
             features: "playtime,egui,licensing"
             # First aarch64 macOS version
             macosx-deployment-target: "11.0"
+            release-artifact-1-src: ./macos-aarch64/libhelgobox.dylib
+            release-artifact-1-dst: helgobox-macos-aarch64.vst.dylib
+            release-artifact-2-src: ./macos-aarch64/libreaper_helgobox.dylib
+            release-artifact-2-dst: reaper_helgobox-macos-aarch64.dylib
+
           - artifact: linux-x86_64
             os: ubuntu-22.04
             lib-file-name: libhelgobox.so
@@ -59,6 +85,11 @@ jobs:
             profile: release-strip
             features: "playtime,licensing"
             macosx-deployment-target: ""
+            release-artifact-1-src: ./linux-x86_64/libhelgobox.so
+            release-artifact-1-dst: helgobox-linux-x86_64.so
+            release-artifact-2-src: ./linux-x86_64/libreaper_helgobox.so
+            release-artifact-2-dst: reaper_helgobox-linux-x86_64.so
+
           - artifact: linux-aarch64
             os: ubuntu-22.04-arm
             lib-file-name: libhelgobox.so
@@ -67,9 +98,23 @@ jobs:
             profile: release-strip
             features: "playtime,licensing"
             macosx-deployment-target: ""
+            release-artifact-1-src: ./linux-aarch64/libhelgobox.so
+            release-artifact-1-dst: helgobox-linux-aarch64.so
+            release-artifact-2-src: ./linux-aarch64/libreaper_helgobox.so
+            release-artifact-2-dst: reaper_helgobox-linux-aarch64.so
+
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx-deployment-target }}
+
     steps:
+      # Set output variables (according to matrix)
+      - id: output_step
+        run: |
+          echo "release_artifact_1_src="${{ matrix.release-artifact-1-src }}" >> "$GITHUB_OUTPUT"
+          echo "release_artifact_1_dst="${{ matrix.release-artifact-1-dst }}" >> "$GITHUB_OUTPUT"
+          echo "release_artifact_2_src="${{ matrix.release-artifact-2-src }}" >> "$GITHUB_OUTPUT"
+          echo "release_artifact_2_dst="${{ matrix.release-artifact-2-dst }}" >> "$GITHUB_OUTPUT"
+
       # Prepare (all)
       - name: Checkout
         uses: actions/checkout@v4
@@ -134,172 +179,49 @@ jobs:
           # Upload
           sentry-cli debug-files upload --auth-token $env:SENTRY_AUTH_TOKEN -o $env:SENTRY_ORG -p $env:SENTRY_PROJECT "target/${{ matrix.target }}/${{ matrix.profile }}/helgobox.pdb"
 
-#  create-release:
-#    name: Publish release
-#    needs: build-release-artifacts
-#    runs-on: ubuntu-22.04
-#    steps:
-#      - name: Check if release exists
-#        id: check_release
-#        shell: bash
-#        env:
-#          GITHUB_TOKEN: ${{ github.TOKEN }}
-#        run: |
-#          if gh release view ${{ github.ref_name }} &> /dev/null; then
-#            echo "RELEASE_EXISTS=true" >> "$GITHUB_OUTPUT"
-#          else
-#            echo "RELEASE_EXISTS=false" >> "$GITHUB_OUTPUT"
-#          fi
-#
-#      - name: Create release
-#        if: steps.check_release.outputs.RELEASE_EXISTS != 'true'
-#        shell: bash
-#        env:
-#          GITHUB_TOKEN: ${{ github.TOKEN }}
-#        run: |
-#          gh release create ${{ github.ref_name }} --draft --prerelease --verify-tag
-#
-#      - name: Download artifacts from build job
-#        uses: actions/download-artifact@v4
-#
-#      - name: Upload all assets
-#        shell: bash
-#        env:
-#          GITHUB_TOKEN: ${{ github.TOKEN }}
-#        run: |
-#          gh release upload ${{ github.ref_name }} --clobber ./release-assets/*
+  create-release:
+    name: Publish release
+    needs: build-release-artifacts
+    runs-on: ubuntu-22.04
 
-#  create-release:
-#    name: Publish release
-#    needs: build-release-artifacts
-#    runs-on: ubuntu-22.04
-#    steps:
-#      - name: Get tag name
-#        id: get_tag_name
-#        run: echo ::set-output name=TAG_NAME::${GITHUB_REF/refs\/tags\//}
-#      - name: Create release
-#        id: create_release
-#        uses: actions/create-release@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-#        with:
-#          tag_name: ${{ steps.get_tag_name.outputs.TAG_NAME }}
-#          release_name: ${{ steps.get_tag_name.outputs.TAG_NAME }}
-#          draft: true
-#          prerelease: ${{ contains(github.ref, 'pre') }}
-#      - name: Download artifacts from build job
-#        uses: actions/download-artifact@v4
-#      # Upload Windows x86_64 artifacts
-#      - name: Upload windows-x86_64 release artifact 1
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./windows-x86_64/helgobox.dll
-#          asset_name: helgobox-windows-x86_64.dll
-#          asset_content_type: application/octet-stream
-#      - name: Upload windows-x86_64 release artifact 2
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./windows-x86_64/reaper_helgobox.dll
-#          asset_name: reaper_helgobox-windows-x86_64.dll
-#          asset_content_type: application/octet-stream
-#      # Upload Windows i686 artifacts
-#      - name: Upload windows-i686 release artifact 1
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./windows-i686/helgobox.dll
-#          asset_name: helgobox-windows-i686.dll
-#          asset_content_type: application/octet-stream
-#      - name: Upload windows-i686 release artifact 2
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./windows-i686/reaper_helgobox.dll
-#          asset_name: reaper_helgobox-windows-i686.dll
-#          asset_content_type: application/octet-stream
-#      # Upload macOS x86_64 artifacts
-#      - name: Upload macos-x86_64 release artifact 1
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./macos-x86_64/libhelgobox.dylib
-#          asset_name: helgobox-macos-x86_64.vst.dylib
-#          asset_content_type: application/octet-stream
-#      - name: Upload macos-x86_64 release artifact 2
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./macos-x86_64/libreaper_helgobox.dylib
-#          asset_name: reaper_helgobox-macos-x86_64.dylib
-#          asset_content_type: application/octet-stream
-#      # Upload macOS aarch64 artifacts
-#      - name: Upload macos-aarch64 release artifact 1
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./macos-aarch64/libhelgobox.dylib
-#          asset_name: helgobox-macos-aarch64.vst.dylib
-#          asset_content_type: application/octet-stream
-#      - name: Upload macos-aarch64 release artifact 2
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./macos-aarch64/libreaper_helgobox.dylib
-#          asset_name: reaper_helgobox-macos-aarch64.dylib
-#          asset_content_type: application/octet-stream
-#      # Upload Linux x86_64 artifacts
-#      - name: Upload linux-x86_64 release artifact 1
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./linux-x86_64/libhelgobox.so
-#          asset_name: helgobox-linux-x86_64.so
-#          asset_content_type: application/octet-stream
-#      - name: Upload linux-x86_64 release artifact 2
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./linux-x86_64/libreaper_helgobox.so
-#          asset_name: reaper_helgobox-linux-x86_64.so
-#          asset_content_type: application/octet-stream
-#      # Upload Linux aarch64 artifacts
-#      - name: Upload linux-aarch64 release artifact 1
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./linux-aarch64/libhelgobox.so
-#          asset_name: helgobox-linux-aarch64.so
-#          asset_content_type: application/octet-stream
-#      - name: Upload linux-aarch64 release artifact 2
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./linux-aarch64/libreaper_helgobox.so
-#          asset_name: reaper_helgobox-linux-aarch64.so
-#          asset_content_type: application/octet-stream
+    steps:
+      - name: Check if release exists
+        id: check_release
+        shell: sh
+        env:
+          GITHUB_TOKEN: ${{ github.TOKEN }}
+        run: |
+          if gh release view ${{ github.ref_name }} &> /dev/null; then
+            echo "RELEASE_EXISTS=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "RELEASE_EXISTS=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release
+        if: steps.check_release.outputs.RELEASE_EXISTS != 'true'
+        shell: sh
+        env:
+          GITHUB_TOKEN: ${{ github.TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} --draft --prerelease --verify-tag
+
+      - name: Download artifacts from build job
+        uses: actions/download-artifact@v4
+
+      - name: Upload release artifact 1
+        shell: sh
+        env:
+          GITHUB_TOKEN: ${{ github.TOKEN }}
+          SRC: ${{needs.build-release-artifacts.outputs.release_artifact_1_src}}
+          DST: ${{needs.build-release-artifacts.outputs.release_artifact_1_dst}}
+        run: |
+          gh release upload ${{ github.ref_name }} $SRC --name $DST
+
+      - name: Upload release artifact 2
+        shell: sh
+        env:
+          GITHUB_TOKEN: ${{ github.TOKEN }}
+          SRC: ${{needs.build-release-artifacts.outputs.release_artifact_2_src}}
+          DST: ${{needs.build-release-artifacts.outputs.release_artifact_2_dst}}
+        run: |
+          gh release upload ${{ github.ref_name }} $SRC --name $DST
