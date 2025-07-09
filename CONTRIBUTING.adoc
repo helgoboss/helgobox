@@ -569,10 +569,9 @@ This serves mainly as a checklist for Helgobox's author.
 ** This updates `Cargo.lock` and is important for not having the `-dirty` display in ReaLearn UI.
 . Update the user guide if not done already.
 . Create a version tag via `git tag v2.0.0-pre1`.
-. Push via `git push origin master --tags`.
+. Push via `git push origin v2.0.0-pre.1`.
 . While GitHub Actions executes the release job, take care of the following.
 ** Can only be done by @helgoboss because it needs access to the https://github.com/helgoboss/helgoboss-org[helgoboss.org website repository].
-** If it's a prerelease, make sure we are on a prerelease cycle branch of the website repository.
 ** Add a changelog entry in https://github.com/helgoboss/helgoboss-org/blob/master/src/data/projects/realearn/data.yaml[data.yaml].
 ** In `src/snippets/projects/realearn/repo`, enter `git checkout master` and `git pull` to pull the latest user guide changes.
 ** Push via `git push origin HEAD` and wait until Netlify deployed the page.
