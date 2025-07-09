@@ -8,8 +8,8 @@ runs:
       with:
         components: rustfmt
 
-    #      - name: Rust cache
-    #        uses: swatinem/rust-cache@v2
+    - name: Rust cache
+      uses: swatinem/rust-cache@v2
 
     - name: cargo fmt
       run: cargo fmt --all -- --check

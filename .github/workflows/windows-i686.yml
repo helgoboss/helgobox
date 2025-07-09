@@ -29,15 +29,3 @@ jobs:
           targets: 'i686-pc-windows-msvc'
           # Prevent "LLVM ERROR: out of memory"
           args: '--profile dev-llvm-out-of-memory-fix --target i686-pc-windows-msvc'
-      # Remainder
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.84.0-i686-pc-windows-msvc
-          target: i686-pc-windows-msvc
-          override: true
-      - name: cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --features egui
