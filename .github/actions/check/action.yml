@@ -25,6 +25,6 @@ runs:
 
     - name: cargo clippy
       env:
-        FEATURES: ${{ input.features }}
+        FEATURES: ${{ inputs.features }}
       run: cargo clippy --features $FEATURES -- -D warnings
       shell: sh

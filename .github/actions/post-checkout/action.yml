@@ -15,8 +15,8 @@ runs:
       uses: webfactory/ssh-agent@v0.9.1
       with:
         ssh-private-key: |
-          ${{ input.playtime-engine-deploy-key }}
-          ${{ input.license-processor-deploy-key }}
+          ${{ inputs.playtime-engine-deploy-key }}
+          ${{ inputs.license-processor-deploy-key }}
 
     - name: Update submodules
       run: |

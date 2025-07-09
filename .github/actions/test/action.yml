@@ -23,13 +23,13 @@ runs:
 
     - name: cargo build
       env:
-        FEATURES: ${{ input.features }}
+        FEATURES: ${{ inputs.features }}
       run: cargo build --features $FEATURES
       shell: sh
 
     - name: cargo test
       env:
         RUST_MIN_STACK: 5242880
-        FEATURES: ${{ input.features }}
+        FEATURES: ${{ inputs.features }}
       run: cargo test --features $FEATURES -- --nocapture
       shell: sh
