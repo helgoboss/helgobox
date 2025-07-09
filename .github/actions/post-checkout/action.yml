@@ -12,7 +12,7 @@ runs:
   steps:
     # Checkout with Playtime Engine
     - name: Setup ssh-agent
-      uses: webfactory/ssh-agent@v0.9.1
+      uses: webfactory/ssh-agent@v0.7.0
       with:
         ssh-private-key: |
           ${{ inputs.playtime-engine-deploy-key }}
