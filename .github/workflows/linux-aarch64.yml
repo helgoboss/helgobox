@@ -17,7 +17,9 @@ jobs:
     name: Check
     runs-on: ubuntu-22.04-arm
     steps:
-      - uses: ./.github/actions/checkout
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/post-checkout
       - uses: ./.github/actions/check
         with:
           features: 'playtime'
@@ -26,7 +28,9 @@ jobs:
     name: Test
     runs-on: ubuntu-22.04-arm
     steps:
-      - uses: ./.github/actions/checkout
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/post-checkout
       - uses: ./.github/actions/test
         with:
           features: 'playtime'

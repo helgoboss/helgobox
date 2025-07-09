@@ -1,12 +1,9 @@
-name: Checkout
-description: Checkout code
+name: Post-checkout
+description: Checkout with Playtime Engine
 runs:
   using: "composite"
   steps:
-    # Checkout with Playtime Clip Engine
-    - name: Checkout
-      uses: actions/checkout@v4
-
+    # Checkout with Playtime Engine
     - name: Setup ssh-agent
       uses: webfactory/ssh-agent@v0.9.1
       with:
