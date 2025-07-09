@@ -37,16 +37,14 @@ runs:
 
     - name: cargo build
       env:
-        FEATURES: ${{ inputs.features }}
         ARGS: ${{ inputs.args }}
-      run: cargo build --features $FEATURES $ARGS
+      run: cargo build $ARGS
       shell: sh
 
     - name: cargo test
       if: ${{ inputs.test == 'true' }}
       env:
         RUST_MIN_STACK: 5242880
-        FEATURES: ${{ inputs.features }}
         ARGS: ${{ inputs.args }}
-      run: cargo test --features $FEATURES $ARGS -- --nocapture
+      run: cargo test $ARGS -- --nocapture
       shell: sh

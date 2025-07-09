@@ -1,10 +1,10 @@
 name: Check
 description: Check Rust code via Clippy
 inputs:
-  features:
-    description: 'Cargo features'
-    required: true
-    default: 'default'
+  args:
+    description: 'Cargo arguments'
+    required: false
+    default: ''
 runs:
   using: "composite"
   steps:
@@ -25,6 +25,6 @@ runs:
 
     - name: cargo clippy
       env:
-        FEATURES: ${{ inputs.features }}
-      run: cargo clippy --features $FEATURES -- -D warnings
+        ARGS: ${{ inputs.args }}
+      run: cargo clippy $ARGS -- -D warnings
       shell: sh
