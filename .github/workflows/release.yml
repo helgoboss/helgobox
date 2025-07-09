@@ -30,9 +30,9 @@ jobs:
             target: i686-pc-windows-msvc
             profile: release-llvm-out-of-memory-fix
             features: "egui"
-            macosx-deployment-target: ""
+            macosx-deployment-target: "11.0"
           - artifact: macos-x86_64
-            os: macos-latest
+            os: macos-13
             lib-file-name: libhelgobox.dylib
             extension-file-name: libreaper_helgobox.dylib
             target: x86_64-apple-darwin
@@ -43,7 +43,7 @@ jobs:
             # https://github.com/helgoboss/helgobox/issues/1384
             macosx-deployment-target: "10.9"
           - artifact: macos-aarch64
-            os: macos-latest
+            os: macos-14
             lib-file-name: libhelgobox.dylib
             extension-file-name: libreaper_helgobox.dylib
             target: aarch64-apple-darwin
