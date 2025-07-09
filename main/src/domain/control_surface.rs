@@ -94,6 +94,7 @@ pub trait ControlSurfaceEventHandler: Debug {
     fn process_reaper_change_events(&self, change_events: &[ChangeEvent]);
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     AddInstance(InstanceId, WeakInstance),
     AddMainProcessor(MainProcessor<EH>),

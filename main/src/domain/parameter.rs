@@ -248,7 +248,7 @@ impl CompartmentParams {
     }
 
     /// Returns the name of the parameter including its position.
-    pub fn get_parameter_name(&self, index: CompartmentParamIndex) -> Cow<String> {
+    pub fn get_parameter_name(&self, index: CompartmentParamIndex) -> Cow<str> {
         let setting = &self.at(index).setting;
         if setting.name.is_empty() {
             Cow::Owned(format!("Param {}", index.get() + 1))

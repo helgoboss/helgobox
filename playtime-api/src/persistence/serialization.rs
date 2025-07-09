@@ -22,7 +22,7 @@ use std::fmt::Formatter;
 ///   large undo histories or storage within RPP (in RPPs, we are base64-encoded, so the
 ///   human-readable-text advantage is not present anyway).
 /// - TODO-high-ms3 Especially the last point could be desirable for MIDI sequences as well.
-///    Use serde for them, too!
+///   Use serde for them, too!
 ///
 /// Contra:
 ///

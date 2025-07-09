@@ -67,6 +67,7 @@ impl Display for MidiDeviceInquiryReply {
 // those infrequent tasks accumulate so it's not an issue. Therefore the convention for now is to
 // also send them when audio is not running.
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum NormalAudioHookTask {
     AddRealTimeInstance(InstanceId, SharedRealTimeInstance),
     RemoveRealTimeInstance(InstanceId),

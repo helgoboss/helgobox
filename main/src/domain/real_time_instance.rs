@@ -21,6 +21,7 @@ struct PlaytimeRtInstance {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum RealTimeInstanceTask {
     #[cfg(feature = "playtime")]
     SetClipMatrix {

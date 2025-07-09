@@ -46,8 +46,8 @@ use helgobox_api::runtime::InstanceInfoEvent;
 use itertools::Itertools;
 use reaper_medium::{InputMonitoringMode, RecordingInput};
 use std::error::Error;
-use std::fmt;
 use std::rc::{Rc, Weak};
+use std::{fmt, ptr};
 use tracing::{debug, trace};
 
 pub trait SessionUi {
@@ -2034,7 +2034,7 @@ impl UnitModel {
     }
 
     pub fn has_mapping(&self, mapping: *const MappingModel) -> bool {
-        self.all_mappings().any(|m| m.as_ptr() == mapping as _)
+        self.all_mappings().any(|m| ptr::eq(m.as_ptr(), mapping))
     }
 
     pub fn index_of_mapping(
