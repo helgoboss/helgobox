@@ -1,5 +1,12 @@
 name: Post-checkout
 description: Checkout with Playtime Engine
+inputs:
+  playtime-engine-deploy-key:
+    description: 'Playtime Engine deploy key'
+    required: true
+  license-processor-deploy-key:
+    description: 'License Processor deploy key'
+    required: true
 runs:
   using: "composite"
   steps:
@@ -8,9 +15,10 @@ runs:
       uses: webfactory/ssh-agent@v0.9.1
       with:
         ssh-private-key: |
-          ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}
-          ${{ secrets.PRIVATE_HELGOBOSS_LICENSE_PROCESSOR_DEPLOY_KEY }}
+          ${{ input.playtime-engine-deploy-key }}
+          ${{ input.license-processor-deploy-key }}
 
     - name: Update submodules
       run: |
         git submodule update --init
+      shell: sh
