@@ -110,10 +110,10 @@ jobs:
       # Set output variables (according to matrix)
       - id: output_step
         run: |
-          echo "release_artifact_1_src="${{ matrix.release-artifact-1-src }}" >> "$GITHUB_OUTPUT"
-          echo "release_artifact_1_dst="${{ matrix.release-artifact-1-dst }}" >> "$GITHUB_OUTPUT"
-          echo "release_artifact_2_src="${{ matrix.release-artifact-2-src }}" >> "$GITHUB_OUTPUT"
-          echo "release_artifact_2_dst="${{ matrix.release-artifact-2-dst }}" >> "$GITHUB_OUTPUT"
+          echo "release_artifact_1_src=${{ matrix.release-artifact-1-src }}" >> "$GITHUB_OUTPUT"
+          echo "release_artifact_1_dst=${{ matrix.release-artifact-1-dst }}" >> "$GITHUB_OUTPUT"
+          echo "release_artifact_2_src=${{ matrix.release-artifact-2-src }}" >> "$GITHUB_OUTPUT"
+          echo "release_artifact_2_dst=${{ matrix.release-artifact-2-dst }}" >> "$GITHUB_OUTPUT"
 
       # Prepare (all)
       - name: Checkout
