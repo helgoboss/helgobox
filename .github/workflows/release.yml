@@ -176,18 +176,18 @@ jobs:
       - name: Download artifacts from build job
         uses: actions/download-artifact@v4
 
-      - name: Upload release artifact 1
+      - name: Upload lib file
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.TOKEN }}
         run: |
-          mv "target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib_file_name }}" "${{ lib_file_name_dst }}"
-          gh release upload ${{ github.ref_name }} --clobber "${{ lib_file_name_dst }}"
+          mv "target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib_file_name }}" "${{ matrix.lib_file_name_dst }}"
+          gh release upload ${{ github.ref_name }} --clobber "${{ matrix.lib_file_name_dst }}"
 
-      - name: Upload release artifact 2
+      - name: Upload extension file
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.TOKEN }}
         run: |
-          mv "target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.extension_file_name }}" "${{ extension_file_name_dst }}"
-          gh release upload ${{ github.ref_name }} --clobber "${{ extension_file_name_dst }}"
+          mv "target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.extension_file_name }}" "${{ matrix.extension_file_name_dst }}"
+          gh release upload ${{ github.ref_name }} --clobber "${{ matrix.extension_file_name_dst }}"
