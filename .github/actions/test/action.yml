@@ -5,11 +5,21 @@ inputs:
     description: 'Cargo features'
     required: true
     default: 'default'
+  args:
+    description: 'Cargo arguments'
+    required: false
+    default: ''
+  targets:
+    description: 'Additional Rust targets'
+    required: false
+    default: ''
 runs:
   using: "composite"
   steps:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@1.84.0
+      with:
+        targets: ${{ inputs.targets }}
 
     - name: Set up dependencies
       if: runner.os == 'Linux'
@@ -29,12 +39,14 @@ runs:
     - name: cargo build
       env:
         FEATURES: ${{ inputs.features }}
-      run: cargo build --features $FEATURES
+        ARGS: ${{ inputs.args }}
+      run: cargo build --features $FEATURES $ARGS
       shell: sh
 
     - name: cargo test
       env:
         RUST_MIN_STACK: 5242880
         FEATURES: ${{ inputs.features }}
-      run: cargo test --features $FEATURES -- --nocapture
+        ARGS: ${{ inputs.args }}
+      run: cargo test --features $FEATURES $ARGS -- --nocapture
       shell: sh

@@ -1,0 +1,28 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+  # For quickly detecting important differences in runner configurations
+  schedule:
+    - cron: '0 5 * * MON'
+
+name: Windows x86_64
+
+jobs:
+  test:
+    name: Test
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/post-checkout
+        with:
+          playtime-engine-deploy-key: ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}
+          license-processor-deploy-key: ${{ secrets.PRIVATE_HELGOBOSS_LICENSE_PROCESSOR_DEPLOY_KEY }}
+      - uses: ./.github/actions/test
+        with:
+          features: 'playtime,egui'
