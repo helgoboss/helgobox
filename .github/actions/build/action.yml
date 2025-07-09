@@ -1,10 +1,6 @@
-name: Test
-description: Test Rust code
+name: Build
+description: Build and optionally Rust code
 inputs:
-  features:
-    description: 'Cargo features'
-    required: true
-    default: 'default'
   args:
     description: 'Cargo arguments'
     required: false
@@ -13,6 +9,10 @@ inputs:
     description: 'Additional Rust targets'
     required: false
     default: ''
+  test:
+    description: 'Test?'
+    required: false
+    default: 'true'
 runs:
   using: "composite"
   steps:
@@ -43,6 +43,7 @@ runs:
       shell: sh
 
     - name: cargo test
+      if: ${{ inputs.test == 'true' }}
       env:
         RUST_MIN_STACK: 5242880
         FEATURES: ${{ inputs.features }}

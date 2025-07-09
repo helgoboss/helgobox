@@ -2,6 +2,7 @@ on:
   create:
     ref_type: tag
     ref: 'v*'
+  workflow_dispatch:
 
 name: Create release
 
@@ -132,6 +133,41 @@ jobs:
 
           # Upload
           sentry-cli debug-files upload --auth-token $env:SENTRY_AUTH_TOKEN -o $env:SENTRY_ORG -p $env:SENTRY_PROJECT "target/${{ matrix.target }}/${{ matrix.profile }}/helgobox.pdb"
+
+#  create-release:
+#    name: Publish release
+#    needs: build-release-artifacts
+#    runs-on: ubuntu-22.04
+#    steps:
+#      - name: Check if release exists
+#        id: check_release
+#        shell: bash
+#        env:
+#          GITHUB_TOKEN: ${{ github.TOKEN }}
+#        run: |
+#          if gh release view ${{ github.ref_name }} &> /dev/null; then
+#            echo "RELEASE_EXISTS=true" >> "$GITHUB_OUTPUT"
+#          else
+#            echo "RELEASE_EXISTS=false" >> "$GITHUB_OUTPUT"
+#          fi
+#
+#      - name: Create release
+#        if: steps.check_release.outputs.RELEASE_EXISTS != 'true'
+#        shell: bash
+#        env:
+#          GITHUB_TOKEN: ${{ github.TOKEN }}
+#        run: |
+#          gh release create ${{ github.ref_name }} --draft --prerelease --verify-tag
+#
+#      - name: Download artifacts from build job
+#        uses: actions/download-artifact@v4
+#
+#      - name: Upload all assets
+#        shell: bash
+#        env:
+#          GITHUB_TOKEN: ${{ github.TOKEN }}
+#        run: |
+#          gh release upload ${{ github.ref_name }} --clobber ./release-assets/*
 
 #  create-release:
 #    name: Publish release
