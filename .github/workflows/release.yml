@@ -11,110 +11,83 @@ jobs:
   build-release-artifacts:
     name: Build artifact
     runs-on: ${{ matrix.os }}
-    outputs:
-      release_artifact_1_src: ${{ steps.output_step.outputs.release_artifact_1_src }}
-      release_artifact_1_dst: ${{ steps.output_step.outputs.release_artifact_1_dst }}
-      release_artifact_2_src: ${{ steps.output_step.outputs.release_artifact_2_src }}
-      release_artifact_2_dst: ${{ steps.output_step.outputs.release_artifact_2_dst }}
-
     strategy:
       matrix:
         include:
 
           - artifact: windows-x86_64
             os: windows-2022
-            rust-version: 1.84.0
-            lib-file-name: helgobox.dll
-            extension-file-name: reaper_helgobox.dll
+            lib_file_name: helgobox.dll
+            extension_file_name: reaper_helgobox.dll
             target: x86_64-pc-windows-msvc
             profile: release
             features: "playtime,egui,licensing"
-            macosx-deployment-target: ""
-            release-artifact-1-src: ./windows-x86_64/helgobox.dll
-            release-artifact-1-dst: helgobox-windows-x86_64.dll
-            release-artifact-2-src: ./windows-x86_64/reaper_helgobox.dll
-            release-artifact-2-dst: reaper_helgobox-windows-x86_64.dll
+            macosx_deployment_target: ""
+            lib_file_name_dst: helgobox-windows-x86_64.dll
+            extension_file_name_dst: reaper_helgobox-windows-x86_64.dll
 
           - artifact: windows-i686
             os: windows-2022
-            lib-file-name: helgobox.dll
-            extension-file-name: reaper_helgobox.dll
+            lib_file_name: helgobox.dll
+            extension_file_name: reaper_helgobox.dll
             target: i686-pc-windows-msvc
             profile: release-llvm-out-of-memory-fix
             features: "egui"
-            release-artifact-1-src: ./windows-i686/helgobox.dll
-            release-artifact-1-dst: helgobox-windows-i686.dll
-            release-artifact-2-src: ./windows-i686/reaper_helgobox.dll
-            release-artifact-2-dst: reaper_helgobox-windows-i686.dll
+            lib_file_name_dst: helgobox-windows-i686.dll
+            extension_file_name_dst: reaper_helgobox-windows-i686.dll
 
           - artifact: macos-x86_64
             os: macos-13
-            lib-file-name: libhelgobox.dylib
-            extension-file-name: libreaper_helgobox.dylib
+            lib_file_name: libhelgobox.dylib
+            extension_file_name: libreaper_helgobox.dylib
             target: x86_64-apple-darwin
             profile: release-strip
             features: "playtime,egui,licensing"
             # The minimum version that I tested with is 10.13.
             # Writing 10.7 builds, but it won't run, for example, on 10.14 (weird)!
             # https://github.com/helgoboss/helgobox/issues/1384
-            macosx-deployment-target: "10.9"
-            release-artifact-1-src: ./macos-x86_64/libhelgobox.dylib
-            release-artifact-1-dst: helgobox-macos-x86_64.vst.dylib
-            release-artifact-2-src: ./macos-x86_64/libreaper_helgobox.dylib
-            release-artifact-2-dst: reaper_helgobox-macos-x86_64.dylib
+            macosx_deployment_target: "10.9"
+            lib_file_name_dst: helgobox-macos-x86_64.vst.dylib
+            extension_file_name_dst: reaper_helgobox-macos-x86_64.dylib
 
           - artifact: macos-aarch64
             os: macos-14
-            lib-file-name: libhelgobox.dylib
-            extension-file-name: libreaper_helgobox.dylib
+            lib_file_name: libhelgobox.dylib
+            extension_file_name: libreaper_helgobox.dylib
             target: aarch64-apple-darwin
             profile: release-strip
             features: "playtime,egui,licensing"
             # First aarch64 macOS version
-            macosx-deployment-target: "11.0"
-            release-artifact-1-src: ./macos-aarch64/libhelgobox.dylib
-            release-artifact-1-dst: helgobox-macos-aarch64.vst.dylib
-            release-artifact-2-src: ./macos-aarch64/libreaper_helgobox.dylib
-            release-artifact-2-dst: reaper_helgobox-macos-aarch64.dylib
+            macosx_deployment_target: "11.0"
+            lib_file_name_dst: helgobox-macos-aarch64.vst.dylib
+            extension_file_name_dst: reaper_helgobox-macos-aarch64.dylib
 
           - artifact: linux-x86_64
             os: ubuntu-22.04
-            lib-file-name: libhelgobox.so
-            extension-file-name: libreaper_helgobox.so
+            lib_file_name: libhelgobox.so
+            extension_file_name: libreaper_helgobox.so
             target: x86_64-unknown-linux-gnu
             profile: release-strip
             features: "playtime,licensing"
-            macosx-deployment-target: ""
-            release-artifact-1-src: ./linux-x86_64/libhelgobox.so
-            release-artifact-1-dst: helgobox-linux-x86_64.so
-            release-artifact-2-src: ./linux-x86_64/libreaper_helgobox.so
-            release-artifact-2-dst: reaper_helgobox-linux-x86_64.so
+            macosx_deployment_target: ""
+            lib_file_name_dst: helgobox-linux-x86_64.so
+            extension_file_name_dst: reaper_helgobox-linux-x86_64.so
 
           - artifact: linux-aarch64
             os: ubuntu-22.04-arm
-            lib-file-name: libhelgobox.so
-            extension-file-name: libreaper_helgobox.so
+            lib_file_name: libhelgobox.so
+            extension_file_name: libreaper_helgobox.so
             target: aarch64-unknown-linux-gnu
             profile: release-strip
             features: "playtime,licensing"
-            macosx-deployment-target: ""
-            release-artifact-1-src: ./linux-aarch64/libhelgobox.so
-            release-artifact-1-dst: helgobox-linux-aarch64.so
-            release-artifact-2-src: ./linux-aarch64/libreaper_helgobox.so
-            release-artifact-2-dst: reaper_helgobox-linux-aarch64.so
+            macosx_deployment_target: ""
+            lib_file_name_dst: helgobox-linux-aarch64.so
+            extension_file_name_dst: reaper_helgobox-linux-aarch64.so
 
     env:
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx-deployment-target }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
 
     steps:
-      # Set output variables (according to matrix)
-      - id: output_step
-        run: |
-          echo "release_artifact_1_src=${{ matrix.release-artifact-1-src }}" >> "$GITHUB_OUTPUT"
-          echo "release_artifact_1_dst=${{ matrix.release-artifact-1-dst }}" >> "$GITHUB_OUTPUT"
-          echo "release_artifact_2_src=${{ matrix.release-artifact-2-src }}" >> "$GITHUB_OUTPUT"
-          echo "release_artifact_2_dst=${{ matrix.release-artifact-2-dst }}" >> "$GITHUB_OUTPUT"
-
       # Prepare (all)
       - name: Checkout
         uses: actions/checkout@v4
@@ -159,11 +132,12 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: |
-            target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }}
-            target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.extension-file-name }}
+            target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib_file_name }}
+            target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.extension_file_name }}
             target/${{ matrix.target }}/${{ matrix.profile }}/helgobox.pdb
             target/${{ matrix.target }}/${{ matrix.profile }}/deps/libhelgobox.dylib.dSYM/
             target/${{ matrix.target }}/${{ matrix.profile }}/libhelgobox-debug.so
+
       # Windows x64: Upload PDB to Sentry
       - name: Upload PDB
         if: startsWith(matrix.artifact, 'windows-x86_64')
@@ -179,15 +153,9 @@ jobs:
           # Upload
           sentry-cli debug-files upload --auth-token $env:SENTRY_AUTH_TOKEN -o $env:SENTRY_ORG -p $env:SENTRY_PROJECT "target/${{ matrix.target }}/${{ matrix.profile }}/helgobox.pdb"
 
-  create-release:
-    name: Publish release
-    needs: build-release-artifacts
-    runs-on: ubuntu-22.04
-
-    steps:
       - name: Check if release exists
         id: check_release
-        shell: sh
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ github.TOKEN }}
         run: |
@@ -199,7 +167,7 @@ jobs:
 
       - name: Create release
         if: steps.check_release.outputs.RELEASE_EXISTS != 'true'
-        shell: sh
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ github.TOKEN }}
         run: |
@@ -209,19 +177,17 @@ jobs:
         uses: actions/download-artifact@v4
 
       - name: Upload release artifact 1
-        shell: sh
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ github.TOKEN }}
-          SRC: ${{needs.build-release-artifacts.outputs.release_artifact_1_src}}
-          DST: ${{needs.build-release-artifacts.outputs.release_artifact_1_dst}}
         run: |
-          gh release upload ${{ github.ref_name }} $SRC --name $DST
+          mv "target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib_file_name }}" "${{ lib_file_name_dst }}"
+          gh release upload ${{ github.ref_name }} --clobber "${{ lib_file_name_dst }}"
 
       - name: Upload release artifact 2
-        shell: sh
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ github.TOKEN }}
-          SRC: ${{needs.build-release-artifacts.outputs.release_artifact_2_src}}
-          DST: ${{needs.build-release-artifacts.outputs.release_artifact_2_dst}}
         run: |
-          gh release upload ${{ github.ref_name }} $SRC --name $DST
+          mv "target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.extension_file_name }}" "${{ extension_file_name_dst }}"
+          gh release upload ${{ github.ref_name }} --clobber "${{ extension_file_name_dst }}"
