@@ -58,7 +58,7 @@ jobs:
             # First aarch64 macOS version
             macosx_deployment_target: "11.0"
           - artifact: linux-x86_64
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             toolchain: 1.84.0-x86_64-unknown-linux-gnu
             lib-file-name: libhelgobox.so
             extension-file-name: libreaper_helgobox.so
