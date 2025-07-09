@@ -1,0 +1,19 @@
+name: Checkout
+description: Checkout code
+runs:
+  using: "composite"
+  steps:
+    # Checkout with Playtime Clip Engine
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup ssh-agent
+      uses: webfactory/ssh-agent@v0.9.1
+      with:
+        ssh-private-key: |
+          ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}
+          ${{ secrets.PRIVATE_HELGOBOSS_LICENSE_PROCESSOR_DEPLOY_KEY }}
+
+    - name: Update submodules
+      run: |
+        git submodule update --init
