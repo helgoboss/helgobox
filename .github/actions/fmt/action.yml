@@ -1,0 +1,16 @@
+name: fmt
+description: Format Rust code via rustfmt
+runs:
+  using: "composite"
+  steps:
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@1.84.0
+      with:
+        components: rustfmt
+
+    #      - name: Rust cache
+    #        uses: swatinem/rust-cache@v2
+
+    - name: cargo fmt
+      run: cargo fmt --all -- --check
+      shell: sh

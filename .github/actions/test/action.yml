@@ -21,6 +21,11 @@ runs:
     #      - name: Rust cache
     #        uses: swatinem/rust-cache@v2
 
+    - name: Set up dependencies
+      run: brew install php
+      if: runner.os == 'macOS'
+      shell: sh
+
     - name: cargo build
       env:
         FEATURES: ${{ inputs.features }}
