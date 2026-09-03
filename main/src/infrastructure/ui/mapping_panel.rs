@@ -1515,13 +1515,13 @@ impl MappingPanel {
             |m| m.advanced_settings().cloned(),
             move |m, yaml| {
                 let session = session.upgrade().expect("session gone");
-                let result = session.borrow_mut().change_mapping_with_closure(
+
+                session.borrow_mut().change_mapping_with_closure(
                     m,
                     None,
                     Rc::downgrade(&session),
                     |ctx| ctx.mapping.set_advanced_settings(yaml),
-                );
-                result
+                )
             },
         );
     }

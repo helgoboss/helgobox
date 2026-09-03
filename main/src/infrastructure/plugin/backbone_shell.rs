@@ -1965,7 +1965,8 @@ impl BackboneShell {
         } else {
             // There's no mapping with that source yet. Add it to the previously determined first
             // session.
-            let mapping = {
+
+            {
                 let mut s = unit_model.borrow_mut();
                 let mapping = s.add_default_mapping(
                     compartment,
@@ -1989,8 +1990,7 @@ impl BackboneShell {
                 );
                 drop(m);
                 mapping
-            };
-            mapping
+            }
         };
         if open_mapping {
             unit_model

@@ -746,8 +746,7 @@ impl UnitModel {
         source_value: IncomingCompoundSourceValue,
     ) -> Option<SourceValueVirtualization> {
         let instance_state = self.unit.borrow();
-        let res = self
-            .active_virtual_controller_mappings(&instance_state)
+        self.active_virtual_controller_mappings(&instance_state)
             .find_map(|m| {
                 let m = m.borrow();
                 let control_result = m
@@ -766,14 +765,13 @@ impl UnitModel {
                     learnable: m.target_model.learnable(),
                 };
                 Some(virtualization)
-            });
-        res
+            })
     }
 
     pub fn virtualize_source_model(&self, source_model: &SourceModel) -> Option<SourceModel> {
         let instance_state = self.unit.borrow();
-        let res = self
-            .active_virtual_controller_mappings(&instance_state)
+
+        self.active_virtual_controller_mappings(&instance_state)
             .find_map(|m| {
                 let m = m.borrow();
                 if m.source_model.create_source() == source_model.create_source() {
@@ -786,8 +784,7 @@ impl UnitModel {
                 } else {
                     None
                 }
-            });
-        res
+            })
     }
 
     pub fn stream_deck_device_id(&self) -> Option<StreamDeckDeviceId> {

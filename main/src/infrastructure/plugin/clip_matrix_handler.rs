@@ -158,8 +158,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
             return None;
         }
         let mapping = session.find_mapping_by_qualified_id(learning_mapping_id)?;
-        let target = mapping.borrow().target_model.simple_target();
-        target
+        mapping.borrow().target_model.simple_target()
     }
 
     fn toggle_learn_source_by_target(&self, target: SimpleMappingTarget) {
