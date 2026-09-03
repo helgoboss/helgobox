@@ -238,7 +238,7 @@ impl AppLibrary {
 /// Function that's used from Dart in order to call the host.
 ///
 /// Attention: This is *not* called from the main thread but from some special Flutter UI thread.
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn invoke_host(data: *const u8, length: i32) {
     // Decode payload
     let bytes = unsafe { std::slice::from_raw_parts(data, length as usize) };
@@ -376,7 +376,7 @@ fn prepare_app_start() {
             ("FLUTTER_ENGINE_SWITCH_3", "isolate-snapshot-data=isolate_snapshot_data"),
         ];
         for (key, value) in env_vars {
-            env::set_var(key, value);
+            unsafe { env::set_var(key, value); }
         }
     }
 }

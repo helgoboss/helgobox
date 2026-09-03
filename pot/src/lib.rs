@@ -708,11 +708,10 @@ impl RuntimePotUnit {
             Ok(dest)
         };
         let fx = self.load_preset_at(preset, options, &build_destination)?;
-        if self.name_track_after_preset {
-            if let Some(track) = fx.track() {
+        if self.name_track_after_preset
+            && let Some(track) = fx.track() {
                 track.set_name(preset.name());
             }
-        }
         Ok(())
     }
 
@@ -1949,15 +1948,14 @@ pub fn find_preview_file<'a>(
     reaper_resource_dir: &Utf8Path,
 ) -> Option<Cow<'a, Utf8Path>> {
     // If the preset is an audio file and it exists, return that
-    if let PotPresetKind::FileBased(kind) = &preset.kind {
-        if is_audio_file_extension(&kind.file_ext) {
+    if let PotPresetKind::FileBased(kind) = &preset.kind
+        && is_audio_file_extension(&kind.file_ext) {
             return if kind.path.exists() {
                 Some(kind.path.as_path().into())
             } else {
                 None
             };
         }
-    }
     // If a custom preview file exists, return that
     let hash = preset.common.content_or_id_hash();
     let preview_file_path = get_preview_file_path_from_hash(reaper_resource_dir, hash);

@@ -36,7 +36,7 @@ pub fn convert_plugin_param_index_range_to_iter(
 /// We need this because the `step_trait` is not stabilized yet.
 pub fn convert_compartment_param_index_range_to_iter(
     range: &RangeInclusive<CompartmentParamIndex>,
-) -> impl Iterator<Item = CompartmentParamIndex> {
+) -> impl Iterator<Item = CompartmentParamIndex> + use<> {
     (range.start().get()..=range.end().get()).map(CompartmentParamIndex)
 }
 

@@ -135,17 +135,17 @@ impl Vm {
 
 impl Program {
     pub unsafe fn execute(&self) {
-        root::NSEEL_code_execute(self.0);
+        unsafe { root::NSEEL_code_execute(self.0); }
     }
 }
 
 impl Variable {
     pub unsafe fn get(&self) -> f64 {
-        *self.0
+        unsafe { *self.0 }
     }
 
     pub unsafe fn set(&self, value: f64) {
-        *self.0 = value;
+        unsafe { *self.0 = value; }
     }
 }
 
@@ -161,10 +161,10 @@ impl Drop for Program {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn NSEEL_HOSTSTUB_EnterMutex() {}
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn NSEEL_HOSTSTUB_LeaveMutex() {}
 
 #[cfg(test)]

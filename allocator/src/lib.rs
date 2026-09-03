@@ -299,7 +299,7 @@ unsafe impl<I: AsyncDeallocationIntegration, D: Deallocate> GlobalAlloc
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         #[cfg(debug_assertions)]
         self.check(Some(layout));
-        System.alloc(layout)
+        unsafe { System.alloc(layout) }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {

@@ -688,11 +688,9 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                         .on_hover_text("Play preset preview")
                                         .on_disabled_hover_text("Preset preview not available")
                                         .clicked()
-                                    {
-                                        if let Err(e) = pot_unit.play_preview(preset_id) {
+                                        && let Err(e) = pot_unit.play_preview(preset_id) {
                                             show_error_toast(e.to_string(), &mut toasts);
                                         }
-                                    }
                                 },
                             );
                         })
@@ -1569,11 +1567,10 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                         PresetCacheEntry::Found(d) => shorten_preset_name(d.preset.name()),
                     };
                     let mut button = Button::new(text).small().fill(Color32::TRANSPARENT);
-                    if let PresetCacheEntry::Found(data) = cache_entry {
-                        if data.preview_file.is_some() {
+                    if let PresetCacheEntry::Found(data) = cache_entry
+                        && data.preview_file.is_some() {
                             button = button.shortcut_text("🔊");
-                        }
-                    };
+                        };
                     // Highlight currently selected preset
                     if Some(preset_id) == input.pot_unit.preset_id() {
                         button = button.fill(ui.style().visuals.selection.bg_fill);
@@ -1586,8 +1583,8 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                         // Context menu
                         button = button.context_menu(|ui| {
                             // Open in
-                            if let Some(preview_file) = &data.preview_file {
-                                if ui
+                            if let Some(preview_file) = &data.preview_file
+                                && ui
                                     .button("Pre-play")
                                     .on_hover_text("Opens the preview file in RS5k sampler in a \"playable\" way")
                                     .clicked()
@@ -1616,7 +1613,6 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                     );
                                     ui.close_menu();
                                 }
-                            }
                             // Open plug-in
                             let has_associated_products =
                                 !data.preset.common.product_ids.is_empty();
@@ -1631,8 +1627,8 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                             target_os = "macos"
                             ))]
                             {
-                                if let pot::PotPresetKind::FileBased(k) = &data.preset.kind {
-                                    if ui.button("Show preset in file manager").clicked() {
+                                if let pot::PotPresetKind::FileBased(k) = &data.preset.kind
+                                    && ui.button("Show preset in file manager").clicked() {
                                         if k.path.exists() {
                                             reveal_path(&k.path);
                                         } else {
@@ -1643,13 +1639,11 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                         }
                                         ui.close_menu();
                                     }
-                                }
-                                if let Some(preview_file) = &data.preview_file {
-                                    if ui.button("Show preview in file manager").clicked() {
+                                if let Some(preview_file) = &data.preview_file
+                                    && ui.button("Show preview in file manager").clicked() {
                                         reveal_path(preview_file);
                                         ui.close_menu();
                                     }
-                                }
                             }
                         });
                         // What to do when clicked
@@ -2384,14 +2378,13 @@ fn execute_key_action(
 ) {
     match key_action {
         KeyAction::NavigateWithinPresets(amount) => {
-            if let Some(next_preset_index) = pot_unit.find_next_preset_index(amount) {
-                if let Some(next_preset_id) = pot_unit.find_preset_id_at_index(next_preset_index) {
+            if let Some(next_preset_index) = pot_unit.find_next_preset_index(amount)
+                && let Some(next_preset_id) = pot_unit.find_preset_id_at_index(next_preset_index) {
                     pot_unit.set_preset_id(Some(next_preset_id));
                     if input.auto_preview {
                         let _ = pot_unit.play_preview(next_preset_id);
                     }
                 }
-            }
         }
         KeyAction::LoadPreset => {
             if let Some((_, preset)) = pot_unit.preset_and_id() {
@@ -2780,8 +2773,8 @@ fn add_filter_view_content<I: PotBrowserIntegration>(
                 if let Some(more_info) = filter_item.more_info.as_ref() {
                     resp = resp.on_hover_text(more_info);
                 } else if let Some(parent_kind) = kind.parent() {
-                    if let Some(parent_name) = filter_item.parent_name.as_ref() {
-                        if !parent_name.is_empty() {
+                    if let Some(parent_name) = filter_item.parent_name.as_ref()
+                        && !parent_name.is_empty() {
                             resp = resp.on_hover_ui(|ui| {
                                 let tooltip = match &filter_item.name {
                                     None => {
@@ -2794,7 +2787,6 @@ fn add_filter_view_content<I: PotBrowserIntegration>(
                                 ui.label(tooltip);
                             });
                         }
-                    }
                 }
                 // Context menu
                 if kind.allows_excludes() {

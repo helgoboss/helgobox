@@ -159,11 +159,11 @@ impl EelTransformation {
 }
 
 unsafe extern "C" fn stop(_: *mut c_void, amt: *mut f64) -> f64 {
-    CONTROL_AND_STOP_MAGIC + (*amt).clamp(0.0, 1.0)
+    unsafe { CONTROL_AND_STOP_MAGIC + (*amt).clamp(0.0, 1.0) }
 }
 
 unsafe extern "C" fn realearn_dbg(_: *mut c_void, amt: *mut f64) -> bool {
-    println!("{}", *amt);
+    unsafe { println!("{}", *amt); }
     true
 }
 

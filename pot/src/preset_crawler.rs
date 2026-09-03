@@ -93,11 +93,10 @@ impl PresetCrawlingState {
 
     fn add_preset(&mut self, preset: CrawledPreset, never_stop_crawling: bool) -> NextCrawlStep {
         // Give stop signal if we reached the end of the list or are at its beginning again.
-        if !never_stop_crawling {
-            if let Some(step) = self.make_stop_check(&preset) {
+        if !never_stop_crawling
+            && let Some(step) = self.make_stop_check(&preset) {
                 return step;
             }
-        }
         // Reset "same preset name attempts" logic
         self.same_preset_name_in_a_row_attempts = 0;
         if let Some(last_same_preset_name) = self.same_preset_name_in_a_row.take() {
@@ -156,8 +155,7 @@ impl PresetCrawlingState {
         if let Some((_, reference_preset)) = self
             .crawled_presets
             .get_index(self.same_preset_name_like_beginning_attempts as usize)
-        {
-            if preset.name == reference_preset.name {
+            && preset.name == reference_preset.name {
                 // This preset has the same name as the reference preset, which is one of the
                 // presets crawled right at the beginning.
                 if self.same_preset_name_like_beginning_attempts
@@ -182,7 +180,6 @@ impl PresetCrawlingState {
                     ));
                 }
             }
-        }
         None
     }
 }

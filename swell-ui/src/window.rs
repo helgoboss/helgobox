@@ -265,11 +265,10 @@ impl Window {
                 return false;
             }
             let app = crate::macos::ns_app();
-            if let Some(current_event) = app.current_event() {
-                if let Some(window) = view.window() {
+            if let Some(current_event) = app.current_event()
+                && let Some(window) = view.window() {
                     window.send_event(&current_event);
                 }
-            }
             true
         }
     }

@@ -66,14 +66,13 @@ impl KompleteDatabase {
     /// At the moment, this only affects the product filter. That means it translates any neutral
     /// product filter (representing one of the installed plug-ins) into an NKS bank filter.
     fn translate_neutral_filters_to_nks(&self, mut filters: Filters) -> Filters {
-        if let Some(FilterItemId(Some(fil))) = filters.get_ref(PotFilterKind::Bank) {
-            if let Some(translated_fil) = self.translate_neutral_product_filter_to_nks(fil) {
+        if let Some(FilterItemId(Some(fil))) = filters.get_ref(PotFilterKind::Bank)
+            && let Some(translated_fil) = self.translate_neutral_product_filter_to_nks(fil) {
                 filters.set(
                     PotFilterKind::Bank,
                     Some(FilterItemId(Some(translated_fil))),
                 );
             }
-        }
         filters
     }
 
@@ -93,25 +92,22 @@ impl KompleteDatabase {
     fn translate_nks_filter_items_to_neutral(&self, collections: &mut InnerFilterItemCollections) {
         for (kind, filter_items) in collections.iter_mut() {
             for filter_item in filter_items {
-                if let InnerFilterItem::Unique(it) = filter_item {
-                    if let FilterItemId(Some(Fil::Komplete(id))) = it.id {
-                        if let Some(translated) =
+                if let InnerFilterItem::Unique(it) = filter_item
+                    && let FilterItemId(Some(Fil::Komplete(id))) = it.id
+                        && let Some(translated) =
                             self.translate_nks_filter_item_to_neutral(kind, id)
                         {
                             *filter_item = translated;
                         }
-                    }
-                }
             }
         }
     }
 
     fn translate_neutral_product_filter_to_nks(&self, fil: &Fil) -> Option<Fil> {
-        if let Fil::Product(pid) = fil {
-            if let Some(bank_id) = self.nks_bank_id_by_product_id.get(pid) {
+        if let Fil::Product(pid) = fil
+            && let Some(bank_id) = self.nks_bank_id_by_product_id.get(pid) {
                 return Some(Fil::Komplete(*bank_id));
             }
-        }
         None
     }
 

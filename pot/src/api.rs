@@ -278,11 +278,10 @@ impl Filters {
 
     pub fn clear_excluded_ones(&mut self, exclude_list: &PotFilterExcludes) {
         for kind in PotFilterKind::iter() {
-            if let Some(id) = self.0[kind] {
-                if exclude_list.contains(kind, id) {
+            if let Some(id) = self.0[kind]
+                && exclude_list.contains(kind, id) {
                     self.0[kind] = None;
                 }
-            }
         }
     }
 

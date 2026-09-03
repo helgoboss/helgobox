@@ -168,7 +168,7 @@ impl<S: Subscriber> Subscriber for SpamFilter<S> {
     }
 
     unsafe fn downcast_raw(&self, id: TypeId) -> Option<*const ()> {
-        self.subscriber.downcast_raw(id)
+        unsafe { self.subscriber.downcast_raw(id) }
     }
 }
 

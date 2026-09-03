@@ -2,8 +2,8 @@ use serde_json::Value;
 
 /// https://stackoverflow.com/a/54118457
 pub fn merge(a: &mut Value, b: Value) {
-    if let Value::Object(a) = a {
-        if let Value::Object(b) = b {
+    if let Value::Object(a) = a
+        && let Value::Object(b) = b {
             for (k, v) in b {
                 if v.is_null() {
                     a.remove(&k);
@@ -13,6 +13,5 @@ pub fn merge(a: &mut Value, b: Value) {
             }
             return;
         }
-    }
     *a = b;
 }

@@ -67,11 +67,9 @@ impl ProjectDatabase {
         let iter = self.preset_entries.iter().enumerate().filter(|(id, e)| {
             if let Some(FilterItemId(Some(Fil::Project(id)))) =
                 filter_input.filters.get(PotFilterKind::Project)
-            {
-                if e.project_id != id {
+                && e.project_id != id {
                     return false;
                 }
-            }
             let id = InnerPresetId(*id as _);
             e.track_preset
                 .used_plugins
@@ -315,14 +313,13 @@ fn extract_presets(
                         preset = Some(P::new(track_id));
                     }
                     ["REAPER_PROJECT", "TRACK", "FXCHAIN", _] => {
-                        if let Some(p) = &mut preset {
-                            if let Some(plugin) =
+                        if let Some(p) = &mut preset
+                            && let Some(plugin) =
                                 plugin_db.detect_plugin_from_rxml_line(line.trim())
                             {
                                 p.used_plugins
                                     .insert(plugin.common.core.id, plugin.common.core);
                             }
-                        }
                     }
                     _ => {}
                 }
@@ -353,11 +350,10 @@ fn extract_presets(
                 },
                 ["REAPER_PROJECT", "TRACK", "FXCHAIN"] => match el.name() {
                     "BYPASS" => {
-                        if let Some(p) = &mut preset {
-                            if p.rfx_chain_start.is_none() {
+                        if let Some(p) = &mut preset
+                            && p.rfx_chain_start.is_none() {
                                 p.rfx_chain_start = Some(e.start);
                             }
-                        }
                     }
                     _ => {}
                 },

@@ -522,11 +522,10 @@ fn read_js_desc_from_file(path: &Path) -> Option<String> {
             break;
         }
         let line = buffer.trim();
-        if let Some((left, right)) = line.split_once(':') {
-            if left == "desc" {
+        if let Some((left, right)) = line.split_once(':')
+            && left == "desc" {
                 return Some(right.trim().to_string());
             }
-        }
         buffer.clear();
     }
     None

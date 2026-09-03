@@ -4558,7 +4558,7 @@ impl TargetBasedConditionalActivationProcessor {
         }
     }
 
-    pub fn lead_mappings(&self) -> impl Iterator<Item = MappingId> {
+    pub fn lead_mappings(&self) -> impl Iterator<Item = MappingId> + use<> {
         let lead_mapping_id_set: NonCryptoHashSet<_> = self
             .mapping_relations
             .iter()
