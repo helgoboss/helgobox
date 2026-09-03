@@ -183,10 +183,9 @@ impl MidiScanner {
                         controller_number,
                         control_value,
                     } = msg.to_structured()
+                        && cc_state.matches(channel, controller_number)
                     {
-                        if cc_state.matches(channel, controller_number) {
-                            cc_state.add_value(control_value);
-                        }
+                        cc_state.add_value(control_value);
                     }
                     self.guess_or_not()
                 } else {
@@ -411,8 +410,8 @@ mod tests {
 
     mod source_character_guessing {
         use super::*;
-        use helgoboss_midi::test_util::u7;
         use SourceCharacter::*;
+        use helgoboss_midi::test_util::u7;
 
         #[test]
         fn typical_range() {

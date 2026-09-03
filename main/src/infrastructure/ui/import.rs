@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::Debug;
@@ -12,8 +12,8 @@ use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
 use crate::infrastructure::data::{
-    parse_lua_frontmatter, ActivationConditionData, CompartmentModelData, InstanceData,
-    MappingModelData, ModeModelData, SourceModelData, TargetModelData, UnitData,
+    ActivationConditionData, CompartmentModelData, InstanceData, MappingModelData, ModeModelData,
+    SourceModelData, TargetModelData, UnitData, parse_lua_frontmatter,
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::lua_serializer;
@@ -21,8 +21,8 @@ use crate::infrastructure::ui::util::open_in_browser;
 use base::hash_util::NonCryptoHashSet;
 use helgobox_api::persistence;
 use helgobox_api::persistence::{ApiObject, CommonPresetMetaData, Envelope};
-use mlua::prelude::LuaError;
 use mlua::Value;
+use mlua::prelude::LuaError;
 use playtime_api::persistence::FlexibleMatrix;
 use reaper_high::Reaper;
 use semver::Version;

@@ -1,12 +1,12 @@
 use crate::application::{UnitModel, WeakUnitModel};
 use crate::domain::{
-    compartment_param_index_iter, probe_stream_deck_devices, CompartmentKind,
-    CompartmentParamIndex, CompartmentParams, ControlInput, FeedbackOutput, MappingId,
-    MidiControlInput, MidiDestination, OscDeviceId, ProbedStreamDeckDevice, ReaperTargetType,
-    StreamDeckDeviceId, TargetSection,
+    CompartmentKind, CompartmentParamIndex, CompartmentParams, ControlInput, FeedbackOutput,
+    MappingId, MidiControlInput, MidiDestination, OscDeviceId, ProbedStreamDeckDevice,
+    ReaperTargetType, StreamDeckDeviceId, TargetSection, compartment_param_index_iter,
+    probe_stream_deck_devices,
 };
 use crate::infrastructure::data::{CommonPresetInfo, OscDevice};
-use crate::infrastructure::plugin::{ActionSection, BackboneShell, ACTION_DEFS};
+use crate::infrastructure::plugin::{ACTION_DEFS, ActionSection, BackboneShell};
 use crate::infrastructure::ui::Item;
 use base::hash_util::NonCryptoIndexMap;
 use camino::Utf8Path;
@@ -21,7 +21,7 @@ use std::hash::Hash;
 use std::iter;
 use strum::IntoEnumIterator;
 use swell_ui::menu_tree::{
-    anonymous_menu, item, item_with_opts, menu, separator, Entry, ItemOpts, Menu,
+    Entry, ItemOpts, Menu, anonymous_menu, item, item_with_opts, menu, separator,
 };
 
 pub enum ControlInputMenuAction {

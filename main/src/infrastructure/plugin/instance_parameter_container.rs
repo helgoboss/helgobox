@@ -160,13 +160,13 @@ impl PluginParameters for InstanceParameterContainer {
         // TODO-medium-performance We could optimize by getting the config var only once, saving it in a global
         //  struct and then just dereferencing the var whenever we need it. Justin said that the result of
         //  get_config_var never changes throughout the lifetime of REAPER.
-        if let Ok(pref) = Reaper::get().get_preference_ref::<u8>("__fx_loadstate_ctx") {
-            if *pref == b'U' {
-                // REAPER is loading an updated undo state. We don't want to participate in REAPER's undo because
-                // it often leads to unpleasant surprises. ReaLearn is its own world. And Playtime even has its
-                // own undo system.
-                return;
-            }
+        if let Ok(pref) = Reaper::get().get_preference_ref::<u8>("__fx_loadstate_ctx")
+            && *pref == b'U'
+        {
+            // REAPER is loading an updated undo state. We don't want to participate in REAPER's undo because
+            // it often leads to unpleasant surprises. ReaLearn is its own world. And Playtime even has its
+            // own undo system.
+            return;
         }
         if data == NOT_READY_YET.as_bytes() {
             if let Some(lazy_data) = self.lazy_data.get() {

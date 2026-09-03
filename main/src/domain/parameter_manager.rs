@@ -2,7 +2,7 @@ use crate::domain::{
     CompartmentKind, CompartmentParamIndex, CompartmentParams, ControlEventTimestamp, ParamSetting,
     ParameterMainTask, PluginParamIndex, PluginParams, RawParamValue,
 };
-use base::{blocking_read_lock, blocking_write_lock, NamedChannelSender, SenderToNormalThread};
+use base::{NamedChannelSender, SenderToNormalThread, blocking_read_lock, blocking_write_lock};
 use reaper_high::Reaper;
 use reaper_medium::ProjectRef;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};

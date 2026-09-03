@@ -1,8 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, global_automation_mode_override_unit_value, CompartmentKind,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    format_value_as_on_off, global_automation_mode_override_unit_value,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Reaper};

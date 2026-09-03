@@ -270,10 +270,10 @@ impl RealTimeProcessor {
                             (false, false)
                         };
                     // Send lifecycle MIDI
-                    if self.processor_feedback_is_effectively_on() {
-                        if let Some(m) = self.mappings[id.compartment].get(&id.id) {
-                            self.send_lifecycle_midi_diff(m, was_on_before, is_on_now);
-                        }
+                    if self.processor_feedback_is_effectively_on()
+                        && let Some(m) = self.mappings[id.compartment].get(&id.id)
+                    {
+                        self.send_lifecycle_midi_diff(m, was_on_before, is_on_now);
                     }
                 }
                 UpdateTargetsPartially(compartment, mut target_updates) => {
@@ -286,15 +286,14 @@ impl RealTimeProcessor {
                     // Handle lifecycle MIDI
                     if self.processor_feedback_is_effectively_on() {
                         for update in target_updates.iter() {
-                            if let Some(activation_change) = update.activation_change {
-                                if let Some(m) = self.mappings[compartment].get(&update.id) {
-                                    if m.feedback_is_effectively_on_ignoring_target_activation() {
-                                        self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                                            m,
-                                            activation_change.is_active.into(),
-                                        );
-                                    }
-                                }
+                            if let Some(activation_change) = update.activation_change
+                                && let Some(m) = self.mappings[compartment].get(&update.id)
+                                && m.feedback_is_effectively_on_ignoring_target_activation()
+                            {
+                                self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
+                                    m,
+                                    activation_change.is_active.into(),
+                                );
                             }
                         }
                     }
@@ -367,15 +366,14 @@ impl RealTimeProcessor {
                     // Handle lifecycle MIDI
                     if self.processor_feedback_is_effectively_on() {
                         for update in mapping_updates.iter() {
-                            if let Some(m) = self.mappings[compartment].get(&update.id) {
-                                if let Some(activation_change) = update.activation_change {
-                                    if m.feedback_is_effectively_on_ignoring_mapping_activation() {
-                                        self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                                            m,
-                                            activation_change.is_active.into(),
-                                        );
-                                    }
-                                }
+                            if let Some(m) = self.mappings[compartment].get(&update.id)
+                                && let Some(activation_change) = update.activation_change
+                                && m.feedback_is_effectively_on_ignoring_mapping_activation()
+                            {
+                                self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
+                                    m,
+                                    activation_change.is_active.into(),
+                                );
                             }
                         }
                     }

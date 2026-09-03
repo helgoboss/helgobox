@@ -135,7 +135,9 @@ impl Vm {
 
 impl Program {
     pub unsafe fn execute(&self) {
-        unsafe { root::NSEEL_code_execute(self.0); }
+        unsafe {
+            root::NSEEL_code_execute(self.0);
+        }
     }
 }
 
@@ -145,7 +147,9 @@ impl Variable {
     }
 
     pub unsafe fn set(&self, value: f64) {
-        unsafe { *self.0 = value; }
+        unsafe {
+            *self.0 = value;
+        }
     }
 }
 

@@ -1,8 +1,8 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    convert_count_to_step_size, CompartmentKind, ControlContext, ExtendedProcessorContext,
-    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, convert_count_to_step_size,
 };
 use base::enigo::EnigoMouse;
 use base::{Mouse, MouseCursorPosition};
@@ -49,7 +49,7 @@ pub struct MouseTarget<M> {
     Eq,
     PartialEq,
     Debug,
-Default,
+    Default,
     derive_more::Display,
     EnumIter,
     num_enum::TryFromPrimitive,

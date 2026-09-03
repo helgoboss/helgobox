@@ -1,8 +1,8 @@
 use crate::domain::{ControlContext, PluginParams};
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use derivative::Derivative;
 use reaper_high::{Fx, FxChainContext, Project, Reaper, Track};
-use reaper_low::{static_plugin_context, PluginContext};
+use reaper_low::{PluginContext, static_plugin_context};
 use reaper_medium::{MainThreadScope, ParamId, TrackFxLocation, TypeSpecificPluginContext};
 use std::ptr::NonNull;
 use vst::host::Host;

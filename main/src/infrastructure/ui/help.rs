@@ -1,6 +1,6 @@
 use derive_more::Display;
 use helgoboss_learn::ModeParameter;
-use include_dir::{include_dir, Dir};
+use include_dir::{Dir, include_dir};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Display)]
 pub enum HelpTopic {

@@ -1,6 +1,6 @@
 use crate::SwellRgbColorExt;
 use reaper_common_types::RgbColor;
-use reaper_low::{raw, Swell};
+use reaper_low::{Swell, raw};
 use reaper_medium::Hdc;
 
 /// Represents a device context (HDC).

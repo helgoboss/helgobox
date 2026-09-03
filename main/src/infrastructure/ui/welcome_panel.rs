@@ -1,7 +1,7 @@
 use crate::base::notification::notify_user_on_anyhow_error;
 use crate::infrastructure::plugin::dynamic_toolbar::custom_toolbar_api_is_available;
 use crate::infrastructure::plugin::{
-    BackboneShell, ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME, ACTION_SHOW_WELCOME_SCREEN_LABEL,
+    ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME, ACTION_SHOW_WELCOME_SCREEN_LABEL, BackboneShell,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{fonts, symbols};
@@ -63,11 +63,13 @@ impl WelcomePanel {
         let show_errors_in_console = BackboneShell::get().config().show_errors_in_console();
         let notify_about_updates = BackboneShell::get().config().notify_about_updates();
         let comment = match (send_errors_to_dev, show_errors_in_console) {
-            (false, false) => {
-                Some("Please consider checking at least one of the error checkboxes, as it helps to improve Helgobox!")
-            }
+            (false, false) => Some(
+                "Please consider checking at least one of the error checkboxes, as it helps to improve Helgobox!",
+            ),
             (false, true) => None,
-            (true, _) => Some("Errors are sent anonymously. Please see our privacy statement for details."),
+            (true, _) => {
+                Some("Errors are sent anonymously. Please see our privacy statement for details.")
+            }
         };
         self.view
             .require_control(root::ID_SETUP_SEND_ERRORS_TO_DEV)

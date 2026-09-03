@@ -14,7 +14,7 @@ use crate::domain::{
     TrackDescriptor, UnitId, VirtualMappingSnapshotIdForLoad, WeakInstance,
 };
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
-use base::{serde_json_util, NamedChannelSender, SenderToNormalThread};
+use base::{NamedChannelSender, SenderToNormalThread, serde_json_util};
 use playtime_api::persistence::SlotAddress;
 
 pub type SharedUnit = Rc<RefCell<Unit>>;

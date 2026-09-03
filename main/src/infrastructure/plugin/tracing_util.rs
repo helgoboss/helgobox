@@ -6,7 +6,7 @@ use std::{mem, thread};
 
 use reaper_high::Reaper;
 use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::{registry, EnvFilter};
+use tracing_subscriber::{EnvFilter, registry};
 
 use crate::infrastructure::plugin::tracing_spam_filter::SpamFilter;
 

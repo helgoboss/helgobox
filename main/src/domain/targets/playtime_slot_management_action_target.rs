@@ -1,6 +1,6 @@
 use crate::domain::{
-    CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
+    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetSection,
+    TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot,
 };
 
 use helgobox_api::persistence::PlaytimeSlotManagementAction;

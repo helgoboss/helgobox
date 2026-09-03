@@ -1,9 +1,9 @@
 use crate::application::{
-    merge_affected, ActivationConditionCommand, ActivationConditionModel, ActivationConditionProp,
-    Affected, Change, ChangeResult, GetProcessingRelevance, MakeFxNonStickyMode,
-    MakeTrackNonStickyMode, MappingExtensionModel, ModeCommand, ModeModel, ModeProp,
-    ProcessingRelevance, SourceCommand, SourceModel, SourceProp, TargetCategory, TargetCommand,
-    TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
+    ActivationConditionCommand, ActivationConditionModel, ActivationConditionProp, Affected,
+    Change, ChangeResult, GetProcessingRelevance, MakeFxNonStickyMode, MakeTrackNonStickyMode,
+    MappingExtensionModel, ModeCommand, ModeModel, ModeProp, ProcessingRelevance, SourceCommand,
+    SourceModel, SourceProp, TargetCategory, TargetCommand, TargetModel,
+    TargetModelFormatVeryShort, TargetModelWithContext, TargetProp, merge_affected,
 };
 use crate::domain::{
     ActivationCondition, CompartmentKind, CompoundMappingSource, CompoundMappingTarget,

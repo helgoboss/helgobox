@@ -565,10 +565,10 @@ impl MappingHeaderPanel {
     }
 
     fn with_item_if_set(&self, f: impl FnOnce(&Self, &dyn Item)) {
-        if let Some(weak_item) = self.item.borrow().as_ref() {
-            if let Some(item) = weak_item.upgrade() {
-                f(self, &*item.borrow());
-            }
+        if let Some(weak_item) = self.item.borrow().as_ref()
+            && let Some(item) = weak_item.upgrade()
+        {
+            f(self, &*item.borrow());
         }
     }
 

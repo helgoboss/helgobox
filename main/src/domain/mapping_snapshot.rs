@@ -1,6 +1,6 @@
 use crate::domain::{MappingId, Tag, TagScope, VirtualMappingSnapshotIdForLoad};
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
-use base::{convert_to_identifier, SmallAsciiString};
+use base::{SmallAsciiString, convert_to_identifier};
 use helgoboss_learn::AbsoluteValue;
 use std::str::FromStr;
 

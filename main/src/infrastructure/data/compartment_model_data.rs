@@ -8,7 +8,7 @@ use crate::infrastructure::data::{
 };
 use base::default_util::{deserialize_null_default, is_default};
 use base::hash_util::NonCryptoHashMap;
-use base::validation_util::{ensure_no_duplicate, ValidationError};
+use base::validation_util::{ValidationError, ensure_no_duplicate};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 

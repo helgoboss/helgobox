@@ -1,10 +1,10 @@
 use crate::domain::{
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
     format_step_size_as_playback_speed_factor_without_unit,
     format_value_as_playback_speed_factor_without_unit, parse_step_size_from_playback_speed_factor,
     parse_value_from_playback_speed_factor, playback_speed_factor_span, playrate_unit_value,
-    CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, PlayRate, Project};

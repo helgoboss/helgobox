@@ -1,5 +1,5 @@
 use serde::ser::Impossible;
-use serde::{ser, Serialize};
+use serde::{Serialize, ser};
 use std::fmt::{Display, Formatter};
 
 pub type Result<T> = std::result::Result<T, Error>;

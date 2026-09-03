@@ -1,8 +1,8 @@
 use crate::domain::{
-    format_value_as_pan, get_track_routes, pan_unit_value, parse_value_from_pan, CompartmentKind,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
+    format_value_as_pan, get_track_routes, pan_unit_value, parse_value_from_pan,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Pan, Project, ReaperError, Track, TrackRoute};

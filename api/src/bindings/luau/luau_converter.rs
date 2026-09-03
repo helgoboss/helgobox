@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use darling::FromMeta;
 use std::fmt::{Display, Formatter, Write};
 
@@ -375,7 +375,9 @@ impl<'a, H: Hook> Display for LuauStruct<'a, H> {
                 } else {
                     let fields_equal = fields.unnamed.iter().all(|f| f == field);
                     if !fields_equal {
-                        panic!("tuple structs where fields have different types are not supported: {ident}");
+                        panic!(
+                            "tuple structs where fields have different types are not supported: {ident}"
+                        );
                     }
                     writeln!(f, "export type {ident}{generics} = {{ {ty} }};")?;
                 }
@@ -790,7 +792,9 @@ impl<'a, H: Hook> Display for LuauVariant<'a, H> {
                                         referenced_item.get_ident().unwrap(),
                                         Case::UpperCamelCase,
                                     );
-                                    panic!("Enum {luau_ident} referenced by {enum_ident}::{upper_ident} doesn't contain named fields. This is not supported at the moment.");
+                                    panic!(
+                                        "Enum {luau_ident} referenced by {enum_ident}::{upper_ident} doesn't contain named fields. This is not supported at the moment."
+                                    );
                                 };
                                 if i > 0 {
                                     f.write_str(" | ")?;

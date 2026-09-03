@@ -1,5 +1,5 @@
-use crate::infrastructure::api::convert::defaults;
 use crate::infrastructure::api::convert::ConversionResult;
+use crate::infrastructure::api::convert::defaults;
 use crate::infrastructure::data::ModeModelData;
 use helgoboss_learn::{DiscreteIncrement, SoftSymmetricUnitValue, UnitValue};
 use helgobox_api::persistence::*;
@@ -31,8 +31,8 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         transformation: String,
     }
     let fb_data = {
-        use helgoboss_learn::FeedbackType as T;
         use Feedback::*;
+        use helgoboss_learn::FeedbackType as T;
         fn convert_fb_commons(commons: FeedbackCommons) -> FbCommonsData {
             FbCommonsData {
                 color: commons.color.map(convert_virtual_color),
@@ -91,8 +91,8 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
     };
     let data = ModeModelData {
         r#type: {
-            use helgoboss_learn::AbsoluteMode as T;
             use AbsoluteMode::*;
+            use helgoboss_learn::AbsoluteMode as T;
             match g.absolute_mode.unwrap_or_default() {
                 Normal => T::Normal,
                 IncrementalButton => T::IncrementalButton,
@@ -127,8 +127,8 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         feedback_background_color: fb_data.commons.background_color,
         ignore_out_of_range_source_values_is_enabled: false,
         out_of_range_behavior: {
-            use helgoboss_learn::OutOfRangeBehavior as T;
             use OutOfRangeBehavior::*;
+            use helgoboss_learn::OutOfRangeBehavior as T;
             match g.out_of_range_behavior.unwrap_or_default() {
                 MinOrMax => T::MinOrMax,
                 Min => T::Min,
@@ -136,8 +136,8 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
             }
         },
         fire_mode: {
-            use helgoboss_learn::FireMode as T;
             use FireMode::*;
+            use helgoboss_learn::FireMode as T;
             match &fire_mode {
                 Normal(_) => T::Normal,
                 AfterTimeout(_) => T::AfterTimeout,
@@ -151,8 +151,8 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
             .unwrap_or(defaults::GLUE_ROUND_TARGET_VALUE),
         scale_mode_enabled: false,
         takeover_mode: {
-            use helgoboss_learn::TakeoverMode as T;
             use TakeoverMode::*;
+            use helgoboss_learn::TakeoverMode as T;
             match g.takeover_mode.unwrap_or_default() {
                 Off => T::Off,
                 PickUpTolerant => T::PickupTolerant,
@@ -250,8 +250,8 @@ fn convert_unit_value_interval(
 }
 
 fn convert_virtual_color(color: VirtualColor) -> helgoboss_learn::VirtualColor {
-    use helgoboss_learn::VirtualColor as T;
     use VirtualColor::*;
+    use helgoboss_learn::VirtualColor as T;
     match color {
         Rgb(c) => T::Rgb(convert_rgb_color(c)),
         Prop(c) => T::Prop { prop: c.prop },

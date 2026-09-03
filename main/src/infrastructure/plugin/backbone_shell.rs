@@ -6,8 +6,8 @@ use crate::base::notification;
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, Backbone, ChangeInstanceFxArgs,
     ChangeInstanceTrackArgs, CompartmentKind, ControlSurfaceEventHandler, DeviceDiff,
-    EnableInstancesArgs, EnableUnitsArgs, Exclusivity, FeedbackAudioHookTask, GroupId,
-    HelgoboxWindowSnitch, InputDescriptor, InstanceFxChangeRequest, InstanceId,
+    EnableInstancesArgs, EnableUnitsArgs, Exclusivity, FeedbackAudioHookTask, GLOBAL_AUDIO_STATE,
+    GroupId, HelgoboxWindowSnitch, InputDescriptor, InstanceFxChangeRequest, InstanceId,
     InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent,
     MessageCaptureResult, MidiScanResult, ModifyUnitContainerCommonArgs, NormalAudioHookTask,
     OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, OscScanResult, ProcessorContext,
@@ -15,7 +15,7 @@ use crate::domain::{
     RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware, RealearnTarget,
     RealearnTargetState, ReaperTarget, ReaperTargetType, RequestMidiDeviceIdentityCommand,
     RequestMidiDeviceIdentityReply, SharedInstance, SharedMainProcessors, SharedRealTimeProcessor,
-    Tag, UnitContainer, UnitId, UnitOrchestrationEvent, WeakInstance, WeakUnit, GLOBAL_AUDIO_STATE,
+    Tag, UnitContainer, UnitId, UnitOrchestrationEvent, WeakInstance, WeakUnit,
 };
 use crate::infrastructure::data::{
     CommonCompartmentPresetManager, CompartmentPresetManagerEventHandler, ControllerManager,
@@ -26,43 +26,43 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::server;
 use crate::infrastructure::server::{
-    MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
+    COMPANION_WEB_APP_URL, MetricsReporter, RealearnServer, SharedRealearnServer,
 };
 use crate::infrastructure::ui::{
-    app_window_is_in_text_entry_mode, is_app_window, menus, MessagePanel,
+    MessagePanel, app_window_is_in_text_entry_mode, is_app_window, menus,
 };
 use base::default_util::is_default;
 use base::{
-    make_available_globally_in_main_thread_on_demand, spawn_in_main_thread, Global,
-    NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
+    Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
+    make_available_globally_in_main_thread_on_demand, spawn_in_main_thread,
 };
 
-use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
+use crate::base::allocator::{GLOBAL_ALLOCATOR, RealearnAllocatorIntegration, RealearnDeallocator};
 use crate::base::notification::notify_user_about_anyhow_error;
 use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::dynamic_toolbar::{
-    add_or_remove_toolbar_button, custom_toolbar_api_is_available, ToolbarChangeDetector,
+    ToolbarChangeDetector, add_or_remove_toolbar_button, custom_toolbar_api_is_available,
 };
 use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
 use crate::infrastructure::plugin::hidden_helper_panel::HiddenHelperPanel;
 use crate::infrastructure::plugin::remote_config::HelgoboxRemoteConfig;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::plugin::{
-    built_info, controller_detection, sentry, update_auto_units_async, SharedInstanceShell,
-    WeakInstanceShell,
+    SharedInstanceShell, WeakInstanceShell, built_info, controller_detection, sentry,
+    update_auto_units_async,
 };
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::open_child_panel;
 use crate::infrastructure::ui::welcome_panel::WelcomePanel;
-use anyhow::{anyhow, bail, Context};
+use anyhow::{Context, anyhow, bail};
 use base::future_util::millis;
 use base::hash_util::NonCryptoHashSet;
 use base::metrics_util::MetricsHook;
 use camino::{Utf8Path, Utf8PathBuf};
-use helgobox_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
+use helgobox_allocator::{AsyncDeallocatorCommandReceiver, start_async_deallocation_thread};
 use helgobox_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, InstanceTagKind, TargetTouchCause, TrackDescriptor,
     TrackFxChain, VirtualControlElementCharacter,
@@ -72,7 +72,7 @@ use once_cell::sync::Lazy;
 use reaper_high::{
     ChangeEvent, Fx, Guid, MiddlewareControlSurface, PluginInfo, Project, Reaper, Track,
 };
-use reaper_low::{raw, register_plugin_destroy_hook, PluginContext, PluginDestroyHook, Swell};
+use reaper_low::{PluginContext, PluginDestroyHook, Swell, raw, register_plugin_destroy_hook};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
     AccelMsg, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
@@ -544,11 +544,11 @@ impl BackboneShell {
         println!("Disposing BackboneShell...");
         // Shutdown async runtime
         tracing::info!("Shutting down async runtime...");
-        if let Ok(mut async_runtime) = self.async_runtime.try_borrow_mut() {
-            if let Some(async_runtime) = async_runtime.take() {
-                // 1 second timeout caused a freeze sometimes (Windows)
-                async_runtime.shutdown_background();
-            }
+        if let Ok(mut async_runtime) = self.async_runtime.try_borrow_mut()
+            && let Some(async_runtime) = async_runtime.take()
+        {
+            // 1 second timeout caused a freeze sometimes (Windows)
+            async_runtime.shutdown_background();
         }
         tracing::info!("Async runtime shut down successfully");
         let _ = Reaper::get().go_to_sleep();
@@ -596,17 +596,17 @@ impl BackboneShell {
     }
 
     pub fn warn_if_envelope_version_higher(envelope_version: Option<&Version>) {
-        if let Some(v) = envelope_version {
-            if Self::version() < v {
-                notification::warn(format!(
-                    "The given snippet was created for ReaLearn {}, which is \
+        if let Some(v) = envelope_version
+            && Self::version() < v
+        {
+            notification::warn(format!(
+                "The given snippet was created for ReaLearn {}, which is \
                          newer than the installed version {}. Things might not work as expected. \
                          Please consider upgrading your \
                          ReaLearn installation to the latest version.",
-                    v,
-                    BackboneShell::version()
-                ));
-            }
+                v,
+                BackboneShell::version()
+            ));
         }
     }
 
@@ -1827,14 +1827,13 @@ impl BackboneShell {
             };
             if let Some(outcome) =
                 self.find_first_relevant_session_with_source_matching(compartment, &r)
+                && outcome.source_is_learnable
             {
-                if outcome.source_is_learnable {
-                    self.close_message_panel();
-                    outcome
-                        .unit_model
-                        .borrow()
-                        .show_mapping(compartment, outcome.mapping.borrow().id());
-                }
+                self.close_message_panel();
+                outcome
+                    .unit_model
+                    .borrow()
+                    .show_mapping(compartment, outcome.mapping.borrow().id());
             }
         }
         Ok(())
@@ -1928,11 +1927,11 @@ impl BackboneShell {
                 let virtualization = unit_model
                     .borrow()
                     .virtualize_source_value(capture_result.message());
-                if let Some(v) = virtualization {
-                    if !v.learnable {
-                        // Ignore because this source is not learnable in that unit model.
-                        continue;
-                    }
+                if let Some(v) = virtualization
+                    && !v.learnable
+                {
+                    // Ignore because this source is not learnable in that unit model.
+                    continue;
                 }
                 // We will have to create a new mapping.
                 break (unit_model, None, capture_result);
@@ -2580,11 +2579,12 @@ impl HwndInfo for BackboneShell {
         // Special handling for SPACE key: Always let it process by Helgobox App even if defined as Global.
         // Without that, users who defined SPACE as global hotkey wouldn't be able to enjoy the special SPACE key
         // behavior in Playtime (playing Playtime only without REAPER when App window is focused).
-        if let Some(msg) = msg {
-            if msg.key().get() as u32 == raw::VK_SPACE && is_app_window(hwnd) {
-                debug!("Pressed global space in app window");
-                return PASS_TO_WINDOW;
-            }
+        if let Some(msg) = msg
+            && msg.key().get() as u32 == raw::VK_SPACE
+            && is_app_window(hwnd)
+        {
+            debug!("Pressed global space in app window");
+            return PASS_TO_WINDOW;
         }
         // Continue if no special SPACE handling invoked
         match info_type {
@@ -2593,12 +2593,11 @@ impl HwndInfo for BackboneShell {
                 // Check if egui App window is in text entry mode.
                 if let Some(realearn_view) =
                     BackboneHelgoboxWindowSnitch.find_closest_realearn_view(window)
+                    && realearn_view.wants_raw_keyboard_input()
                 {
-                    if realearn_view.wants_raw_keyboard_input() {
-                        // We are in an egui app. Let's just always assume it's in text entry mode. In practice,
-                        // this is mostly the case. https://github.com/helgoboss/helgobox/issues/1288
-                        return PASS_TO_WINDOW;
-                    }
+                    // We are in an egui app. Let's just always assume it's in text entry mode. In practice,
+                    // this is mostly the case. https://github.com/helgoboss/helgobox/issues/1288
+                    return PASS_TO_WINDOW;
                 }
                 // Check if Helgobox App window is in text entry mode.
                 // This one is only necessary on Windows, see https://github.com/helgoboss/helgobox/issues/1083.
@@ -3077,11 +3076,11 @@ fn decompress_app() -> anyhow::Result<()> {
         .duration_since(std::time::SystemTime::UNIX_EPOCH)?;
     let archive_id = format!("{archive_size},{}", archive_modified.as_millis());
     let archive_id_file = destination_dir.join("ARCHIVE");
-    if let Ok(unpacked_archive_id) = fs::read_to_string(&archive_id_file) {
-        if archive_id == unpacked_archive_id {
-            tracing::info!("App is already decompressed.");
-            return Ok(());
-        }
+    if let Ok(unpacked_archive_id) = fs::read_to_string(&archive_id_file)
+        && archive_id == unpacked_archive_id
+    {
+        tracing::info!("App is already decompressed.");
+        return Ok(());
     }
     // Decompress
     tracing::info!("Decompressing app...");
@@ -3148,8 +3147,8 @@ mod playtime_impl {
     use crate::domain::err_if_reaper_version_too_low_for_playtime;
     use crate::infrastructure::data::LicenseManager;
     use crate::infrastructure::plugin::{BackboneShell, NewInstanceOutcome};
-    use crate::infrastructure::ui::util::open_in_browser;
     use crate::infrastructure::ui::AppPage;
+    use crate::infrastructure::ui::util::open_in_browser;
     use anyhow::Context;
     use base::future_util::millis;
     use base::metrics_util::{record_duration, record_occurrence};
@@ -3381,10 +3380,10 @@ async fn fetch_remote_config(also_init_sentry: bool) {
 
 async fn fetch_remote_config_internal(also_init_sentry: bool) -> anyhow::Result<()> {
     let remote_config = HelgoboxRemoteConfig::fetch().await?;
-    if also_init_sentry {
-        if let Err(e) = sentry::init_sentry(&create_plugin_info(), &remote_config.sentry) {
-            tracing::warn!(msg = "Couldn't init Sentry", ?e)
-        }
+    if also_init_sentry
+        && let Err(e) = sentry::init_sentry(&create_plugin_info(), &remote_config.sentry)
+    {
+        tracing::warn!(msg = "Couldn't init Sentry", ?e)
     }
     let _ = HELGOBOX_REMOTE_CONFIG.set(remote_config);
     Ok(())

@@ -26,10 +26,9 @@ use helgobox_api::persistence::{ActionScope, SeekBehavior, TrackScope};
 
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    get_reaper_track_area_of_scope, handle_exclusivity, ActionTarget, AdditionalFeedbackEvent,
-    AllTrackFxEnableTarget, AutomationModeOverrideTarget, BrowseFxsTarget,
-    BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget, Caller,
-    CompartmentParameterValueTarget, ControlContext, DummyTarget, EnableUnitsTarget,
+    ActionTarget, AdditionalFeedbackEvent, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
+    BrowseFxsTarget, BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget,
+    Caller, CompartmentParameterValueTarget, ControlContext, DummyTarget, EnableUnitsTarget,
     EnigoMouseTarget, FxEnableTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget,
     FxParameterTouchStateTarget, FxPresetTarget, FxToolTarget, GoToBookmarkTarget, HierarchyEntry,
     HierarchyEntryProvider, LoadFxSnapshotTarget, LoadPotPresetTarget, MappingControlContext,
@@ -41,7 +40,7 @@ use crate::domain::{
     TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget,
     TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget,
     TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
-    UnitEvent,
+    UnitEvent, get_reaper_track_area_of_scope, handle_exclusivity,
 };
 use crate::domain::{
     AnyOnTarget, BrowseGroupMappingsTarget, CompoundChangeEvent, EnableInstancesTarget,
@@ -49,8 +48,8 @@ use crate::domain::{
     RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget, TrackPhaseTarget,
     TrackToolTarget,
 };
-use base::default_util::is_default;
 use base::Global;
+use base::default_util::is_default;
 
 /// This target character is just used for GUI and auto-correct settings! It doesn't have influence
 /// on control/feedback.
@@ -172,7 +171,7 @@ pub enum ReaperTarget {
     Debug,
     PartialEq,
     Eq,
-Default,
+    Default,
     Serialize,
     Deserialize,
     EnumIter,
@@ -251,7 +250,7 @@ pub enum FeedbackResolution {
     Debug,
     PartialEq,
     Eq,
-Default,
+    Default,
     Serialize,
     Deserialize,
     EnumIter,
@@ -800,11 +799,7 @@ pub fn format_value_as_on_off(value: UnitValue) -> &'static str {
 }
 
 pub fn format_bool_as_on_off(value: bool) -> &'static str {
-    if value {
-        "On"
-    } else {
-        "Off"
-    }
+    if value { "On" } else { "Off" }
 }
 
 pub fn convert_unit_value_to_preset_index(fx: &Fx, value: UnitValue) -> Option<u32> {

@@ -1,7 +1,7 @@
 use crate::base::eel;
 use helgoboss_learn::{
-    create_raw_midi_events_singleton, AbsoluteValue, FeedbackValue, MidiSourceAddress,
-    MidiSourceScript, MidiSourceScriptOutcome, RawMidiEvent,
+    AbsoluteValue, FeedbackValue, MidiSourceAddress, MidiSourceScript, MidiSourceScriptOutcome,
+    RawMidiEvent, create_raw_midi_events_singleton,
 };
 use std::borrow::Cow;
 

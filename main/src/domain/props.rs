@@ -1,7 +1,7 @@
 use crate::domain::{
-    convert_reaper_color_to_helgoboss_learn, get_fx_name, get_track_name, Backbone,
-    CompoundChangeEvent, CompoundMappingTarget, ControlContext, FeedbackResolution, MainMapping,
-    RealearnTarget, ReaperTarget, UnresolvedCompoundMappingTarget,
+    Backbone, CompoundChangeEvent, CompoundMappingTarget, ControlContext, FeedbackResolution,
+    MainMapping, RealearnTarget, ReaperTarget, UnresolvedCompoundMappingTarget,
+    convert_reaper_color_to_helgoboss_learn, get_fx_name, get_track_name,
 };
 use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{AbsoluteValue, NumericValue, PropProvider, PropValue, Target};

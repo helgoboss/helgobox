@@ -8,15 +8,15 @@ use crate::domain::{
 };
 use crate::infrastructure::api::convert::to_data::convert_compartment;
 use crate::infrastructure::data::CompartmentPresetData;
-use crate::infrastructure::plugin::{midi_output_port_patterns_match, BackboneShell};
-use anyhow::{anyhow, bail, Context};
+use crate::infrastructure::plugin::{BackboneShell, midi_output_port_patterns_match};
+use anyhow::{Context, anyhow, bail};
 use base::byte_pattern::BytePattern;
 use base::file_util;
 use base::file_util::is_hidden;
 use helgobox_api::persistence::{
     CommonPresetMetaData, ControllerPresetMetaData, MainPresetMetaData, VirtualControlSchemeId,
 };
-use include_dir::{include_dir, Dir};
+use include_dir::{Dir, include_dir};
 use itertools::Itertools;
 use mlua::LuaSerdeExt;
 use reaper_high::Reaper;
@@ -685,15 +685,15 @@ fn load_preset_info<M: SpecificPresetMetaData>(
     let preset_meta_data = preset_meta_data_result.map_err(|e| {
         anyhow!("Couldn't read preset meta data from \"{origin}\". Details:\n\n{e}",)
     })?;
-    if let Some(v) = preset_meta_data.common.realearn_version.as_ref() {
-        if BackboneShell::version() < v {
-            bail!(
-                "Skipped loading of preset \"{origin}\" because it has been created with \
+    if let Some(v) = preset_meta_data.common.realearn_version.as_ref()
+        && BackboneShell::version() < v
+    {
+        bail!(
+            "Skipped loading of preset \"{origin}\" because it has been created with \
                          ReaLearn {v}, which is newer than the installed version {}. \
                          Please update your ReaLearn version.",
-                BackboneShell::version()
-            );
-        }
+            BackboneShell::version()
+        );
     }
     let preset_info = PresetInfo {
         common: CommonPresetInfo {

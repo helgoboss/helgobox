@@ -1,12 +1,12 @@
-use crate::infrastructure::plugin::{reaper_main_window, BackboneShell};
+use crate::infrastructure::plugin::{BackboneShell, reaper_main_window};
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
+    EventReply, ProtoRequestHandler, QueryReply, QueryResult, Reply, Request,
     create_initial_global_updates, create_initial_instance_updates, create_initial_unit_updates,
-    event_reply, query_result, reply, request, EventReply, ProtoRequestHandler, QueryReply,
-    QueryResult, Reply, Request,
+    event_reply, query_result, reply, request,
 };
 use crate::infrastructure::ui::{AppCallback, SharedAppInstance};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use base::Global;
 use libloading::{Library, Symbol};
 use std::cell::Cell;
@@ -20,10 +20,10 @@ use reaper_low::raw::HWND;
 use reaper_medium::Hwnd;
 use semver::Version;
 use std::env;
-use std::ffi::{c_char, c_uint, c_void, CStr, CString};
+use std::ffi::{CStr, CString, c_char, c_uint, c_void};
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::ptr::{null_mut, NonNull};
+use std::ptr::{NonNull, null_mut};
 use swell_ui::Window;
 use tonic::Status;
 use tracing::debug;
@@ -97,7 +97,9 @@ impl AppLibrary {
     fn verify_version_compatibility(&self) -> Result<()> {
         let version = self.get_app_api_version()?;
         if version < MIN_APP_API_VERSION || version.major > MIN_APP_API_VERSION.major {
-            bail!("App API version doesn't match. Expected version: {MIN_APP_API_VERSION}. Actual version: {version}.");
+            bail!(
+                "App API version doesn't match. Expected version: {MIN_APP_API_VERSION}. Actual version: {version}."
+            );
         }
         Ok(())
     }
@@ -356,10 +358,8 @@ fn with_temporarily_changed_working_directory<R>(
     let previous_dir = env::current_dir();
     let dir_change_was_successful = env::set_current_dir(new_dir).is_ok();
     let r = f();
-    if dir_change_was_successful {
-        if let Ok(d) = previous_dir {
-            let _ = env::set_current_dir(d);
-        }
+    if dir_change_was_successful && let Ok(d) = previous_dir {
+        let _ = env::set_current_dir(d);
     }
     r
 }
@@ -371,12 +371,23 @@ fn prepare_app_start() {
         // debug mode. In release mode, Flutter will work with AOT data embedded in the binary.
         let env_vars = [
             ("FLUTTER_ENGINE_SWITCHES", "3"),
-            ("FLUTTER_ENGINE_SWITCH_1", "snapshot-asset-path=Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets"),
-            ("FLUTTER_ENGINE_SWITCH_2", "vm-snapshot-data=vm_snapshot_data"),
-            ("FLUTTER_ENGINE_SWITCH_3", "isolate-snapshot-data=isolate_snapshot_data"),
+            (
+                "FLUTTER_ENGINE_SWITCH_1",
+                "snapshot-asset-path=Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets",
+            ),
+            (
+                "FLUTTER_ENGINE_SWITCH_2",
+                "vm-snapshot-data=vm_snapshot_data",
+            ),
+            (
+                "FLUTTER_ENGINE_SWITCH_3",
+                "isolate-snapshot-data=isolate_snapshot_data",
+            ),
         ];
         for (key, value) in env_vars {
-            unsafe { env::set_var(key, value); }
+            unsafe {
+                env::set_var(key, value);
+            }
         }
     }
 }

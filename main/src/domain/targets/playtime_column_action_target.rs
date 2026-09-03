@@ -1,6 +1,6 @@
 use crate::domain::{
-    CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, VirtualPlaytimeColumn, DEFAULT_TARGET,
+    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetSection,
+    TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeColumn,
 };
 
 use helgobox_api::persistence::PlaytimeColumnAction;
@@ -78,10 +78,10 @@ mod no_playtime_impl {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::domain::{
-        format_value_as_on_off, Backbone, CompoundChangeEvent, ControlContext, HitResponse,
-        MappingControlContext, PlaytimeColumnActionTarget, RealTimeControlContext,
-        RealTimePlaytimeColumnTarget, RealTimeReaperTarget, RealearnTarget, ReaperTargetType,
-        TargetCharacter,
+        Backbone, CompoundChangeEvent, ControlContext, HitResponse, MappingControlContext,
+        PlaytimeColumnActionTarget, RealTimeControlContext, RealTimePlaytimeColumnTarget,
+        RealTimeReaperTarget, RealearnTarget, ReaperTargetType, TargetCharacter,
+        format_value_as_on_off,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
     use helgobox_api::persistence::PlaytimeColumnAction;

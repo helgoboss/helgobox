@@ -1,8 +1,8 @@
 use crate::domain::{
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    FxDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
     convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
-    CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor,
-    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,

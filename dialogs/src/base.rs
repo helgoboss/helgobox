@@ -80,11 +80,7 @@ impl Resource {
     fn named_ids(&self) -> impl Iterator<Item = Id> + '_ {
         self.dialogs.iter().flat_map(|dialog| {
             fn get_if_named(id: Id) -> Option<Id> {
-                if id.is_named() {
-                    Some(id)
-                } else {
-                    None
-                }
+                if id.is_named() { Some(id) } else { None }
             }
             let named_dialog_id = get_if_named(dialog.id);
             let named_control_ids = dialog

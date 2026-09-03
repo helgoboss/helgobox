@@ -1,5 +1,5 @@
 use crate::application::UnitModel;
-use crate::domain::{compartment_param_index_iter, CompartmentKind, Tag};
+use crate::domain::{CompartmentKind, Tag, compartment_param_index_iter};
 use crate::infrastructure::ui::bindings::root;
 use helgobox_dialogs::constants;
 use reaper_high::Reaper;
@@ -192,7 +192,7 @@ pub mod fonts {
 
 pub mod colors {
     use palette::{Hsl, Lighten};
-    use reaper_common_types::{color, RgbColor};
+    use reaper_common_types::{RgbColor, color};
 
     #[derive(Copy, Clone, Debug)]
     pub struct ColorPair {

@@ -167,10 +167,10 @@ struct SettingAndValue<'a> {
 impl Display for SettingAndValue<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let effective_value = self.setting.convert_to_value(self.value);
-        if let EffectiveParamValue::Discrete(v) = effective_value {
-            if let Some(label) = self.setting.find_label_for_value(v) {
-                return label.fmt(f);
-            }
+        if let EffectiveParamValue::Discrete(v) = effective_value
+            && let Some(label) = self.setting.find_label_for_value(v)
+        {
+            return label.fmt(f);
         }
         effective_value.fmt(f)
     }

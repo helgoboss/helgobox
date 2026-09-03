@@ -1,7 +1,7 @@
 use crate::infrastructure::api::convert::from_data::{
-    convert_activation_condition, convert_tags, ConversionStyle,
+    ConversionStyle, convert_activation_condition, convert_tags,
 };
-use crate::infrastructure::api::convert::{defaults, ConversionResult};
+use crate::infrastructure::api::convert::{ConversionResult, defaults};
 use crate::infrastructure::data::GroupModelData;
 use helgobox_api::persistence;
 

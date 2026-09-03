@@ -1,8 +1,8 @@
 use crate::domain::{
-    classify_midi_message, AudioBlockProps, ControlEvent, ControlEventTimestamp,
-    DisplayAsPrettyHex, IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent,
-    MidiMessageClassification, MidiScanResult, MidiScanner, MidiTransformationContainer,
-    RealTimeProcessor, SharedRealTimeInstance, UnitId, GLOBAL_AUDIO_STATE,
+    AudioBlockProps, ControlEvent, ControlEventTimestamp, DisplayAsPrettyHex, GLOBAL_AUDIO_STATE,
+    IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent, MidiMessageClassification,
+    MidiScanResult, MidiScanner, MidiTransformationContainer, RealTimeProcessor,
+    SharedRealTimeInstance, UnitId, classify_midi_message,
 };
 use base::byte_pattern::{BytePattern, PatternByte};
 use base::metrics_util::{measure_time, record_duration};
@@ -13,8 +13,8 @@ use helgobox_allocator::*;
 use reaper_common_types::DurationInSeconds;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
-    MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs, SendMidiTime,
-    MIDI_INPUT_FRAME_RATE,
+    MIDI_INPUT_FRAME_RATE, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
+    SendMidiTime,
 };
 use smallvec::SmallVec;
 use std::fmt::{Display, Formatter};
@@ -389,11 +389,11 @@ impl RealearnAudioHook {
             // gone.
             let mut guard = p.lock_recover();
             guard.run_from_audio_hook_all(might_be_rebirth, start_of_block_timestamp);
-            if guard.control_is_globally_enabled() {
-                if let MidiControlInput::Device(dev_id) = guard.midi_control_input() {
-                    midi_dev_id_is_used[dev_id.get() as usize] = true;
-                    midi_devs_used_at_all = true;
-                }
+            if guard.control_is_globally_enabled()
+                && let MidiControlInput::Device(dev_id) = guard.midi_control_input()
+            {
+                midi_dev_id_is_used[dev_id.get() as usize] = true;
+                midi_devs_used_at_all = true;
             }
         }
         // 1b. Forward MIDI events from MIDI devices to ReaLearn instances and filter

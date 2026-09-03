@@ -3,7 +3,7 @@ use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use hidapi::HidApi;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
-use streamdeck::{pids, StreamDeck};
+use streamdeck::{StreamDeck, pids};
 
 pub struct ProbedStreamDeckDevice {
     pub dev: StreamDeckDevice,

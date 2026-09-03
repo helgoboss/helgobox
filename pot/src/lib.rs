@@ -6,14 +6,14 @@
 //! database backend. Or at least that existing persistent state can easily migrated to a future
 //! state that has support for multiple database backends.
 
-use base::{blocking_lock, blocking_lock_arc, blocking_write_lock, hash_util, SoundPlayer};
+use base::{SoundPlayer, blocking_lock, blocking_lock_arc, blocking_write_lock, hash_util};
 
 use enumset::EnumSet;
 use helgobox_api::persistence::PotFilterKind;
 use reaper_high::{Chunk, Fx, FxChain, GroupingBehavior, Project, Reaper, Track};
 use reaper_medium::{
-    reaper_str, FxPresetRef, GangBehavior, InputMonitoringMode, InsertMediaMode,
-    MasterTrackBehavior, ParamId, ReaperNormalizedFxParamValue, ReaperVolumeValue, RecordingInput,
+    FxPresetRef, GangBehavior, InputMonitoringMode, InsertMediaMode, MasterTrackBehavior, ParamId,
+    ReaperNormalizedFxParamValue, ReaperVolumeValue, RecordingInput, reaper_str,
 };
 use std::borrow::Cow;
 use std::cell::{Ref, RefMut};
@@ -709,9 +709,10 @@ impl RuntimePotUnit {
         };
         let fx = self.load_preset_at(preset, options, &build_destination)?;
         if self.name_track_after_preset
-            && let Some(track) = fx.track() {
-                track.set_name(preset.name());
-            }
+            && let Some(track) = fx.track()
+        {
+            track.set_name(preset.name());
+        }
         Ok(())
     }
 
@@ -1949,13 +1950,14 @@ pub fn find_preview_file<'a>(
 ) -> Option<Cow<'a, Utf8Path>> {
     // If the preset is an audio file and it exists, return that
     if let PotPresetKind::FileBased(kind) = &preset.kind
-        && is_audio_file_extension(&kind.file_ext) {
-            return if kind.path.exists() {
-                Some(kind.path.as_path().into())
-            } else {
-                None
-            };
-        }
+        && is_audio_file_extension(&kind.file_ext)
+    {
+        return if kind.path.exists() {
+            Some(kind.path.as_path().into())
+        } else {
+            None
+        };
+    }
     // If a custom preview file exists, return that
     let hash = preset.common.content_or_id_hash();
     let preview_file_path = get_preview_file_path_from_hash(reaper_resource_dir, hash);

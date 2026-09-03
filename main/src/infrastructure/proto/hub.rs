@@ -10,10 +10,10 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::InstanceShell;
 use crate::infrastructure::proto::helgobox_service_server::HelgoboxServiceServer;
 use crate::infrastructure::proto::{
-    occasional_global_update, occasional_instance_update, qualified_occasional_unit_update,
     HelgoboxServiceImpl, OccasionalGlobalUpdate, OccasionalInstanceUpdate,
     OccasionalInstanceUpdateBatch, OccasionalUnitUpdateBatch, ProtoRequestHandler, ProtoSenders,
-    QualifiedOccasionalUnitUpdate,
+    QualifiedOccasionalUnitUpdate, occasional_global_update, occasional_instance_update,
+    qualified_occasional_unit_update,
 };
 
 #[derive(Debug)]
@@ -230,12 +230,12 @@ mod playtime_impl {
     use base::peak_util;
     use playtime_api::persistence::EvenQuantization;
     use playtime_clip_engine::{
+        Laziness, Timeline,
         base::{ClipMatrixEvent, Matrix, PlaytimeTrackInputProps},
         clip_timeline,
         rt::{
             ClipChangeEvent, QualifiedClipChangeEvent, QualifiedSlotChangeEvent, SlotChangeEvent,
         },
-        Laziness, Timeline,
     };
 
     use crate::domain::InstanceId;
@@ -246,16 +246,17 @@ mod playtime_impl {
         OccasionalRowUpdateBatch, OccasionalSlotUpdateBatch, OccasionalTrackUpdateBatch,
     };
     use crate::infrastructure::proto::{
-        occasional_matrix_update, occasional_track_update, qualified_occasional_clip_update,
+        ContinuousColumnUpdate, ContinuousMatrixUpdate, ContinuousSlotUpdate,
+        OccasionalMatrixUpdate, OccasionalTrackUpdate, QualifiedContinuousSlotUpdate,
+        QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
+        QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate,
+        QualifiedOccasionalTrackUpdate, SlotAddress, occasional_matrix_update,
+        occasional_track_update, qualified_occasional_clip_update,
         qualified_occasional_column_update, qualified_occasional_row_update,
-        qualified_occasional_slot_update, ContinuousColumnUpdate, ContinuousMatrixUpdate,
-        ContinuousSlotUpdate, OccasionalMatrixUpdate, OccasionalTrackUpdate,
-        QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate,
-        QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
-        QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotAddress,
+        qualified_occasional_slot_update,
     };
     use crate::infrastructure::proto::{
-        occasional_playtime_engine_update, OccasionalPlaytimeEngineUpdate, ProtoHub,
+        OccasionalPlaytimeEngineUpdate, ProtoHub, occasional_playtime_engine_update,
     };
 
     impl ProtoHub {

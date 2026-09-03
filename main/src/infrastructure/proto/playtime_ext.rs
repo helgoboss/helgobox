@@ -15,18 +15,19 @@ use playtime_clip_engine::rt::{
     ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents,
 };
 use playtime_clip_engine::{
-    base, clip_timeline, PlaytimeEngine, SteadyProjectTimelineHandle, Timeline,
+    PlaytimeEngine, SteadyProjectTimelineHandle, Timeline, base, clip_timeline,
 };
 
 use crate::infrastructure::proto::track_input::Input;
 use crate::infrastructure::proto::{
-    clip_content_info, generated, occasional_matrix_update, occasional_playtime_engine_update,
-    occasional_track_update, qualified_occasional_clip_update, qualified_occasional_column_update,
-    qualified_occasional_row_update, qualified_occasional_slot_update, AudioClipContentInfo,
-    CellAddress, ClipAddress, ClipContentInfo, ColumnKind, ContinuousClipUpdate,
-    ContinuousSlotUpdate, Fx, FxChain, HistoryState, LearnState, LicenseState, MidiClipContentInfo,
-    PlaytimeEngineStats, RgbColor, SequencerPlayState, SlotAddress, SlotPlayState, TimeSignature,
-    TrackInput, TrackInputMonitoring, TrackList, TrackMidiInput,
+    AudioClipContentInfo, CellAddress, ClipAddress, ClipContentInfo, ColumnKind,
+    ContinuousClipUpdate, ContinuousSlotUpdate, Fx, FxChain, HistoryState, LearnState,
+    LicenseState, MidiClipContentInfo, PlaytimeEngineStats, RgbColor, SequencerPlayState,
+    SlotAddress, SlotPlayState, TimeSignature, TrackInput, TrackInputMonitoring, TrackList,
+    TrackMidiInput, clip_content_info, generated, occasional_matrix_update,
+    occasional_playtime_engine_update, occasional_track_update, qualified_occasional_clip_update,
+    qualified_occasional_column_update, qualified_occasional_row_update,
+    qualified_occasional_slot_update,
 };
 
 impl occasional_playtime_engine_update::Update {

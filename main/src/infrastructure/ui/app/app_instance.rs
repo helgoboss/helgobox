@@ -1,12 +1,12 @@
 use crate::domain::{InstanceId, UnitId};
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::{
-    event_reply, occasional_global_update, reply, EventReply, GetOccasionalGlobalUpdatesReply,
-    OccasionalGlobalUpdate, ProtoReceivers, Reply,
+    EventReply, GetOccasionalGlobalUpdatesReply, OccasionalGlobalUpdate, ProtoReceivers, Reply,
+    event_reply, occasional_global_update, reply,
 };
 use crate::infrastructure::ui::util::open_in_browser;
-use crate::infrastructure::ui::{called_from_dart, AppHandle};
-use anyhow::{anyhow, bail, Context, Result};
+use crate::infrastructure::ui::{AppHandle, called_from_dart};
+use anyhow::{Context, Result, anyhow, bail};
 use base::hash_util::NonCryptoHashMap;
 use fragile::Fragile;
 use once_cell::sync::Lazy;
@@ -121,12 +121,10 @@ impl AppInstance for DummyAppInstance {
     }
 
     fn start_or_show(&mut self, _owning_window: Window, _page: Option<AppPage>) -> Result<()> {
-        let msg =
-            "Linux support for the Helgobox App (including the Playtime user interface) is currently at stage 1!\n\
+        let msg = "Linux support for the Helgobox App (including the Playtime user interface) is currently at stage 1!\n\
             That means it can't yet run embedded within REAPER, but it's possible to run it as a separate program that connects to REAPER (\"remote mode\").\n\
             \n\
-            Do you want to open the instructions?"
-            ;
+            Do you want to open the instructions?";
         let result =
             Reaper::get()
                 .medium_reaper()

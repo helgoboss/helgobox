@@ -3,7 +3,7 @@ use crate::{
     Fil, FilterItem, FilterItemId, GenericFilterItemCollections, HasFilterItemId, InnerBuildInput,
     InnerPresetId, PersistentDatabaseId, PotPreset, ProductId,
 };
-use enumset::{enum_set, EnumSet};
+use enumset::{EnumSet, enum_set};
 use helgobox_api::persistence::PotFilterKind;
 use std::borrow::Cow;
 use std::error::Error;

@@ -1,6 +1,6 @@
 use crate::domain::AdditionalTransformationInput;
 use crate::infrastructure::ui::{ScriptEngine, ScriptTemplate, ScriptTemplateGroup};
-use base::{blocking_lock, NamedChannelSender, SenderToNormalThread};
+use base::{NamedChannelSender, SenderToNormalThread, blocking_lock};
 use derivative::Derivative;
 use egui::plot::{Legend, MarkerShape, Plot, Points, VLine};
 use egui::{CentralPanel, Color32, RichText, ScrollArea, Ui};

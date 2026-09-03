@@ -1,8 +1,8 @@
 use base::default_util::is_default;
 use derive_more::Display;
 use helgoboss_learn::{
-    AbsoluteValue, ControlType, Interval, OscArgDescriptor, OscTypeTag, Target,
-    DEFAULT_OSC_ARG_VALUE_RANGE,
+    AbsoluteValue, ControlType, DEFAULT_OSC_ARG_VALUE_RANGE, Interval, OscArgDescriptor,
+    OscTypeTag, Target,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
@@ -13,29 +13,28 @@ use reaper_high::{
 use serde::{Deserialize, Serialize};
 
 use crate::application::{
-    build_action_from_smart_command_name, build_smart_command_name_from_action, Affected, Change,
-    GetProcessingRelevance, ProcessingRelevance, UnitModel,
+    Affected, Change, GetProcessingRelevance, ProcessingRelevance, UnitModel,
+    build_action_from_smart_command_name, build_smart_command_name_from_action,
 };
 use crate::domain::{
-    find_bookmark, get_fx_name, get_fx_params, get_non_present_virtual_route_label,
-    get_non_present_virtual_track_label, get_track_routes, ActionInvocationType, AnyOnParameter,
-    CompartmentKind, CompartmentParamIndex, CompoundMappingTarget, Exclusivity,
-    ExpressionEvaluator, ExtendedProcessorContext, FeedbackResolution, FxDescriptor, FxDisplayType,
-    FxParameterDescriptor, GroupId, MappingId, MappingKey, MappingRef, MappingSnapshotId,
-    MouseActionType, OscDeviceId, PotFilterItemsTargetSettings, ProcessorContext,
-    QualifiedMappingId, RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions,
-    SendMidiDestinationType, SoloBehavior, Tag, TagScope, TouchedRouteParameterType,
-    TouchedTrackParameterType, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
-    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
-    UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
-    UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
-    UnresolvedBrowsePotFilterItemsTarget, UnresolvedBrowsePotPresetsTarget,
-    UnresolvedBrowseTracksTarget, UnresolvedCompartmentParameterValueTarget,
-    UnresolvedCompoundMappingTarget, UnresolvedDummyTarget, UnresolvedEnableInstancesTarget,
-    UnresolvedEnableMappingsTarget, UnresolvedEnableUnitsTarget, UnresolvedFxEnableTarget,
-    UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
-    UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedFxToolTarget,
-    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    ActionInvocationType, AnyOnParameter, CompartmentKind, CompartmentParamIndex,
+    CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
+    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId, MappingId,
+    MappingKey, MappingRef, MappingSnapshotId, MouseActionType, OscDeviceId,
+    PotFilterItemsTargetSettings, ProcessorContext, QualifiedMappingId, RealearnTarget,
+    ReaperTarget, ReaperTargetType, SeekOptions, SendMidiDestinationType, SoloBehavior, Tag,
+    TagScope, TouchedRouteParameterType, TouchedTrackParameterType, TrackDescriptor,
+    TrackExclusivity, TrackGangBehavior, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType,
+    TransportAction, UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget,
+    UnresolvedAnyOnTarget, UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget,
+    UnresolvedBrowseGroupTarget, UnresolvedBrowsePotFilterItemsTarget,
+    UnresolvedBrowsePotPresetsTarget, UnresolvedBrowseTracksTarget,
+    UnresolvedCompartmentParameterValueTarget, UnresolvedCompoundMappingTarget,
+    UnresolvedDummyTarget, UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget,
+    UnresolvedEnableUnitsTarget, UnresolvedFxEnableTarget, UnresolvedFxOnlineTarget,
+    UnresolvedFxOpenTarget, UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget,
+    UnresolvedFxPresetTarget, UnresolvedFxToolTarget, UnresolvedGoToBookmarkTarget,
+    UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
     UnresolvedLoadMappingSnapshotTarget, UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget,
     UnresolvedModifyMappingTarget, UnresolvedMouseTarget, UnresolvedOscSendTarget,
     UnresolvedPlayrateTarget, UnresolvedPreviewPotPresetTarget, UnresolvedReaperTarget,
@@ -50,7 +49,9 @@ use crate::domain::{
     UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
     UnresolvedTransportTarget, VirtualChainFx, VirtualControlElement, VirtualControlElementId,
     VirtualFx, VirtualFxParameter, VirtualMappingSnapshotIdForLoad,
-    VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack, VirtualTrackRoute, find_bookmark,
+    get_fx_name, get_fx_params, get_non_present_virtual_route_label,
+    get_non_present_virtual_track_label, get_track_routes,
 };
 
 use crate::domain::{VirtualPlaytimeColumn, VirtualPlaytimeRow, VirtualPlaytimeSlot};
@@ -2084,8 +2085,8 @@ impl TargetModel {
     }
 
     pub fn api_track_descriptor(&self) -> helgobox_api::persistence::TrackDescriptor {
-        use helgobox_api::persistence::TrackDescriptor;
         use VirtualTrackType::*;
+        use helgobox_api::persistence::TrackDescriptor;
         let commons = TrackDescriptorCommons {
             track_must_be_selected: Some(self.enable_only_if_track_selected),
         };
@@ -2135,8 +2136,8 @@ impl TargetModel {
     }
 
     pub fn api_fx_descriptor(&self) -> helgobox_api::persistence::FxDescriptor {
-        use helgobox_api::persistence::FxDescriptor;
         use VirtualFxType::*;
+        use helgobox_api::persistence::FxDescriptor;
         let commons = FxDescriptorCommons {
             fx_must_have_focus: Some(self.enable_only_if_fx_has_focus),
         };
@@ -2748,9 +2749,9 @@ impl TargetModel {
     }
 
     pub fn simple_target(&self) -> Option<playtime_api::runtime::SimpleMappingTarget> {
+        use ReaperTargetType as T;
         use helgobox_api::persistence;
         use playtime_api::runtime::SimpleMappingTarget;
-        use ReaperTargetType as T;
         if self.category != TargetCategory::Reaper {
             return None;
         }
@@ -4576,11 +4577,7 @@ impl<'a> ConcreteFxInstruction<'a> {
                         t.normal_fx_chain()
                     };
                     let fx = chain.fx_by_guid(id);
-                    if fx.is_available() {
-                        Some(fx)
-                    } else {
-                        None
-                    }
+                    if fx.is_available() { Some(fx) } else { None }
                 }
                 ByIdWithFx(fx) => Some(fx.clone()),
                 _ => None,

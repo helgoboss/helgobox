@@ -1,8 +1,8 @@
 use crossbeam_channel::{Receiver, Sender};
 use fragile::Fragile;
 use reaper_high::{
-    FutureMiddleware, FutureSupport, MainTaskMiddleware, MainThreadTask, TaskSupport,
-    DEFAULT_MAIN_THREAD_TASK_BULK_SIZE,
+    DEFAULT_MAIN_THREAD_TASK_BULK_SIZE, FutureMiddleware, FutureSupport, MainTaskMiddleware,
+    MainThreadTask, TaskSupport,
 };
 use reaper_rx::{ActionRx, ActionRxProvider, ControlSurfaceRx, MainRx};
 use std::sync::LazyLock;

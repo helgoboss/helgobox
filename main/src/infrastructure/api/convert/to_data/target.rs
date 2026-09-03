@@ -11,10 +11,10 @@ use crate::domain::{
 use crate::infrastructure::api::convert::to_data::{
     convert_control_element_id, convert_osc_arg_type, convert_osc_value_range, convert_tags,
 };
-use crate::infrastructure::api::convert::{defaults, ConversionResult};
+use crate::infrastructure::api::convert::{ConversionResult, defaults};
 use crate::infrastructure::data::{
-    serialize_fx, serialize_fx_parameter, serialize_track, serialize_track_route, BookmarkData,
-    FxData, FxParameterData, TargetModelData, TrackData, TrackRouteData,
+    BookmarkData, FxData, FxParameterData, TargetModelData, TrackData, TrackRouteData,
+    serialize_fx, serialize_fx_parameter, serialize_track, serialize_track_route,
 };
 use crate::{application, domain};
 use base::hash_util::convert_into_other_hash_set;
@@ -355,8 +355,8 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                         .unwrap_or(defaults::TARGET_USE_SELECTION_GANGING),
                 ),
                 touched_parameter_type: {
-                    use domain::TouchedTrackParameterType as T;
                     use TouchedTrackParameter::*;
+                    use domain::TouchedTrackParameterType as T;
                     match d.touched_parameter {
                         Volume => T::Volume,
                         Pan => T::Pan,
@@ -464,8 +464,8 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 solo_behavior: {
-                    use domain::SoloBehavior as T;
                     use SoloBehavior::*;
+                    use domain::SoloBehavior as T;
                     let v = match d.behavior.unwrap_or_default() {
                         InPlace => T::InPlace,
                         IgnoreRouting => T::IgnoreRouting,
@@ -1028,8 +1028,8 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
 fn init(commons: TargetCommons) -> TargetModelData {
     TargetModelData {
         unit: {
-            use application::TargetUnit as T;
             use TargetUnit::*;
+            use application::TargetUnit as T;
             match commons.unit.unwrap_or_default() {
                 Native => T::Native,
                 Percent => T::Percent,
@@ -1450,8 +1450,8 @@ fn convert_fx_parameter_desc(t: FxParameterDescriptor) -> ConversionResult<FxPar
 }
 
 fn convert_transport_action(transport_action: TransportAction) -> domain::TransportAction {
-    use domain::TransportAction as T;
     use TransportAction::*;
+    use domain::TransportAction as T;
     match transport_action {
         PlayStop => T::PlayStop,
         PlayPause => T::PlayPause,
@@ -1463,8 +1463,8 @@ fn convert_transport_action(transport_action: TransportAction) -> domain::Transp
 }
 
 fn convert_any_on_parameter(parameter: AnyOnParameter) -> domain::AnyOnParameter {
-    use domain::AnyOnParameter as T;
     use AnyOnParameter::*;
+    use domain::AnyOnParameter as T;
     match parameter {
         TrackSolo => T::TrackSolo,
         TrackMute => T::TrackMute,
@@ -1474,8 +1474,8 @@ fn convert_any_on_parameter(parameter: AnyOnParameter) -> domain::AnyOnParameter
 }
 
 fn convert_feedback_resolution(r: FeedbackResolution) -> domain::FeedbackResolution {
-    use domain::FeedbackResolution as T;
     use FeedbackResolution::*;
+    use domain::FeedbackResolution as T;
     match r {
         Beat => T::Beat,
         High => T::High,
@@ -1491,8 +1491,8 @@ fn convert_bookmark_ref(r: BookmarkRef) -> (BookmarkAnchorType, u32) {
 }
 
 fn convert_track_exclusivity(exclusivity: Option<TrackExclusivity>) -> domain::TrackExclusivity {
-    use domain::TrackExclusivity as T;
     use TrackExclusivity::*;
+    use domain::TrackExclusivity as T;
     match exclusivity {
         None => T::NonExclusive,
         Some(e) => match e {
@@ -1505,8 +1505,8 @@ fn convert_track_exclusivity(exclusivity: Option<TrackExclusivity>) -> domain::T
 }
 
 fn convert_fx_display_kind(display_kind: FxDisplayKind) -> FxDisplayType {
-    use domain::FxDisplayType as T;
     use FxDisplayKind::*;
+    use domain::FxDisplayType as T;
     match display_kind {
         FloatingWindow => T::FloatingWindow,
         Chain => T::Chain,

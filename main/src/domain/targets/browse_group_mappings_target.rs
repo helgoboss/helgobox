@@ -1,10 +1,10 @@
 use crate::domain::{
-    convert_count_to_step_size, convert_discrete_to_unit_value, convert_unit_to_discrete_value,
-    CompartmentKind, CompoundChangeEvent, ControlContext, ControlLogContext,
+    CompartmentKind, CompoundChangeEvent, ControlContext, ControlLogContext, DEFAULT_TARGET,
     ExtendedProcessorContext, GroupId, HitInstruction, HitInstructionContext,
     HitInstructionResponse, HitResponse, MappingControlContext, MappingId, QualifiedMappingId,
     RealearnTarget, ReaperTarget, ReaperTargetType, SimpleExclusivity, TargetCharacter,
-    TargetSection, TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, convert_count_to_step_size,
+    convert_discrete_to_unit_value, convert_unit_to_discrete_value,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,

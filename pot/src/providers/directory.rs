@@ -12,7 +12,7 @@ use crate::plugins::{PluginCore, PluginDatabase};
 use base::hash_util::{NonCryptoHashSet, NonCryptoIndexMap, PersistentHash, PersistentHasher};
 use camino::Utf8PathBuf;
 use either::Either;
-use enumset::{enum_set, EnumSet};
+use enumset::{EnumSet, enum_set};
 use helgobox_api::persistence::PotFilterKind;
 use itertools::Itertools;
 use std::error::Error;

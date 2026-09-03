@@ -1,8 +1,8 @@
 use crate::domain::{
-    with_seek_behavior, AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET,
+    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions, TargetCharacter, TargetSection,
+    TargetTypeDef, UnresolvedReaperTargetDef, with_seek_behavior,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
@@ -310,24 +310,24 @@ fn current_value_of_seek(
 }
 
 fn get_seek_info(project: Project, options: SeekOptions, ignore_project_length: bool) -> SeekInfo {
-    if options.use_time_selection {
-        if let Some(r) = project.time_selection() {
-            return SeekInfo::from_time_range(SeekContext::TimeSelection, r);
-        }
+    if options.use_time_selection
+        && let Some(r) = project.time_selection()
+    {
+        return SeekInfo::from_time_range(SeekContext::TimeSelection, r);
     }
-    if options.use_loop_points {
-        if let Some(r) = project.loop_points() {
-            return SeekInfo::from_time_range(SeekContext::LoopPoints, r);
-        }
+    if options.use_loop_points
+        && let Some(r) = project.loop_points()
+    {
+        return SeekInfo::from_time_range(SeekContext::LoopPoints, r);
     }
     if options.use_regions {
         let bm = project.current_bookmark();
-        if let Some(i) = bm.region_index {
-            if let Some(bm) = project.find_bookmark_by_index(i) {
-                let info = bm.basic_info();
-                if let Some(end_pos) = info.region_end_position {
-                    return SeekInfo::new(SeekContext::Region, info.position, end_pos);
-                }
+        if let Some(i) = bm.region_index
+            && let Some(bm) = project.find_bookmark_by_index(i)
+        {
+            let info = bm.basic_info();
+            if let Some(end_pos) = info.region_end_position {
+                return SeekInfo::new(SeekContext::Region, info.position, end_pos);
             }
         }
     }

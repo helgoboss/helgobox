@@ -5,8 +5,8 @@ use base::hash_util::NonCryptoHashSet;
 use core::fmt;
 use derive_more::Display;
 use helgoboss_learn::{
-    format_percentage_without_unit, parse_percentage_without_unit, ControlValue,
-    DetailedSourceCharacter, FeedbackValue, SourceCharacter, UnitValue,
+    ControlValue, DetailedSourceCharacter, FeedbackValue, SourceCharacter, UnitValue,
+    format_percentage_without_unit, parse_percentage_without_unit,
 };
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use std::convert::TryInto;

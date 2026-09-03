@@ -1,6 +1,6 @@
 use crate::domain::{
-    CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetSection,
+    TargetTypeDef, UnresolvedReaperTargetDef,
 };
 
 use helgobox_api::persistence::Axis;
@@ -48,9 +48,9 @@ mod no_playtime_impl {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::domain::{
-        convert_count_to_step_size, convert_unit_to_discrete_value_with_none, CompoundChangeEvent,
-        ControlContext, HitResponse, MappingControlContext, PlaytimeBrowseCellsTarget,
-        RealearnTarget, ReaperTargetType, TargetCharacter,
+        CompoundChangeEvent, ControlContext, HitResponse, MappingControlContext,
+        PlaytimeBrowseCellsTarget, RealearnTarget, ReaperTargetType, TargetCharacter,
+        convert_count_to_step_size, convert_unit_to_discrete_value_with_none,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
     use helgobox_api::persistence::Axis;

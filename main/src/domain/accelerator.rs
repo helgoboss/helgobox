@@ -5,8 +5,8 @@ use crate::domain::{
 use reaper_high::Reaper;
 use reaper_low::raw;
 use reaper_medium::{
-    virt_keys, AccelMsg, AccelMsgKind, AcceleratorBehavior, TranslateAccel, TranslateAccelArgs,
-    TranslateAccelResult,
+    AccelMsg, AccelMsgKind, AcceleratorBehavior, TranslateAccel, TranslateAccelArgs,
+    TranslateAccelResult, virt_keys,
 };
 use swell_ui::{SharedView, View, Window};
 
@@ -144,12 +144,12 @@ where
         }
         // If REAPER 7.23+, check if window is text field
         let reaper = Reaper::get().medium_reaper();
-        if reaper.low().pointers().IsWindowTextField.is_some() {
-            if let Some(window) = Window::focused() {
-                let is_text_field = unsafe { reaper.is_window_text_field(window.raw_hwnd()) };
-                if is_text_field {
-                    return self.process_unmatched(args.msg);
-                }
+        if reaper.low().pointers().IsWindowTextField.is_some()
+            && let Some(window) = Window::focused()
+        {
+            let is_text_field = unsafe { reaper.is_window_text_field(window.raw_hwnd()) };
+            if is_text_field {
+                return self.process_unmatched(args.msg);
             }
         }
         // If we end up here, it could be interesting for the main processors

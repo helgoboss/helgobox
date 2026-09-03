@@ -1,6 +1,6 @@
 use crate::domain::ParamSetting;
-use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::ConversionResult;
+use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use helgobox_api::persistence;
 
 pub fn convert_parameter(

@@ -1,17 +1,17 @@
 use crate::domain::{FinalSourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
 use crate::infrastructure::plugin::{BackboneShell, NewInstanceOutcome, SET_STATE_PARAM_NAME};
+use FinalSourceFeedbackValue::Midi;
+use MidiSourceValue::{ParameterNumber, Plain};
 use approx::assert_abs_diff_eq;
 use base::future_util::millis;
 use base::{Global, SenderToNormalThread};
-use helgoboss_learn::{MidiSourceValue, BASE_EPSILON, FEEDBACK_EPSILON};
+use helgoboss_learn::{BASE_EPSILON, FEEDBACK_EPSILON, MidiSourceValue};
 use helgoboss_midi::test_util::*;
 use helgoboss_midi::{DataEntryByteOrder, ParameterNumberMessage, RawShortMessage, ShortMessage};
 use reaper_high::{FxParameter, Reaper, Track};
 use reaper_medium::{Db, ReaperPanValue, StuffMidiMessageTarget};
 use std::ffi::CString;
 use std::future::Future;
-use FinalSourceFeedbackValue::Midi;
-use MidiSourceValue::{ParameterNumber, Plain};
 
 pub fn run_test() {
     Global::future_support().spawn_in_main_thread_from_main_thread(async {
@@ -614,9 +614,7 @@ async fn issue_396_send_feedback_after_control() {
     );
     assert_eq!(
         realearn.pop_feedback(),
-        vec![
-            Midi(Plain(note_on(0, 64, 127))),
-        ],
+        vec![Midi(Plain(note_on(0, 64, 127))),],
         "maximum feedback value should be sent because target has changed to exactly target min/max"
     );
     // When
@@ -1462,7 +1460,7 @@ mod macos_impl {
     use std::path::PathBuf;
     use swell_ui::View;
     use swell_ui::Window;
-    use xcap::image::{imageops, DynamicImage};
+    use xcap::image::{DynamicImage, imageops};
 
     pub async fn take_screenshots() -> anyhow::Result<()> {
         // Given

@@ -1,8 +1,8 @@
 use crate::api::{OptFilter, PotFilterExcludes};
 use crate::provider_database::{
-    Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
-    FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_FALSE, FIL_IS_SUPPORTED_TRUE,
-    FIL_IS_USER_PRESET_TRUE,
+    Database, FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_FALSE,
+    FIL_IS_SUPPORTED_TRUE, FIL_IS_USER_PRESET_TRUE, InnerFilterItem, InnerFilterItemCollections,
+    ProviderContext, SortablePresetId,
 };
 use crate::{
     Fil, FiledBasedPotPresetKind, InnerBuildInput, InnerPresetId, MacroParamBank,
@@ -12,7 +12,7 @@ use crate::{
 };
 use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
 use base::blocking_lock;
-use enumset::{enum_set, EnumSet};
+use enumset::{EnumSet, enum_set};
 use helgobox_api::persistence::PotFilterKind;
 
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
@@ -67,12 +67,13 @@ impl KompleteDatabase {
     /// product filter (representing one of the installed plug-ins) into an NKS bank filter.
     fn translate_neutral_filters_to_nks(&self, mut filters: Filters) -> Filters {
         if let Some(FilterItemId(Some(fil))) = filters.get_ref(PotFilterKind::Bank)
-            && let Some(translated_fil) = self.translate_neutral_product_filter_to_nks(fil) {
-                filters.set(
-                    PotFilterKind::Bank,
-                    Some(FilterItemId(Some(translated_fil))),
-                );
-            }
+            && let Some(translated_fil) = self.translate_neutral_product_filter_to_nks(fil)
+        {
+            filters.set(
+                PotFilterKind::Bank,
+                Some(FilterItemId(Some(translated_fil))),
+            );
+        }
         filters
     }
 
@@ -94,20 +95,20 @@ impl KompleteDatabase {
             for filter_item in filter_items {
                 if let InnerFilterItem::Unique(it) = filter_item
                     && let FilterItemId(Some(Fil::Komplete(id))) = it.id
-                        && let Some(translated) =
-                            self.translate_nks_filter_item_to_neutral(kind, id)
-                        {
-                            *filter_item = translated;
-                        }
+                    && let Some(translated) = self.translate_nks_filter_item_to_neutral(kind, id)
+                {
+                    *filter_item = translated;
+                }
             }
         }
     }
 
     fn translate_neutral_product_filter_to_nks(&self, fil: &Fil) -> Option<Fil> {
         if let Fil::Product(pid) = fil
-            && let Some(bank_id) = self.nks_bank_id_by_product_id.get(pid) {
-                return Some(Fil::Komplete(*bank_id));
-            }
+            && let Some(bank_id) = self.nks_bank_id_by_product_id.get(pid)
+        {
+            return Some(Fil::Komplete(*bank_id));
+        }
         None
     }
 

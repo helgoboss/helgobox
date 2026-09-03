@@ -9,12 +9,12 @@ use crate::domain::{
     TouchedTrackParameterType, TrackExclusivity, TrackRouteType, TransportAction,
 };
 use crate::infrastructure::api::convert::from_data::{
-    convert_control_element_id, convert_osc_argument, convert_tags, ConversionStyle,
+    ConversionStyle, convert_control_element_id, convert_osc_argument, convert_tags,
 };
-use crate::infrastructure::api::convert::{defaults, ConversionResult};
+use crate::infrastructure::api::convert::{ConversionResult, defaults};
 use crate::infrastructure::data::{
-    deserialize_fx, deserialize_fx_parameter, deserialize_track, deserialize_track_route,
-    MigrationDescriptor, TargetModelData, TrackData, TrackDeserializationInput,
+    MigrationDescriptor, TargetModelData, TrackData, TrackDeserializationInput, deserialize_fx,
+    deserialize_fx_parameter, deserialize_track, deserialize_track_route,
 };
 use base::hash_util::convert_into_other_hash_set;
 use helgobox_api::persistence;
@@ -55,8 +55,8 @@ fn convert_real_target(
     data: TargetModelData,
     style: ConversionStyle,
 ) -> ConversionResult<persistence::Target> {
-    use persistence::Target as T;
     use ReaperTargetType::*;
+    use persistence::Target as T;
     let commons = convert_commons(data.unit, style)?;
     let target = match data.r#type {
         Mouse => T::Mouse(MouseTarget {
@@ -93,8 +93,8 @@ fn convert_real_target(
                 }
             },
             invocation: {
-                use persistence::ActionInvocationKind as T;
                 use ActionInvocationType::*;
+                use persistence::ActionInvocationKind as T;
                 let v = match data.invocation_type {
                     Trigger => T::Trigger,
                     Absolute14Bit => T::Absolute14Bit,
@@ -193,8 +193,8 @@ fn convert_real_target(
                 defaults::TARGET_USE_SELECTION_GANGING,
             ),
             touched_parameter: {
-                use persistence::TouchedTrackParameter as T;
                 use TouchedTrackParameterType::*;
+                use persistence::TouchedTrackParameter as T;
                 match data.touched_parameter_type {
                     Volume => T::Volume,
                     Pan => T::Pan,
@@ -291,8 +291,8 @@ fn convert_real_target(
         RouteTouchState => T::RouteTouchState(RouteTouchStateTarget {
             commons,
             touched_parameter: {
-                use persistence::TouchedRouteParameter as T;
                 use TouchedRouteParameterType::*;
+                use persistence::TouchedRouteParameter as T;
                 match data.touched_route_parameter_type {
                     Volume => T::Volume,
                     Pan => T::Pan,
@@ -370,8 +370,8 @@ fn convert_real_target(
             commons,
             message: style.required_value(data.raw_midi_pattern),
             destination: {
-                use persistence::SendMidiDestination as T;
                 use SendMidiDestinationType::*;
+                use persistence::SendMidiDestination as T;
                 let dest = match data.send_midi_destination {
                     FxOutput => T::FxOutput,
                     FeedbackOutput => T::FeedbackOutput,
@@ -610,8 +610,8 @@ fn convert_real_target(
             ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
             behavior: {
-                use persistence::SoloBehavior as T;
                 use SoloBehavior::*;
+                use persistence::SoloBehavior as T;
                 let v = data.solo_behavior.map(|b| match b {
                     InPlace => T::InPlace,
                     IgnoreRouting => T::IgnoreRouting,
@@ -690,8 +690,8 @@ fn convert_real_target(
             tag_kind: data.instance_tag_kind,
             tags: convert_tags(&data.tags, style),
             exclusivity: {
-                use persistence::InstanceExclusivity as T;
                 use Exclusivity::*;
+                use persistence::InstanceExclusivity as T;
                 match data.exclusivity {
                     NonExclusive => None,
                     Exclusive => Some(T::Exclusive),
@@ -703,8 +703,8 @@ fn convert_real_target(
             commons,
             tags: convert_tags(&data.tags, style),
             exclusivity: {
-                use persistence::UnitExclusivity as T;
                 use Exclusivity::*;
+                use persistence::UnitExclusivity as T;
                 match data.exclusivity {
                     NonExclusive => None,
                     Exclusive => Some(T::Exclusive),
@@ -716,8 +716,8 @@ fn convert_real_target(
             commons,
             tags: convert_tags(&data.tags, style),
             exclusivity: {
-                use persistence::MappingExclusivity as T;
                 use Exclusivity::*;
+                use persistence::MappingExclusivity as T;
                 match data.exclusivity {
                     NonExclusive => None,
                     Exclusive => Some(T::Exclusive),
@@ -767,8 +767,8 @@ fn convert_real_target(
         BrowseGroup => T::BrowseGroupMappings(BrowseGroupMappingsTarget {
             commons,
             exclusivity: {
-                use persistence::GroupMappingExclusivity as T;
                 use Exclusivity::*;
+                use persistence::GroupMappingExclusivity as T;
                 match data.exclusivity {
                     NonExclusive => None,
                     Exclusive | ExclusiveOnOnly => Some(T::Exclusive),
@@ -797,8 +797,8 @@ fn convert_commons(
 ) -> ConversionResult<persistence::TargetCommons> {
     let commons = persistence::TargetCommons {
         unit: {
-            use persistence::TargetUnit as T;
             use TargetUnit::*;
+            use persistence::TargetUnit as T;
             let unit = match unit {
                 Native => T::Native,
                 Percent => T::Percent,
@@ -824,8 +824,8 @@ fn convert_automation_mode_override(
 }
 
 fn convert_transport_action(transport_action: TransportAction) -> persistence::TransportAction {
-    use persistence::TransportAction as T;
     use TransportAction::*;
+    use persistence::TransportAction as T;
     match transport_action {
         PlayStop => T::PlayStop,
         PlayPause => T::PlayPause,
@@ -837,8 +837,8 @@ fn convert_transport_action(transport_action: TransportAction) -> persistence::T
 }
 
 fn convert_any_on_parameter(parameter: AnyOnParameter) -> persistence::AnyOnParameter {
-    use persistence::AnyOnParameter as T;
     use AnyOnParameter::*;
+    use persistence::AnyOnParameter as T;
     match parameter {
         TrackSolo => T::TrackSolo,
         TrackMute => T::TrackMute,
@@ -848,8 +848,8 @@ fn convert_any_on_parameter(parameter: AnyOnParameter) -> persistence::AnyOnPara
 }
 
 fn convert_automation_mode(mode: RealearnAutomationMode) -> persistence::AutomationMode {
-    use persistence::AutomationMode as T;
     use RealearnAutomationMode::*;
+    use persistence::AutomationMode as T;
     match mode {
         TrimRead => T::TrimRead,
         Read => T::Read,
@@ -863,8 +863,8 @@ fn convert_automation_mode(mode: RealearnAutomationMode) -> persistence::Automat
 fn convert_track_exclusivity(
     exclusivity: TrackExclusivity,
 ) -> Option<persistence::TrackExclusivity> {
-    use persistence::TrackExclusivity as T;
     use TrackExclusivity::*;
+    use persistence::TrackExclusivity as T;
     match exclusivity {
         NonExclusive => None,
         ExclusiveWithinProject => Some(T::WithinProject),
@@ -878,8 +878,8 @@ fn convert_fx_display_kind(
     display_type: FxDisplayType,
     style: ConversionStyle,
 ) -> Option<persistence::FxDisplayKind> {
-    use persistence::FxDisplayKind as T;
     use FxDisplayType::*;
+    use persistence::FxDisplayKind as T;
     let v = match display_type {
         FloatingWindow => T::FloatingWindow,
         Chain => T::Chain,
@@ -906,8 +906,8 @@ fn convert_track_descriptor(
         clip_column,
     };
     let props = deserialize_track(input);
-    use persistence::TrackDescriptor as T;
     use VirtualTrackType::*;
+    use persistence::TrackDescriptor as T;
     let commons = persistence::TrackDescriptorCommons {
         track_must_be_selected: style.required_value_with_default(
             only_if_track_selected,
@@ -987,8 +987,8 @@ fn convert_fx_parameter_descriptor(
     style: ConversionStyle,
 ) -> persistence::FxParameterDescriptor {
     let props = deserialize_fx_parameter(&data.fx_parameter_data);
-    use persistence::FxParameterDescriptor as T;
     use VirtualFxParameterType::*;
+    use persistence::FxParameterDescriptor as T;
     match props.r#type {
         Dynamic => T::Dynamic {
             expression: props.expression,
@@ -1014,8 +1014,8 @@ fn convert_route_descriptor(
     style: ConversionStyle,
 ) -> persistence::RouteDescriptor {
     let props = deserialize_track_route(&data.track_route_data);
-    use persistence::RouteDescriptor as T;
     use TrackRouteSelectorType::*;
+    use persistence::RouteDescriptor as T;
     let commons = persistence::RouteDescriptorCommons {
         track: convert_track_descriptor(
             data.track_data,
@@ -1024,8 +1024,8 @@ fn convert_route_descriptor(
             style,
         ),
         route_kind: {
-            use persistence::TrackRouteKind as T;
             use TrackRouteType::*;
+            use persistence::TrackRouteKind as T;
             let kind = match data.track_route_data.r#type {
                 Send => T::Send,
                 Receive => T::Receive,
@@ -1059,8 +1059,8 @@ fn convert_fx_descriptor(
     style: ConversionStyle,
 ) -> Option<persistence::FxDescriptor> {
     let props = deserialize_fx(&data.fx_data, None, &MigrationDescriptor::default());
-    use persistence::FxDescriptor as T;
     use VirtualFxType::*;
+    use persistence::FxDescriptor as T;
     let commons = persistence::FxDescriptorCommons {
         fx_must_have_focus: style.required_value_with_default(
             data.enable_only_if_fx_has_focus,
@@ -1103,8 +1103,8 @@ fn convert_feedback_resolution(
     r: FeedbackResolution,
     style: ConversionStyle,
 ) -> Option<persistence::FeedbackResolution> {
-    use persistence::FeedbackResolution as T;
     use FeedbackResolution::*;
+    use persistence::FeedbackResolution as T;
     let v = match r {
         Beat => T::Beat,
         High => T::High,

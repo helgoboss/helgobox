@@ -2,13 +2,13 @@ use crate::application::{
     AutoUnitData, ControllerPresetUsage, ControllerSuitability, MainPresetSuitability,
 };
 use crate::base::notification::notify_user_on_anyhow_error;
-use crate::domain::{parse_hex_string, DeviceControlInput, DeviceFeedbackOutput, OscDeviceId};
+use crate::domain::{DeviceControlInput, DeviceFeedbackOutput, OscDeviceId, parse_hex_string};
 use crate::infrastructure::data::PresetInfo;
 use crate::infrastructure::plugin::{BackboneShell, InstanceShellInfo};
 use anyhow::Context;
+use base::Global;
 use base::byte_pattern::BytePattern;
 use base::hash_util::NonCryptoHashMap;
-use base::Global;
 use helgobox_api::persistence::{
     Controller, ControllerConnection, ControllerPresetMetaData, MainPresetMetaData,
     MidiControllerConnection, MidiPortPattern,
@@ -94,16 +94,16 @@ fn build_auto_unit_from_controller(controller: &Controller) -> Option<AutoUnitDa
         return None;
     }
     // Ignore if input not connected
-    if let Some(input) = input {
-        if !input_is_connected(input) {
-            return None;
-        }
+    if let Some(input) = input
+        && !input_is_connected(input)
+    {
+        return None;
     }
     // Ignore if output not connected
-    if let Some(output) = output {
-        if !output_is_connected(output) {
-            return None;
-        }
+    if let Some(output) = output
+        && !output_is_connected(output)
+    {
+        return None;
     }
     // Build data
     let data = AutoUnitData {

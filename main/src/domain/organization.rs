@@ -28,11 +28,7 @@ impl TagScope {
             } else {
                 // Scope doesn't define any tags. Unset *all* mappings as long as
                 // they have tags.
-                if tags.is_empty() {
-                    None
-                } else {
-                    Some(false)
-                }
+                if tags.is_empty() { None } else { Some(false) }
             }
         } else {
             // Non-exclusive

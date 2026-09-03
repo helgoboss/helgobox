@@ -96,11 +96,7 @@ pub struct FxId {
 impl fmt::Display for FxId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         fn dash_if_empty(s: &str) -> &str {
-            if s.is_empty() {
-                "-"
-            } else {
-                s
-            }
+            if s.is_empty() { "-" } else { s }
         }
         write!(
             f,

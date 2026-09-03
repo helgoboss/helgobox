@@ -1,10 +1,10 @@
 use crate::domain::{
-    change_track_prop, format_value_as_on_off,
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity,
+    UnresolvedReaperTargetDef, change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
-    track_selected_unit_value, CompartmentKind, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
-    TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    track_selected_unit_value,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper, Track};

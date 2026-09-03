@@ -1,8 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, CompartmentKind, CompoundChangeEvent, ControlContext,
-    EnableInstancesArgs, Exclusivity, ExtendedProcessorContext, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection,
-    TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, EnableInstancesArgs,
+    Exclusivity, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection, TargetTypeDef,
+    UnitEvent, UnresolvedReaperTargetDef, format_value_as_on_off,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use helgobox_api::persistence::InstanceTagKind;

@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use camino::Utf8PathBuf;
 use derive_more::Display;
 use helgoboss_midi::{Channel, ShortMessageType, U7};
@@ -21,11 +21,11 @@ use std::{cmp, iter};
 use strum::IntoEnumIterator;
 
 use helgoboss_learn::{
-    format_percentage_without_unit, AbsoluteMode, AbsoluteValue, ButtonUsage, ControlValue,
+    AbsoluteMode, AbsoluteValue, ButtonUsage, ControlValue, DEFAULT_OSC_ARG_VALUE_RANGE,
     DiscreteIncrement, DisplayType, EncoderUsage, FeedbackType, FireMode, GroupInteraction,
     Interval, MackieSevenSegmentDisplayScope, MidiClockTransportMessage, ModeParameter, OscTypeTag,
     OutOfRangeBehavior, PercentIo, RgbColor, SourceCharacter, TakeoverMode, Target, UnitValue,
-    ValueSequence, VirtualColor, DEFAULT_OSC_ARG_VALUE_RANGE,
+    ValueSequence, VirtualColor, format_percentage_without_unit,
 };
 use helgobox_api::persistence::{
     ActionScope, Axis, BrowseTracksMode, FxDescriptor, FxToolAction, InstanceTagKind,
@@ -41,35 +41,36 @@ use swell_ui::{
 };
 
 use crate::application::{
-    build_smart_command_name_from_action, format_osc_feedback_args, get_bookmark_label_by_id,
-    get_fx_label, get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label,
-    get_route_label, parse_osc_feedback_args, Affected, AutomationModeOverrideType,
-    BookmarkAnchorType, Change, CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction,
-    MappingChangeContext, MappingCommand, MappingModel, MappingModificationKind, MappingProp,
-    MappingRefModel, MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake, MidiSourceType,
-    ModeCommand, ModeModel, ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType,
-    SharedMapping, SharedUnitModel, SourceCategory, SourceCommand, SourceModel, SourceProp,
+    Affected, AutomationModeOverrideType, BookmarkAnchorType, Change, CompartmentProp,
+    ConcreteFxInstruction, ConcreteTrackInstruction, KEY_UNDEFINED_LABEL, MappingChangeContext,
+    MappingCommand, MappingModel, MappingModificationKind, MappingProp, MappingRefModel,
+    MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel,
+    ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, SharedMapping,
+    SharedUnitModel, SourceCategory, SourceCommand, SourceModel, SourceProp,
     StreamDeckButtonBackgroundType, StreamDeckButtonForegroundType, TargetCategory, TargetCommand,
     TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp, TargetUnit,
     TrackRouteSelectorType, UnitModel, UnitProp, VirtualFxParameterType, VirtualFxType,
-    VirtualTrackType, WeakUnitModel, KEY_UNDEFINED_LABEL,
+    VirtualTrackType, WeakUnitModel, build_smart_command_name_from_action,
+    format_osc_feedback_args, get_bookmark_label_by_id, get_fx_label, get_fx_param_label,
+    get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
+    parse_osc_feedback_args,
 };
-use crate::base::{notification, when, Prop};
+use crate::base::{Prop, notification, when};
 use crate::domain::ui_util::{
     format_as_percentage_without_unit, format_tags_as_csv, parse_unit_value_from_percentage,
 };
 use crate::domain::{
-    control_element_domains, AnyOnParameter, Backbone, ControlContext, Exclusivity,
-    FeedbackSendBehavior, KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTarget,
-    ReaperTargetType, SendMidiDestinationType, SimpleExclusivity, SourceFeedbackEvent,
-    TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
+    ActionInvocationType, CompartmentKind, CompoundMappingTarget, ExtendedProcessorContext,
+    FeedbackResolution, FxDisplayType, QualifiedMappingId, RealearnTarget, SoloBehavior,
+    TargetCharacter, TouchedTrackParameterType, TrackExclusivity, TrackRouteType, TransportAction,
+    VirtualControlElement, VirtualControlElementId, VirtualFx, get_non_present_virtual_route_label,
+    get_non_present_virtual_track_label, resolve_track_route_by_index,
 };
 use crate::domain::{
-    get_non_present_virtual_route_label, get_non_present_virtual_track_label,
-    resolve_track_route_by_index, ActionInvocationType, CompartmentKind, CompoundMappingTarget,
-    ExtendedProcessorContext, FeedbackResolution, FxDisplayType, QualifiedMappingId,
-    RealearnTarget, SoloBehavior, TargetCharacter, TouchedTrackParameterType, TrackExclusivity,
-    TrackRouteType, TransportAction, VirtualControlElement, VirtualControlElementId, VirtualFx,
+    AnyOnParameter, Backbone, ControlContext, Exclusivity, FeedbackSendBehavior,
+    KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTarget, ReaperTargetType,
+    SendMidiDestinationType, SimpleExclusivity, SourceFeedbackEvent, TargetControlEvent,
+    TouchedRouteParameterType, TrackGangBehavior, WithControlContext, control_element_domains,
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
@@ -83,19 +84,19 @@ use crate::infrastructure::ui::menus::{
 use crate::infrastructure::ui::ui_element_container::UiElementContainer;
 use crate::infrastructure::ui::util::colors::ColorPair;
 use crate::infrastructure::ui::util::{
-    close_child_panel_if_open, colors, compartment_parameter_dropdown_contents,
-    open_child_panel_dyn, open_in_browser, parse_tags_from_csv, symbols, view,
-    MAPPING_PANEL_SCALING,
+    MAPPING_PANEL_SCALING, close_child_panel_if_open, colors,
+    compartment_parameter_dropdown_contents, open_child_panel_dyn, open_in_browser,
+    parse_tags_from_csv, symbols, view,
 };
 use crate::infrastructure::ui::{
-    menus, EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine,
-    ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine, MappingHeaderPanel, MappingRowsPanel,
+    EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine, ItemProp,
+    LuaFeedbackScriptEngine, LuaMidiScriptEngine, MappingHeaderPanel, MappingRowsPanel,
     OscFeedbackArgumentsEngine, PlainTextEngine, RawMidiScriptEngine, ScriptEditorInput,
     ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, UnitPanel,
-    YamlEditorPanel,
+    YamlEditorPanel, menus,
 };
-use base::hash_util::NonCryptoHashMap;
 use base::Global;
+use base::hash_util::NonCryptoHashMap;
 use playtime_api::persistence::{ColumnAddress, RowAddress, SlotAddress};
 
 #[derive(Debug)]
@@ -8049,8 +8050,8 @@ fn show_feedback_popup_menu(
         EditMultiLine,
     }
     let pure_menu = {
-        use swell_ui::menu_tree::*;
         use MenuAction::*;
+        use swell_ui::menu_tree::*;
         let create_color_target_menu = |color_target: ColorTarget| {
             let relevant_color = match color_target {
                 ColorTarget::Color => &current_color,
@@ -8324,7 +8325,7 @@ fn parse_osc_arg_value_range(text: &str) -> Interval<f64> {
     use nom::character::complete::space0;
     use nom::number::complete::double;
     use nom::sequence::separated_pair;
-    use nom::{character::complete::char, sequence::tuple, IResult};
+    use nom::{IResult, character::complete::char, sequence::tuple};
     fn parse_range(input: &str) -> IResult<&str, Interval<f64>> {
         let mut parser = separated_pair(double, tuple((space0, char('-'), space0)), double);
         let (remainder, (from, to)) = parser(input)?;

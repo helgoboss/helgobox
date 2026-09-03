@@ -2,10 +2,10 @@ use crate::application::{
     LifecycleMidiMessageModel, LifecycleModel, MappingExtensionModel, RawMidiMessage,
 };
 use crate::infrastructure::api::convert::from_data::{
-    convert_activation_condition, convert_glue, convert_source, convert_tags, convert_target,
-    ConversionStyle, NewSourceProps,
+    ConversionStyle, NewSourceProps, convert_activation_condition, convert_glue, convert_source,
+    convert_tags, convert_target,
 };
-use crate::infrastructure::api::convert::{defaults, ConversionResult};
+use crate::infrastructure::api::convert::{ConversionResult, defaults};
 use crate::infrastructure::data::MappingModelData;
 use helgobox_api::persistence;
 use helgobox_api::persistence::LifecycleHook;

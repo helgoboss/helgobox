@@ -25,8 +25,8 @@ use std::cmp;
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use camino::Utf8PathBuf;
 use chrono::NaiveDateTime;
 use derive_more::Display;

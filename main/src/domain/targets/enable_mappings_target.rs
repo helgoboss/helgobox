@@ -1,10 +1,9 @@
 use crate::domain::{
-    format_value_as_on_off, CompartmentKind, CompoundChangeEvent, ControlContext, DomainEvent,
-    Exclusivity, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
-    HitInstructionResponse, HitResponse, MappingControlContext, MappingData,
-    MappingEnabledChangeRequestedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetSection, TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, DomainEvent, Exclusivity,
+    ExtendedProcessorContext, HitInstruction, HitInstructionContext, HitInstructionResponse,
+    HitResponse, MappingControlContext, MappingData, MappingEnabledChangeRequestedEvent,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection,
+    TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, format_value_as_on_off,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::borrow::Cow;

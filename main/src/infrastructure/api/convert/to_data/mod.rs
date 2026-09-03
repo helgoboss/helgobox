@@ -31,8 +31,8 @@ fn convert_keystroke(s: Keystroke) -> domain::Keystroke {
 }
 
 fn convert_control_element_id(s: VirtualControlElementId) -> data::VirtualControlElementIdData {
-    use data::VirtualControlElementIdData as T;
     use VirtualControlElementId::*;
+    use data::VirtualControlElementIdData as T;
     match s {
         Indexed(i) => T::Indexed(i),
         Named(s) => T::Named(s),
@@ -40,8 +40,8 @@ fn convert_control_element_id(s: VirtualControlElementId) -> data::VirtualContro
 }
 
 fn convert_osc_arg_type(s: OscArgKind) -> helgoboss_learn::OscTypeTag {
-    use helgoboss_learn::OscTypeTag as T;
     use OscArgKind::*;
+    use helgoboss_learn::OscTypeTag as T;
     match s {
         Float => T::Float,
         Double => T::Double,
@@ -77,8 +77,8 @@ fn convert_activation(
     a: ActivationCondition,
     param_index_by_key: &impl Fn(&str) -> Option<CompartmentParamIndex>,
 ) -> ConversionResult<ActivationConditionData> {
-    use application::ActivationType;
     use ActivationCondition::*;
+    use application::ActivationType;
     let data = match a {
         Modifier(c) => {
             let create_model =

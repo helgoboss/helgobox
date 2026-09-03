@@ -1,11 +1,11 @@
-use crate::base::{prop, Prop};
+use crate::base::{Prop, prop};
 use crate::domain::{
     CompartmentKind, CompoundMappingSource, GroupId, IncomingCompoundSourceValue,
     MessageCaptureResult, ReaperTarget, Tag, VirtualSourceValue,
 };
 
 use crate::application::{MappingModel, UnitModel};
-use enum_map::{enum_map, EnumMap};
+use enum_map::{EnumMap, enum_map};
 use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::fmt;
@@ -52,13 +52,12 @@ impl SourceFilter {
             return true;
         }
         // Then try virtual source matching (if the message was virtualized before).
-        if let Some(v) = self.virtual_source_value {
-            if source
+        if let Some(v) = self.virtual_source_value
+            && source
                 .reacts_to_source_value_with(IncomingCompoundSourceValue::Virtual(&v))
                 .is_some()
-            {
-                return true;
-            }
+        {
+            return true;
         }
         false
     }

@@ -1,8 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, get_fx_params, CompartmentKind, ControlContext,
-    ExtendedProcessorContext, FxParameterDescriptor, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    FxParameterDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    format_value_as_on_off, get_fx_params,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, FxParameter, Project, Track};

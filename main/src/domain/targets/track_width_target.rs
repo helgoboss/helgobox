@@ -3,11 +3,10 @@ use crate::domain::ui_util::{
     parse_from_double_percentage, parse_from_symmetric_percentage,
 };
 use crate::domain::{
-    get_effective_tracks, width_unit_value, with_gang_behavior, CompartmentKind,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, TrackDescriptor, TrackGangBehavior, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackGangBehavior,
+    UnresolvedReaperTargetDef, get_effective_tracks, width_unit_value, with_gang_behavior,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,

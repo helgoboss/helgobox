@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::{build_unit_label, util, AppPage, UnitPanel};
+use crate::infrastructure::ui::{AppPage, UnitPanel, build_unit_label, util};
 use anyhow::Context;
 use reaper_medium::Hbrush;
 use std::cell::{Cell, OnceCell, RefCell};
@@ -10,7 +10,7 @@ use std::sync::Arc;
 use crate::application::{Affected, InstanceProp, InstanceUi, SharedInstanceModel};
 use crate::domain::{InstanceId, UnitId};
 use crate::infrastructure::plugin::{
-    reaper_main_window, BackboneShell, InstanceShell, SharedInstanceShell,
+    BackboneShell, InstanceShell, SharedInstanceShell, reaper_main_window,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::colors;

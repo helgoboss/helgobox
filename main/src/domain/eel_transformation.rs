@@ -7,8 +7,8 @@ use std::os::raw::c_void;
 
 use atomic::Atomic;
 use reaper_medium::reaper_str;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 #[derive(Default)]
 pub struct AdditionalTransformationInput {
@@ -163,7 +163,9 @@ unsafe extern "C" fn stop(_: *mut c_void, amt: *mut f64) -> f64 {
 }
 
 unsafe extern "C" fn realearn_dbg(_: *mut c_void, amt: *mut f64) -> bool {
-    unsafe { println!("{}", *amt); }
+    unsafe {
+        println!("{}", *amt);
+    }
     true
 }
 
@@ -269,7 +271,9 @@ mod tests {
         let mut create_transformations = |count| {
             total_count += count;
             let transformations = create_transformations(count);
-            println!("Created {count} more transformation units. Total amount of units created so far: {total_count}");
+            println!(
+                "Created {count} more transformation units. Total amount of units created so far: {total_count}"
+            );
             print_mem();
             transformations
         };

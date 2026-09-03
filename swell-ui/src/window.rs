@@ -1,10 +1,10 @@
 use crate::{
-    menu_tree, DialogUnits, Dimensions, FontDescriptor, Menu, MenuBar, Pixels, Point, Rect,
-    SwellStringArg, ViewManager,
+    DialogUnits, Dimensions, FontDescriptor, Menu, MenuBar, Pixels, Point, Rect, SwellStringArg,
+    ViewManager, menu_tree,
 };
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
-use reaper_low::{raw, Swell};
+use reaper_low::{Swell, raw};
 use reaper_medium::{Hfont, Hwnd};
 use std::ffi::CString;
 use std::fmt::Display;
@@ -266,9 +266,10 @@ impl Window {
             }
             let app = crate::macos::ns_app();
             if let Some(current_event) = app.current_event()
-                && let Some(window) = view.window() {
-                    window.send_event(&current_event);
-                }
+                && let Some(window) = view.window()
+            {
+                window.send_event(&current_event);
+            }
             true
         }
     }

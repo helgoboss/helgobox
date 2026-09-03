@@ -1,9 +1,9 @@
 use crate::domain::{
-    convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
-    convert_unit_to_discrete_value_with_none, CompartmentKind, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitResponse, InstanceStateChanged, MappingControlContext,
-    PotStateChangedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    HitResponse, InstanceStateChanged, MappingControlContext, PotStateChangedEvent, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, convert_count_to_step_size,
+    convert_discrete_to_unit_value_with_none, convert_unit_to_discrete_value_with_none,
 };
 use base::blocking_lock_arc;
 use helgoboss_learn::{

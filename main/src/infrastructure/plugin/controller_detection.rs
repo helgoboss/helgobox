@@ -1,8 +1,8 @@
 use crate::domain::{
-    format_as_pretty_hex, MidiInDevsConfig, MidiOutDevsConfig, RequestMidiDeviceIdentityReply,
+    MidiInDevsConfig, MidiOutDevsConfig, RequestMidiDeviceIdentityReply, format_as_pretty_hex,
 };
 use crate::infrastructure::data::MainPresetSelectionConditions;
-use crate::infrastructure::plugin::{ini_util, BackboneShell};
+use crate::infrastructure::plugin::{BackboneShell, ini_util};
 use anyhow::{anyhow, bail};
 use helgobox_api::persistence::{
     CompartmentPresetId, Controller, ControllerConnection, MidiControllerConnection, MidiInputPort,

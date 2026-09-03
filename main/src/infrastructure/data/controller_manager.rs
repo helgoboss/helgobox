@@ -1,4 +1,4 @@
-use crate::domain::{format_as_pretty_hex, RequestMidiDeviceIdentityReply};
+use crate::domain::{RequestMidiDeviceIdentityReply, format_as_pretty_hex};
 use anyhow::Context;
 use camino::Utf8PathBuf;
 use helgobox_api::persistence::{

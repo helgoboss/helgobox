@@ -1,7 +1,7 @@
 use crate::infrastructure::api::convert::from_data::{
-    convert_group, convert_mapping, convert_parameter, ConversionStyle,
+    ConversionStyle, convert_group, convert_mapping, convert_parameter,
 };
-use crate::infrastructure::api::convert::{convert_multiple, ConversionResult};
+use crate::infrastructure::api::convert::{ConversionResult, convert_multiple};
 use crate::infrastructure::data::CompartmentModelData;
 use helgobox_api::persistence;
 

@@ -1,5 +1,4 @@
 use crate::domain::{
-    aggregate_target_values, format_as_pretty_hex, get_project_options, say,
     AdditionalFeedbackEvent, AdditionalLuaFeedbackScriptInput, AdditionalLuaMidiSourceScriptInput,
     Backbone, CompartmentKind, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
@@ -21,13 +20,14 @@ use crate::domain::{
     SourceFeedbackLogger, SourceReleasedEvent, SpecificCompoundFeedbackValue, StreamDeckDeviceId,
     StreamDeckMessage, StreamDeckSourceFeedbackValue, TargetControlEvent, TargetValueChangedEvent,
     UnitContainer, UnitEvent, UnitOrchestrationEvent, UpdatedSingleMappingOnStateEvent,
-    VirtualControlElement, VirtualSourceValue,
+    VirtualControlElement, VirtualSourceValue, aggregate_target_values, format_as_pretty_hex,
+    get_project_options, say,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
-    AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
-    ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
+    AbsoluteValue, BASE_EPSILON, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
+    ModeControlOptions, RawMidiEvent, Target,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -39,14 +39,14 @@ use crate::domain::ui_util::{
     log_virtual_control_input, log_virtual_feedback_output,
 };
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet, NonCryptoIndexSet};
-use base::{hash_util, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
+use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread, hash_util};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
 use playtime_api::runtime::ControlUnitId;
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket, OscType};
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
@@ -1189,13 +1189,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 &mut self.collections.mappings_with_virtual_targets,
                 compartment,
             ) {
-                if m.activation_can_be_affected_by_parameters() {
-                    if let Some(update) =
+                if m.activation_can_be_affected_by_parameters()
+                    && let Some(update) =
                         m.update_activation_from_params(&self.collections.parameters)
-                    {
-                        mapping_updates.push(update);
-                        changed_mappings.push(m.id())
-                    }
+                {
+                    mapping_updates.push(update);
+                    changed_mappings.push(m.id())
                 }
                 if m.target_can_be_affected_by_parameters() {
                     let control_context = self.basics.control_context(m.compartment());
@@ -1872,28 +1871,25 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     pub fn process_reaper_message(&mut self, evt: ControlEvent<&ReaperMessage>) {
         // First process internally.
         // Convenience: Send all feedback whenever a MIDI device is connected.
-        if let ReaperMessage::MidiDevicesConnected(payload) = evt.payload() {
-            if let Some(FeedbackOutput::Midi(MidiDestination::Device(dev_id))) =
+        if let ReaperMessage::MidiDevicesConnected(payload) = evt.payload()
+            && let Some(FeedbackOutput::Midi(MidiDestination::Device(dev_id))) =
                 self.basics.settings.feedback_output
-            {
-                if payload.output_devices.contains(&dev_id) {
-                    self.basics
-                        .channels
-                        .self_normal_sender
-                        .send_if_space(NormalMainTask::SendAllFeedback);
-                }
-            }
+            && payload.output_devices.contains(&dev_id)
+        {
+            self.basics
+                .channels
+                .self_normal_sender
+                .send_if_space(NormalMainTask::SendAllFeedback);
         }
         // Convenience: Send all feedback whenever a Stream Deck device is connected.
-        if let ReaperMessage::StreamDeckDevicesConnected(payload) = evt.payload() {
-            if let Some(dev_id) = self.basics.settings.streamdeck_device_id {
-                if payload.devices.contains(&dev_id) {
-                    self.basics
-                        .channels
-                        .self_normal_sender
-                        .send_if_space(NormalMainTask::SendAllFeedback);
-                }
-            }
+        if let ReaperMessage::StreamDeckDevicesConnected(payload) = evt.payload()
+            && let Some(dev_id) = self.basics.settings.streamdeck_device_id
+            && payload.devices.contains(&dev_id)
+        {
+            self.basics
+                .channels
+                .self_normal_sender
+                .send_if_space(NormalMainTask::SendAllFeedback);
         }
         // Inform UI of MIDI device changes
         if matches!(
@@ -2694,17 +2690,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Send feedback if necessary (right now we assume that changed processing state doesn't
         // change anything about the source or target, so we use a much more simple mechanism to
         // determine necessary diff feedback than when updating the complete mapping).
-        if was_on_before != is_on_now {
-            if let Some(m) = self.get_normal_or_virtual_target_mapping(id.compartment, id.id) {
-                let fb = if is_on_now {
-                    Fb::normal(self.get_mapping_feedback_follow_virtual(m))
-                } else {
-                    Fb::unused(
-                        m.off_feedback(self.basics.source_context(m.compartment()), NoopLogger),
-                    )
-                };
-                self.send_feedback(fb.0, fb.1);
-            }
+        if was_on_before != is_on_now
+            && let Some(m) = self.get_normal_or_virtual_target_mapping(id.compartment, id.id)
+        {
+            let fb = if is_on_now {
+                Fb::normal(self.get_mapping_feedback_follow_virtual(m))
+            } else {
+                Fb::unused(m.off_feedback(self.basics.source_context(m.compartment()), NoopLogger))
+            };
+            self.send_feedback(fb.0, fb.1);
         }
         self.update_single_mapping_on_state(id);
     }
@@ -2961,7 +2955,7 @@ pub struct CompartmentSettings {
     Eq,
     PartialEq,
     Debug,
-Default,
+    Default,
     serde::Serialize,
     serde::Deserialize,
     EnumIter,
@@ -2979,7 +2973,6 @@ pub enum StayActiveWhenProjectInBackground {
     #[display(fmt = "Always (more or less)")]
     Always,
 }
-
 
 impl BasicSettings {
     pub fn target_control_logger<'a>(
@@ -3339,11 +3332,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             determine_control_globally_enabled(&self.context, &self.settings, project_options);
         let changed = new_value != self.control_is_globally_enabled;
         self.control_is_globally_enabled = new_value;
-        if changed {
-            Some(new_value)
-        } else {
-            None
-        }
+        if changed { Some(new_value) } else { None }
     }
 
     /// Returns `Some` with new value if has actually changed.
@@ -3355,11 +3344,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             determine_feedback_globally_enabled(&self.context, &self.settings, project_options);
         let changed = new_value != self.feedback_is_globally_enabled;
         self.feedback_is_globally_enabled = new_value;
-        if changed {
-            Some(new_value)
-        } else {
-            None
-        }
+        if changed { Some(new_value) } else { None }
     }
 
     fn send_io_update_complaining(&self, event: IoUpdatedEvent) {
@@ -3806,49 +3791,47 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         .filter(|m| m.feedback_is_effectively_on())
                     {
                         // Should always be true.
-                        if let Some(t) = m.virtual_target() {
-                            if t.control_element() == value.control_element() {
-                                // Virtual source matched virtual target. The following method
-                                // will always produce real target values (because controller
-                                // mappings can't have virtual sources).
-                                let compound_feedback_value = m.feedback_given_target_value(
-                                    // This clone is unavoidable because we are producing
-                                    // real feedback values and these will be sent to another
-                                    //  thread, so they must be self-contained.
-                                    Some(Cow::Borrowed(value.feedback_value())),
-                                    FeedbackDestinations {
-                                        with_source_feedback: destinations.with_source_feedback
-                                            && m.feedback_is_enabled(),
-                                        ..destinations
-                                    },
-                                    self.source_context(m.compartment()),
-                                    self.source_feedback_logger(m.qualified_id()),
-                                    feedback_value.cause,
-                                );
-                                if let Some(SpecificCompoundFeedbackValue::Real(
-                                    preliminary_feedback_value,
-                                )) = compound_feedback_value
+                        if let Some(t) = m.virtual_target()
+                            && t.control_element() == value.control_element()
+                        {
+                            // Virtual source matched virtual target. The following method
+                            // will always produce real target values (because controller
+                            // mappings can't have virtual sources).
+                            let compound_feedback_value = m.feedback_given_target_value(
+                                // This clone is unavoidable because we are producing
+                                // real feedback values and these will be sent to another
+                                //  thread, so they must be self-contained.
+                                Some(Cow::Borrowed(value.feedback_value())),
+                                FeedbackDestinations {
+                                    with_source_feedback: destinations.with_source_feedback
+                                        && m.feedback_is_enabled(),
+                                    ..destinations
+                                },
+                                self.source_context(m.compartment()),
+                                self.source_feedback_logger(m.qualified_id()),
+                                feedback_value.cause,
+                            );
+                            if let Some(SpecificCompoundFeedbackValue::Real(
+                                preliminary_feedback_value,
+                            )) = compound_feedback_value
+                            {
+                                // Successful virtual-to-real feedback
+                                if let Some(final_feedback_value) =
+                                    feedback_collector.process(preliminary_feedback_value)
                                 {
-                                    // Successful virtual-to-real feedback
-                                    if let Some(final_feedback_value) =
-                                        feedback_collector.process(preliminary_feedback_value)
+                                    if let Some(t) = &m.mode().settings().control_transformation
+                                        && let Some(numeric_fb_value) =
+                                            value.feedback_value().to_numeric()
                                     {
-                                        if let Some(t) = &m.mode().settings().control_transformation
-                                        {
-                                            if let Some(numeric_fb_value) =
-                                                value.feedback_value().to_numeric()
-                                            {
-                                                t.set_last_feedback_value(
-                                                    numeric_fb_value.value.to_unit_value().get(),
-                                                );
-                                            }
-                                        }
-                                        self.send_direct_feedback(
-                                            feedback_reason,
-                                            feedback_value.cause,
-                                            final_feedback_value,
+                                        t.set_last_feedback_value(
+                                            numeric_fb_value.value.to_unit_value().get(),
                                         );
                                     }
+                                    self.send_direct_feedback(
+                                        feedback_reason,
+                                        feedback_value.cause,
+                                        final_feedback_value,
+                                    );
                                 }
                             }
                         }
@@ -3904,16 +3887,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
             {
                 trace!(
                     "Block feedback because duplicate (reason: {:?}): {:?}",
-                    reason,
-                    source_feedback_value
+                    reason, source_feedback_value
                 );
                 return;
             }
         }
         trace!(
             "Schedule sending feedback because {:?}: {:?}",
-            reason,
-            source_feedback_value
+            reason, source_feedback_value
         );
         if let Some(test_sender) = self.channels.integration_test_feedback_sender.as_ref() {
             // Integration test
@@ -4355,16 +4336,16 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
             }
         }
     }
-    if let GroupInteractionProcessing::On(input) = group_interaction_processing {
-        if input.group_interaction != GroupInteraction::None {
-            basics.process_group_interaction(
-                collections,
-                compartment,
-                input.mapping_id,
-                input.control_event,
-                control_result.at_least_one_target_was_reached,
-            );
-        }
+    if let GroupInteractionProcessing::On(input) = group_interaction_processing
+        && input.group_interaction != GroupInteraction::None
+    {
+        basics.process_group_interaction(
+            collections,
+            compartment,
+            input.mapping_id,
+            input.control_event,
+            control_result.at_least_one_target_was_reached,
+        );
     }
 }
 

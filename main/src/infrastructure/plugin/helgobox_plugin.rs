@@ -6,15 +6,15 @@ use vst::plugin::{
 };
 
 use crate::domain::{
-    ControlEvent, ControlEventTimestamp, InstanceId, MidiEvent, ParameterManager, PluginParamIndex,
-    ProcessorContext, RawParamValue, GLOBAL_AUDIO_STATE, PLUGIN_PARAMETER_COUNT,
+    ControlEvent, ControlEventTimestamp, GLOBAL_AUDIO_STATE, InstanceId, MidiEvent,
+    PLUGIN_PARAMETER_COUNT, ParameterManager, PluginParamIndex, ProcessorContext, RawParamValue,
 };
 use crate::infrastructure::plugin::instance_parameter_container::InstanceParameterContainer;
-use crate::infrastructure::plugin::{init_backbone_shell, SET_STATE_PARAM_NAME};
+use crate::infrastructure::plugin::{SET_STATE_PARAM_NAME, init_backbone_shell};
 use base::Global;
 use helgobox_allocator::*;
 use reaper_high::{Reaper, ReaperGuard};
-use reaper_low::{static_plugin_context, PluginContext};
+use reaper_low::{PluginContext, static_plugin_context};
 use reaper_medium::{Hz, ReaperStr};
 
 use std::ffi::{CStr, CString};
@@ -29,7 +29,7 @@ use crate::infrastructure::data::InstanceData;
 use crate::infrastructure::plugin::helgobox_plugin_editor::HelgoboxPluginEditor;
 use crate::infrastructure::plugin::instance_shell::InstanceShell;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use std::convert::TryInto;
 use std::ptr::null_mut;
 use std::rc::Rc;

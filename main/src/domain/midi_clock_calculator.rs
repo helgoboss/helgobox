@@ -1,6 +1,6 @@
 use crate::domain::ControlEventTimestamp;
 use reaper_common_types::Bpm;
-use simple_moving_average::{SumTreeSMA, SMA};
+use simple_moving_average::{SMA, SumTreeSMA};
 use std::convert::TryInto;
 
 #[derive(Debug)]

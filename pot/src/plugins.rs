@@ -1,4 +1,4 @@
-use crate::{parse_vst2_magic_number, parse_vst3_uid, PluginId, ProductId};
+use crate::{PluginId, ProductId, parse_vst2_magic_number, parse_vst3_uid};
 use base::file_util;
 use base::hash_util::NonCryptoHashMap;
 use camino::Utf8Path;
@@ -523,9 +523,10 @@ fn read_js_desc_from_file(path: &Path) -> Option<String> {
         }
         let line = buffer.trim();
         if let Some((left, right)) = line.split_once(':')
-            && left == "desc" {
-                return Some(right.trim().to_string());
-            }
+            && left == "desc"
+        {
+            return Some(right.trim().to_string());
+        }
         buffer.clear();
     }
     None

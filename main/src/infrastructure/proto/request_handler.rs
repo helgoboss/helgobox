@@ -21,10 +21,10 @@ use crate::infrastructure::proto::{
     GetAppSettingsRequest, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
     GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest,
     GetCustomInstanceDataReply, GetCustomInstanceDataRequest, GetHostInfoReply, GetHostInfoRequest,
-    GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest, InsertColumnsRequest,
-    OpenTrackFxRequest, ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
-    SaveCustomCompartmentDataRequest, SetAppSettingsRequest, SetClipDataRequest,
-    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    GetProjectDirReply, GetProjectDirRequest, HOST_API_VERSION, ImportFilesRequest,
+    InsertColumnsRequest, OpenTrackFxRequest, ProveAuthenticityReply, ProveAuthenticityRequest,
+    SaveControllerRequest, SaveCustomCompartmentDataRequest, SetAppSettingsRequest,
+    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
     SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixClickChannelRequest,
     SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
     SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
@@ -33,7 +33,6 @@ use crate::infrastructure::proto::{
     SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerGlobalAction,
     TriggerGlobalRequest, TriggerInstanceAction, TriggerInstanceRequest, TriggerMatrixRequest,
     TriggerRowRequest, TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest,
-    HOST_API_VERSION,
 };
 
 #[derive(Debug)]
@@ -217,19 +216,19 @@ impl ProtoRequestHandler {
             .borrow_mut()
             .save_controller(controller)
             .map_err(|e| Status::unknown(e.to_string()))?;
-        if outcome.connection_changed {
-            if let Some(dev_id) = outcome.new_midi_output_device_id {
-                spawn_in_main_thread(async move {
-                    let reply = BackboneShell::get()
-                        .request_midi_device_identity(dev_id, None)
-                        .await;
-                    let _ = BackboneShell::get()
-                        .controller_manager()
-                        .borrow_mut()
-                        .update_controller_device_identity(&outcome.id, reply.ok());
-                    Ok(())
-                })
-            }
+        if outcome.connection_changed
+            && let Some(dev_id) = outcome.new_midi_output_device_id
+        {
+            spawn_in_main_thread(async move {
+                let reply = BackboneShell::get()
+                    .request_midi_device_identity(dev_id, None)
+                    .await;
+                let _ = BackboneShell::get()
+                    .controller_manager()
+                    .borrow_mut()
+                    .update_controller_device_identity(&outcome.id, reply.ok());
+                Ok(())
+            })
         }
         Ok(Response::new(Empty {}))
     }

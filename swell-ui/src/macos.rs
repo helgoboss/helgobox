@@ -1,7 +1,7 @@
 use objc2::foundation::{MainThreadMarker, NSObject};
 use objc2::rc::{Id, Shared};
 use objc2::runtime::Class;
-use objc2::{extern_class, extern_methods, msg_send, msg_send_id, ClassType};
+use objc2::{ClassType, extern_class, extern_methods, msg_send, msg_send_id};
 
 extern_class!(
     #[derive(Debug, PartialEq, Eq, Hash)]

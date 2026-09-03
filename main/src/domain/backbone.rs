@@ -1,5 +1,5 @@
 use base::{
-    make_available_globally_in_main_thread_on_demand, NamedChannelSender, SenderToNormalThread,
+    NamedChannelSender, SenderToNormalThread, make_available_globally_in_main_thread_on_demand,
 };
 
 use crate::domain::{
@@ -10,7 +10,7 @@ use crate::domain::{
     StreamDeckSourceFeedbackPayload, StreamDeckSourceFeedbackValue, UnitId, WeakInstance,
 };
 #[allow(unused)]
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use pot::{PotFavorites, PotFilterExcludes};
 
 use ab_glyph::{FontRef, PxScale};
@@ -109,12 +109,11 @@ impl LastTouchedTargetsContainer {
     /// Returns `true` if the last touched target has changed.
     pub fn update(&mut self, event: TargetTouchEvent) -> bool {
         // Don't do anything if the given target is the same as the last touched one
-        if let Some(last_target_touch) = self.last_target_touches.last() {
-            if event.target == last_target_touch.target
-                && event.caused_by_realearn == last_target_touch.caused_by_realearn
-            {
-                return false;
-            }
+        if let Some(last_target_touch) = self.last_target_touches.last()
+            && event.target == last_target_touch.target
+            && event.caused_by_realearn == last_target_touch.caused_by_realearn
+        {
+            return false;
         }
         // Remove all previous entries of that target type and conditions
         let last_touched_target_type = ReaperTargetType::from_target(&event.target);
@@ -830,10 +829,10 @@ impl RecentlyFocusedFxContainer {
             return;
         };
         // Don't rotate if current FX has not changed.
-        if let Some(current) = self.current.as_ref() {
-            if &new_fx == current {
-                return;
-            }
+        if let Some(current) = self.current.as_ref()
+            && &new_fx == current
+        {
+            return;
         }
         // Rotate
         self.previous = self.current.take();

@@ -1,6 +1,6 @@
 use crate::domain::{CompartmentParamIndex, GroupKey};
 use crate::infrastructure::api::convert::to_data::{convert_activation, convert_tags};
-use crate::infrastructure::api::convert::{defaults, ConversionResult};
+use crate::infrastructure::api::convert::{ConversionResult, defaults};
 use crate::infrastructure::data::{EnabledData, GroupModelData};
 use helgobox_api::persistence::*;
 

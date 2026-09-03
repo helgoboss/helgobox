@@ -2015,22 +2015,14 @@ impl TriggerMatrixAction {
             TriggerMatrixAction::ToggleMute => "TRIGGER_MATRIX_ACTION_TOGGLE_MUTE",
             TriggerMatrixAction::CreateMatrix => "TRIGGER_MATRIX_ACTION_CREATE_MATRIX",
             TriggerMatrixAction::ShowMasterFx => "TRIGGER_MATRIX_ACTION_SHOW_MASTER_FX",
-            TriggerMatrixAction::ShowMasterRouting => {
-                "TRIGGER_MATRIX_ACTION_SHOW_MASTER_ROUTING"
-            }
+            TriggerMatrixAction::ShowMasterRouting => "TRIGGER_MATRIX_ACTION_SHOW_MASTER_ROUTING",
             TriggerMatrixAction::TapTempo => "TRIGGER_MATRIX_ACTION_TAP_TEMPO",
-            TriggerMatrixAction::EnterSilenceMode => {
-                "TRIGGER_MATRIX_ACTION_ENTER_SILENCE_MODE"
-            }
-            TriggerMatrixAction::ToggleSilenceMode => {
-                "TRIGGER_MATRIX_ACTION_TOGGLE_SILENCE_MODE"
-            }
+            TriggerMatrixAction::EnterSilenceMode => "TRIGGER_MATRIX_ACTION_ENTER_SILENCE_MODE",
+            TriggerMatrixAction::ToggleSilenceMode => "TRIGGER_MATRIX_ACTION_TOGGLE_SILENCE_MODE",
             TriggerMatrixAction::PlayAllIgnitedClips => {
                 "TRIGGER_MATRIX_ACTION_PLAY_ALL_IGNITED_CLIPS"
             }
-            TriggerMatrixAction::SequencerRecord => {
-                "TRIGGER_MATRIX_ACTION_SEQUENCER_RECORD"
-            }
+            TriggerMatrixAction::SequencerRecord => "TRIGGER_MATRIX_ACTION_SEQUENCER_RECORD",
             TriggerMatrixAction::SequencerPlay => "TRIGGER_MATRIX_ACTION_SEQUENCER_PLAY",
             TriggerMatrixAction::SequencerStop => "TRIGGER_MATRIX_ACTION_SEQUENCER_STOP",
             TriggerMatrixAction::SequencerWriteToArrangementAtStart => {
@@ -2045,9 +2037,7 @@ impl TriggerMatrixAction {
             TriggerMatrixAction::SequencerCleanArrangement => {
                 "TRIGGER_MATRIX_ACTION_SEQUENCER_CLEAN_ARRANGEMENT"
             }
-            TriggerMatrixAction::TriggerSmartRecord => {
-                "TRIGGER_MATRIX_ACTION_TRIGGER_SMART_RECORD"
-            }
+            TriggerMatrixAction::TriggerSmartRecord => "TRIGGER_MATRIX_ACTION_TRIGGER_SMART_RECORD",
             TriggerMatrixAction::ToggleLearnSimpleMappingTrigger => {
                 "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_TRIGGER"
             }
@@ -2085,12 +2075,8 @@ impl TriggerMatrixAction {
                 "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_TAP_TEMPO"
             }
             TriggerMatrixAction::Activate => "TRIGGER_MATRIX_ACTION_ACTIVATE",
-            TriggerMatrixAction::ReloadAllClips => {
-                "TRIGGER_MATRIX_ACTION_RELOAD_ALL_CLIPS"
-            }
-            TriggerMatrixAction::ExportToClipboard => {
-                "TRIGGER_MATRIX_ACTION_EXPORT_TO_CLIPBOARD"
-            }
+            TriggerMatrixAction::ReloadAllClips => "TRIGGER_MATRIX_ACTION_RELOAD_ALL_CLIPS",
+            TriggerMatrixAction::ExportToClipboard => "TRIGGER_MATRIX_ACTION_EXPORT_TO_CLIPBOARD",
             TriggerMatrixAction::ExportToArrangement => {
                 "TRIGGER_MATRIX_ACTION_EXPORT_TO_ARRANGEMENT"
             }
@@ -2111,9 +2097,7 @@ impl TriggerMatrixAction {
             "TRIGGER_MATRIX_ACTION_TAP_TEMPO" => Some(Self::TapTempo),
             "TRIGGER_MATRIX_ACTION_ENTER_SILENCE_MODE" => Some(Self::EnterSilenceMode),
             "TRIGGER_MATRIX_ACTION_TOGGLE_SILENCE_MODE" => Some(Self::ToggleSilenceMode),
-            "TRIGGER_MATRIX_ACTION_PLAY_ALL_IGNITED_CLIPS" => {
-                Some(Self::PlayAllIgnitedClips)
-            }
+            "TRIGGER_MATRIX_ACTION_PLAY_ALL_IGNITED_CLIPS" => Some(Self::PlayAllIgnitedClips),
             "TRIGGER_MATRIX_ACTION_SEQUENCER_RECORD" => Some(Self::SequencerRecord),
             "TRIGGER_MATRIX_ACTION_SEQUENCER_PLAY" => Some(Self::SequencerPlay),
             "TRIGGER_MATRIX_ACTION_SEQUENCER_STOP" => Some(Self::SequencerStop),
@@ -2129,9 +2113,7 @@ impl TriggerMatrixAction {
             "TRIGGER_MATRIX_ACTION_SEQUENCER_CLEAN_ARRANGEMENT" => {
                 Some(Self::SequencerCleanArrangement)
             }
-            "TRIGGER_MATRIX_ACTION_TRIGGER_SMART_RECORD" => {
-                Some(Self::TriggerSmartRecord)
-            }
+            "TRIGGER_MATRIX_ACTION_TRIGGER_SMART_RECORD" => Some(Self::TriggerSmartRecord),
             "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_TRIGGER" => {
                 Some(Self::ToggleLearnSimpleMappingTrigger)
             }
@@ -2171,9 +2153,7 @@ impl TriggerMatrixAction {
             "TRIGGER_MATRIX_ACTION_ACTIVATE" => Some(Self::Activate),
             "TRIGGER_MATRIX_ACTION_RELOAD_ALL_CLIPS" => Some(Self::ReloadAllClips),
             "TRIGGER_MATRIX_ACTION_EXPORT_TO_CLIPBOARD" => Some(Self::ExportToClipboard),
-            "TRIGGER_MATRIX_ACTION_EXPORT_TO_ARRANGEMENT" => {
-                Some(Self::ExportToArrangement)
-            }
+            "TRIGGER_MATRIX_ACTION_EXPORT_TO_ARRANGEMENT" => Some(Self::ExportToArrangement),
             _ => None,
         }
     }

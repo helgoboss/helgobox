@@ -1,27 +1,28 @@
 use crate::application::{
-    get_track_label, share_group, share_mapping, Affected, AutoLoadMode, AutoUnitData, Change,
-    ChangeResult, CompartmentCommand, CompartmentModel, CompartmentPresetManager,
-    CompartmentPresetModel, CompartmentProp, FxId, FxPresetLinkConfig, GroupCommand, GroupModel,
-    MappingCommand, MappingModel, MappingProp, ModeCommand, PresetLinkManager, ProcessingRelevance,
-    SharedGroup, SharedInstanceModel, SharedMapping, SourceModel, TargetCategory, TargetModel,
-    TargetProp, MASTER_TRACK_LABEL,
+    Affected, AutoLoadMode, AutoUnitData, Change, ChangeResult, CompartmentCommand,
+    CompartmentModel, CompartmentPresetManager, CompartmentPresetModel, CompartmentProp, FxId,
+    FxPresetLinkConfig, GroupCommand, GroupModel, MASTER_TRACK_LABEL, MappingCommand, MappingModel,
+    MappingProp, ModeCommand, PresetLinkManager, ProcessingRelevance, SharedGroup,
+    SharedInstanceModel, SharedMapping, SourceModel, TargetCategory, TargetModel, TargetProp,
+    get_track_label, share_group, share_mapping,
 };
-use crate::base::{notification, prop, when, AsyncNotifier, Prop};
+use crate::base::{AsyncNotifier, Prop, notification, prop, when};
 use crate::domain::{
-    convert_plugin_param_index_range_to_iter, create_lua_feedback_script_runtime,
-    create_lua_midi_script_source_runtime, lua_module_path_without_ext, Backbone, BasicSettings,
-    CompartmentKind, CompartmentParamIndex, CompartmentSettings, CompoundMappingSource,
-    ControlContext, ControlInput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
-    FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId,
-    GroupKey, IncomingCompoundSourceValue, InputDescriptor, InstanceId, InternalInfoEvent,
-    LastTouchedTargetFilter, MainMapping, MappingId, MappingKey, MappingMatchedEvent,
-    MessageCaptureEvent, MidiControlInput, NormalMainTask, OscFeedbackTask, ParamSetting,
-    PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
-    RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget, ReaperTargetType, SharedInstance,
-    SharedUnit, SourceFeedbackEvent, StayActiveWhenProjectInBackground, StreamDeckDeviceId, Tag,
-    TargetControlEvent, TargetTouchEvent, TargetValueChangedEvent, Unit, UnitContainer, UnitId,
+    Backbone, BasicSettings, CompartmentKind, CompartmentParamIndex, CompartmentSettings,
+    CompoundMappingSource, ControlContext, ControlInput, DomainEvent, DomainEventHandler,
+    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask,
+    FinalSourceFeedbackValue, GroupId, GroupKey, IncomingCompoundSourceValue, InputDescriptor,
+    InstanceId, InternalInfoEvent, LUA_FEEDBACK_SCRIPT_RUNTIME_NAME,
+    LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME, LastTouchedTargetFilter, MainMapping, MappingId,
+    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
+    OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue,
+    QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget,
+    ReaperTargetType, SharedInstance, SharedUnit, SourceFeedbackEvent,
+    StayActiveWhenProjectInBackground, StreamDeckDeviceId, Tag, TargetControlEvent,
+    TargetTouchEvent, TargetValueChangedEvent, Unit, UnitContainer, UnitId,
     VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
-    LUA_FEEDBACK_SCRIPT_RUNTIME_NAME, LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME,
+    convert_plugin_param_index_range_to_iter, create_lua_feedback_script_runtime,
+    create_lua_midi_script_source_runtime, lua_module_path_without_ext,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;
@@ -34,7 +35,7 @@ use std::cell::{OnceCell, Ref, RefCell};
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::domain;
-use anyhow::{ensure, Context};
+use anyhow::{Context, ensure};
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use core::iter;
 use helgoboss_learn::{AbsoluteMode, ControlResult, ControlValue, UnitValue};
@@ -723,15 +724,15 @@ impl UnitModel {
         event: MessageCaptureEvent,
     ) -> Option<CompoundMappingSource> {
         // At first, try virtualized
-        if event.allow_virtual_sources {
-            if let Some(virtualization) = self.virtualize_source_value(event.result.message()) {
-                if !virtualization.learnable {
-                    return None;
-                }
-                let virtual_source =
-                    VirtualSource::from_source_value(virtualization.virtual_source_value);
-                return Some(CompoundMappingSource::Virtual(virtual_source));
+        if event.allow_virtual_sources
+            && let Some(virtualization) = self.virtualize_source_value(event.result.message())
+        {
+            if !virtualization.learnable {
+                return None;
             }
+            let virtual_source =
+                VirtualSource::from_source_value(virtualization.virtual_source_value);
+            return Some(CompoundMappingSource::Virtual(virtual_source));
         }
         // Then direct
         CompoundMappingSource::from_message_capture_event(event)
@@ -849,24 +850,24 @@ impl UnitModel {
     fn learn_target(&mut self, target: &ReaperTarget, weak_unit: WeakUnitModel) {
         // Prevent learning targets from other project tabs (leads to weird effects, just think
         // about it)
-        if let Some(p) = target.project() {
-            if p != self.processor_context.project_or_current_project() {
-                return;
-            }
+        if let Some(p) = target.project()
+            && p != self.processor_context.project_or_current_project()
+        {
+            return;
         }
         let qualified_id = self.unit.borrow_mut().set_mapping_which_learns_target(None);
-        if let Some(qualified_id) = qualified_id {
-            if let Some(mapping) = self.find_mapping_by_qualified_id(qualified_id).cloned() {
-                let mut mapping = mapping.borrow_mut();
-                let compartment = mapping.compartment();
-                self.change_target_with_closure(&mut mapping, None, weak_unit, |ctx| {
-                    ctx.mapping.target_model.apply_from_target(
-                        target,
-                        ctx.extended_context,
-                        compartment,
-                    )
-                });
-            }
+        if let Some(qualified_id) = qualified_id
+            && let Some(mapping) = self.find_mapping_by_qualified_id(qualified_id).cloned()
+        {
+            let mut mapping = mapping.borrow_mut();
+            let compartment = mapping.compartment();
+            self.change_target_with_closure(&mut mapping, None, weak_unit, |ctx| {
+                ctx.mapping.target_model.apply_from_target(
+                    target,
+                    ctx.extended_context,
+                    compartment,
+                )
+            });
         }
     }
 
@@ -1344,23 +1345,21 @@ impl UnitModel {
                             A::One(CP::InMapping(mapping_id, affected)),
                         )) => {
                             // Sync mapping to processors if necessary.
-                            if let Some(relevance) = affected.processing_relevance() {
-                                if let Some(mapping) =
+                            if let Some(relevance) = affected.processing_relevance()
+                                && let Some(mapping) =
                                     model.find_mapping_by_id(*compartment, *mapping_id)
-                                {
-                                    let mapping = mapping.borrow();
-                                    use ProcessingRelevance as R;
-                                    match relevance {
-                                        R::PersistentProcessingRelevant => {
-                                            // Keep syncing persistent mapping processing state only
-                                            // (must be cheap because can be triggered by processing).
-                                            model
-                                                .sync_persistent_mapping_processing_state(&mapping);
-                                        }
-                                        R::ProcessingRelevant => {
-                                            // Keep syncing complete mappings to processors.
-                                            model.sync_single_mapping_to_processors(&mapping);
-                                        }
+                            {
+                                let mapping = mapping.borrow();
+                                use ProcessingRelevance as R;
+                                match relevance {
+                                    R::PersistentProcessingRelevant => {
+                                        // Keep syncing persistent mapping processing state only
+                                        // (must be cheap because can be triggered by processing).
+                                        model.sync_persistent_mapping_processing_state(&mapping);
+                                    }
+                                    R::ProcessingRelevant => {
+                                        // Keep syncing complete mappings to processors.
+                                        model.sync_single_mapping_to_processors(&mapping);
                                     }
                                 }
                             }
@@ -1725,11 +1724,7 @@ impl UnitModel {
     ) -> Option<MappingId> {
         self.mappings(compartment).find_map(|m| {
             let m = m.try_borrow().ok()?;
-            if m.key() == key {
-                Some(m.id())
-            } else {
-                None
-            }
+            if m.key() == key { Some(m.id()) } else { None }
         })
     }
 
@@ -1778,11 +1773,11 @@ impl UnitModel {
         mapping_id: QualifiedMappingId,
     ) -> anyhow::Result<()> {
         let currently_learning_mapping_id = self.unit.borrow().mapping_which_learns_source().get();
-        if let Some(id) = currently_learning_mapping_id {
-            if id == mapping_id {
-                self.stop_learning_source();
-                return Ok(());
-            }
+        if let Some(id) = currently_learning_mapping_id
+            && id == mapping_id
+        {
+            self.stop_learning_source();
+            return Ok(());
         }
         self.start_learning_source(unit, mapping_id, vec![])
     }
@@ -1817,22 +1812,22 @@ impl UnitModel {
         ignore_sources: Vec<CompoundMappingSource>,
     ) -> anyhow::Result<()> {
         // Warn if settings are not good
-        if self.control_input.get().is_midi_fx_input() {
-            if let Some(track) = self.processor_context.track() {
-                if !track
-                    .recording_input()
-                    .is_some_and(|i| matches!(i, RecordingInput::Midi { .. }))
-                {
-                    self.ui().handle_external_info_event(
-                        InstanceInfoEvent::MidiLearnFromFxInputButTrackHasAudioInput,
-                    );
-                } else if !track.is_armed(false)
-                    || track.input_monitoring_mode() != InputMonitoringMode::Normal
-                {
-                    self.ui().handle_external_info_event(
-                        InstanceInfoEvent::MidiLearnFromFxInputButTrackNotArmed,
-                    );
-                }
+        if self.control_input.get().is_midi_fx_input()
+            && let Some(track) = self.processor_context.track()
+        {
+            if !track
+                .recording_input()
+                .is_some_and(|i| matches!(i, RecordingInput::Midi { .. }))
+            {
+                self.ui().handle_external_info_event(
+                    InstanceInfoEvent::MidiLearnFromFxInputButTrackHasAudioInput,
+                );
+            } else if !track.is_armed(false)
+                || track.input_monitoring_mode() != InputMonitoringMode::Normal
+            {
+                self.ui().handle_external_info_event(
+                    InstanceInfoEvent::MidiLearnFromFxInputButTrackNotArmed,
+                );
             }
         }
         let allow_virtual_sources = mapping_id.compartment != CompartmentKind::Controller;
@@ -1873,18 +1868,18 @@ impl UnitModel {
         .do_async(|shared_unit, event: MessageCaptureEvent| {
             let mut unit = shared_unit.borrow_mut();
             let qualified_id = unit.unit.borrow().mapping_which_learns_source().get();
-            if let Some(qualified_id) = qualified_id {
-                if let Some(source) = unit.create_compound_source_for_learning(event) {
-                    // The learn process should stop when removing a mapping but just in case,
-                    // let's react gracefully if the mapping doesn't exist anymore (do nothing).
-                    let _ = unit.change_mapping_by_id_with_closure(
-                        qualified_id,
-                        None,
-                        Rc::downgrade(&shared_unit),
-                        |ctx| Ok(ctx.mapping.source_model.apply_from_source(&source)),
-                    );
-                    unit.unit.borrow_mut().set_mapping_which_learns_source(None);
-                }
+            if let Some(qualified_id) = qualified_id
+                && let Some(source) = unit.create_compound_source_for_learning(event)
+            {
+                // The learn process should stop when removing a mapping but just in case,
+                // let's react gracefully if the mapping doesn't exist anymore (do nothing).
+                let _ = unit.change_mapping_by_id_with_closure(
+                    qualified_id,
+                    None,
+                    Rc::downgrade(&shared_unit),
+                    |ctx| Ok(ctx.mapping.source_model.apply_from_source(&source)),
+                );
+                unit.unit.borrow_mut().set_mapping_which_learns_source(None);
             }
         });
         Ok(())
@@ -1896,11 +1891,11 @@ impl UnitModel {
 
     pub fn toggle_learning_target(&mut self, unit: WeakUnitModel, mapping_id: QualifiedMappingId) {
         let currently_learning_mapping_id = self.unit.borrow().mapping_which_learns_target().get();
-        if let Some(id) = currently_learning_mapping_id {
-            if id == mapping_id {
-                self.stop_learning_target();
-                return;
-            }
+        if let Some(id) = currently_learning_mapping_id
+            && id == mapping_id
+        {
+            self.stop_learning_target();
+            return;
         }
         let filter = (ReaperTargetType::all(), TargetTouchCause::Reaper);
         self.start_learning_target_internal(unit, mapping_id, true, filter);

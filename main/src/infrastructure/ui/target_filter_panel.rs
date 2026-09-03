@@ -1,6 +1,6 @@
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views;
-use crate::infrastructure::ui::egui_views::target_filter_panel::{run_ui, State, Value};
+use crate::infrastructure::ui::egui_views::target_filter_panel::{State, Value, run_ui};
 use base::SenderToNormalThread;
 use crossbeam_channel::Receiver;
 use derivative::Derivative;

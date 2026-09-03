@@ -1,8 +1,8 @@
 use crate::domain::{
-    CompartmentKind, ControlContext, ExtendedProcessorContext, HitInstruction,
+    CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, HitInstruction,
     HitInstructionContext, HitInstructionResponse, HitResponse, MappingControlContext,
     MappingSnapshot, MappingSnapshotId, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use helgobox_api::persistence::MappingSnapshotDescForTake;

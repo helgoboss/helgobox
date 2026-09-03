@@ -1,7 +1,7 @@
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::AppPage;
 use anyhow::Context;
-use helgobox_api::runtime::{register_helgobox_api, HelgoboxApi};
+use helgobox_api::runtime::{HelgoboxApi, register_helgobox_api};
 use reaper_high::{OrCurrentProject, Project, Reaper};
 use reaper_low::raw::ReaProject;
 use reaper_medium::{ReaperStr, RegistrationObject};

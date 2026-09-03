@@ -1,21 +1,21 @@
 #![allow(deprecated)]
 use crate::application::{
-    reaper_supports_global_midi_filter, AutoLoadMode, CompartmentCommand, CompartmentInUnit,
-    CompartmentModel, FxPresetLinkConfig, GroupModel, SharedUnitModel, UnitCommand, UnitModel,
-    WeakUnitModel,
+    AutoLoadMode, CompartmentCommand, CompartmentInUnit, CompartmentModel, FxPresetLinkConfig,
+    GroupModel, SharedUnitModel, UnitCommand, UnitModel, WeakUnitModel,
+    reaper_supports_global_midi_filter,
 };
 use crate::domain::{
-    compartment_param_index_iter, CompartmentKind, CompartmentParamIndex, CompartmentParams,
-    ControlInput, FeedbackOutput, GroupId, GroupKey, MappingId, MappingKey,
-    MappingSnapshotContainer, MappingSnapshotId, MidiControlInput, MidiDestination, OscDeviceId,
-    Param, PluginParams, StayActiveWhenProjectInBackground, StreamDeckDeviceId, Tag, Unit,
+    CompartmentKind, CompartmentParamIndex, CompartmentParams, ControlInput, FeedbackOutput,
+    GroupId, GroupKey, MappingId, MappingKey, MappingSnapshotContainer, MappingSnapshotId,
+    MidiControlInput, MidiDestination, OscDeviceId, Param, PluginParams,
+    StayActiveWhenProjectInBackground, StreamDeckDeviceId, Tag, Unit, compartment_param_index_iter,
 };
 use crate::infrastructure::data::{
+    CompartmentModelData, GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
     convert_target_value_to_api, convert_target_value_to_model,
-    ensure_no_duplicate_compartment_data, CompartmentModelData, GroupModelData, MappingModelData,
-    MigrationDescriptor, ParameterData,
+    ensure_no_duplicate_compartment_data,
 };
-use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
+use crate::infrastructure::plugin::{BackboneShell, update_auto_units_async};
 use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 
 use crate::base::notification;
@@ -591,18 +591,18 @@ impl UnitData {
     #[allow(unused_variables)]
     pub fn apply_to_model(&self, shared_session: &SharedUnitModel) -> anyhow::Result<()> {
         let mut session = shared_session.borrow_mut();
-        if let Some(v) = self.version.as_ref() {
-            if BackboneShell::version() < v {
-                notification::warn(format!(
-                    "The session that is about to load was saved with ReaLearn {}, which is \
+        if let Some(v) = self.version.as_ref()
+            && BackboneShell::version() < v
+        {
+            notification::warn(format!(
+                "The session that is about to load was saved with ReaLearn {}, which is \
                          newer than the installed version {}. Things might not work as expected. \
                          Even more importantly: Saving might result in loss of the data that was \
                          saved with the new ReaLearn version! Please consider upgrading your \
                          ReaLearn installation to the latest version.",
-                    v,
-                    BackboneShell::version()
-                ));
-            }
+                v,
+                BackboneShell::version()
+            ));
         }
         let result = self.apply_to_model_internal(&mut session, Rc::downgrade(shared_session));
         notification::notify_user_on_anyhow_error(result);

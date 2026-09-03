@@ -6,7 +6,7 @@ use crate::infrastructure::ui::egui_views;
 use camino::Utf8Path;
 use derivative::Derivative;
 use pot::{CurrentPreset, PotFavorites, PotFilterExcludes, SharedRuntimePotUnit};
-use pot_browser::{run_ui, PotBrowserIntegration, State};
+use pot_browser::{PotBrowserIntegration, State, run_ui};
 use reaper_high::{Fx, Track};
 use reaper_low::raw;
 use std::sync::RwLock;

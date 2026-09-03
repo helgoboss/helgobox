@@ -1,7 +1,7 @@
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    Backbone, CompartmentKind, ExtendedProcessorContext, LastTouchedTargetFilter, ReaperTarget,
-    ReaperTargetType, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    Backbone, CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, LastTouchedTargetFilter,
+    ReaperTarget, ReaperTargetType, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
 };
 use base::hash_util::NonCryptoHashSet;
 use helgobox_api::persistence::TargetTouchCause;

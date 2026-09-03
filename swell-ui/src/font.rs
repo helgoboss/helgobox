@@ -1,5 +1,5 @@
 use base::hash_util::NonCryptoHashMap;
-use reaper_low::{raw, Swell};
+use reaper_low::{Swell, raw};
 use reaper_medium::Hfont;
 use std::cell::RefCell;
 

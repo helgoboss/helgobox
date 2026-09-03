@@ -317,10 +317,11 @@ impl MainMapping {
         &self,
         value: Option<AbsoluteValue>,
     ) {
-        if let Some(v) = value {
-            if self.control_is_enabled() && !self.is_echo() {
-                self.last_non_performance_target_value.set(Some(v));
-            }
+        if let Some(v) = value
+            && self.control_is_enabled()
+            && !self.is_echo()
+        {
+            self.last_non_performance_target_value.set(Some(v));
         }
     }
 
@@ -801,12 +802,11 @@ impl MainMapping {
         );
         if self.core.mode.wants_to_know_final_target_value()
             && result.at_least_one_target_was_reached
+            && let Some(final_target_value) = self.current_aggregated_target_value(context)
         {
-            if let Some(final_target_value) = self.current_aggregated_target_value(context) {
-                self.core
-                    .mode
-                    .report_final_target_value_of_last_control(final_target_value);
-            }
+            self.core
+                .mode
+                .report_final_target_value_of_last_control(final_target_value);
         }
         result
     }

@@ -1,4 +1,4 @@
-use base::{convert_to_identifier, SmallAsciiString};
+use base::{SmallAsciiString, convert_to_identifier};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::str::FromStr;
 

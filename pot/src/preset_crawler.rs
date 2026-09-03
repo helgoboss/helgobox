@@ -1,11 +1,11 @@
 use crate::{
-    parse_vst2_magic_number, parse_vst3_uid, pot_db, EscapeCatcher, PersistentPresetId, PluginId,
+    EscapeCatcher, PersistentPresetId, PluginId, parse_vst2_magic_number, parse_vst3_uid, pot_db,
 };
 use base::enigo::EnigoMouse;
 use base::future_util::millis;
 use base::hash_util::NonCryptoIndexMap;
-use base::{blocking_lock_arc, file_util, hash_util};
 use base::{Mouse, MouseCursorPosition};
+use base::{blocking_lock_arc, file_util, hash_util};
 use camino::{Utf8Path, Utf8PathBuf};
 use helgobox_api::persistence::MouseButton;
 use reaper_high::{Fx, FxInfo, Reaper};
@@ -93,10 +93,9 @@ impl PresetCrawlingState {
 
     fn add_preset(&mut self, preset: CrawledPreset, never_stop_crawling: bool) -> NextCrawlStep {
         // Give stop signal if we reached the end of the list or are at its beginning again.
-        if !never_stop_crawling
-            && let Some(step) = self.make_stop_check(&preset) {
-                return step;
-            }
+        if !never_stop_crawling && let Some(step) = self.make_stop_check(&preset) {
+            return step;
+        }
         // Reset "same preset name attempts" logic
         self.same_preset_name_in_a_row_attempts = 0;
         if let Some(last_same_preset_name) = self.same_preset_name_in_a_row.take() {
@@ -155,31 +154,32 @@ impl PresetCrawlingState {
         if let Some((_, reference_preset)) = self
             .crawled_presets
             .get_index(self.same_preset_name_like_beginning_attempts as usize)
-            && preset.name == reference_preset.name {
-                // This preset has the same name as the reference preset, which is one of the
-                // presets crawled right at the beginning.
-                if self.same_preset_name_like_beginning_attempts
-                    <= MAX_SAME_PRESET_NAME_LIKE_BEGINNING_ATTEMPTS
-                {
-                    // Let's tolerate that right now and still continue crawling.
-                    // It's possible that the plug-in doesn't navigate through the preset list in
-                    // a linear way.
-                    self.same_preset_name_like_beginning_attempts += 1;
-                    // Don't add it to the list of duplicates right away because it *might* really
-                    // turn out to be the beginning of the preset list! If it turns out it isn't,
-                    // we still add it to the list of duplicates later.
-                    self.same_preset_names_like_beginning
-                        .push(preset.name.clone());
-                    return Some(NextCrawlStep::Continue);
-                } else {
-                    // More than max matches with the beginning! That either means the plug-in
-                    // navigates in a *very* non-linear fashion through the preset list or we have
-                    // reached the end of the preset list and restarted at its beginning.
-                    return Some(NextCrawlStep::Stop(
-                        PresetCrawlerStopReason::PresetNameLikeBeginning,
-                    ));
-                }
+            && preset.name == reference_preset.name
+        {
+            // This preset has the same name as the reference preset, which is one of the
+            // presets crawled right at the beginning.
+            if self.same_preset_name_like_beginning_attempts
+                <= MAX_SAME_PRESET_NAME_LIKE_BEGINNING_ATTEMPTS
+            {
+                // Let's tolerate that right now and still continue crawling.
+                // It's possible that the plug-in doesn't navigate through the preset list in
+                // a linear way.
+                self.same_preset_name_like_beginning_attempts += 1;
+                // Don't add it to the list of duplicates right away because it *might* really
+                // turn out to be the beginning of the preset list! If it turns out it isn't,
+                // we still add it to the list of duplicates later.
+                self.same_preset_names_like_beginning
+                    .push(preset.name.clone());
+                return Some(NextCrawlStep::Continue);
+            } else {
+                // More than max matches with the beginning! That either means the plug-in
+                // navigates in a *very* non-linear fashion through the preset list or we have
+                // reached the end of the preset list and restarted at its beginning.
+                return Some(NextCrawlStep::Stop(
+                    PresetCrawlerStopReason::PresetNameLikeBeginning,
+                ));
             }
+        }
         None
     }
 }

@@ -1,4 +1,4 @@
-use crate::domain::{lua_module_path_without_ext, SafeLua, ScriptColor, ScriptFeedbackEvent};
+use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent, lua_module_path_without_ext};
 use anyhow::ensure;
 use helgoboss_learn::{
     AbsoluteValue, FeedbackValue, MidiSourceAddress, MidiSourceScript, MidiSourceScriptOutcome,

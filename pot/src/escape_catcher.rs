@@ -3,8 +3,8 @@ use reaper_medium::{
     AccelMsgKind, AcceleratorBehavior, AcceleratorKeyCode, AcceleratorPosition, RegistrationHandle,
     TranslateAccel, TranslateAccelArgs, TranslateAccelResult,
 };
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct EscapeCatcher {
     accel_handle: RegistrationHandle<EscapeCatcherAccel>,

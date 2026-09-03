@@ -1,5 +1,5 @@
-use crate::menu_tree::{Entry, Menu};
 use crate::Menu as SwellMenu;
+use crate::menu_tree::{Entry, Menu};
 
 /// Adds all entries within the given pure menu to the given SWELL menu, ignoring the label of the pure menu.
 ///

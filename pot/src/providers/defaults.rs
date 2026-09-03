@@ -2,15 +2,15 @@ use crate::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
 use crate::{
-    create_plugin_factory_preset, FilterInput, InnerBuildInput, InnerPresetId,
-    PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginId,
-    PluginIdInPipeFormat, PotPreset, SearchInput,
+    FilterInput, InnerBuildInput, InnerPresetId, PersistentDatabaseId, PersistentInnerPresetId,
+    PersistentPresetId, PluginId, PluginIdInPipeFormat, PotPreset, SearchInput,
+    create_plugin_factory_preset,
 };
 use std::borrow::Cow;
 
 use crate::plugins::PluginCommon;
 use either::Either;
-use enumset::{enum_set, EnumSet};
+use enumset::{EnumSet, enum_set};
 use helgobox_api::persistence::PotFilterKind;
 use itertools::Itertools;
 use std::error::Error;

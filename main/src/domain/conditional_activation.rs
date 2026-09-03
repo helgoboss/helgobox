@@ -1,7 +1,7 @@
 use crate::base::eel;
 use crate::domain::{
-    CompartmentParamIndex, CompartmentParams, EffectiveParamValue, ExpressionEvaluator, MappingId,
-    RawParamValue, COMPARTMENT_PARAMETER_COUNT, EXPRESSION_NONE_VALUE,
+    COMPARTMENT_PARAMETER_COUNT, CompartmentParamIndex, CompartmentParams, EXPRESSION_NONE_VALUE,
+    EffectiveParamValue, ExpressionEvaluator, MappingId, RawParamValue,
 };
 use base::hash_util::NonCryptoHashSet;
 use base::regex;

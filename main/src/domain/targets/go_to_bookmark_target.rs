@@ -1,10 +1,10 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::{
-    current_value_of_bookmark, find_bookmark, format_value_as_on_off, with_seek_behavior,
-    AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext,
+    AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET,
     ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    UnresolvedReaperTargetDef, current_value_of_bookmark, find_bookmark, format_value_as_on_off,
+    with_seek_behavior,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RgbColor, Target, UnitValue,
@@ -125,21 +125,20 @@ impl RealearnTarget for GoToBookmarkTarget {
                         );
                     });
                 }
-                if self.set_loop_points || self.set_time_selection {
-                    if let Some(bookmark) = self.find_bookmark() {
-                        if let Some(end_pos) = bookmark.basic_info.region_end_position {
-                            if self.set_loop_points {
-                                self.project.set_loop_points(
-                                    bookmark.basic_info.position,
-                                    end_pos,
-                                    AutoSeekBehavior::DenyAutoSeek,
-                                );
-                            }
-                            if self.set_time_selection {
-                                self.project
-                                    .set_time_selection(bookmark.basic_info.position, end_pos);
-                            }
-                        }
+                if (self.set_loop_points || self.set_time_selection)
+                    && let Some(bookmark) = self.find_bookmark()
+                    && let Some(end_pos) = bookmark.basic_info.region_end_position
+                {
+                    if self.set_loop_points {
+                        self.project.set_loop_points(
+                            bookmark.basic_info.position,
+                            end_pos,
+                            AutoSeekBehavior::DenyAutoSeek,
+                        );
+                    }
+                    if self.set_time_selection {
+                        self.project
+                            .set_time_selection(bookmark.basic_info.position, end_pos);
                     }
                 }
             }

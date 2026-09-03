@@ -11,12 +11,12 @@ use crate::domain::{
 use camino::{Utf8Path, Utf8PathBuf};
 use derive_more::Display;
 use helgoboss_learn::{
-    ControlValue, DetailedSourceCharacter, DisplaySpec, DisplayType, Interval, MackieLcdScope,
-    MackieSevenSegmentDisplayScope, MidiClockTransportMessage, OscArgDescriptor, OscSource,
-    OscTypeTag, SiniConE24Scope, SlKeyboardDisplayScope, SourceCharacter, UnitValue,
-    DEFAULT_OSC_ARG_VALUE_RANGE,
+    ControlValue, DEFAULT_OSC_ARG_VALUE_RANGE, DetailedSourceCharacter, DisplaySpec, DisplayType,
+    Interval, MackieLcdScope, MackieSevenSegmentDisplayScope, MidiClockTransportMessage,
+    OscArgDescriptor, OscSource, OscTypeTag, SiniConE24Scope, SlKeyboardDisplayScope,
+    SourceCharacter, UnitValue,
 };
-use helgoboss_midi::{Channel, U14, U7};
+use helgoboss_midi::{Channel, U7, U14};
 use helgobox_api::persistence::{
     MidiScriptKind, StreamDeckButtonBackground, StreamDeckButtonDesign,
     StreamDeckButtonFadingImageForeground, StreamDeckButtonForeground,
@@ -892,8 +892,8 @@ impl SourceModel {
     }
 
     pub fn simple_source(&self) -> Option<playtime_api::runtime::SimpleSource> {
-        use playtime_api::runtime::*;
         use MidiSourceType::*;
+        use playtime_api::runtime::*;
         if self.category == SourceCategory::Never {
             return None;
         }

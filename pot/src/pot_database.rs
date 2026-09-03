@@ -1,16 +1,16 @@
 use crate::provider_database::{
-    Database, DatabaseId, InnerFilterItem, ProviderContext, SortablePresetId,
-    FIL_HAS_PREVIEW_FALSE, FIL_HAS_PREVIEW_TRUE, FIL_IS_AVAILABLE_FALSE, FIL_IS_AVAILABLE_TRUE,
-    FIL_IS_FAVORITE_FALSE, FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_FALSE, FIL_IS_SUPPORTED_TRUE,
-    FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE, FIL_PRODUCT_KIND_EFFECT,
-    FIL_PRODUCT_KIND_INSTRUMENT, FIL_PRODUCT_KIND_LOOP, FIL_PRODUCT_KIND_ONE_SHOT,
+    Database, DatabaseId, FIL_HAS_PREVIEW_FALSE, FIL_HAS_PREVIEW_TRUE, FIL_IS_AVAILABLE_FALSE,
+    FIL_IS_AVAILABLE_TRUE, FIL_IS_FAVORITE_FALSE, FIL_IS_FAVORITE_TRUE, FIL_IS_SUPPORTED_FALSE,
+    FIL_IS_SUPPORTED_TRUE, FIL_IS_USER_PRESET_FALSE, FIL_IS_USER_PRESET_TRUE,
+    FIL_PRODUCT_KIND_EFFECT, FIL_PRODUCT_KIND_INSTRUMENT, FIL_PRODUCT_KIND_LOOP,
+    FIL_PRODUCT_KIND_ONE_SHOT, InnerFilterItem, ProviderContext, SortablePresetId,
 };
 use crate::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::providers::komplete::KompleteDatabase;
 use crate::{
-    preview_exists, BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, Filters,
-    InnerBuildInput, PersistentDatabaseId, PersistentPresetId, PluginId, PotFavorites, PotPreset,
-    PresetId, PresetWithId, Stats,
+    BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, Filters, InnerBuildInput,
+    PersistentDatabaseId, PersistentPresetId, PluginId, PotFavorites, PotPreset, PresetId,
+    PresetWithId, Stats, preview_exists,
 };
 use base::{blocking_read_lock, blocking_write_lock};
 
@@ -18,7 +18,7 @@ use crate::plugins::PluginDatabase;
 use crate::providers::defaults::DefaultsDatabase;
 use crate::providers::ini::IniDatabase;
 
-use enumset::{enum_set, EnumSet};
+use enumset::{EnumSet, enum_set};
 use helgobox_api::persistence::PotFilterKind;
 use reaper_high::Reaper;
 use std::collections::{BTreeMap, HashSet};
@@ -548,7 +548,17 @@ fn create_filter_items_is_user() -> Vec<FilterItem> {
 
 fn create_filter_items_has_preview() -> Vec<FilterItem> {
     vec![
-        FilterItem::simple(FIL_HAS_PREVIEW_FALSE, "No preview", '🔇', "Display only presets that have no preview. This filter can take very long when operating on a large preset list because it checks whether the preview files actually exist!"),
-        FilterItem::simple(FIL_HAS_PREVIEW_TRUE, "Has preview", '🔊', "Display only presets that have a preview. This filter can take very long when operating on a large preset list because it checks whether the preview files actually exist!"),
+        FilterItem::simple(
+            FIL_HAS_PREVIEW_FALSE,
+            "No preview",
+            '🔇',
+            "Display only presets that have no preview. This filter can take very long when operating on a large preset list because it checks whether the preview files actually exist!",
+        ),
+        FilterItem::simple(
+            FIL_HAS_PREVIEW_TRUE,
+            "Has preview",
+            '🔊',
+            "Display only presets that have a preview. This filter can take very long when operating on a large preset list because it checks whether the preview files actually exist!",
+        ),
     ]
 }

@@ -5,7 +5,7 @@ use enumflags2::make_bitflags;
 use reaper_high::{ActionKind, KeyBinding, KeyBindingKind, Reaper};
 use reaper_medium::{AcceleratorBehavior, AcceleratorKeyCode};
 use std::ffi::CStr;
-use swell_ui::menu_tree::{item, menu, Entry};
+use swell_ui::menu_tree::{Entry, item, menu};
 
 pub const ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME: &str = "HB_SHOW_HIDE_PLAYTIME";
 pub const ACTION_SHOW_HIDE_CUSTOM_PLAYTIME_COMMAND_NAME: &str = "HB_SHOW_HIDE_CUSTOM_PLAYTIME";
@@ -217,11 +217,7 @@ impl ActionDef {
     }
 
     pub fn developer_prefix(&self) -> &'static str {
-        if self.developer {
-            "[developer] "
-        } else {
-            ""
-        }
+        if self.developer { "[developer] " } else { "" }
     }
 
     pub fn instance_suffix(&self) -> &'static str {

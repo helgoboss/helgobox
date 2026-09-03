@@ -3,12 +3,10 @@ use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::playtime_not_available_status;
 use crate::infrastructure::proto::senders::{ProtoSenders, WithInstanceId};
 use crate::infrastructure::proto::{
-    create_initial_global_updates, create_initial_instance_updates, create_initial_unit_updates,
-    helgobox_service_server, AddLicenseRequest, DeleteControllerRequest, DragClipRequest,
-    DragColumnRequest, DragRowRequest, DragSlotRequest, Empty, GetAppSettingsReply,
-    GetAppSettingsRequest, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
-    GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest,
-    GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
+    AddLicenseRequest, DeleteControllerRequest, DragClipRequest, DragColumnRequest, DragRowRequest,
+    DragSlotRequest, Empty, GetAppSettingsReply, GetAppSettingsRequest, GetArrangementInfoReply,
+    GetArrangementInfoRequest, GetClipDetailReply, GetClipDetailRequest, GetCompartmentDataReply,
+    GetCompartmentDataRequest, GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
     GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
     GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetCustomInstanceDataReply,
     GetCustomInstanceDataRequest, GetOccasionalClipUpdatesReply, GetOccasionalClipUpdatesRequest,
@@ -31,7 +29,8 @@ use crate::infrastructure::proto::{
     SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
     SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
     TriggerColumnRequest, TriggerGlobalRequest, TriggerInstanceRequest, TriggerMatrixRequest,
-    TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest,
+    TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest, create_initial_global_updates,
+    create_initial_instance_updates, create_initial_unit_updates, helgobox_service_server,
 };
 use base::future_util;
 use futures::{FutureExt, Stream, StreamExt};

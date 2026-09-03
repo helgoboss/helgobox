@@ -1,16 +1,16 @@
 use crate::infrastructure::data::CompartmentPresetData;
-use crate::infrastructure::server::data::{
-    get_controller_preset_data, get_controller_routing_by_session_id, patch_controller,
-    ControllerRouting, DataError, DataErrorCategory, PatchRequest, SessionResponseData, Topics,
-};
-use crate::infrastructure::server::http::{send_initial_events, ServerClients, WebSocketClient};
 use crate::infrastructure::server::MetricsReporter;
+use crate::infrastructure::server::data::{
+    ControllerRouting, DataError, DataErrorCategory, PatchRequest, SessionResponseData, Topics,
+    get_controller_preset_data, get_controller_routing_by_session_id, patch_controller,
+};
+use crate::infrastructure::server::http::{ServerClients, WebSocketClient, send_initial_events};
+use axum::Json;
 use axum::body::Body;
-use axum::extract::ws::{Message, WebSocket};
 use axum::extract::Path;
+use axum::extract::ws::{Message, WebSocket};
 use axum::http::{Response, StatusCode};
 use axum::response::Html;
-use axum::Json;
 use base::Global;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::mpsc;

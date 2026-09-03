@@ -6,7 +6,7 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::WeakInstanceShell;
 use anyhow::Context;
-use base::{spawn_in_main_thread, Global, NamedChannelSender};
+use base::{Global, NamedChannelSender, spawn_in_main_thread};
 use helgobox_api::persistence::{
     PlaytimeColumnAction, PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeSlotTransportAction,
 };

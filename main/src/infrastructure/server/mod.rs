@@ -16,8 +16,8 @@ use std::rc::Rc;
 use url::Url;
 
 use crate::infrastructure::server::grpc::start_grpc_server;
-use crate::infrastructure::server::http::start_http_server;
 use crate::infrastructure::server::http::ServerClients;
+use crate::infrastructure::server::http::start_http_server;
 use crate::infrastructure::server::services::Services;
 use derivative::Derivative;
 use tokio::runtime::Runtime;

@@ -2,7 +2,7 @@ use crate::application::{MidiSourceType, ReaperSourceType, SourceCategory};
 use crate::infrastructure::api::convert::to_data::{
     convert_control_element_id, convert_keystroke, convert_osc_arg_type, convert_osc_value_range,
 };
-use crate::infrastructure::api::convert::{defaults, ConversionResult};
+use crate::infrastructure::api::convert::{ConversionResult, defaults};
 use crate::infrastructure::data::SourceModelData;
 use anyhow::bail;
 use helgoboss_learn::DisplayType;
@@ -261,8 +261,8 @@ fn convert_midi_number(s: &Source) -> ConversionResult<Option<U14>> {
 }
 
 fn convert_character(s: Option<SourceCharacter>) -> helgoboss_learn::SourceCharacter {
-    use helgoboss_learn::SourceCharacter as T;
     use SourceCharacter::*;
+    use helgoboss_learn::SourceCharacter as T;
     match s.unwrap_or_default() {
         Range => T::RangeElement,
         Button => T::MomentaryButton,
@@ -276,8 +276,8 @@ fn convert_character(s: Option<SourceCharacter>) -> helgoboss_learn::SourceChara
 fn convert_midi_clock_transport_message(
     s: Option<MidiClockTransportMessage>,
 ) -> helgoboss_learn::MidiClockTransportMessage {
-    use helgoboss_learn::MidiClockTransportMessage as T;
     use MidiClockTransportMessage::*;
+    use helgoboss_learn::MidiClockTransportMessage as T;
     match s.unwrap_or_default() {
         Start => T::Start,
         Continue => T::Continue,
@@ -288,8 +288,8 @@ fn convert_midi_clock_transport_message(
 fn convert_mackie_seven_segment_display_scope(
     s: MackieSevenSegmentDisplayScope,
 ) -> helgoboss_learn::MackieSevenSegmentDisplayScope {
-    use helgoboss_learn::MackieSevenSegmentDisplayScope as T;
     use MackieSevenSegmentDisplayScope::*;
+    use helgoboss_learn::MackieSevenSegmentDisplayScope as T;
     match s {
         All => T::All,
         Assignment => T::Assignment,

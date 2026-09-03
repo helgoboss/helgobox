@@ -1,10 +1,10 @@
 use crate::domain::{
-    all_track_fx_enable_unit_value, change_track_prop, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, get_effective_tracks, CompartmentKind,
-    ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
-    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
+    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, CompartmentKind, ControlContext, DEFAULT_TARGET,
+    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, all_track_fx_enable_unit_value,
+    change_track_prop, format_value_as_on_off,
+    get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};

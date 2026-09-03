@@ -7,9 +7,9 @@ use crate::domain::Tag;
 use crate::infrastructure::api::convert::to_data::glue::convert_glue;
 use crate::infrastructure::api::convert::to_data::target::convert_target;
 use crate::infrastructure::api::convert::to_data::{
-    convert_activation, ApiToDataConversionContext,
+    ApiToDataConversionContext, convert_activation,
 };
-use crate::infrastructure::api::convert::{defaults, ConversionResult};
+use crate::infrastructure::api::convert::{ConversionResult, defaults};
 use crate::infrastructure::data::{EnabledData, MappingModelData};
 use helgobox_api::persistence::*;
 use std::convert::TryInto;

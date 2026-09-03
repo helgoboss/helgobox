@@ -3,9 +3,9 @@ use std::rc::{Rc, Weak};
 
 use crate::base::when;
 use crate::infrastructure::ui::{
-    bindings::root, deserialize_data_object_from_json, get_text_from_clipboard, paste_mappings,
     DataObject, IndependentPanelManager, MainState, MappingRowPanel, ScrollStatus,
-    SharedIndependentPanelManager, SharedMainState,
+    SharedIndependentPanelManager, SharedMainState, bindings::root,
+    deserialize_data_object_from_json, get_text_from_clipboard, paste_mappings,
 };
 use helgobox_api::persistence::Envelope;
 use reaper_high::Reaper;
@@ -374,12 +374,11 @@ impl MappingRowsPanel {
         ignore_group: bool,
     ) -> bool {
         let mapping = mapping.borrow();
-        if !ignore_group {
-            if let Some(group_filter) = main_state.displayed_group_for_active_compartment() {
-                if !group_filter.matches(&mapping) {
-                    return false;
-                }
-            }
+        if !ignore_group
+            && let Some(group_filter) = main_state.displayed_group_for_active_compartment()
+            && !group_filter.matches(&mapping)
+        {
+            return false;
         }
         if let Some(source_filter) = main_state.source_filter.get_ref() {
             let mapping_source = mapping.source_model.create_source();
@@ -387,13 +386,12 @@ impl MappingRowsPanel {
                 return false;
             }
         }
-        if let Some(filter_target) = main_state.target_filter.get_ref() {
-            if !mapping
+        if let Some(filter_target) = main_state.target_filter.get_ref()
+            && !mapping
                 .with_context(session.extended_context())
                 .has_target(filter_target)
-            {
-                return false;
-            }
+        {
+            return false;
         }
         let search_expression = main_state.search_expression.get_ref();
         if !search_expression.is_empty()

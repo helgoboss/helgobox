@@ -1,9 +1,9 @@
 use crate::domain::{
-    format_as_pretty_hex, FeedbackReason, MatchOutcome, OwnedIncomingMidiMessage, Tag, UnitId,
+    FeedbackReason, MatchOutcome, OwnedIncomingMidiMessage, Tag, UnitId, format_as_pretty_hex,
 };
 use derive_more::Display;
 use helgoboss_learn::{
-    format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
+    MidiSourceValue, UnitValue, format_percentage_without_unit, parse_percentage_without_unit,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use itertools::Itertools;
@@ -81,11 +81,7 @@ pub fn volume_unit_value(volume: SliderVolume) -> UnitValue {
 }
 
 pub fn convert_bool_to_unit_value(on: bool) -> UnitValue {
-    if on {
-        UnitValue::MAX
-    } else {
-        UnitValue::MIN
-    }
+    if on { UnitValue::MAX } else { UnitValue::MIN }
 }
 
 pub fn format_value_as_db(value: UnitValue) -> String {

@@ -1,5 +1,5 @@
 use crate::domain::{compile_and_execute, create_fresh_environment};
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use auto_impl::auto_impl;
 use camino::{Utf8Path, Utf8PathBuf};
 use include_dir::Dir;
@@ -97,13 +97,19 @@ fn find_and_execute_module(
     let root_info = || format!("\n\nModule root path: {}", finder.module_root_path());
     let path = Utf8Path::new(required_path);
     if path.is_absolute() {
-        bail!("Required paths must not start with a slash. They are always relative to the preset sub directory.{}", root_info());
+        bail!(
+            "Required paths must not start with a slash. They are always relative to the preset sub directory.{}",
+            root_info()
+        );
     }
     if path
         .components()
         .any(|comp| matches!(comp.as_str(), "." | ".."))
     {
-        bail!("Required paths containing . or .. are forbidden. They are always relative to the preset sub directory.{}", root_info());
+        bail!(
+            "Required paths containing . or .. are forbidden. They are always relative to the preset sub directory.{}",
+            root_info()
+        );
     }
     // Substitute preset runtime stub
     if lua_module_path_without_ext(path.as_str()) == LUA_PRESET_RUNTIME_NAME {

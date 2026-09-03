@@ -1,5 +1,5 @@
 use crate::domain::{
-    parse_hex_string, DisplayAsPrettyHex, LifecycleMidiData, LifecycleMidiMessage, MappingExtension,
+    DisplayAsPrettyHex, LifecycleMidiData, LifecycleMidiMessage, MappingExtension, parse_hex_string,
 };
 
 use helgoboss_learn::RawMidiEvent;

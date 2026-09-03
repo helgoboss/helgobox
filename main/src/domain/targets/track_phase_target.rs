@@ -1,11 +1,10 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    change_track_prop, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, get_effective_tracks, CompartmentKind,
-    ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, FeedbackResolution,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity,
+    TrackGangBehavior, UnresolvedReaperTargetDef, change_track_prop, format_value_as_on_off,
+    get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};

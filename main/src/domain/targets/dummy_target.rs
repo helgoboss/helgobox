@@ -1,7 +1,7 @@
 use crate::domain::{
-    CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 

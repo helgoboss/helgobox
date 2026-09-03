@@ -1,13 +1,13 @@
 use crate::infrastructure::ui::{
-    bindings::root, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
-    SharedIndependentPanelManager, SharedMainState,
+    HeaderPanel, IndependentPanelManager, MappingRowsPanel, SharedIndependentPanelManager,
+    SharedMainState, bindings::root,
 };
 
 use reaper_high::Reaper;
 
 use crate::application::{
-    get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, UnitCommand,
-    UnitModel, UnitProp, UnitUi, VirtualFxType, WeakUnitModel,
+    Affected, CompartmentProp, UnitCommand, UnitModel, UnitProp, UnitUi, VirtualFxType,
+    WeakUnitModel, get_virtual_fx_label, get_virtual_track_label,
 };
 use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
@@ -16,14 +16,14 @@ use crate::domain::{
     ProjectionFeedbackValue, QualifiedMappingId, SourceFeedbackEvent, TargetControlEvent,
     TargetValueChangedEvent,
 };
-use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
+use crate::infrastructure::plugin::{BackboneShell, update_auto_units_async};
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_sessions_to_subscribed_clients,
     send_updated_controller_routing,
 };
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
-use anyhow::{anyhow, bail, Context};
+use anyhow::{Context, anyhow, bail};
 use base::SoundPlayer;
 use helgobox_allocator::undesired_allocation_count;
 use helgobox_api::runtime::InstanceInfoEvent;
@@ -270,13 +270,13 @@ impl UnitPanel {
         let mut text = String::new();
         text.write_str("Helgobox ")?;
         text.write_str(BackboneShell::detailed_version_label())?;
-        if let Some(remote_config) = BackboneShell::remote_config() {
-            if report_new_version(
+        if let Some(remote_config) = BackboneShell::remote_config()
+            && report_new_version(
                 BackboneShell::version(),
                 &remote_config.plugin.latest_version,
-            ) {
-                text.write_str(" [UPDATE AVAILABLE]")?;
-            }
+            )
+        {
+            text.write_str(" [UPDATE AVAILABLE]")?;
         }
         self.view
             .require_control(root::ID_MAIN_PANEL_VERSION_TEXT)

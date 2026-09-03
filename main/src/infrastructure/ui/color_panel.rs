@@ -1,4 +1,4 @@
-use reaper_low::{raw, Swell};
+use reaper_low::{Swell, raw};
 use reaper_medium::Hbrush;
 use std::fmt::Debug;
 use std::ptr::null_mut;

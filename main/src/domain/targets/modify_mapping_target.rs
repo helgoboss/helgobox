@@ -1,11 +1,11 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent,
-    ControlContext, DomainEvent, DomainEventHandler, ExtendedProcessorContext, HitInstruction,
+    AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET,
+    DomainEvent, DomainEventHandler, ExtendedProcessorContext, HitInstruction,
     HitInstructionContext, HitInstructionResponse, HitResponse, MappingControlContext, MappingId,
     MappingKey, MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget,
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, Unit, UnitEvent,
-    UnitId, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    UnitId, UnresolvedReaperTargetDef, format_value_as_on_off,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use helgobox_api::persistence::MappingModification;

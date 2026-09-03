@@ -1,5 +1,5 @@
-use std::sync::mpsc::{Receiver, SyncSender};
 use std::sync::OnceLock;
+use std::sync::mpsc::{Receiver, SyncSender};
 use std::thread;
 use std::time::{Duration, Instant};
 

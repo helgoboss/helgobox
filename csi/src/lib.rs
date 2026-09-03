@@ -1,6 +1,6 @@
 use base::hash_util::NonCryptoHashSet;
 use derive_more::Display;
-use helgoboss_midi::{RawShortMessage, ShortMessage, StructuredShortMessage, U14, U7};
+use helgoboss_midi::{RawShortMessage, ShortMessage, StructuredShortMessage, U7, U14};
 use helgobox_api::persistence::{
     ApiObject, ButtonFilter, Compartment, Envelope, Glue, Interval, MackieLcdSource,
     MackieSevenSegmentDisplayScope, MackieSevenSegmentDisplaySource, Mapping,
@@ -662,7 +662,7 @@ fn convert_max_short_msg_to_source(input: MsgConvInput) -> CsiResult<MsgConvOutp
             }
         }
         _ => {
-            return Err(format!("Message {:?} not handled in source conversion", input.msg).into())
+            return Err(format!("Message {:?} not handled in source conversion", input.msg).into());
         }
     };
     Ok(res)

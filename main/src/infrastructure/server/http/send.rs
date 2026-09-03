@@ -4,9 +4,9 @@ use crate::base::when;
 use crate::domain::ProjectionFeedbackValue;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::server::data::{
-    get_active_controller_updated_event, get_controller_routing_updated_event,
-    get_projection_feedback_event, get_session_updated_event, send_initial_feedback,
-    SessionResponseData, Topic,
+    SessionResponseData, Topic, get_active_controller_updated_event,
+    get_controller_routing_updated_event, get_projection_feedback_event, get_session_updated_event,
+    send_initial_feedback,
 };
 use crate::infrastructure::server::http::client::WebSocketClient;
 use base::Global;
@@ -121,10 +121,10 @@ fn send_to_clients_subscribed_to<T: Serialize>(
 ) -> Result<(), &'static str> {
     for_each_client(
         |client, cached| {
-            if let Some(cached) = cached {
-                if client.is_subscribed_to(topic) {
-                    let _ = client.send(cached);
-                }
+            if let Some(cached) = cached
+                && client.is_subscribed_to(topic)
+            {
+                let _ = client.send(cached);
             }
         },
         create_message,

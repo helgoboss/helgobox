@@ -16,14 +16,14 @@ use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::{
-    colors, mapping_row_panel_height, symbols, view, GLOBAL_SCALING,
+    GLOBAL_SCALING, colors, mapping_row_panel_height, symbols, view,
 };
 use crate::infrastructure::ui::{
+    DataObject, IndependentPanelManager, SerializationFormat, SharedMainState,
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
-    get_text_from_clipboard, serialize_data_object, DataObject, IndependentPanelManager,
-    SerializationFormat, SharedMainState,
+    get_text_from_clipboard, serialize_data_object,
 };
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use core::iter;
 use helgobox_api::persistence::{ApiObject, Envelope};
 use reaper_medium::Hbrush;

@@ -1,10 +1,10 @@
 use crate::domain::InstanceId;
 use crate::infrastructure::proto::{
-    event_reply, ContinuousColumnUpdate, ContinuousMatrixUpdate, EventReply,
-    OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalMatrixUpdate,
-    OccasionalPlaytimeEngineUpdate, QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate,
-    QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate,
-    QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate,
+    ContinuousColumnUpdate, ContinuousMatrixUpdate, EventReply, OccasionalGlobalUpdate,
+    OccasionalInstanceUpdate, OccasionalMatrixUpdate, OccasionalPlaytimeEngineUpdate,
+    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
+    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
+    QualifiedOccasionalUnitUpdate, event_reply,
 };
 use futures::future;
 use tokio::sync::broadcast::{Receiver, Sender};

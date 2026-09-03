@@ -1,8 +1,8 @@
 use crate::application::{MidiSourceType, ReaperSourceType, SourceCategory};
 use crate::infrastructure::api::convert::from_data::{
-    convert_control_element_id, convert_keystroke, convert_osc_argument, ConversionStyle,
+    ConversionStyle, convert_control_element_id, convert_keystroke, convert_osc_argument,
 };
-use crate::infrastructure::api::convert::{defaults, ConversionResult};
+use crate::infrastructure::api::convert::{ConversionResult, defaults};
 use crate::infrastructure::data::SourceModelData;
 use helgoboss_learn::{
     DisplayType, MackieSevenSegmentDisplayScope, MidiClockTransportMessage, SourceCharacter,
@@ -295,8 +295,8 @@ fn convert_character(
     v: SourceCharacter,
     style: ConversionStyle,
 ) -> Option<persistence::SourceCharacter> {
-    use persistence::SourceCharacter as T;
     use SourceCharacter::*;
+    use persistence::SourceCharacter as T;
     let res = match v {
         RangeElement => T::Range,
         MomentaryButton => T::Button,
@@ -311,8 +311,8 @@ fn convert_character(
 fn convert_transport_msg(
     v: MidiClockTransportMessage,
 ) -> Option<persistence::MidiClockTransportMessage> {
-    use persistence::MidiClockTransportMessage as T;
     use MidiClockTransportMessage::*;
+    use persistence::MidiClockTransportMessage as T;
     let res = match v {
         Start => T::Start,
         Continue => T::Continue,
@@ -324,8 +324,8 @@ fn convert_transport_msg(
 fn convert_mackie_seven_segment_display_scope(
     v: MackieSevenSegmentDisplayScope,
 ) -> Option<persistence::MackieSevenSegmentDisplayScope> {
-    use persistence::MackieSevenSegmentDisplayScope as T;
     use MackieSevenSegmentDisplayScope::*;
+    use persistence::MackieSevenSegmentDisplayScope as T;
     let res = match v {
         All => T::All,
         Assignment => T::Assignment,

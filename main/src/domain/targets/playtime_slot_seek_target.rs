@@ -1,8 +1,8 @@
 use playtime_api::persistence::SlotAddress;
 
 use crate::domain::{
-    CompartmentKind, ExtendedProcessorContext, FeedbackResolution, ReaperTarget, TargetSection,
-    TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
+    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, FeedbackResolution, ReaperTarget,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot,
 };
 
 #[derive(Debug)]

@@ -5,7 +5,7 @@ use crate::{
 };
 use std::cell::{Cell, RefCell};
 
-use reaper_low::{raw, Swell};
+use reaper_low::{Swell, raw};
 use rxrust::prelude::*;
 use std::os::raw::c_void;
 use std::panic::catch_unwind;

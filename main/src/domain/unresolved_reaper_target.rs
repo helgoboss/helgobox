@@ -1,9 +1,9 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    scoped_track_index, Backbone, CompartmentKind, CompartmentParamIndex, CompartmentParams,
-    ControlContext, ExtendedProcessorContext, FeedbackResolution, ReaperTarget,
-    UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
+    Backbone, CompartmentKind, CompartmentParamIndex, CompartmentParams, ControlContext,
+    ExtendedProcessorContext, FeedbackResolution, ReaperTarget, UnresolvedActionTarget,
+    UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
     UnresolvedBrowsePotFilterItemsTarget, UnresolvedBrowsePotPresetsTarget,
     UnresolvedBrowseTracksTarget, UnresolvedCompartmentParameterValueTarget, UnresolvedDummyTarget,
@@ -24,7 +24,7 @@ use crate::domain::{
     UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
     UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
     UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
-    UnresolvedTransportTarget,
+    UnresolvedTransportTarget, scoped_track_index,
 };
 use derive_more::{Display, Error};
 use enum_dispatch::enum_dispatch;
@@ -134,23 +134,19 @@ impl UnresolvedReaperTarget {
     /// Targets conditions are for example "track selected" or "FX focused".
     pub fn conditions_are_met(&self, target: &ReaperTarget) -> bool {
         let descriptors = self.unpack_descriptors();
-        if let Some(desc) = descriptors.track {
-            if desc.enable_only_if_track_selected {
-                if let Some(track) = target.track() {
-                    if !track.is_selected() {
-                        return false;
-                    }
-                }
-            }
+        if let Some(desc) = descriptors.track
+            && desc.enable_only_if_track_selected
+            && let Some(track) = target.track()
+            && !track.is_selected()
+        {
+            return false;
         }
-        if let Some(desc) = descriptors.fx {
-            if desc.enable_only_if_fx_has_focus {
-                if let Some(fx) = target.fx() {
-                    if !fx.window_has_focus() {
-                        return false;
-                    }
-                }
-            }
+        if let Some(desc) = descriptors.fx
+            && desc.enable_only_if_fx_has_focus
+            && let Some(fx) = target.fx()
+            && !fx.window_has_focus()
+        {
+            return false;
         }
         true
     }
@@ -159,40 +155,40 @@ impl UnresolvedReaperTarget {
     /// Usually true for all targets that use `<Dynamic>` selector.
     pub fn can_be_affected_by_parameters(&self) -> bool {
         let descriptors = self.unpack_descriptors();
-        if let Some(desc) = descriptors.track {
-            if desc.track.can_be_affected_by_parameters() {
-                return true;
-            }
+        if let Some(desc) = descriptors.track
+            && desc.track.can_be_affected_by_parameters()
+        {
+            return true;
         }
-        if let Some(desc) = descriptors.fx {
-            if desc.fx.can_be_affected_by_parameters() {
-                return true;
-            }
+        if let Some(desc) = descriptors.fx
+            && desc.fx.can_be_affected_by_parameters()
+        {
+            return true;
         }
-        if let Some(desc) = descriptors.route {
-            if desc.route.can_be_affected_by_parameters() {
-                return true;
-            }
+        if let Some(desc) = descriptors.route
+            && desc.route.can_be_affected_by_parameters()
+        {
+            return true;
         }
-        if let Some(desc) = descriptors.fx_param {
-            if desc.fx_parameter.can_be_affected_by_parameters() {
-                return true;
-            }
+        if let Some(desc) = descriptors.fx_param
+            && desc.fx_parameter.can_be_affected_by_parameters()
+        {
+            return true;
         }
-        if let Some(slot) = descriptors.clip_slot {
-            if slot.can_be_affected_by_parameters() {
-                return true;
-            }
+        if let Some(slot) = descriptors.clip_slot
+            && slot.can_be_affected_by_parameters()
+        {
+            return true;
         }
-        if let Some(col) = descriptors.clip_column {
-            if col.can_be_affected_by_parameters() {
-                return true;
-            }
+        if let Some(col) = descriptors.clip_column
+            && col.can_be_affected_by_parameters()
+        {
+            return true;
         }
-        if let Some(row) = descriptors.clip_row {
-            if row.can_be_affected_by_parameters() {
-                return true;
-            }
+        if let Some(row) = descriptors.clip_row
+            && row.can_be_affected_by_parameters()
+        {
+            return true;
         }
         false
     }
@@ -723,7 +719,7 @@ impl VirtualTrackRoute {
     Debug,
     PartialEq,
     Eq,
-Default,
+    Default,
     Serialize,
     Deserialize,
     EnumIter,
@@ -821,7 +817,6 @@ pub enum VirtualPlaytimeColumn {
     ByIndex(usize),
     Dynamic(Box<ExpressionEvaluator>),
 }
-
 
 impl VirtualPlaytimeColumn {
     pub fn from_descriptor(
@@ -1380,9 +1375,11 @@ impl VirtualTrack {
                 let single = resolve_track_by_index(project, index, *scope)?;
                 vec![single]
             }
-            Master => vec![project
-                .master_track()
-                .map_err(|_| TrackResolveError::ProjectNotAvailable)?],
+            Master => vec![
+                project
+                    .master_track()
+                    .map_err(|_| TrackResolveError::ProjectNotAvailable)?,
+            ],
             Unit => {
                 let instance_state = context.control_context.unit.borrow();
                 let instance_track = instance_state.instance_track_descriptor();

@@ -3,7 +3,7 @@ use enumflags2::BitFlags;
 use helgoboss_learn::{ControlValue, UnitValue};
 use reaper_high::{AcceleratorKey, Reaper};
 use reaper_medium::{
-    virt_keys, Accel, AccelMsgKind, AcceleratorBehavior, AcceleratorKeyCode, ReaperString, VirtKey,
+    Accel, AccelMsgKind, AcceleratorBehavior, AcceleratorKeyCode, ReaperString, VirtKey, virt_keys,
 };
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};

@@ -1,13 +1,13 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_bool_as_on_off, get_effective_tracks, ActionInvocationType, AdditionalFeedbackEvent,
-    CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ActionInvocationType, AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent,
+    ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    TrackDescriptor, UnresolvedReaperTargetDef, format_bool_as_on_off, get_effective_tracks,
 };
 use camino::Utf8Path;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
-use helgoboss_midi::{U14, U7};
+use helgoboss_midi::{U7, U14};
 use helgobox_api::persistence::ActionScope;
 use reaper_high::{Action, ActionCharacter, Project, Reaper, Track};
 use reaper_medium::{
@@ -120,15 +120,14 @@ impl RealearnTarget for ActionTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        if let Some(track) = &self.track {
-            if !track.is_selected()
+        if let Some(track) = &self.track
+            && (!track.is_selected()
                 || self
                     .project
                     .selected_track_count(MasterTrackBehavior::IncludeMasterTrack)
-                    > 1
-            {
-                track.select_exclusively();
-            }
+                    > 1)
+        {
+            track.select_exclusively();
         }
         let response = match value {
             ControlValue::AbsoluteContinuous(v) => match self.invocation_type {

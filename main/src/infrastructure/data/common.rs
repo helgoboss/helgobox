@@ -1,4 +1,4 @@
-use helgoboss_learn::{Interval, DEFAULT_OSC_ARG_VALUE_RANGE};
+use helgoboss_learn::{DEFAULT_OSC_ARG_VALUE_RANGE, Interval};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

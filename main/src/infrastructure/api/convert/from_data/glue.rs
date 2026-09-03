@@ -1,5 +1,5 @@
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
-use crate::infrastructure::api::convert::{defaults, ConversionResult};
+use crate::infrastructure::api::convert::{ConversionResult, defaults};
 use crate::infrastructure::data::ModeModelData;
 use helgoboss_learn::{
     AbsoluteMode, ButtonUsage, DiscreteIncrement, EncoderUsage, FeedbackType, FireMode,
@@ -49,8 +49,8 @@ pub fn convert_glue(
             style.required_value_with_default(interval, defaults::GLUE_STEP_FACTOR_INTERVAL)
         },
         out_of_range_behavior: {
-            use persistence::OutOfRangeBehavior as T;
             use OutOfRangeBehavior::*;
+            use persistence::OutOfRangeBehavior as T;
             let v = match data.out_of_range_behavior {
                 MinOrMax => T::MinOrMax,
                 Min => T::Min,
@@ -59,8 +59,8 @@ pub fn convert_glue(
             style.required_value(v)
         },
         takeover_mode: {
-            use persistence::TakeoverMode as T;
             use TakeoverMode::*;
+            use persistence::TakeoverMode as T;
             let v = match data.takeover_mode {
                 Off => T::Off,
                 PickupTolerant => T::PickUpTolerant,
@@ -77,8 +77,8 @@ pub fn convert_glue(
         ),
         control_transformation: style.required_value(data.eel_control_transformation),
         button_filter: {
-            use persistence::ButtonFilter as T;
             use ButtonUsage::*;
+            use persistence::ButtonFilter as T;
             match data.button_usage {
                 Both => None,
                 PressOnly => Some(T::PressOnly),
@@ -86,8 +86,8 @@ pub fn convert_glue(
             }
         },
         encoder_filter: {
-            use persistence::EncoderFilter as T;
             use EncoderUsage::*;
+            use persistence::EncoderFilter as T;
             match data.encoder_usage {
                 Both => None,
                 IncrementOnly => Some(T::IncrementOnly),
@@ -103,8 +103,8 @@ pub fn convert_glue(
             style.required_value(v)
         },
         interaction: {
-            use persistence::Interaction as T;
             use GroupInteraction::*;
+            use persistence::Interaction as T;
             match data.group_interaction {
                 None => Option::None,
                 SameControl => Some(T::SameControl),
@@ -117,8 +117,8 @@ pub fn convert_glue(
         },
         target_value_sequence: style.required_value(data.target_value_sequence.to_string()),
         feedback: {
-            use persistence::Feedback as T;
             use FeedbackType::*;
+            use persistence::Feedback as T;
             let v = match data.feedback_type {
                 Numeric => T::Numeric(NumericFeedback {
                     commons: convert_feedback_commons(
@@ -145,8 +145,8 @@ pub fn convert_glue(
             style.required_value(v)
         },
         fire_mode: {
-            use persistence::FireMode as T;
             use FireMode::*;
+            use persistence::FireMode as T;
             let v = match data.fire_mode {
                 Normal => T::Normal(persistence::NormalFireMode {
                     press_duration_interval: {
@@ -197,8 +197,8 @@ fn convert_absolute_mode(
     v: AbsoluteMode,
     style: ConversionStyle,
 ) -> Option<persistence::AbsoluteMode> {
-    use persistence::AbsoluteMode as T;
     use AbsoluteMode::*;
+    use persistence::AbsoluteMode as T;
     let mode = match v {
         Normal => T::Normal,
         IncrementalButton => T::IncrementalButton,
@@ -214,8 +214,8 @@ fn convert_unit_interval(min: UnitValue, max: UnitValue) -> persistence::Interva
 }
 
 fn convert_virtual_color(v: VirtualColor) -> persistence::VirtualColor {
-    use persistence::VirtualColor as T;
     use VirtualColor::*;
+    use persistence::VirtualColor as T;
     match v {
         Rgb(c) => T::Rgb(persistence::RgbColor(c.r(), c.g(), c.b())),
         Prop { prop } => T::Prop(PropColor { prop }),

@@ -1,13 +1,13 @@
 use crate::domain::{
-    CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
-    InstanceStateChanged, MappingControlContext, PotStateChangedEvent, RealearnTarget,
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    HitResponse, InstanceStateChanged, MappingControlContext, PotStateChangedEvent, RealearnTarget,
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    UnresolvedReaperTargetDef,
 };
 use base::blocking_lock_arc;
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use pot::{preview_exists, PresetId, RuntimePotUnit};
+use pot::{PresetId, RuntimePotUnit, preview_exists};
 use reaper_high::Reaper;
 
 #[derive(Debug)]

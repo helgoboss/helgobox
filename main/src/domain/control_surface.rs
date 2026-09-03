@@ -7,7 +7,7 @@ use crate::domain::{
     SharedInstance, SharedMainProcessors, StreamDeckDevicePayload, TargetTouchEvent,
     TouchedTrackParameterType, UnitEvent, UnitId, WeakInstance,
 };
-use base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
+use base::{Global, NamedChannelSender, SenderToNormalThread, metrics_util};
 use crossbeam_channel::Receiver;
 use reaper_high::{
     ChangeDetectionMiddleware, ChangeEvent, ControlSurfaceEvent, ControlSurfaceMiddleware,
@@ -412,10 +412,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             p.process_control_surface_change_events(&monitoring_fx_events);
         }
         // The rest is only for upper layers (e.g. UI), not for processing.
-        for e in normal_events
-            .drain(..)
-            .chain(monitoring_fx_events)
-        {
+        for e in normal_events.drain(..).chain(monitoring_fx_events) {
             self.rx_middleware.handle_change(e.clone());
             if let Some(target) = ReaperTarget::touched_from_change_event(e) {
                 process_touched_target(target, caused_by_realearn, &self.target_capture_senders);
@@ -556,16 +553,15 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                         .borrow()
                         .iter()
                         .any(|p| p.maybe_takeover_source(&e));
-                    if !other_instance_took_over {
-                        if let Some(p) = self
+                    if !other_instance_took_over
+                        && let Some(p) = self
                             .main_processors
                             .borrow()
                             .iter()
                             .find(|p| p.unit_id() == e.unit_id)
-                        {
-                            // Finally safe to switch off lights!
-                            p.finally_switch_off_source(e.feedback_output, e.feedback_value);
-                        }
+                    {
+                        // Finally safe to switch off lights!
+                        p.finally_switch_off_source(e.feedback_output, e.feedback_value);
                     }
                 }
                 IoUpdated(e) => {
@@ -742,7 +738,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     fn detect_device_changes(&mut self, timestamp: ControlEventTimestamp) {
         // Check roughly every 2 seconds
-        if self.counter % (30 * 2) != 0 {
+        if !self.counter.is_multiple_of(30 * 2) {
             return;
         }
         // Stream deck

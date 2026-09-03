@@ -1,8 +1,8 @@
 use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
 use crate::infrastructure::proto::{
-    occasional_global_update, occasional_instance_update, qualified_occasional_unit_update,
     OccasionalGlobalUpdate, OccasionalInstanceUpdate, QualifiedOccasionalUnitUpdate, Scope,
-    Severity,
+    Severity, occasional_global_update, occasional_instance_update,
+    qualified_occasional_unit_update,
 };
 use reaper_high::Reaper;
 use std::iter;
@@ -51,20 +51,20 @@ pub fn create_initial_instance_updates(
     let reaper_revision = reaper_version.revision();
     let mut warnings = vec![];
     // Check macOS throttle mouse settings
-    if cfg!(target_os = "macos") {
-        if let Ok(var) = Reaper::get().get_preference_ref::<i32>("osxdisplayoptions") {
-            let flags = *var as u32;
-            let wheel_flag = flags & 64 > 0;
-            let swipe_flag = flags & 128 > 0;
-            let move_flag = flags & 256 > 0;
-            if !wheel_flag || !swipe_flag || !move_flag {
-                let msg = "At least one of the checkboxes in the REAPER preference \"Options → Preferences/Settings... → General → Advanced UI/system tweaks... → Throttle mouse-events\" is not enabled. This will cause temporary user interface lags in REAPER and Playtime while using the mouse or touchpad in REAPER, e.g. when adjusting the track volume. Enabling all checkboxes will improve your REAPER experience in general, not just when using Playtime!";
-                warnings.push(Update::warning(
-                    Severity::Low,
-                    Some(Scope::Playtime),
-                    msg.to_string(),
-                ));
-            }
+    if cfg!(target_os = "macos")
+        && let Ok(var) = Reaper::get().get_preference_ref::<i32>("osxdisplayoptions")
+    {
+        let flags = *var as u32;
+        let wheel_flag = flags & 64 > 0;
+        let swipe_flag = flags & 128 > 0;
+        let move_flag = flags & 256 > 0;
+        if !wheel_flag || !swipe_flag || !move_flag {
+            let msg = "At least one of the checkboxes in the REAPER preference \"Options → Preferences/Settings... → General → Advanced UI/system tweaks... → Throttle mouse-events\" is not enabled. This will cause temporary user interface lags in REAPER and Playtime while using the mouse or touchpad in REAPER, e.g. when adjusting the track volume. Enabling all checkboxes will improve your REAPER experience in general, not just when using Playtime!";
+            warnings.push(Update::warning(
+                Severity::Low,
+                Some(Scope::Playtime),
+                msg.to_string(),
+            ));
         }
     }
     // Playtime checks
@@ -81,7 +81,9 @@ pub fn create_initial_instance_updates(
         }
         // Check minimum REAPER version
         if reaper_revision < MIN_REAPER_VERSION_FOR_PLAYTIME {
-            let msg = format!("You are using REAPER version {reaper_revision}, which is not optimal for running Playtime. You may experience issues of all kinds (timing, keyboard control, ...)! For an optimal experience, please upgrade to at least REAPER version {MIN_REAPER_VERSION_FOR_PLAYTIME}!");
+            let msg = format!(
+                "You are using REAPER version {reaper_revision}, which is not optimal for running Playtime. You may experience issues of all kinds (timing, keyboard control, ...)! For an optimal experience, please upgrade to at least REAPER version {MIN_REAPER_VERSION_FOR_PLAYTIME}!"
+            );
             warnings.push(Update::warning(Severity::High, Some(Scope::Playtime), msg));
         }
         // Check REAPER preference "Stop/repeat playback at and of project"

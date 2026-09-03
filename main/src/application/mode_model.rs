@@ -1,11 +1,11 @@
 use crate::domain::{Backbone, EelTransformation, LuaFeedbackScript, Mode};
 
 use helgoboss_learn::{
-    check_mode_applicability, create_unit_value_interval, full_discrete_interval,
-    full_unit_interval, AbsoluteMode, ButtonUsage, DetailedSourceCharacter, DiscreteIncrement,
-    EncoderUsage, FeedbackProcessor, FeedbackType, FireMode, GroupInteraction, Interval,
+    AbsoluteMode, ButtonUsage, DetailedSourceCharacter, DiscreteIncrement, EncoderUsage,
+    FeedbackProcessor, FeedbackType, FireMode, GroupInteraction, Interval,
     ModeApplicabilityCheckInput, ModeParameter, ModeSettings, OutOfRangeBehavior, TakeoverMode,
-    UnitValue, ValueSequence, VirtualColor,
+    UnitValue, ValueSequence, VirtualColor, check_mode_applicability, create_unit_value_interval,
+    full_discrete_interval, full_unit_interval,
 };
 
 use crate::application::{Affected, Change, GetProcessingRelevance, ProcessingRelevance};
@@ -198,12 +198,12 @@ impl Change<'_> for ModeModel {
             C::SetMinTargetValue(v) => {
                 return self.change(C::SetTargetValueInterval(
                     self.target_value_interval.with_min(v),
-                ))
+                ));
             }
             C::SetMaxTargetValue(v) => {
                 return self.change(C::SetTargetValueInterval(
                     self.target_value_interval.with_max(v),
-                ))
+                ));
             }
             C::SetSourceValueInterval(v) => {
                 self.source_value_interval = v;
@@ -212,12 +212,12 @@ impl Change<'_> for ModeModel {
             C::SetMinSourceValue(v) => {
                 return self.change(C::SetSourceValueInterval(
                     self.source_value_interval.with_min(v),
-                ))
+                ));
             }
             C::SetMaxSourceValue(v) => {
                 return self.change(C::SetSourceValueInterval(
                     self.source_value_interval.with_max(v),
-                ))
+                ));
             }
             C::SetReverse(v) => {
                 self.reverse = v;
@@ -230,12 +230,12 @@ impl Change<'_> for ModeModel {
             C::SetMinPressDuration(v) => {
                 return self.change(C::SetPressDurationInterval(
                     self.press_duration_interval.with_min(v),
-                ))
+                ));
             }
             C::SetMaxPressDuration(v) => {
                 return self.change(C::SetPressDurationInterval(
                     self.press_duration_interval.with_max(v),
-                ))
+                ));
             }
             C::SetTurboRate(v) => {
                 self.turbo_rate = v;
@@ -286,20 +286,20 @@ impl Change<'_> for ModeModel {
                 One(P::StepFactorInterval)
             }
             C::SetMinStepSize(v) => {
-                return self.change(C::SetStepSizeInterval(self.step_size_interval.with_min(v)))
+                return self.change(C::SetStepSizeInterval(self.step_size_interval.with_min(v)));
             }
             C::SetMaxStepSize(v) => {
-                return self.change(C::SetStepSizeInterval(self.step_size_interval.with_max(v)))
+                return self.change(C::SetStepSizeInterval(self.step_size_interval.with_max(v)));
             }
             C::SetMinStepFactor(v) => {
                 return self.change(C::SetStepFactorInterval(
                     self.step_factor_interval.with_min(v),
-                ))
+                ));
             }
             C::SetMaxStepFactor(v) => {
                 return self.change(C::SetStepFactorInterval(
                     self.step_factor_interval.with_max(v),
-                ))
+                ));
             }
             C::SetRotate(v) => {
                 self.rotate = v;

@@ -25,8 +25,8 @@ pub use target::*;
 fn convert_control_element_id(
     v: VirtualControlElementIdData,
 ) -> persistence::VirtualControlElementId {
-    use persistence::VirtualControlElementId as T;
     use VirtualControlElementIdData::*;
+    use persistence::VirtualControlElementId as T;
     match v {
         Indexed(i) => T::Indexed(i),
         Named(n) => T::Named(n),
@@ -61,8 +61,8 @@ fn convert_osc_value_range(v: OscValueRange) -> persistence::Interval<f64> {
 }
 
 fn convert_osc_arg_kind(v: OscTypeTag) -> persistence::OscArgKind {
-    use persistence::OscArgKind as T;
     use OscTypeTag::*;
+    use persistence::OscArgKind as T;
     match v {
         Float => T::Float,
         Double => T::Double,
@@ -141,8 +141,8 @@ impl ConversionStyle {
 fn convert_activation_condition(
     condition_data: ActivationConditionData,
 ) -> Option<persistence::ActivationCondition> {
-    use persistence::ActivationCondition as T;
     use ActivationType::*;
+    use persistence::ActivationCondition as T;
     match condition_data.activation_type {
         Always => None,
         Modifiers => {

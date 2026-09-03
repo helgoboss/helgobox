@@ -177,9 +177,9 @@ pub fn generate_dialogs(rc_file: impl AsRef<Path>) -> Result<(), Box<dyn Error>>
         .arg("lib/WDL/WDL/swell/swell_resgen.php")
         .arg(rc_file.as_ref())
         .output()
-        .map_err(|_| {
-            "PHP not available, is necessary on macOS and Linux to generate GUI dialogs"
-        })?;
+        .map_err(
+            |_| "PHP not available, is necessary on macOS and Linux to generate GUI dialogs",
+        )?;
     if !result.status.success() {
         panic!("PHP dialog generation failed (PHP available but script failed)");
     }

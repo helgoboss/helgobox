@@ -14,8 +14,8 @@ use std::fmt;
 use std::num::ParseIntError;
 use std::rc::{Rc, Weak};
 use std::str::FromStr;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::RwLock;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 pub type SharedInstance = Rc<RefCell<Instance>>;
 pub type WeakInstance = Weak<RefCell<Instance>>;
@@ -235,10 +235,10 @@ impl Instance {
             let _ = unit_id;
         }
         #[cfg(feature = "playtime")]
-        if unit_id == self.main_unit_id {
-            if let Some(matrix) = self.clip_matrix() {
-                matrix.notify_simple_mappings_changed();
-            }
+        if unit_id == self.main_unit_id
+            && let Some(matrix) = self.clip_matrix()
+        {
+            matrix.notify_simple_mappings_changed();
         }
     }
 
@@ -248,10 +248,10 @@ impl Instance {
             let _ = unit_id;
         }
         #[cfg(feature = "playtime")]
-        if unit_id == self.main_unit_id {
-            if let Some(matrix) = self.clip_matrix() {
-                matrix.notify_learning_target_changed();
-            }
+        if unit_id == self.main_unit_id
+            && let Some(matrix) = self.clip_matrix()
+        {
+            matrix.notify_learning_target_changed();
         }
     }
 
@@ -271,7 +271,7 @@ impl Instance {
 mod playtime_impl {
     use crate::domain::instance::NO_CLIP_MATRIX_SET;
     use crate::domain::{
-        err_if_reaper_version_too_low_for_playtime, Instance, QualifiedClipMatrixEvent,
+        Instance, QualifiedClipMatrixEvent, err_if_reaper_version_too_low_for_playtime,
     };
     use anyhow::Context;
     use base::NamedChannelSender;

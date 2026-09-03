@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use helgoboss_license_api::persistence::{LicenseData, LicenseKey};
 use helgoboss_license_api::runtime::License;
 use serde::{Deserialize, Serialize};

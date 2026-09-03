@@ -10,17 +10,17 @@ use reaper_high::Reaper;
 use swell_ui::{DeviceContext, Pixels, Point, SharedView, View, ViewContext, WeakView, Window};
 
 use crate::application::{
-    reaper_supports_global_midi_filter, Affected, AutoLoadMode, CompartmentCommand,
-    CompartmentPresetManager, CompartmentPresetModel, CompartmentProp, FxId, FxPresetLinkConfig,
-    InstanceCommand, MakeFxNonStickyMode, MakeTrackNonStickyMode, MappingCommand, MappingModel,
-    PresetLinkMutator, SharedInstanceModel, SharedMapping, SharedUnitModel, UnitCommand, UnitProp,
-    WeakUnitModel,
+    Affected, AutoLoadMode, CompartmentCommand, CompartmentPresetManager, CompartmentPresetModel,
+    CompartmentProp, FxId, FxPresetLinkConfig, InstanceCommand, MakeFxNonStickyMode,
+    MakeTrackNonStickyMode, MappingCommand, MappingModel, PresetLinkMutator, SharedInstanceModel,
+    SharedMapping, SharedUnitModel, UnitCommand, UnitProp, WeakUnitModel,
+    reaper_supports_global_midi_filter,
 };
 use crate::base::when;
 use crate::domain::{
-    convert_compartment_param_index_range_to_iter, Backbone, CompartmentKind,
-    CompartmentParamIndex, ControlInput, FeedbackOutput, GroupId, MessageCaptureEvent, OscDeviceId,
-    ParamSetting, ReaperTarget, StayActiveWhenProjectInBackground, COMPARTMENT_PARAMETER_COUNT,
+    Backbone, COMPARTMENT_PARAMETER_COUNT, CompartmentKind, CompartmentParamIndex, ControlInput,
+    FeedbackOutput, GroupId, MessageCaptureEvent, OscDeviceId, ParamSetting, ReaperTarget,
+    StayActiveWhenProjectInBackground, convert_compartment_param_index_range_to_iter,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
@@ -29,7 +29,7 @@ use crate::infrastructure::data::{
     UnitData,
 };
 use crate::infrastructure::plugin::{
-    update_auto_units_async, warn_about_failed_server_start, BackboneShell,
+    BackboneShell, update_auto_units_async, warn_about_failed_server_start,
 };
 
 use crate::infrastructure::ui::bindings::root;
@@ -42,28 +42,29 @@ use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::menus::{
+    CONTROL_INPUT_MIDI_FX_INPUT_LABEL, ControlInputMenuAction, FEEDBACK_OUTPUT_MIDI_FX_OUTPUT,
+    FEEDBACK_OUTPUT_NONE_LABEL, FeedbackOutputMenuAction, OscDeviceManagementAction,
     build_compartment_preset_menu_entries, get_midi_input_device_list_label,
     get_midi_output_device_list_label, get_osc_device_list_label,
-    menu_containing_compartment_presets, ControlInputMenuAction, FeedbackOutputMenuAction,
-    OscDeviceManagementAction, CONTROL_INPUT_MIDI_FX_INPUT_LABEL, FEEDBACK_OUTPUT_MIDI_FX_OUTPUT,
-    FEEDBACK_OUTPUT_NONE_LABEL,
+    menu_containing_compartment_presets,
 };
 use crate::infrastructure::ui::stream_deck_tool::StreamDeckToolbarOptions;
 use crate::infrastructure::ui::util::{
-    close_child_panel_if_open, colors, open_child_panel, open_child_panel_dyn, open_in_browser,
-    open_in_file_manager, parse_tags_from_csv, view, HEADER_PANEL_SCALING,
+    HEADER_PANEL_SCALING, close_child_panel_if_open, colors, open_child_panel,
+    open_child_panel_dyn, open_in_browser, open_in_file_manager, parse_tags_from_csv, view,
 };
 use crate::infrastructure::ui::{
-    add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
-    deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
-    get_text_from_clipboard, menus, serialize_data_object, serialize_data_object_to_json,
-    serialize_data_object_to_lua, stream_deck_tool, AppPage, DataObject, GroupFilter, GroupPanel,
-    IndependentPanelManager, LuaCompartmentCommonScriptEngine, MappingRowsPanel, PlainTextEngine,
-    ScriptEditorInput, SearchExpression, SerializationFormat, SharedIndependentPanelManager,
-    SharedMainState, SimpleScriptEditorPanel, SourceFilter, UntaggedDataObject,
+    AppPage, DataObject, GroupFilter, GroupPanel, IndependentPanelManager,
+    LuaCompartmentCommonScriptEngine, MappingRowsPanel, PlainTextEngine, ScriptEditorInput,
+    SearchExpression, SerializationFormat, SharedIndependentPanelManager, SharedMainState,
+    SimpleScriptEditorPanel, SourceFilter, UntaggedDataObject, add_firewall_rule,
+    copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object,
+    deserialize_data_object_from_json, dry_run_lua_script, get_text_from_clipboard, menus,
+    serialize_data_object, serialize_data_object_to_json, serialize_data_object_to_lua,
+    stream_deck_tool,
 };
-use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
-use anyhow::{bail, Context};
+use crate::infrastructure::ui::{CompanionAppPresenter, dialog_util};
+use anyhow::{Context, bail};
 use helgobox_api::persistence::{Envelope, VirtualControlElementCharacter};
 use itertools::Itertools;
 use reaper_medium::Hbrush;
@@ -2568,19 +2569,18 @@ impl HeaderPanel {
     fn save_as_preset(&self) -> anyhow::Result<()> {
         let compartment = self.active_compartment();
         let active_preset_info = self.get_active_preset_info(compartment);
-        if let Some(info) = &active_preset_info {
-            if let PresetOrigin::Factory { .. } = &info.origin {
-                if info.file_type == PresetFileType::Lua {
-                    let menu_entry_label = build_create_compartment_preset_workspace_label(true);
-                    let text = format!(
-                        "This factory preset was written in the scripting language Lua. If you continue, ReaLearn will save it as user preset which contains a simple flat list of mappings (no code). Do you want to continue?\n\
+        if let Some(info) = &active_preset_info
+            && let PresetOrigin::Factory { .. } = &info.origin
+            && info.file_type == PresetFileType::Lua
+        {
+            let menu_entry_label = build_create_compartment_preset_workspace_label(true);
+            let text = format!(
+                "This factory preset was written in the scripting language Lua. If you continue, ReaLearn will save it as user preset which contains a simple flat list of mappings (no code). Do you want to continue?\n\
                         \n\
                         If you are you familiar with Lua and want to customize the Lua code to your own needs, do this instead: Main menu => {PRESET_RELATED_MENU_LABEL} => {menu_entry_label}.",
-                    );
-                    if !self.view.require_window().confirm("ReaLearn", text) {
-                        return Ok(());
-                    }
-                }
+            );
+            if !self.view.require_window().confirm("ReaLearn", text) {
+                return Ok(());
             }
         }
         let current_preset_name = active_preset_info

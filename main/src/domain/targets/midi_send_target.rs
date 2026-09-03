@@ -1,15 +1,15 @@
 use crate::domain::{
-    real_time_processor, Caller, CompartmentKind, ControlContext, ControlMainTask,
+    Caller, CompartmentKind, ControlContext, ControlMainTask, DEFAULT_TARGET,
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask,
     HitResponse, LogOptions, MappingControlContext, MidiDestination, MidiEvent,
     MidiTransformationContainer, RealTimeReaperTarget, RealearnTarget, ReaperTarget,
     ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    real_time_processor,
 };
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use helgoboss_learn::{
-    create_raw_midi_events_singleton, AbsoluteValue, ControlType, ControlValue, Fraction,
-    MidiSourceValue, RawMidiPattern, Target, UnitValue,
+    AbsoluteValue, ControlType, ControlValue, Fraction, MidiSourceValue, RawMidiPattern, Target,
+    UnitValue, create_raw_midi_events_singleton,
 };
 use helgobox_allocator::permit_alloc;
 use helgobox_api::persistence::SendMidiDestination;
@@ -265,24 +265,25 @@ impl RealearnTarget for MidiSendTarget {
         // We arrive here only if controlled via OSC, group interaction (as follower), mapping
         // snapshot or autoload. Sending MIDI in response to incoming MIDI messages is handled
         // directly in the real-time processor.
-        let resolved_destination =
-            match self.destination {
-                SendMidiDestination::FxOutput => MidiDestination::FxOutput,
-                SendMidiDestination::FeedbackOutput => {
-                    let feedback_output = context
-                        .control_context
-                        .feedback_output
-                        .ok_or("no feedback output set")?;
-                    if let FeedbackOutput::Midi(dest) = feedback_output {
-                        dest
-                    } else {
-                        return Err("feedback output is not MIDI");
-                    }
+        let resolved_destination = match self.destination {
+            SendMidiDestination::FxOutput => MidiDestination::FxOutput,
+            SendMidiDestination::FeedbackOutput => {
+                let feedback_output = context
+                    .control_context
+                    .feedback_output
+                    .ok_or("no feedback output set")?;
+                if let FeedbackOutput::Midi(dest) = feedback_output {
+                    dest
+                } else {
+                    return Err("feedback output is not MIDI");
                 }
-                SendMidiDestination::InputDevice(_) => return Err(
+            }
+            SendMidiDestination::InputDevice(_) => {
+                return Err(
                     "sending to device input is only possible in response to a MIDI source event coming from a MIDI device",
-                ),
-            };
+                );
+            }
+        };
         self.artificial_value = value;
         let raw_midi_events =
             create_raw_midi_events_singleton(self.pattern.to_concrete_midi_event(0, value));

@@ -1,5 +1,5 @@
 use crate::SwellStringArg;
-use reaper_low::{raw, Swell};
+use reaper_low::{Swell, raw};
 
 /// Represents a top-level menu bar with resource management.
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]

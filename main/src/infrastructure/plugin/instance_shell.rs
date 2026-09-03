@@ -7,14 +7,14 @@ use crate::domain::{
 };
 use crate::infrastructure::data::{InstanceData, UnitData};
 use crate::infrastructure::plugin::unit_shell::UnitShell;
-use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
-use crate::infrastructure::ui::instance_panel::InstancePanel;
+use crate::infrastructure::plugin::{BackboneShell, update_auto_units_async};
 use crate::infrastructure::ui::UnitPanel;
+use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::Context;
 use base::hash_util::NonCryptoHashMap;
 use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock};
 use fragile::Fragile;
-use helgobox_api::persistence::{instance_features, InstanceSettings};
+use helgobox_api::persistence::{InstanceSettings, instance_features};
 use playtime_api::persistence::FlexibleMatrix;
 use reaper_high::Project;
 use std::cell::RefCell;

@@ -1,13 +1,13 @@
 use crate::domain::{
-    format_value_as_pan, get_effective_tracks, pan_unit_value, parse_value_from_pan,
-    with_gang_behavior, CompartmentKind, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
-    TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackGangBehavior,
+    UnresolvedReaperTargetDef, format_value_as_pan, get_effective_tracks, pan_unit_value,
+    parse_value_from_pan, with_gang_behavior,
 };
 use helgoboss_learn::{
-    AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
-    BASE_EPSILON,
+    AbsoluteValue, BASE_EPSILON, ControlType, ControlValue, NumericValue, PropValue, Target,
+    UnitValue,
 };
 use reaper_high::{AvailablePanValue, ChangeEvent, Pan, PanExt, Project, Track, TrackSetSmartOpts};
 use std::borrow::Cow;

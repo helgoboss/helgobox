@@ -1,13 +1,13 @@
 use crate::schema::{Acceleration, Accelerations, Capability, Widget};
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory};
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while1, take_while_m_n};
+use nom::bytes::complete::{tag, take_while_m_n, take_while1};
 use nom::character::complete::{multispace0, not_line_ending, space0, space1};
 use nom::combinator::{all_consuming, map, map_res, opt, verify};
 use nom::error::ParseError;
 use nom::multi::{separated_list0, separated_list1};
 use nom::sequence::{preceded, separated_pair};
-use nom::{character::complete::char, sequence::delimited, sequence::tuple, Err, IResult, Parser};
+use nom::{Err, IResult, Parser, character::complete::char, sequence::delimited, sequence::tuple};
 use std::convert::TryInto;
 
 type Res<'a, T> = IResult<&'a str, T>;
@@ -298,8 +298,8 @@ mod util {
 mod tests {
     use super::*;
     use crate::schema::{Acceleration, Widget};
-    use helgoboss_midi::test_util::u7;
     use helgoboss_midi::ShortMessageFactory;
+    use helgoboss_midi::test_util::u7;
 
     #[test]
     fn parse_widgets() {
