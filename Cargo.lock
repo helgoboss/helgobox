@@ -5786,6 +5786,7 @@ dependencies = [
 [[package]]
 name = "reaper-common-types"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#f9d5a69c5facc5c22dadc17c41050c4e6366d717"
 dependencies = [
  "hex-literal",
  "nutype",
@@ -5796,6 +5797,7 @@ dependencies = [
 [[package]]
 name = "reaper-fluent"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#f9d5a69c5facc5c22dadc17c41050c4e6366d717"
 dependencies = [
  "fragile",
  "reaper-low",
@@ -5805,6 +5807,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#f9d5a69c5facc5c22dadc17c41050c4e6366d717"
 dependencies = [
  "backtrace",
  "base64 0.13.0",
@@ -5833,6 +5836,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#f9d5a69c5facc5c22dadc17c41050c4e6366d717"
 dependencies = [
  "c_str_macro",
  "cc 1.1.10",
@@ -5848,6 +5852,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#f9d5a69c5facc5c22dadc17c41050c4e6366d717"
 dependencies = [
  "darling 0.24.1",
  "quote",
@@ -5857,6 +5862,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#f9d5a69c5facc5c22dadc17c41050c4e6366d717"
 dependencies = [
  "camino",
  "derive_more",
@@ -5875,6 +5881,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#f9d5a69c5facc5c22dadc17c41050c4e6366d717"
 dependencies = [
  "helgoboss-midi",
  "reaper-high",
@@ -6169,6 +6176,7 @@ checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
 [[package]]
 name = "rppxml-parser"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#f9d5a69c5facc5c22dadc17c41050c4e6366d717"
 dependencies = [
  "splitty",
 ]
