@@ -1268,8 +1268,8 @@ impl<'a> Sql<'a> {
 
 impl Display for Sql<'_> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        writeln!(f, "SELECT {}", &self.select_clause)?;
-        writeln!(f, "FROM {}", &self.from_main)?;
+        writeln!(f, "SELECT {}", self.select_clause)?;
+        writeln!(f, "FROM {}", self.from_main)?;
         for join in &self.from_joins {
             writeln!(f, "    {}", join)?;
         }

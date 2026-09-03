@@ -2550,7 +2550,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .count(),
             self.basics.channels.control_task_receiver.len(),
             self.basics.channels.feedback_task_receiver.len(),
-            &self.collections.parameters,
+            self.collections.parameters,
         );
         Reaper::get().show_console_msg(msg);
         // Detailed
@@ -2961,6 +2961,7 @@ pub struct CompartmentSettings {
     Eq,
     PartialEq,
     Debug,
+Default,
     serde::Serialize,
     serde::Deserialize,
     EnumIter,
@@ -2972,17 +2973,13 @@ pub enum StayActiveWhenProjectInBackground {
     Never,
     /// Respecting the REAPER project tab settings such as "Run background projects".
     #[display(fmt = "Only if background project is running")]
+    #[default]
     OnlyIfBackgroundProjectIsRunning,
     /// As far as possible.
     #[display(fmt = "Always (more or less)")]
     Always,
 }
 
-impl Default for StayActiveWhenProjectInBackground {
-    fn default() -> Self {
-        Self::OnlyIfBackgroundProjectIsRunning
-    }
-}
 
 impl BasicSettings {
     pub fn target_control_logger<'a>(

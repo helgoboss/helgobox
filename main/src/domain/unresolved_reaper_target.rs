@@ -723,6 +723,7 @@ impl VirtualTrackRoute {
     Debug,
     PartialEq,
     Eq,
+Default,
     Serialize,
     Deserialize,
     EnumIter,
@@ -734,6 +735,7 @@ impl VirtualTrackRoute {
 pub enum TrackRouteType {
     #[serde(rename = "send")]
     #[display(fmt = "Send")]
+    #[default]
     Send,
     #[serde(rename = "receive")]
     #[display(fmt = "Receive")]
@@ -741,12 +743,6 @@ pub enum TrackRouteType {
     #[serde(rename = "output")]
     #[display(fmt = "Output")]
     HardwareOutput,
-}
-
-impl Default for TrackRouteType {
-    fn default() -> Self {
-        Self::Send
-    }
 }
 
 #[derive(Debug)]
@@ -818,18 +814,14 @@ impl VirtualPlaytimeSlot {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum VirtualPlaytimeColumn {
+    #[default]
     Active,
     ByIndex(usize),
     Dynamic(Box<ExpressionEvaluator>),
 }
 
-impl Default for VirtualPlaytimeColumn {
-    fn default() -> Self {
-        Self::Active
-    }
-}
 
 impl VirtualPlaytimeColumn {
     pub fn from_descriptor(
@@ -898,17 +890,12 @@ impl VirtualPlaytimeColumn {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum VirtualPlaytimeRow {
+    #[default]
     Active,
     ByIndex(usize),
     Dynamic(Box<ExpressionEvaluator>),
-}
-
-impl Default for VirtualPlaytimeRow {
-    fn default() -> Self {
-        Self::Active
-    }
 }
 
 impl VirtualPlaytimeRow {
@@ -958,9 +945,10 @@ fn to_slot_coordinate(eval_result: Result<f64, fasteval::Error>) -> Result<usize
     Ok(res.round() as usize)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum VirtualTrack {
     /// Current track (the one which contains the ReaLearn instance).
+    #[default]
     This,
     /// Currently selected track.
     Selected { allow_multiple: bool },
@@ -990,12 +978,6 @@ pub enum VirtualTrack {
     },
     /// Unit track
     Unit,
-}
-
-impl Default for VirtualTrack {
-    fn default() -> Self {
-        Self::This
-    }
 }
 
 #[derive(Debug)]
@@ -1271,13 +1253,18 @@ impl fmt::Display for VirtualTrack {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum VirtualFx {
     /// This ReaLearn FX (nice for controlling conditional activation parameters).
     This,
     /// Last relevant focused FX, even if FX focus lost or if FX window is closed.
     ///
     /// Doesn't include current ReaLearn instance.
+    ///
+    /// # Why is this the default?
+    ///
+    // Important to keep it "Focused" for compatibility with "Auto-load depending on focused FX".
+    #[default]
     LastFocused,
     /// Unit FX.
     Unit,
@@ -1286,14 +1273,6 @@ pub enum VirtualFx {
         is_input_fx: bool,
         chain_fx: VirtualChainFx,
     },
-}
-
-impl Default for VirtualFx {
-    fn default() -> Self {
-        // Important to keep it "Focused" for compatibility with
-        // "Auto-load depending on focused FX".
-        Self::LastFocused
-    }
 }
 
 impl fmt::Display for VirtualFx {

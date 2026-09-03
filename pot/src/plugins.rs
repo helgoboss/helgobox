@@ -173,7 +173,7 @@ impl Display for PluginCommon {
         if let Some(ProductKind::Instrument) = self.core.product_kind {
             f.write_str("i")?;
         }
-        write!(f, ": {}", &self.name)?;
+        write!(f, ": {}", self.name)?;
         Ok(())
     }
 }

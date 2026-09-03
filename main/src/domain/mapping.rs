@@ -74,6 +74,7 @@ impl ProcessorMappingOptions {
     PartialEq,
     Hash,
     Debug,
+Default,
     Enum,
     EnumIter,
     TryFromPrimitive,
@@ -83,17 +84,12 @@ impl ProcessorMappingOptions {
 #[repr(usize)]
 pub enum FeedbackSendBehavior {
     #[display(fmt = "Normal")]
+    #[default]
     Normal,
     #[display(fmt = "Send feedback after control")]
     SendFeedbackAfterControl,
     #[display(fmt = "Prevent echo feedback")]
     PreventEchoFeedback,
-}
-
-impl Default for FeedbackSendBehavior {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 /// Internal technical mapping identifier, not persistent.
@@ -621,12 +617,10 @@ impl MainMapping {
         context: ExtendedProcessorContext,
         control_context: ControlContext,
     ) -> Option<RealTimeTargetUpdate> {
-        match self.unresolved_target.as_ref() {
-            None => return None,
-            Some(t) => {
-                if !t.can_be_affected_by_change_events() {
-                    return None;
-                }
+        {
+            let t = self.unresolved_target.as_ref()?;
+            if !t.can_be_affected_by_change_events() {
+                return None;
             }
         }
         let was_effectively_active_before = self.target_is_effectively_active();

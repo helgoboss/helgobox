@@ -385,16 +385,11 @@ impl Display for Id {
     }
 }
 
-#[derive(Copy, Clone, derive_more::Display)]
+#[derive(Copy, Clone, Default, derive_more::Display)]
 pub enum DialogKind {
+    #[default]
     DIALOG,
     DIALOGEX,
-}
-
-impl Default for DialogKind {
-    fn default() -> Self {
-        Self::DIALOG
-    }
 }
 
 #[derive(Clone, Default)]
@@ -513,7 +508,7 @@ impl Display for Control {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, derive_more::Display)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, derive_more::Display)]
 pub enum ControlKind {
     LTEXT,
     RTEXT,
@@ -523,13 +518,8 @@ pub enum ControlKind {
     EDITTEXT,
     GROUPBOX,
     DEFPUSHBUTTON,
+    #[default]
     CTEXT,
-}
-
-impl Default for ControlKind {
-    fn default() -> Self {
-        Self::CTEXT
-    }
 }
 
 #[derive(Copy, Clone, derive_more::Display)]

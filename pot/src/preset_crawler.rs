@@ -312,7 +312,7 @@ fn determine_preset_file_destination(
     } else {
         // No match with existing unsupported preset
         let sanitized_effect_name = sanitize_filename::sanitize(&fx_info.effect_name);
-        let file_name = format!("{}.RfxChain", &preset_name);
+        let file_name = format!("{}.RfxChain", preset_name);
         let sanitized_file_name = sanitize_filename::sanitize(file_name);
         reaper_resource_dir
             .join("FXChains/Pot")

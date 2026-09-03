@@ -50,7 +50,7 @@ impl SuccessfulControllerProbe {
 
 impl Display for SuccessfulControllerProbe {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Outcome: {}\n\n{}", &self.outcome, &self.payload)
+        write!(f, "Outcome: {}\n\n{}", self.outcome, self.payload)
     }
 }
 
@@ -67,7 +67,7 @@ impl FailedControllerProbe {
 
 impl Display for FailedControllerProbe {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Error: {:#?}\n\n{}", &self.error, &self.payload)
+        write!(f, "Error: {:#?}\n\n{}", self.error, self.payload)
     }
 }
 
@@ -83,7 +83,7 @@ impl Display for ControllerProbePayload {
             writeln!(
                 f,
                 "Identity reply: {}\nInput device: [{}] {:?}",
-                &r.device_inquiry_reply,
+                r.device_inquiry_reply,
                 in_dev.id(),
                 in_dev.name().unwrap_or_default(),
             )?
@@ -102,17 +102,13 @@ impl Display for ControllerProbeOutcome {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ControllerProbeOutcome::OutputInUseAlready(c) => {
-                write!(
-                    f,
-                    "Output port already in use by controller \"{}\"",
-                    &c.name
-                )?;
+                write!(f, "Output port already in use by controller \"{}\"", c.name)?;
             }
             ControllerProbeOutcome::InputInUseAlready(c) => {
-                write!(f, "Input port already in use by controller \"{}\"", &c.name)?;
+                write!(f, "Input port already in use by controller \"{}\"", c.name)?;
             }
             ControllerProbeOutcome::CreatedController(c) => {
-                write!(f, "Created controller \"{}\"", &c.name)?;
+                write!(f, "Created controller \"{}\"", c.name)?;
             }
         }
         Ok(())
@@ -151,6 +147,7 @@ pub async fn detect_controllers(
     Ok(probes)
 }
 
+#[allow(clippy::result_large_err)]
 async fn maybe_create_controller_for_device(
     out_dev_id: MidiOutputDeviceId,
 ) -> Result<SuccessfulControllerProbe, FailedControllerProbe> {

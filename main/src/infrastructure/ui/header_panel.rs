@@ -2218,18 +2218,15 @@ impl HeaderPanel {
     }
 
     pub fn export_to_clipboard(&self) -> anyhow::Result<()> {
+        #[derive(Default)]
         #[allow(dead_code)]
         enum MenuAction {
+            #[default]
             None,
             ExportInstance(SerializationFormat),
             ExportUnit(SerializationFormat),
             ExportClipMatrix(SerializationFormat),
             ExportCompartment(SerializationFormat),
-        }
-        impl Default for MenuAction {
-            fn default() -> Self {
-                Self::None
-            }
         }
         let compartment = self.active_compartment();
         let pure_menu = {
@@ -3227,7 +3224,9 @@ fn get_clip_matrix_label(column_count: usize) -> String {
     format!("Playtime matrix with {column_count} columns")
 }
 
+#[derive(Default)]
 enum MainMenuAction {
+    #[default]
     None,
     CopyListedMappingsAsJson,
     CopyListedMappingsAsLua(ConversionStyle),
@@ -3286,12 +3285,6 @@ enum HelpMenuAction {
     Donate,
 }
 
-impl Default for MainMenuAction {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
 #[derive(Copy, Clone)]
 enum PresetLinkScope {
     Global,
@@ -3308,7 +3301,7 @@ fn generate_fx_to_preset_links_menu_entries(
     use swell_ui::menu_tree::*;
     let add_link_entry = if let Some(fx_id) = last_focused_fx_id {
         menu(
-            format!("<Add link from FX \"{}\" to ...>", &fx_id.name),
+            format!("<Add link from FX \"{}\" to ...>", fx_id.name),
             build_compartment_preset_menu_entries(
                 main_preset_manager.common_preset_infos(),
                 move |info| {

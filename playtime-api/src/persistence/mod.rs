@@ -581,10 +581,11 @@ pub struct MatrixClipRecordAudioSettings {
     pub detect_input: bool,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ClipRecordTimeBase {
     /// Derives the time base of the resulting clip from the clip start timing.
+    #[default]
     DeriveFromRecordTiming,
     /// Sets the time base of the recorded clip to [`ClipTimeBase::Time`].
     Time,
@@ -604,27 +605,16 @@ pub enum TriggerSlotBehavior {
     Retrigger,
 }
 
-impl Default for ClipRecordTimeBase {
-    fn default() -> Self {
-        Self::DeriveFromRecordTiming
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ClipRecordStartTiming {
     /// Uses the inherited clip play start timing (from column or matrix).
+    #[default]
     LikeClipPlayStartTiming,
     /// Starts recording immediately.
     Immediately,
     /// Starts recording according to the given quantization.
     Quantized(EvenQuantization),
-}
-
-impl Default for ClipRecordStartTiming {
-    fn default() -> Self {
-        Self::LikeClipPlayStartTiming
-    }
 }
 
 impl ClipRecordStartTiming {
@@ -657,16 +647,11 @@ impl ClipRecordStartTiming {
     }
 }
 
-impl Default for ClipRecordStopTiming {
-    fn default() -> Self {
-        Self::LikeClipRecordStartTiming
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ClipRecordStopTiming {
     /// Uses the record start timing.
+    #[default]
     LikeClipRecordStartTiming,
     /// Stops recording immediately.
     Immediately,
@@ -695,22 +680,17 @@ impl ClipRecordStopTiming {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum MidiClipRecordMode {
     /// Creates an empty clip and records MIDI material in it.
+    #[default]
     Normal,
     /// Records more material onto an existing clip, leaving existing material in place.
     Overdub,
     /// Records more material onto an existing clip, overwriting existing material.
     // TODO-high-playtime-after-release
     Replace,
-}
-
-impl Default for MidiClipRecordMode {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
@@ -738,10 +718,11 @@ impl ClipPlayStartTiming {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ClipPlayStopTiming {
     /// Uses the play start timing.
+    #[default]
     LikeClipStartTiming,
     /// Stops playing immediately.
     Immediately,
@@ -749,12 +730,6 @@ pub enum ClipPlayStopTiming {
     Quantized(EvenQuantization),
     /// Keeps playing until the end of the clip.
     UntilEndOfClip,
-}
-
-impl Default for ClipPlayStopTiming {
-    fn default() -> Self {
-        Self::LikeClipStartTiming
-    }
 }
 
 impl ClipPlayStopTiming {
@@ -1139,19 +1114,14 @@ impl Default for AudioTimeStretchMode {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum VirtualResampleMode {
     /// Uses the resample mode set as default for this REAPER project.
+    #[default]
     ProjectDefault,
     /// Uses a specific resample mode.
     ReaperMode(ReaperResampleMode),
-}
-
-impl Default for VirtualResampleMode {
-    fn default() -> Self {
-        Self::ProjectDefault
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
@@ -1164,19 +1134,14 @@ pub struct TimeStretchMode {
     pub mode: VirtualTimeStretchMode,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum VirtualTimeStretchMode {
     /// Uses the pitch shift mode set as default for this REAPER project.
+    #[default]
     ProjectDefault,
     /// Uses a specific REAPER pitch shift mode.
     ReaperMode(ReaperPitchShiftMode),
-}
-
-impl Default for VirtualTimeStretchMode {
-    fn default() -> Self {
-        Self::ProjectDefault
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
@@ -1185,10 +1150,11 @@ pub struct ReaperPitchShiftMode {
     pub sub_mode: u32,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum RecordOrigin {
     /// Records using the hardware input set for the track (MIDI or stereo).
+    #[default]
     TrackInput,
     /// Captures audio from the output of the track.
     TrackAudioOutput,
@@ -1196,30 +1162,19 @@ pub enum RecordOrigin {
     FxAudioInput(ChannelRange),
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub enum SourceOrigin {
     /// Normal source.
+    #[default]
     Normal,
     /// Frozen source.
     Frozen,
-}
-
-impl Default for SourceOrigin {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct ChannelRange {
     pub first_channel_index: u32,
     pub channel_count: u32,
-}
-
-impl Default for RecordOrigin {
-    fn default() -> Self {
-        Self::TrackInput
-    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -1581,22 +1536,17 @@ impl Section {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum AudioCacheBehavior {
     /// Loads directly from the disk.
     ///
     /// Might still pre-buffer some blocks but definitely won't put the complete audio data into
     /// memory.
+    #[default]
     DirectFromDisk,
     /// Loads the complete audio data into memory.
     CacheInMemory,
-}
-
-impl Default for AudioCacheBehavior {
-    fn default() -> Self {
-        Self::DirectFromDisk
-    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]

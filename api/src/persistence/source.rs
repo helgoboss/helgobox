@@ -49,17 +49,12 @@ pub enum Source {
 }
 
 // Only makes sense for sources that support both control *and* feedback.
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub enum FeedbackBehavior {
+    #[default]
     Normal,
     SendFeedbackAfterControl,
     PreventEchoFeedback,
-}
-
-impl Default for FeedbackBehavior {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]

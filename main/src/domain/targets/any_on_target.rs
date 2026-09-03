@@ -150,6 +150,7 @@ impl<'a> Target<'a> for AnyOnTarget {
     Debug,
     PartialEq,
     Eq,
+    Default,
     Serialize,
     Deserialize,
     EnumIter,
@@ -162,6 +163,7 @@ impl<'a> Target<'a> for AnyOnTarget {
 pub enum AnyOnParameter {
     #[serde(rename = "track-solo")]
     #[display(fmt = "Track solo")]
+    #[default]
     TrackSolo,
     #[serde(rename = "track-mute")]
     #[display(fmt = "Track mute")]
@@ -172,12 +174,6 @@ pub enum AnyOnParameter {
     #[serde(rename = "track-selection")]
     #[display(fmt = "Track selection")]
     TrackSelection,
-}
-
-impl Default for AnyOnParameter {
-    fn default() -> Self {
-        Self::TrackSolo
-    }
 }
 
 pub const ANY_ON_TARGET: TargetTypeDef = TargetTypeDef {

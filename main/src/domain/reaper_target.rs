@@ -172,6 +172,7 @@ pub enum ReaperTarget {
     Debug,
     PartialEq,
     Eq,
+Default,
     Serialize,
     Deserialize,
     EnumIter,
@@ -183,6 +184,7 @@ pub enum ReaperTarget {
 pub enum SendMidiDestinationType {
     #[serde(rename = "fx-output")]
     #[display(fmt = "FX output")]
+    #[default]
     FxOutput,
     #[serde(rename = "feedback-output")]
     #[display(fmt = "Feedback output")]
@@ -190,12 +192,6 @@ pub enum SendMidiDestinationType {
     #[serde(rename = "input-device")]
     #[display(fmt = "Input device")]
     InputDevice,
-}
-
-impl Default for SendMidiDestinationType {
-    fn default() -> Self {
-        Self::FxOutput
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -226,6 +222,7 @@ pub struct SeekOptions {
     Eq,
     PartialOrd,
     Ord,
+    Default,
     Serialize,
     Deserialize,
     EnumIter,
@@ -239,6 +236,7 @@ pub enum FeedbackResolution {
     /// Query for feedback every beat that's played on the main timeline.
     #[serde(rename = "beat")]
     #[display(fmt = "Beat")]
+    #[default]
     Beat = 0,
     /// Query for feedback as frequently as possible (results in brute-force polling once per
     /// main loop cycle).
@@ -247,18 +245,13 @@ pub enum FeedbackResolution {
     High = 1,
 }
 
-impl Default for FeedbackResolution {
-    fn default() -> Self {
-        Self::Beat
-    }
-}
-
 #[derive(
     Clone,
     Copy,
     Debug,
     PartialEq,
     Eq,
+Default,
     Serialize,
     Deserialize,
     EnumIter,
@@ -270,16 +263,11 @@ impl Default for FeedbackResolution {
 pub enum FxDisplayType {
     #[serde(rename = "floating")]
     #[display(fmt = "Floating window")]
+    #[default]
     FloatingWindow,
     #[serde(rename = "chain")]
     #[display(fmt = "FX chain (limited feedback)")]
     Chain,
-}
-
-impl Default for FxDisplayType {
-    fn default() -> Self {
-        Self::FloatingWindow
-    }
 }
 
 impl ReaperTarget {
@@ -1192,8 +1180,9 @@ pub enum SoloBehavior {
     ReaperPreference,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub enum TrackGangBehavior {
+    #[default]
     Off,
     SelectionOnly,
     GroupingOnly,
@@ -1245,12 +1234,6 @@ impl TrackGangBehavior {
 
     pub fn use_track_grouping(&self) -> bool {
         matches!(self, Self::GroupingOnly | Self::SelectionAndGrouping)
-    }
-}
-
-impl Default for TrackGangBehavior {
-    fn default() -> Self {
-        Self::Off
     }
 }
 

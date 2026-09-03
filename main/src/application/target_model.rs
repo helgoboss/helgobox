@@ -3840,10 +3840,13 @@ fn virtualize_route(
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter, TryFromPrimitive, IntoPrimitive, Display)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Default, EnumIter, TryFromPrimitive, IntoPrimitive, Display,
+)]
 #[repr(usize)]
 pub enum VirtualTrackType {
     #[display(fmt = "<This>")]
+    #[default]
     This,
     #[display(fmt = "<Selected>")]
     Selected,
@@ -3877,18 +3880,13 @@ pub enum VirtualTrackType {
     FromClipColumn,
 }
 
-impl Default for VirtualTrackType {
-    fn default() -> Self {
-        Self::This
-    }
-}
-
 #[derive(
     Clone,
     Copy,
     Debug,
     PartialEq,
     Eq,
+    Default,
     EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
@@ -3900,15 +3898,10 @@ impl Default for VirtualTrackType {
 pub enum MappingSnapshotTypeForLoad {
     #[display(fmt = "<Initial>")]
     #[serde(rename = "initial")]
+    #[default]
     Initial,
     #[display(fmt = "By ID")]
     ById,
-}
-
-impl Default for MappingSnapshotTypeForLoad {
-    fn default() -> Self {
-        Self::Initial
-    }
 }
 
 #[derive(
@@ -3917,6 +3910,7 @@ impl Default for MappingSnapshotTypeForLoad {
     Debug,
     PartialEq,
     Eq,
+    Default,
     EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
@@ -3928,15 +3922,10 @@ impl Default for MappingSnapshotTypeForLoad {
 pub enum MappingSnapshotTypeForTake {
     #[display(fmt = "<Last loaded>")]
     #[serde(rename = "last-loaded")]
+    #[default]
     LastLoaded,
     #[display(fmt = "By ID")]
     ById,
-}
-
-impl Default for MappingSnapshotTypeForTake {
-    fn default() -> Self {
-        Self::LastLoaded
-    }
 }
 
 #[derive(
@@ -3945,6 +3934,7 @@ impl Default for MappingSnapshotTypeForTake {
     Debug,
     PartialEq,
     Eq,
+    Default,
     EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
@@ -3955,15 +3945,10 @@ impl Default for MappingSnapshotTypeForTake {
 #[repr(usize)]
 pub enum BookmarkAnchorType {
     #[display(fmt = "By ID")]
+    #[default]
     Id,
     #[display(fmt = "At position")]
     Index,
-}
-
-impl Default for BookmarkAnchorType {
-    fn default() -> Self {
-        Self::Id
-    }
 }
 
 impl VirtualTrackType {
@@ -4043,6 +4028,7 @@ impl VirtualTrackType {
     Debug,
     PartialEq,
     Eq,
+    Default,
     EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
@@ -4066,6 +4052,7 @@ pub enum VirtualFxType {
     Dynamic,
     #[display(fmt = "Particular")]
     #[serde(rename = "id")]
+    #[default]
     ById,
     #[display(fmt = "Named")]
     #[serde(rename = "name")]
@@ -4078,12 +4065,6 @@ pub enum VirtualFxType {
     #[display(fmt = "By ID or pos (legacy)")]
     #[serde(rename = "id-or-index")]
     ByIdOrIndex,
-}
-
-impl Default for VirtualFxType {
-    fn default() -> Self {
-        Self::ById
-    }
 }
 
 impl VirtualFxType {
@@ -4144,6 +4125,7 @@ impl VirtualFxType {
     Debug,
     PartialEq,
     Eq,
+    Default,
     EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
@@ -4161,16 +4143,11 @@ pub enum VirtualFxParameterType {
     ByName,
     #[display(fmt = "Particular")]
     #[serde(rename = "index")]
+    #[default]
     ById,
     #[display(fmt = "At position")]
     #[serde(rename = "index-manual")]
     ByIndex,
-}
-
-impl Default for VirtualFxParameterType {
-    fn default() -> Self {
-        Self::ById
-    }
 }
 
 impl VirtualFxParameterType {
@@ -4196,6 +4173,7 @@ impl VirtualFxParameterType {
     Debug,
     PartialEq,
     Eq,
+    Default,
     EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
@@ -4216,13 +4194,8 @@ pub enum TrackRouteSelectorType {
     ByName,
     #[display(fmt = "At position")]
     #[serde(rename = "index")]
+    #[default]
     ByIndex,
-}
-
-impl Default for TrackRouteSelectorType {
-    fn default() -> Self {
-        Self::ByIndex
-    }
 }
 
 impl TrackRouteSelectorType {
@@ -4380,6 +4353,7 @@ pub struct FxParameterPropValues {
     Debug,
     PartialEq,
     Eq,
+    Default,
     Serialize,
     Deserialize,
     EnumIter,
@@ -4391,16 +4365,11 @@ pub struct FxParameterPropValues {
 pub enum RealearnTrackArea {
     #[serde(rename = "tcp")]
     #[display(fmt = "Track control panel")]
+    #[default]
     Tcp,
     #[serde(rename = "mcp")]
     #[display(fmt = "Mixer control panel")]
     Mcp,
-}
-
-impl Default for RealearnTrackArea {
-    fn default() -> Self {
-        Self::Tcp
-    }
 }
 
 #[derive(
@@ -4409,6 +4378,7 @@ impl Default for RealearnTrackArea {
     Debug,
     PartialEq,
     Eq,
+    Default,
     Serialize_repr,
     Deserialize_repr,
     EnumIter,
@@ -4419,6 +4389,7 @@ impl Default for RealearnTrackArea {
 #[repr(usize)]
 pub enum RealearnAutomationMode {
     #[display(fmt = "Trim/Read")]
+    #[default]
     TrimRead = 0,
     #[display(fmt = "Read")]
     Read = 1,
@@ -4430,12 +4401,6 @@ pub enum RealearnAutomationMode {
     Latch = 4,
     #[display(fmt = "Latch Preview")]
     LatchPreview = 5,
-}
-
-impl Default for RealearnAutomationMode {
-    fn default() -> Self {
-        Self::TrimRead
-    }
 }
 
 impl RealearnAutomationMode {
@@ -4471,6 +4436,7 @@ impl RealearnAutomationMode {
     Debug,
     PartialEq,
     Eq,
+    Default,
     EnumIter,
     Serialize,
     Deserialize,
@@ -4485,16 +4451,11 @@ pub enum AutomationModeOverrideType {
     None,
     #[serde(rename = "bypass")]
     #[display(fmt = "Bypass all envelopes")]
+    #[default]
     Bypass,
     #[serde(rename = "override")]
     #[display(fmt = "Override")]
     Override,
-}
-
-impl Default for AutomationModeOverrideType {
-    fn default() -> Self {
-        Self::Bypass
-    }
 }
 
 #[derive(
@@ -4503,6 +4464,7 @@ impl Default for AutomationModeOverrideType {
     Debug,
     PartialEq,
     Eq,
+    Default,
     EnumIter,
     Serialize,
     Deserialize,
@@ -4513,15 +4475,10 @@ impl Default for AutomationModeOverrideType {
 #[repr(usize)]
 pub enum TargetUnit {
     #[serde(rename = "native")]
+    #[default]
     Native,
     #[serde(rename = "percent")]
     Percent,
-}
-
-impl Default for TargetUnit {
-    fn default() -> Self {
-        Self::Native
-    }
 }
 
 #[derive(Debug)]
@@ -4549,7 +4506,7 @@ impl<'a> ConcreteTrackInstruction<'a> {
                     .project_or_current_project()
                     .track_by_guid(id)
                     .ok()
-                    .and_then(|t| if t.is_available() { Some(t) } else { None }),
+                    .filter(|t| t.is_available()),
                 ByIdWithTrack(t) => Some(t.clone()),
                 _ => None,
             },

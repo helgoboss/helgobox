@@ -165,8 +165,9 @@ pub struct OscArgument {
     pub value_range: Option<Interval<f64>>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub enum OscArgKind {
+    #[default]
     Float,
     Double,
     Bool,
@@ -181,10 +182,4 @@ pub enum OscArgKind {
     Color,
     Midi,
     Array,
-}
-
-impl Default for OscArgKind {
-    fn default() -> Self {
-        Self::Float
-    }
 }

@@ -83,16 +83,11 @@ pub enum AbsoluteMode {
     PerformanceControl,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub enum RelativeMode {
+    #[default]
     Normal,
     MakeAbsolute,
-}
-
-impl Default for RelativeMode {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
@@ -151,33 +146,23 @@ pub struct PropColor {
     pub prop: String,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub enum OutOfRangeBehavior {
+    #[default]
     MinOrMax,
     Min,
     Ignore,
 }
 
-impl Default for OutOfRangeBehavior {
-    fn default() -> Self {
-        Self::MinOrMax
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub enum TakeoverMode {
+    #[default]
     Off,
     PickUpTolerant,
     PickUp,
     LongTimeNoSee,
     Parallel,
     CatchUp,
-}
-
-impl Default for TakeoverMode {
-    fn default() -> Self {
-        Self::Off
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]

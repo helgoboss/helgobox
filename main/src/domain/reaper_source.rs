@@ -303,7 +303,7 @@ pub struct StreamDeckDevicePayload {
 
 impl Display for StreamDeckDevicePayload {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Devices: {:?}", &self.devices,)
+        write!(f, "Devices: {:?}", self.devices,)
     }
 }
 
@@ -318,7 +318,7 @@ impl Display for MidiDeviceChangePayload {
         write!(
             f,
             "Input devices: {:?}, Output devices: {:?}",
-            &self.input_devices, &self.output_devices
+            self.input_devices, self.output_devices
         )
     }
 }

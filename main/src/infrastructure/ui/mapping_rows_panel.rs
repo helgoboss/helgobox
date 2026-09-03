@@ -546,7 +546,7 @@ impl MappingRowsPanel {
             let entries = vec![{
                 let desc = match data_object_from_clipboard {
                     Some(DataObject::Mapping(Envelope { value: m, .. })) => Some((
-                        format!("Paste mapping \"{}\" (insert here)", &m.name),
+                        format!("Paste mapping \"{}\" (insert here)", m.name),
                         vec![*m],
                     )),
                     Some(DataObject::Mappings(Envelope { value: vec, .. })) => {

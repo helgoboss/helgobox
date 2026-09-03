@@ -581,7 +581,7 @@ impl MappingRowPanel {
     fn paste_from_lua_replace(&self, text: &str) -> anyhow::Result<()> {
         let active_compartment = self.active_compartment();
         let api_object = deserialize_api_object_from_lua(text, active_compartment)?;
-        if !matches!(api_object, ApiObject::Mapping(Envelope { value: _, .. })) {
+        if !matches!(api_object, ApiObject::Mapping(Envelope { .. })) {
             bail!("There's more than one mapping in the clipboard.");
         }
         let data_object = {
@@ -628,7 +628,9 @@ impl MappingRowPanel {
     }
 
     fn open_context_menu(&self, location: Point<Pixels>) -> anyhow::Result<()> {
+        #[derive(Default)]
         enum MenuAction {
+            #[default]
             None,
             PasteObjectInPlace(DataObject),
             PasteMappings(Envelope<Vec<MappingModelData>>),
@@ -639,11 +641,7 @@ impl MappingRowPanel {
             PasteFromLuaInsertBelow(String),
             LogDebugInfo,
         }
-        impl Default for MenuAction {
-            fn default() -> Self {
-                Self::None
-            }
-        }
+
         let pure_menu = {
             use swell_ui::menu_tree::*;
             let shared_session = self.session();
@@ -666,7 +664,7 @@ impl MappingRowPanel {
                 {
                     let desc = match data_object_from_clipboard {
                         Some(DataObject::Mapping(Envelope { value: m, version })) => Some((
-                            format!("Paste mapping \"{}\" (replace)", &m.name),
+                            format!("Paste mapping \"{}\" (replace)", m.name),
                             DataObject::Mapping(Envelope { value: m, version }),
                         )),
                         Some(DataObject::Source(Envelope { value: s, version })) => Some((
@@ -698,7 +696,7 @@ impl MappingRowPanel {
                 {
                     let desc = match data_object_from_clipboard_clone {
                         Some(DataObject::Mapping(Envelope { value: m, version })) => Some((
-                            format!("Paste mapping \"{}\" (insert below)", &m.name),
+                            format!("Paste mapping \"{}\" (insert below)", m.name),
                             Envelope::new(version, vec![*m]),
                         )),
                         Some(DataObject::Mappings(Envelope {

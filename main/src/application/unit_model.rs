@@ -1469,6 +1469,7 @@ impl UnitModel {
     }
 
     /// Silently assigns random keys if given keys conflict with existing keys or are not unique.
+    #[allow(clippy::explicit_counter_loop)]
     pub fn insert_mappings_at(
         &mut self,
         compartment: CompartmentKind,
@@ -2486,7 +2487,7 @@ impl UnitModel {
             - Controller mapping subscription count: {}\n\
             ",
             self.unit_id,
-            &self.unit_key,
+            self.unit_key,
             self.mappings[CompartmentKind::Main].len(),
             self.mapping_subscriptions[CompartmentKind::Main].len(),
             self.groups.len(),

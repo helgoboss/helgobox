@@ -49,6 +49,7 @@ pub struct MouseTarget<M> {
     Eq,
     PartialEq,
     Debug,
+Default,
     derive_more::Display,
     EnumIter,
     num_enum::TryFromPrimitive,
@@ -57,6 +58,7 @@ pub struct MouseTarget<M> {
 #[repr(usize)]
 pub enum MouseActionType {
     #[display(fmt = "Move cursor to")]
+    #[default]
     MoveTo,
     #[display(fmt = "Move cursor by")]
     MoveBy,
@@ -64,12 +66,6 @@ pub enum MouseActionType {
     PressOrRelease,
     #[display(fmt = "Turn scroll wheel")]
     Scroll,
-}
-
-impl Default for MouseActionType {
-    fn default() -> Self {
-        Self::MoveTo
-    }
 }
 
 impl<M: Mouse> RealearnTarget for MouseTarget<M> {

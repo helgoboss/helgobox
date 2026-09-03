@@ -6055,53 +6055,50 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.fill_combo_box_indexed(FxDisplayType::iter());
                     combo.select_combo_box_item_by_index(self.target.fx_display_type().into());
                 }
-                t if t.supports_send() => {
-                    if self.target.route_selector_type() == TrackRouteSelectorType::ById {
-                        combo.show();
-                        let context = self.session.extended_context();
-                        let target_with_context = self
-                            .target
-                            .with_context(context, self.mapping.compartment());
-                        if let Ok(track) = target_with_context.first_effective_track() {
-                            // Fill
-                            let route_type = self.target.route_type();
-                            combo.fill_combo_box_indexed_vec(send_combo_box_entries(
-                                &track, route_type,
-                            ));
-                            // Set
-                            if route_type == TrackRouteType::HardwareOutput {
-                                // Hardware output uses indexes, not IDs.
-                                let i = self.target.route_index();
-                                combo
-                                    .select_combo_box_item_by_index_checked(i as _)
-                                    .unwrap_or_else(|_| {
-                                        let pity_label = format!("{}. <Not present>", i + 1);
-                                        combo.select_new_combo_box_item(pity_label);
-                                    });
-                            } else {
-                                // This is the real case. We use IDs.
-                                if let Ok(virtual_route) = self.target.virtual_track_route() {
-                                    if let Ok(route) = virtual_route.resolve(
-                                        &track,
-                                        context,
-                                        self.mapping.compartment(),
-                                    ) {
-                                        let i = route.track_route_index().unwrap();
-                                        combo.select_combo_box_item_by_index(i as _);
-                                    } else {
-                                        combo.select_new_combo_box_item(
-                                            get_non_present_virtual_route_label(&virtual_route),
-                                        );
-                                    }
-                                } else {
-                                    combo.select_new_combo_box_item("<None>");
-                                }
-                            }
+                t if t.supports_send()
+                    && self.target.route_selector_type() == TrackRouteSelectorType::ById =>
+                {
+                    combo.show();
+                    let context = self.session.extended_context();
+                    let target_with_context = self
+                        .target
+                        .with_context(context, self.mapping.compartment());
+                    if let Ok(track) = target_with_context.first_effective_track() {
+                        // Fill
+                        let route_type = self.target.route_type();
+                        combo
+                            .fill_combo_box_indexed_vec(send_combo_box_entries(&track, route_type));
+                        // Set
+                        if route_type == TrackRouteType::HardwareOutput {
+                            // Hardware output uses indexes, not IDs.
+                            let i = self.target.route_index();
+                            combo
+                                .select_combo_box_item_by_index_checked(i as _)
+                                .unwrap_or_else(|_| {
+                                    let pity_label = format!("{}. <Not present>", i + 1);
+                                    combo.select_new_combo_box_item(pity_label);
+                                });
                         } else {
-                            combo.select_only_combo_box_item("<Requires track>");
+                            // This is the real case. We use IDs.
+                            if let Ok(virtual_route) = self.target.virtual_track_route() {
+                                if let Ok(route) = virtual_route.resolve(
+                                    &track,
+                                    context,
+                                    self.mapping.compartment(),
+                                ) {
+                                    let i = route.track_route_index().unwrap();
+                                    combo.select_combo_box_item_by_index(i as _);
+                                } else {
+                                    combo.select_new_combo_box_item(
+                                        get_non_present_virtual_route_label(&virtual_route),
+                                    );
+                                }
+                            } else {
+                                combo.select_new_combo_box_item("<None>");
+                            }
                         }
                     } else {
-                        combo.hide();
+                        combo.select_only_combo_box_item("<Requires track>");
                     }
                 }
                 _ => {

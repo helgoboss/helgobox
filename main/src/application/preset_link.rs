@@ -208,6 +208,7 @@ impl FxId {
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     EnumIter,
@@ -219,16 +220,11 @@ impl FxId {
 pub enum AutoLoadMode {
     #[serde(rename = "off")]
     #[display(fmt = "Off")]
+    #[default]
     Off,
     #[serde(rename = "focused-fx")]
     #[display(fmt = "Based on unit FX")]
     UnitFx,
-}
-
-impl Default for AutoLoadMode {
-    fn default() -> Self {
-        Self::Off
-    }
 }
 
 impl AutoLoadMode {

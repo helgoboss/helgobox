@@ -188,16 +188,11 @@ pub struct TargetCommons {
     pub unit: Option<TargetUnit>,
 }
 
-#[derive(Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub enum TargetUnit {
+    #[default]
     Native,
     Percent,
-}
-
-impl Default for TargetUnit {
-    fn default() -> Self {
-        Self::Native
-    }
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
@@ -542,6 +537,7 @@ pub struct TrackToolTarget {
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     derive_more::Display,
@@ -552,6 +548,7 @@ pub struct TrackToolTarget {
 #[repr(usize)]
 pub enum TrackToolAction {
     #[display(fmt = "None (feedback only)")]
+    #[default]
     DoNothing,
     #[display(fmt = "Set (as unit track)")]
     #[serde(alias = "SetAsInstanceTrack")]
@@ -559,12 +556,6 @@ pub enum TrackToolAction {
     #[display(fmt = "Pin (as unit track)")]
     #[serde(alias = "PinAsInstanceTrack")]
     PinAsUnitTrack,
-}
-
-impl Default for TrackToolAction {
-    fn default() -> Self {
-        Self::DoNothing
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
@@ -666,6 +657,7 @@ pub enum Axis {
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     derive_more::Display,
@@ -675,15 +667,10 @@ pub enum Axis {
 )]
 #[repr(usize)]
 pub enum MouseButton {
+    #[default]
     Left,
     Middle,
     Right,
-}
-
-impl Default for MouseButton {
-    fn default() -> Self {
-        Self::Left
-    }
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
@@ -777,6 +764,7 @@ pub struct FxToolTarget {
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     derive_more::Display,
@@ -787,6 +775,7 @@ pub struct FxToolTarget {
 #[repr(usize)]
 pub enum FxToolAction {
     #[display(fmt = "None (feedback only)")]
+    #[default]
     DoNothing,
     #[display(fmt = "Set (as unit FX)")]
     #[serde(alias = "SetAsInstanceFx")]
@@ -794,12 +783,6 @@ pub enum FxToolAction {
     #[display(fmt = "Pin (as unit FX)")]
     #[serde(alias = "PinAsInstanceFx")]
     PinAsUnitFx,
-}
-
-impl Default for FxToolAction {
-    fn default() -> Self {
-        Self::DoNothing
-    }
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
@@ -975,6 +958,7 @@ pub struct PlaytimeSlotManagementActionTarget {
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     strum::EnumIter,
@@ -985,6 +969,7 @@ pub struct PlaytimeSlotManagementActionTarget {
 #[repr(usize)]
 pub enum PlaytimeSlotManagementAction {
     #[display(fmt = "Clear slot")]
+    #[default]
     ClearSlot,
     #[display(fmt = "Fill slot with selected item")]
     FillSlotWithSelectedItem,
@@ -1002,12 +987,6 @@ pub enum PlaytimeSlotManagementAction {
     Duplicate,
     #[display(fmt = "Activate")]
     Activate,
-}
-
-impl Default for PlaytimeSlotManagementAction {
-    fn default() -> Self {
-        Self::ClearSlot
-    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -1149,11 +1128,14 @@ impl Default for BackwardCompatibleMappingSnapshotDescForTake {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum MappingSnapshotDescForLoad {
+    #[default]
     Initial,
-    ById { id: String },
+    ById {
+        id: String,
+    },
 }
 
 /// The kind of tag to use to address Helgobox instances.
@@ -1194,17 +1176,14 @@ impl MappingSnapshotDescForLoad {
     }
 }
 
-impl Default for MappingSnapshotDescForLoad {
-    fn default() -> Self {
-        Self::Initial
-    }
-}
-
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum MappingSnapshotDescForTake {
+    #[default]
     LastLoaded,
-    ById { id: String },
+    ById {
+        id: String,
+    },
 }
 
 impl MappingSnapshotDescForTake {
@@ -1213,12 +1192,6 @@ impl MappingSnapshotDescForTake {
             MappingSnapshotDescForTake::LastLoaded => None,
             MappingSnapshotDescForTake::ById { id } => Some(id),
         }
-    }
-}
-
-impl Default for MappingSnapshotDescForTake {
-    fn default() -> Self {
-        Self::LastLoaded
     }
 }
 
@@ -1273,6 +1246,7 @@ pub struct StreamDeckBrightnessTarget {
     PartialEq,
     Hash,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     derive_more::Display,
@@ -1286,6 +1260,7 @@ pub struct StreamDeckBrightnessTarget {
 #[repr(usize)]
 pub enum PotFilterKind {
     #[display(fmt = "Database")]
+    #[default]
     Database,
     /// Is available or not
     #[display(fmt = "Availability")]
@@ -1413,12 +1388,6 @@ impl PotFilterKind {
     }
 }
 
-impl Default for PotFilterKind {
-    fn default() -> Self {
-        Self::Database
-    }
-}
-
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct VirtualTarget {
     pub id: VirtualControlElementId,
@@ -1451,6 +1420,7 @@ pub enum AutomationMode {
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     derive_more::Display,
@@ -1461,17 +1431,12 @@ pub enum AutomationMode {
 #[repr(usize)]
 pub enum MonitoringMode {
     #[display(fmt = "Off")]
+    #[default]
     Off,
     #[display(fmt = "Normal")]
     Normal,
     #[display(fmt = "Tape style (off when playing)")]
     TapeStyle,
-}
-
-impl Default for MonitoringMode {
-    fn default() -> Self {
-        Self::Off
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -1490,6 +1455,7 @@ pub enum TransportAction {
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     strum::EnumIter,
@@ -1508,6 +1474,7 @@ pub enum PlaytimeSlotTransportAction {
     /// - If slot empty, has no effect.
     /// - If slot recording, has no effect or stops recording.
     #[display(fmt = "Play/stop")]
+    #[default]
     PlayStop,
     /// Starts or pauses playback.
     ///
@@ -1561,18 +1528,13 @@ pub enum PlaytimeSlotTransportAction {
     Looped,
 }
 
-impl Default for PlaytimeSlotTransportAction {
-    fn default() -> Self {
-        Self::PlayStop
-    }
-}
-
 #[derive(
     Copy,
     Clone,
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     strum::EnumIter,
@@ -1583,6 +1545,7 @@ impl Default for PlaytimeSlotTransportAction {
 #[repr(usize)]
 pub enum PlaytimeColumnAction {
     #[display(fmt = "Stop")]
+    #[default]
     Stop,
     #[display(fmt = "Arm/Disarm")]
     ArmState,
@@ -1592,18 +1555,13 @@ pub enum PlaytimeColumnAction {
     Activate,
 }
 
-impl Default for PlaytimeColumnAction {
-    fn default() -> Self {
-        Self::Stop
-    }
-}
-
 #[derive(
     Copy,
     Clone,
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     strum::EnumIter,
@@ -1614,6 +1572,7 @@ impl Default for PlaytimeColumnAction {
 #[repr(usize)]
 pub enum PlaytimeRowAction {
     #[display(fmt = "Play")]
+    #[default]
     PlayScene,
     #[display(fmt = "Build scene")]
     BuildScene,
@@ -1625,18 +1584,13 @@ pub enum PlaytimeRowAction {
     Activate,
 }
 
-impl Default for PlaytimeRowAction {
-    fn default() -> Self {
-        Self::PlayScene
-    }
-}
-
 #[derive(
     Copy,
     Clone,
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     strum::EnumIter,
@@ -1647,6 +1601,7 @@ impl Default for PlaytimeRowAction {
 #[repr(usize)]
 pub enum PlaytimeMatrixAction {
     #[display(fmt = "Stop")]
+    #[default]
     Stop,
     #[display(fmt = "Undo")]
     Undo,
@@ -1680,12 +1635,6 @@ pub enum PlaytimeMatrixAction {
     TapTempo,
 }
 
-impl Default for PlaytimeMatrixAction {
-    fn default() -> Self {
-        Self::Stop
-    }
-}
-
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum AnyOnParameter {
     TrackSolo,
@@ -1694,19 +1643,14 @@ pub enum AnyOnParameter {
     TrackSelection,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub enum ActionInvocationKind {
     Trigger,
     #[serde(alias = "Absolute")]
+    #[default]
     Absolute14Bit,
     Absolute7Bit,
     Relative,
-}
-
-impl Default for ActionInvocationKind {
-    fn default() -> Self {
-        Self::Absolute14Bit
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -1773,16 +1717,11 @@ pub enum TrackDescriptor {
     },
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub enum ClipColumnTrackContext {
+    #[default]
     Playback,
     Recording,
-}
-
-impl Default for ClipColumnTrackContext {
-    fn default() -> Self {
-        Self::Playback
-    }
 }
 
 impl Default for TrackDescriptor {
@@ -1799,16 +1738,11 @@ pub struct TrackDescriptorCommons {
     pub track_must_be_selected: Option<bool>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub enum FeedbackResolution {
+    #[default]
     Beat,
     High,
-}
-
-impl Default for FeedbackResolution {
-    fn default() -> Self {
-        Self::Beat
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -1977,8 +1911,9 @@ pub enum FxChainDescriptor {
     },
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub enum TrackFxChain {
+    #[default]
     Normal,
     Input,
 }
@@ -1989,22 +1924,11 @@ impl TrackFxChain {
     }
 }
 
-impl Default for TrackFxChain {
-    fn default() -> Self {
-        Self::Normal
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub enum FxDisplayKind {
+    #[default]
     FloatingWindow,
     Chain,
-}
-
-impl Default for FxDisplayKind {
-    fn default() -> Self {
-        Self::FloatingWindow
-    }
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
@@ -2089,22 +2013,18 @@ pub enum RouteDescriptor {
     },
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub enum TrackRouteKind {
+    #[default]
     Send,
     Receive,
     HardwareOutput,
 }
 
-impl Default for TrackRouteKind {
-    fn default() -> Self {
-        Self::Send
-    }
-}
-
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum PlaytimeSlotDescriptor {
+    #[default]
     Active,
     ByIndex(playtime_api::persistence::SlotAddress),
     Dynamic {
@@ -2112,6 +2032,7 @@ pub enum PlaytimeSlotDescriptor {
         row_expression: String,
     },
 }
+
 #[derive(
     Copy,
     Clone,
@@ -2156,12 +2077,6 @@ impl Display for PlaytimeSlotDescriptor {
     }
 }
 
-impl Default for PlaytimeSlotDescriptor {
-    fn default() -> Self {
-        Self::Active
-    }
-}
-
 impl PlaytimeSlotDescriptor {
     pub fn from_kind(kind: PlaytimeSlotDescriptorKind) -> Self {
         match kind {
@@ -2191,12 +2106,15 @@ impl PlaytimeSlotDescriptor {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum PlaytimeColumnDescriptor {
+    #[default]
     Active,
     ByIndex(playtime_api::persistence::ColumnAddress),
-    Dynamic { expression: String },
+    Dynamic {
+        expression: String,
+    },
 }
 
 #[derive(
@@ -2222,12 +2140,6 @@ pub enum PlaytimeColumnDescriptorKind {
     ByIndex,
     #[display(fmt = "Dynamic")]
     Dynamic,
-}
-
-impl Default for PlaytimeColumnDescriptor {
-    fn default() -> Self {
-        Self::Active
-    }
 }
 
 impl PlaytimeColumnDescriptor {
@@ -2268,12 +2180,15 @@ impl Display for PlaytimeColumnDescriptor {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum PlaytimeRowDescriptor {
+    #[default]
     Active,
     ByIndex(playtime_api::persistence::RowAddress),
-    Dynamic { expression: String },
+    Dynamic {
+        expression: String,
+    },
 }
 
 #[derive(
@@ -2339,16 +2254,11 @@ impl PlaytimeRowDescriptor {
     }
 }
 
-impl Default for PlaytimeRowDescriptor {
-    fn default() -> Self {
-        Self::Active
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum SendMidiDestination {
     FxOutput,
+    #[default]
     FeedbackOutput,
     InputDevice(InputDeviceMidiDestination),
 }
@@ -2359,37 +2269,23 @@ pub struct InputDeviceMidiDestination {
     pub device_id: Option<u8>,
 }
 
-impl Default for SendMidiDestination {
-    fn default() -> Self {
-        Self::FeedbackOutput
-    }
-}
-
-#[derive(Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum OscDestination {
+    #[default]
     FeedbackOutput,
-    Device { id: String },
+    Device {
+        id: String,
+    },
 }
 
-impl Default for OscDestination {
-    fn default() -> Self {
-        Self::FeedbackOutput
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[repr(usize)]
 pub enum TrackScope {
+    #[default]
     AllTracks,
     TracksVisibleInTcp,
     TracksVisibleInMcp,
-}
-
-impl Default for TrackScope {
-    fn default() -> Self {
-        Self::AllTracks
-    }
 }
 
 #[derive(
@@ -2398,6 +2294,7 @@ impl Default for TrackScope {
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     derive_more::Display,
@@ -2408,6 +2305,7 @@ impl Default for TrackScope {
 #[repr(usize)]
 pub enum BrowseTracksMode {
     #[display(fmt = "All tracks")]
+    #[default]
     AllTracks,
     #[display(fmt = "Only tracks visible in TCP")]
     TracksVisibleInTcp,
@@ -2417,12 +2315,6 @@ pub enum BrowseTracksMode {
     TracksVisibleInMcp,
     #[display(fmt = "Only tracks visible in MCP (allow 2 selections)")]
     TracksVisibleInMcpAllowTwoSelections,
-}
-
-impl Default for BrowseTracksMode {
-    fn default() -> Self {
-        Self::AllTracks
-    }
 }
 
 impl BrowseTracksMode {

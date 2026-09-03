@@ -390,14 +390,10 @@ mod playtime_impl {
                             None => {
                                 // Slot is empty
                                 match matrix.find_column(self.basics.slot_address.column_index) {
-                                    None => "playtime.slot_state.empty",
-                                    Some(col) => {
-                                        if col.is_armed_for_recording() {
-                                            "playtime.slot_state.armed"
-                                        } else {
-                                            "playtime.slot_state.empty"
-                                        }
+                                    Some(col) if col.is_armed_for_recording() => {
+                                        "playtime.slot_state.armed"
                                     }
+                                    _ => "playtime.slot_state.empty",
                                 }
                             }
                             Some(s) => s.id_string(),

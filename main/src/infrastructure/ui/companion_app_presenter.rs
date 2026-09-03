@@ -41,10 +41,8 @@ impl CompanionAppPresenter {
         use crate::application::Affected::One;
         use crate::application::UnitProp::UnitKey;
         match affected {
-            One(UnitKey) => {
-                if self.app_info_requested.get() {
-                    self.update_app_info();
-                }
+            One(UnitKey) if self.app_info_requested.get() => {
+                self.update_app_info();
             }
             _ => {}
         }

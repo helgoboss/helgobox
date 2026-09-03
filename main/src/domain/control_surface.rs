@@ -414,7 +414,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // The rest is only for upper layers (e.g. UI), not for processing.
         for e in normal_events
             .drain(..)
-            .chain(monitoring_fx_events.into_iter())
+            .chain(monitoring_fx_events)
         {
             self.rx_middleware.handle_change(e.clone());
             if let Some(target) = ReaperTarget::touched_from_change_event(e) {
