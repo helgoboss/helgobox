@@ -65,6 +65,7 @@ export type Matrix = {
 	common_tempo_range: TempoRange?,
 	activate_slot_on_trigger: boolean?,
 	click_volume: number?,
+	click_channel: number?,
 	pre_roll_bars: number?,
 	color_palette: ColorPalette?,
 	content_quantization_settings: ContentQuantizationSettings?,

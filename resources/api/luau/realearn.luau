@@ -1764,8 +1764,16 @@ export type Target_Dummy = { kind: "Dummy", unit: TargetUnit? }
 export type Target_EnableInstances = {
 	kind: "EnableInstances",
 	unit: TargetUnit?,
+	tag_kind: InstanceTagKind?,
 	tags: { string }?,
 	exclusivity: InstanceExclusivity?,
+}
+
+export type Target_EnableUnits = {
+	kind: "EnableUnits",
+	unit: TargetUnit?,
+	tags: { string }?,
+	exclusivity: UnitExclusivity?,
 }
 
 export type Target_EnableMappings = {
@@ -1886,6 +1894,7 @@ export type Target =
 	| Target_SendOsc
 	| Target_Dummy
 	| Target_EnableInstances
+	| Target_EnableUnits
 	| Target_EnableMappings
 	| Target_ModifyMapping
 	| Target_CompartmentParameterValue
@@ -1957,6 +1966,7 @@ export type TargetKind =
 	| "SendOsc"
 	| "Dummy"
 	| "EnableInstances"
+	| "EnableUnits"
 	| "EnableMappings"
 	| "ModifyMapping"
 	| "CompartmentParameterValue"
@@ -2372,6 +2382,13 @@ end
 function module.Target.EnableInstances(value: EnableInstancesTarget): Target_EnableInstances
 	local t: any = table.clone(value)
 	t.kind = "EnableInstances"
+	return t
+end
+
+--- Creates a Target of kind EnableUnits.
+function module.Target.EnableUnits(value: EnableUnitsTarget): Target_EnableUnits
+	local t: any = table.clone(value)
+	t.kind = "EnableUnits"
 	return t
 end
 
@@ -3213,11 +3230,22 @@ end
 
 export type EnableInstancesTarget = {
 	unit: TargetUnit?,
+	tag_kind: InstanceTagKind?,
 	tags: { string }?,
 	exclusivity: InstanceExclusivity?,
 }
 --- Creates a EnableInstancesTarget value.
 function module.EnableInstancesTarget(value: EnableInstancesTarget): EnableInstancesTarget
+	return value
+end
+
+export type EnableUnitsTarget = {
+	unit: TargetUnit?,
+	tags: { string }?,
+	exclusivity: UnitExclusivity?,
+}
+--- Creates a EnableUnitsTarget value.
+function module.EnableUnitsTarget(value: EnableUnitsTarget): EnableUnitsTarget
 	return value
 end
 
@@ -3358,6 +3386,12 @@ function module.MappingSnapshotDescForLoad.ById(value: { id: string }): MappingS
 	t.kind = "ById"
 	return t
 end
+
+--- The kind of tag to use to address Helgobox instances.
+---
+--- Of course, normally we should use instance tags. The only reason that we allow instances to be addressed by unit
+--- tags is that there was no other possibility in the past, and we need to maintain backward compatibility.
+export type InstanceTagKind = "InstanceTags" | "UnitTags"
 
 export type MappingSnapshotDescForTake_LastLoaded = { kind: "LastLoaded" }
 
@@ -3695,6 +3729,8 @@ export type FeedbackResolution = "Beat" | "High"
 export type TrackExclusivity = "WithinProject" | "WithinFolder" | "WithinProjectOnOnly" | "WithinFolderOnOnly"
 
 export type InstanceExclusivity = "Exclusive" | "ExclusiveOnOnly"
+
+export type UnitExclusivity = "Exclusive" | "ExclusiveOnOnly"
 
 export type MappingExclusivity = "Exclusive" | "ExclusiveOnOnly"
 
