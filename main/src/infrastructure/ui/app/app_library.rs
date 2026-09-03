@@ -215,6 +215,7 @@ impl AppLibrary {
         Ok(visible)
     }
 
+    #[allow(dead_code)]
     pub fn stop_app_instance(
         &self,
         parent_window: Option<Window>,
@@ -332,6 +333,7 @@ type AppInstanceIsVisible = unsafe extern "C" fn(app_handle: AppHandle) -> bool;
 type GetAppInstanceWindow = unsafe extern "C" fn(app_handle: AppHandle) -> HWND;
 
 /// Signature of the function that we use to stop an app instance.
+#[allow(dead_code)]
 type StopAppInstance = unsafe extern "C" fn(parent_window: HWND, app_handle: AppHandle);
 
 /// Signature of the function that's used from the app in order to call the host.

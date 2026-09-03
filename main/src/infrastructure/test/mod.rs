@@ -1542,7 +1542,7 @@ mod macos_impl {
         Ok(())
     }
 
-    fn main_unit_model(main_unit_shell: &UnitShell) -> Ref<UnitModel> {
+    fn main_unit_model(main_unit_shell: &UnitShell) -> Ref<'_, UnitModel> {
         main_unit_shell.model().borrow()
     }
 

@@ -550,11 +550,11 @@ impl Backbone {
         self.time_of_start.elapsed()
     }
 
-    pub fn pot_filter_exclude_list(&self) -> Ref<PotFilterExcludes> {
+    pub fn pot_filter_exclude_list(&self) -> Ref<'_, PotFilterExcludes> {
         self.global_pot_filter_exclude_list.borrow()
     }
 
-    pub fn pot_filter_exclude_list_mut(&self) -> RefMut<PotFilterExcludes> {
+    pub fn pot_filter_exclude_list_mut(&self) -> RefMut<'_, PotFilterExcludes> {
         self.global_pot_filter_exclude_list.borrow_mut()
     }
 

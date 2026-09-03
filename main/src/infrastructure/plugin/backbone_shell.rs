@@ -1115,7 +1115,7 @@ impl BackboneShell {
         &self.server
     }
 
-    pub fn config(&self) -> Ref<BackboneConfig> {
+    pub fn config(&self) -> Ref<'_, BackboneConfig> {
         self.config.borrow()
     }
 
@@ -1389,7 +1389,10 @@ impl BackboneShell {
             .and_then(|i| i.instance_panel.upgrade())
     }
 
-    fn find_main_unit_info_by_instance_id(&self, instance_id: InstanceId) -> Option<Ref<UnitInfo>> {
+    fn find_main_unit_info_by_instance_id(
+        &self,
+        instance_id: InstanceId,
+    ) -> Option<Ref<'_, UnitInfo>> {
         let units = self.unit_infos.borrow();
         Ref::filter_map(units, |units| {
             units

@@ -614,7 +614,7 @@ fn scan_midi(
 }
 
 pub trait RealTimeProcessorLocker {
-    fn lock_recover(&self) -> MutexGuard<RealTimeProcessor>;
+    fn lock_recover(&self) -> MutexGuard<'_, RealTimeProcessor>;
 }
 
 impl RealTimeProcessorLocker for SharedRealTimeProcessor {
@@ -622,7 +622,7 @@ impl RealTimeProcessorLocker for SharedRealTimeProcessor {
     /// processor has panicked, we will see it in the REAPER console. No need to
     /// hide that error with lots of follow-up poisoning errors! This is a kind of
     /// recovery mechanism.
-    fn lock_recover(&self) -> MutexGuard<RealTimeProcessor> {
+    fn lock_recover(&self) -> MutexGuard<'_, RealTimeProcessor> {
         non_blocking_lock(self, "RealTimeProcessor")
     }
 }

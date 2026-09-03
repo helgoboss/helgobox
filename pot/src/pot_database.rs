@@ -161,11 +161,11 @@ impl PotDatabase {
         self.detected_legacy_vst3_scan.load(Ordering::Relaxed)
     }
 
-    fn read_lock_databases(&self) -> RwLockReadGuard<Databases> {
+    fn read_lock_databases(&self) -> RwLockReadGuard<'_, Databases> {
         blocking_read_lock(&self.databases, "read-lock pot-db databases")
     }
 
-    fn read_lock_plugin_db(&self) -> RwLockReadGuard<PluginDatabase> {
+    fn read_lock_plugin_db(&self) -> RwLockReadGuard<'_, PluginDatabase> {
         blocking_read_lock(&self.plugin_db, "read-lock plug-in database")
     }
 

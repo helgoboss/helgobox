@@ -508,7 +508,7 @@ impl<'a> ProductName<'a> {
     }
 }
 
-fn s(m: Option<Match>) -> &str {
+fn s(m: Option<Match<'_>>) -> &str {
     m.unwrap().as_str()
 }
 

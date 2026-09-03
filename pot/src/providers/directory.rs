@@ -87,11 +87,11 @@ impl Database for DirectoryDatabase {
         &self.persistent_id
     }
 
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         self.name.into()
     }
 
-    fn description(&self) -> Cow<str> {
+    fn description(&self) -> Cow<'_, str> {
         self.description.into()
     }
 
@@ -262,7 +262,7 @@ impl SearchInput for DirectorySearchInput<'_> {
         &self.preset_entry.preset_name
     }
 
-    fn product_name(&self) -> Option<Cow<str>> {
+    fn product_name(&self) -> Option<Cow<'_, str>> {
         let product_name = build_product_name(self.ctx, self.preset_entry)?;
         Some(product_name.into())
     }

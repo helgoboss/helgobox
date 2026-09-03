@@ -226,7 +226,7 @@ pub fn prepare_preview_recording(
     presets
 }
 
-fn bucket(preset_with_id: &PresetWithId) -> BucketId {
+fn bucket(preset_with_id: &PresetWithId) -> BucketId<'_> {
     let preset = &preset_with_id.preset;
     if !preset.common.plugin_ids.is_empty() {
         return BucketId::Plugin(&preset.common.plugin_ids);

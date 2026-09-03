@@ -16,10 +16,10 @@ pub trait Database {
     fn persistent_id(&self) -> &PersistentDatabaseId;
 
     // TODO-medium-performace Maybe we should require this to be a reference.
-    fn name(&self) -> Cow<str>;
+    fn name(&self) -> Cow<'_, str>;
 
     // TODO-medium-performace Maybe we should require this to be a reference.
-    fn description(&self) -> Cow<str>;
+    fn description(&self) -> Cow<'_, str>;
 
     fn supported_advanced_filter_kinds(&self) -> EnumSet<PotFilterKind> {
         enum_set!()

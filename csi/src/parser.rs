@@ -28,7 +28,7 @@ pub fn mst_file_content(input: &str) -> Result<Vec<Widget>, String> {
     Ok(widgets)
 }
 
-fn widgets(input: &str) -> Res<Vec<Widget>> {
+fn widgets(input: &str) -> Res<'_, Vec<Widget>> {
     delimited(
         multispace0,
         separated_list0(space_with_at_least_one_line_ending, widget),
@@ -36,7 +36,7 @@ fn widgets(input: &str) -> Res<Vec<Widget>> {
     )(input)
 }
 
-fn widget(input: &str) -> Res<Widget> {
+fn widget(input: &str) -> Res<'_, Widget> {
     map(
         tuple((
             widget_begin,
@@ -52,18 +52,18 @@ fn widget(input: &str) -> Res<Widget> {
     )(input)
 }
 
-fn widget_begin(input: &str) -> Res<&str> {
+fn widget_begin(input: &str) -> Res<'_, &str> {
     preceded(
         tuple((tag("Widget"), space1)),
         take_while1(|ch: char| ch.is_alphanumeric() || matches!(ch, '-' | '_')),
     )(input)
 }
 
-fn widget_capabilities(input: &str) -> Res<Vec<Capability>> {
+fn widget_capabilities(input: &str) -> Res<'_, Vec<Capability>> {
     separated_list0(space_with_at_least_one_line_ending, capability)(input)
 }
 
-fn capability(input: &str) -> Res<Capability> {
+fn capability(input: &str) -> Res<'_, Capability> {
     alt((
         capability_press,
         capability_fb_two_state,
@@ -81,43 +81,43 @@ fn capability(input: &str) -> Res<Capability> {
     ))(input)
 }
 
-fn capability_press(input: &str) -> Res<Capability> {
+fn capability_press(input: &str) -> Res<'_, Capability> {
     map(util::capability_msg_opt_msg("Press"), |(press, release)| {
         Capability::Press { press, release }
     })(input)
 }
 
-fn capability_fb_two_state(input: &str) -> Res<Capability> {
+fn capability_fb_two_state(input: &str) -> Res<'_, Capability> {
     map(util::capability_msg_msg("FB_TwoState"), |(on, off)| {
         Capability::FbTwoState { on, off }
     })(input)
 }
 
-fn capability_fb_encoder(input: &str) -> Res<Capability> {
+fn capability_fb_encoder(input: &str) -> Res<'_, Capability> {
     map(util::capability_msg("FB_Encoder"), |max| {
         Capability::FbEncoder { max }
     })(input)
 }
 
-fn capability_toggle(input: &str) -> Res<Capability> {
+fn capability_toggle(input: &str) -> Res<'_, Capability> {
     map(util::capability_msg("Toggle"), |on| Capability::Toggle {
         on,
     })(input)
 }
 
-fn capability_fader_14_bit(input: &str) -> Res<Capability> {
+fn capability_fader_14_bit(input: &str) -> Res<'_, Capability> {
     map(util::capability_msg("Fader14Bit"), |max| {
         Capability::Fader14Bit { max }
     })(input)
 }
 
-fn capability_fb_fader_14_bit(input: &str) -> Res<Capability> {
+fn capability_fb_fader_14_bit(input: &str) -> Res<'_, Capability> {
     map(util::capability_msg("FB_Fader14Bit"), |max| {
         Capability::FbFader14Bit { max }
     })(input)
 }
 
-fn capability_touch(input: &str) -> Res<Capability> {
+fn capability_touch(input: &str) -> Res<'_, Capability> {
     map(util::capability_msg_msg("Touch"), |(on, off)| {
         Capability::Touch {
             touch: on,
@@ -126,31 +126,31 @@ fn capability_touch(input: &str) -> Res<Capability> {
     })(input)
 }
 
-fn capability_fb_mcu_display_upper(input: &str) -> Res<Capability> {
+fn capability_fb_mcu_display_upper(input: &str) -> Res<'_, Capability> {
     map(util::capability_index("FB_MCUDisplayUpper"), |index| {
         Capability::FbMcuDisplayUpper { index }
     })(input)
 }
 
-fn capability_fb_mcu_display_lower(input: &str) -> Res<Capability> {
+fn capability_fb_mcu_display_lower(input: &str) -> Res<'_, Capability> {
     map(util::capability_index("FB_MCUDisplayLower"), |index| {
         Capability::FbMcuDisplayLower { index }
     })(input)
 }
 
-fn capability_fb_mcu_vu_meter(input: &str) -> Res<Capability> {
+fn capability_fb_mcu_vu_meter(input: &str) -> Res<'_, Capability> {
     map(util::capability_index("FB_MCUVUMeter"), |index| {
         Capability::FbMcuVuMeter { index }
     })(input)
 }
 
-fn capability_fb_mcu_time_display(input: &str) -> Res<Capability> {
+fn capability_fb_mcu_time_display(input: &str) -> Res<'_, Capability> {
     map(util::capability_empty("FB_MCUTimeDisplay"), |_| {
         Capability::FbMcuTimeDisplay
     })(input)
 }
 
-fn capability_encoder(input: &str) -> Res<Capability> {
+fn capability_encoder(input: &str) -> Res<'_, Capability> {
     map(
         tuple((
             preceded(tuple((tag("Encoder"), space1)), short_midi_msg),
@@ -163,14 +163,14 @@ fn capability_encoder(input: &str) -> Res<Capability> {
     )(input)
 }
 
-fn capability_unknown(input: &str) -> Res<Capability> {
+fn capability_unknown(input: &str) -> Res<'_, Capability> {
     map(
         verify(not_line_ending, |s: &str| s != "WidgetEnd"),
         |line: &str| Capability::Unknown(line.to_owned()),
     )(input)
 }
 
-fn short_midi_msg(input: &str) -> Res<RawShortMessage> {
+fn short_midi_msg(input: &str) -> Res<'_, RawShortMessage> {
     map_res(
         tuple((hex_byte, space1, hex_byte, space1, hex_byte)),
         |(b1, _, b2, _, b3)| {
@@ -184,7 +184,7 @@ fn short_midi_msg(input: &str) -> Res<RawShortMessage> {
     )(input)
 }
 
-fn accelerations(input: &str) -> Res<Accelerations> {
+fn accelerations(input: &str) -> Res<'_, Accelerations> {
     map(
         delimited(
             ws(char('[')),
@@ -207,28 +207,28 @@ fn parameterized_acceleration<'a>(
     preceded(ws(char(letter)), acceleration)
 }
 
-fn acceleration(input: &str) -> Res<Acceleration> {
+fn acceleration(input: &str) -> Res<'_, Acceleration> {
     alt((acceleration_range, acceleration_sequence))(input)
 }
 
-fn acceleration_sequence(input: &str) -> Res<Acceleration> {
+fn acceleration_sequence(input: &str) -> Res<'_, Acceleration> {
     map(separated_list1(space1, hex_byte), |values| {
         Acceleration::Sequence(values)
     })(input)
 }
 
-fn acceleration_range(input: &str) -> Res<Acceleration> {
+fn acceleration_range(input: &str) -> Res<'_, Acceleration> {
     map(
         separated_pair(hex_byte, char('-'), hex_byte),
         |(min, max)| Acceleration::Range(min..=max),
     )(input)
 }
 
-fn hex_byte(input: &str) -> Res<u8> {
+fn hex_byte(input: &str) -> Res<'_, u8> {
     map_res(take_while_m_n(2, 2, util::is_hex_digit), util::from_hex)(input)
 }
 
-fn space_with_at_least_one_line_ending(input: &str) -> Res<&str> {
+fn space_with_at_least_one_line_ending(input: &str) -> Res<'_, &str> {
     verify(multispace0, |s: &str| s.contains(&['\r', '\n'][..]))(input)
 }
 

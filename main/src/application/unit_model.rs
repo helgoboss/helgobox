@@ -874,7 +874,7 @@ impl UnitModel {
         &self.processor_context
     }
 
-    pub fn extended_context(&self) -> ExtendedProcessorContext {
+    pub fn extended_context(&self) -> ExtendedProcessorContext<'_> {
         self.extended_context_with_params(&self.params)
     }
 
@@ -885,7 +885,7 @@ impl UnitModel {
         ExtendedProcessorContext::new(&self.processor_context, params, self.control_context())
     }
 
-    pub fn control_context(&self) -> ControlContext {
+    pub fn control_context(&self) -> ControlContext<'_> {
         ControlContext {
             feedback_audio_hook_task_sender: self.global_feedback_audio_hook_task_sender,
             feedback_real_time_task_sender: &self.feedback_real_time_task_sender,
@@ -1436,7 +1436,7 @@ impl UnitModel {
             .map(|affected| Affected::One(CompartmentProp::InMapping(mapping.id(), affected))))
     }
 
-    pub fn compartment_in_unit(&self, compartment: CompartmentKind) -> CompartmentInUnit {
+    pub fn compartment_in_unit(&self, compartment: CompartmentKind) -> CompartmentInUnit<'_> {
         CompartmentInUnit {
             unit: self,
             compartment,

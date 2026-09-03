@@ -197,7 +197,7 @@ impl UnresolvedReaperTarget {
         false
     }
 
-    fn unpack_descriptors(&self) -> Descriptors {
+    fn unpack_descriptors(&self) -> Descriptors<'_> {
         if let Some(d) = self.fx_parameter_descriptor() {
             return Descriptors {
                 track: Some(&d.fx_descriptor.track_descriptor),
@@ -2169,10 +2169,6 @@ struct Descriptors<'a> {
 
 #[enum_dispatch(UnresolvedReaperTarget)]
 pub trait UnresolvedReaperTargetDef {
-    fn is_always_active(&self) -> bool {
-        false
-    }
-
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
@@ -2297,7 +2293,9 @@ fn first_selected_track_scoped(
     }
 }
 
-fn additional_playtime_vars(context: ControlContext) -> impl Fn(&str, &[f64]) -> Option<f64> + '_ {
+fn additional_playtime_vars(
+    context: ControlContext<'_>,
+) -> impl Fn(&str, &[f64]) -> Option<f64> + '_ {
     |name, _| match name {
         "control_unit_column_index" => Some(
             context

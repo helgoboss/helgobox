@@ -177,7 +177,7 @@ impl VirtualFeedbackValue {
         self.control_element
     }
 
-    pub fn feedback_value(&self) -> &FeedbackValue {
+    pub fn feedback_value(&self) -> &FeedbackValue<'_> {
         &self.feedback_value
     }
 }

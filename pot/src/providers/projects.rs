@@ -97,11 +97,11 @@ impl Database for ProjectDatabase {
         &self.persistent_id
     }
 
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         self.name.as_str().into()
     }
 
-    fn description(&self) -> Cow<str> {
+    fn description(&self) -> Cow<'_, str> {
         self.description.as_str().into()
     }
 
@@ -405,7 +405,7 @@ impl SearchInput for ProjectSearchInput<'_> {
         &self.preset_entry.track_preset.preset_name
     }
 
-    fn product_name(&self) -> Option<Cow<str>> {
+    fn product_name(&self) -> Option<Cow<'_, str>> {
         build_product_name(self.ctx, self.preset_entry)
     }
 

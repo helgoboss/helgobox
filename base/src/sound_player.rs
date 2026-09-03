@@ -84,7 +84,7 @@ impl SoundPlayer {
         Ok(())
     }
 
-    fn lock_preview_register(&self) -> anyhow::Result<ReaperMutexGuard<OwnedPreviewRegister>> {
+    fn lock_preview_register(&self) -> anyhow::Result<ReaperMutexGuard<'_, OwnedPreviewRegister>> {
         self.preview_register
             .lock()
             .context("couldn't acquire preview register lock in sound player")

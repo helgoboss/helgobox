@@ -90,11 +90,11 @@ impl ParameterManager {
         }
     }
 
-    pub fn params(&self) -> RwLockReadGuard<PluginParams> {
+    pub fn params(&self) -> RwLockReadGuard<'_, PluginParams> {
         blocking_read_lock(&self.params, "ParameterManager params")
     }
 
-    fn params_mut(&self) -> RwLockWriteGuard<PluginParams> {
+    fn params_mut(&self) -> RwLockWriteGuard<'_, PluginParams> {
         blocking_write_lock(&self.params, "ParameterManager params_mut")
     }
 }

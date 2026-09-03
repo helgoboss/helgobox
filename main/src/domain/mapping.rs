@@ -2749,7 +2749,7 @@ impl MessageCaptureResult {
     /// Returns the captured source value.
     ///
     /// Used for source filtering, source virtualization, learning (ignoring sources).
-    pub fn message(&self) -> IncomingCompoundSourceValue {
+    pub fn message(&self) -> IncomingCompoundSourceValue<'_> {
         use MessageCaptureResult::*;
         match self {
             Midi(res) => IncomingCompoundSourceValue::Midi(&res.value),

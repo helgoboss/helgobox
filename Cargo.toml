@@ -72,7 +72,7 @@ tempfile = "3.1.0"
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
 crossbeam-channel = "0.5"
 futures-timer = "3.0.2"
-metrics = "0.22.0"
+metrics = "0.24.6"
 ascii = "1.0"
 winapi = "0.3"
 bindgen = "0.69.2"
@@ -112,7 +112,7 @@ function_name = "0.3.0"
 num = "0.4.1"
 logos = "0.13.0"
 camino = "1.1.7"
-auto_impl = "1.1.0"
+auto_impl = "1.3.0"
 bytemuck = "1.13.1"
 palette = "0.7.4"
 libc = "0.2.153"
@@ -148,7 +148,7 @@ backtrace = "0.3.74"
 serde_yaml = "0.8.17"
 fasteval = { version = "0.2.4", default-features = false }
 maplit = "1.0.2"
-metrics-exporter-prometheus = { version = "0.13.0", default-features = false }
+metrics-exporter-prometheus = { version = "0.18.3", default-features = false }
 embed-resource = "2.4.1"
 sysinfo = "0.30.5"
 sys-info = "0.9.1"
@@ -253,15 +253,15 @@ vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param
 #vst = { path = "../vst-rs" }
 
 # This is for temporary development with local reaper-rs.
-#[patch.'https://github.com/helgoboss/reaper-rs.git']
-#reaper-common-types = { path = "../reaper-rs/main/common-types" }
-#reaper-fluent = { path = "../reaper-rs/main/fluent" }
-#reaper-high = { path = "../reaper-rs/main/high" }
-#reaper-medium = { path = "../reaper-rs/main/medium" }
-#reaper-macros = { path = "../reaper-rs/main/macros" }
-#reaper-low = { path = "../reaper-rs/main/low" }
-#reaper-rx = { path = "../reaper-rs/main/rx" }
-#rppxml-parser = { path = "../reaper-rs/main/rppxml-parser" }
+[patch.'https://github.com/helgoboss/reaper-rs.git']
+reaper-common-types = { path = "../reaper-rs/main/common-types" }
+reaper-fluent = { path = "../reaper-rs/main/fluent" }
+reaper-high = { path = "../reaper-rs/main/high" }
+reaper-medium = { path = "../reaper-rs/main/medium" }
+reaper-macros = { path = "../reaper-rs/main/macros" }
+reaper-low = { path = "../reaper-rs/main/low" }
+reaper-rx = { path = "../reaper-rs/main/rx" }
+rppxml-parser = { path = "../reaper-rs/main/rppxml-parser" }
 
 ## This is for temporary development with local egui-baseview.
 #[patch.'https://github.com/helgoboss/egui-baseview.git']

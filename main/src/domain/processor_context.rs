@@ -36,7 +36,7 @@ impl<'a> ExtendedProcessorContext<'a> {
         self.params
     }
 
-    pub fn control_context(&self) -> ControlContext {
+    pub fn control_context(&self) -> ControlContext<'_> {
         self.control_context
     }
 }

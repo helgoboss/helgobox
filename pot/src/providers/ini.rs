@@ -75,11 +75,11 @@ impl Database for IniDatabase {
         &self.persistent_id
     }
 
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         "FX presets".into()
     }
 
-    fn description(&self) -> Cow<str> {
+    fn description(&self) -> Cow<'_, str> {
         "All FX presets that you saved via \"Save preset...\" in REAPER's FX window.\n\".vstpreset\"-style presets are not yet supported!"
             .into()
     }
@@ -309,7 +309,7 @@ impl SearchInput for IniSearchInput<'_> {
         &self.preset_entry.preset_name
     }
 
-    fn product_name(&self) -> Option<Cow<str>> {
+    fn product_name(&self) -> Option<Cow<'_, str>> {
         let plugin = self
             .preset_entry
             .plugin

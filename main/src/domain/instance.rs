@@ -425,11 +425,11 @@ impl PotIntegration for RealearnPotIntegration {
         ));
     }
 
-    fn exclude_list(&self) -> Ref<PotFilterExcludes> {
+    fn exclude_list(&self) -> Ref<'_, PotFilterExcludes> {
         Backbone::get().pot_filter_exclude_list()
     }
 
-    fn exclude_list_mut(&self) -> RefMut<PotFilterExcludes> {
+    fn exclude_list_mut(&self) -> RefMut<'_, PotFilterExcludes> {
         Backbone::get().pot_filter_exclude_list_mut()
     }
 

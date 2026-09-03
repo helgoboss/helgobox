@@ -3241,7 +3241,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
-    pub fn source_context(&self, compartment: CompartmentKind) -> RealearnSourceContext {
+    pub fn source_context(&self, compartment: CompartmentKind) -> RealearnSourceContext<'_> {
         RealearnSourceContext {
             additional_script_input: AdditionalLuaMidiSourceScriptInput {
                 compartment_lua: self.common_lua[compartment].as_ref(),
@@ -3249,7 +3249,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
-    pub fn mode_context(&self, compartment: CompartmentKind) -> RealearnModeContext {
+    pub fn mode_context(&self, compartment: CompartmentKind) -> RealearnModeContext<'_> {
         RealearnModeContext {
             additional_script_input: AdditionalLuaFeedbackScriptInput {
                 compartment_lua: self.common_lua[compartment].as_ref(),
@@ -3423,7 +3423,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         self.last_feedback_checksum_by_address.borrow_mut().clear();
     }
 
-    pub fn control_context(&self, compartment: CompartmentKind) -> ControlContext {
+    pub fn control_context(&self, compartment: CompartmentKind) -> ControlContext<'_> {
         ControlContext {
             feedback_audio_hook_task_sender: &self.channels.feedback_audio_hook_task_sender,
             feedback_real_time_task_sender: &self.channels.feedback_real_time_task_sender,

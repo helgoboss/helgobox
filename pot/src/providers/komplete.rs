@@ -318,11 +318,11 @@ impl Database for KompleteDatabase {
         &self.persistent_id
     }
 
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         "Komplete".into()
     }
 
-    fn description(&self) -> Cow<str> {
+    fn description(&self) -> Cow<'_, str> {
         "All presets in your local Native Instruments Komplete database.\nPreset files only show up here after you have scanned them using the Komplete Kontrol software!".into()
     }
 
@@ -547,7 +547,7 @@ impl NksFile {
         Ok(Self { file })
     }
 
-    pub fn content(&self) -> Result<NksFileContent, &'static str> {
+    pub fn content(&self) -> Result<NksFileContent<'_>, &'static str> {
         // Find relevant chunks
         let entries = self
             .file

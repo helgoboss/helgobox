@@ -103,7 +103,7 @@ impl ParamSetting {
         self.key.is_none() && self.name.is_empty() && self.value_count.is_none()
     }
 
-    pub fn discrete_values(&self) -> Option<impl Iterator<Item = Cow<str>> + '_> {
+    pub fn discrete_values(&self) -> Option<impl Iterator<Item = Cow<'_, str>> + '_> {
         let value_count = self.value_count?;
         let iter = (0..value_count.get()).map(|v| {
             self.find_label_for_value(v)
@@ -248,7 +248,7 @@ impl CompartmentParams {
     }
 
     /// Returns the name of the parameter including its position.
-    pub fn get_parameter_name(&self, index: CompartmentParamIndex) -> Cow<str> {
+    pub fn get_parameter_name(&self, index: CompartmentParamIndex) -> Cow<'_, str> {
         let setting = &self.at(index).setting;
         if setting.name.is_empty() {
             Cow::Owned(format!("Param {}", index.get() + 1))

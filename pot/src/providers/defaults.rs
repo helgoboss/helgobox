@@ -56,11 +56,11 @@ impl Database for DefaultsDatabase {
         &self.persistent_id
     }
 
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         "FX defaults".into()
     }
 
-    fn description(&self) -> Cow<str> {
+    fn description(&self) -> Cow<'_, str> {
         "Default factory presets for all of your plug-ins".into()
     }
 
@@ -141,7 +141,7 @@ impl SearchInput for DefaultSearchInput<'_> {
         PRESET_NAME
     }
 
-    fn product_name(&self) -> Option<Cow<str>> {
+    fn product_name(&self) -> Option<Cow<'_, str>> {
         Some(self.entry.to_string().into())
     }
 

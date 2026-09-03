@@ -418,6 +418,7 @@ impl CommonAppRunningState {
         BackboneShell::get_app_library()?.hide_app_instance(self.app_handle)
     }
 
+    #[allow(dead_code)]
     pub fn stop(&self, window: Option<Window>) -> Result<()> {
         BackboneShell::get_app_library()?.stop_app_instance(window, self.app_handle)
     }

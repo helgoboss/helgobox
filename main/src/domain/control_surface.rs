@@ -321,7 +321,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     pub fn remove_instance(&mut self, id: InstanceId) {
-        self.instances.remove(&id);
+        self.instances.swap_remove(&id);
     }
 
     pub fn remove_main_processor(&mut self, id: UnitId) -> anyhow::Result<()> {

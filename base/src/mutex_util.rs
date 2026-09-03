@@ -64,7 +64,7 @@ pub fn blocking_read_lock<'a, T>(
 }
 
 /// Returns `None` if access would block.
-pub fn non_blocking_try_read_lock<T>(rw_lock: &RwLock<T>) -> Option<RwLockReadGuard<T>> {
+pub fn non_blocking_try_read_lock<T>(rw_lock: &RwLock<T>) -> Option<RwLockReadGuard<'_, T>> {
     match rw_lock.try_read() {
         Ok(g) => Some(g),
         Err(std::sync::TryLockError::Poisoned(e)) => Some(e.into_inner()),

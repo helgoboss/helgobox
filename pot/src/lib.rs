@@ -136,8 +136,8 @@ pub trait PotIntegration {
     // TODO-high-pot This will probably look different as soon as we seriously implement favorites.
     fn favorites(&self) -> &RwLock<PotFavorites>;
     fn set_current_fx_preset(&self, fx: Fx, preset: CurrentPreset);
-    fn exclude_list(&self) -> Ref<PotFilterExcludes>;
-    fn exclude_list_mut(&self) -> RefMut<PotFilterExcludes>;
+    fn exclude_list(&self) -> Ref<'_, PotFilterExcludes>;
+    fn exclude_list_mut(&self) -> RefMut<'_, PotFilterExcludes>;
     fn notify_preset_changed(&self, id: Option<PresetId>);
     fn notify_filter_changed(&self, kind: PotFilterKind, filter: OptFilter);
     fn notify_indexes_rebuilt(&self);
@@ -403,7 +403,7 @@ pub enum SearchField {
 
 pub trait SearchInput {
     fn preset_name(&self) -> &str;
-    fn product_name(&self) -> Option<Cow<str>>;
+    fn product_name(&self) -> Option<Cow<'_, str>>;
     fn file_extension(&self) -> Option<&str>;
 }
 
@@ -1216,7 +1216,7 @@ impl FilterItem {
         }
     }
 
-    pub fn effective_leaf_name(&self) -> Cow<str> {
+    pub fn effective_leaf_name(&self) -> Cow<'_, str> {
         match &self.name {
             None => match &self.parent_name {
                 None => "".into(),

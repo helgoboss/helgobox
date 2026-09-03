@@ -191,7 +191,7 @@ fn plot_build_outcome(ui: &mut Ui, build_outcome: &BuildOutcome) {
                 .color(visuals.error_fg_color)
                 .filled(true)
                 .name("Stop")
-                .radius(6.0),
+                .radius(6_f32),
         );
         if build_outcome.uses_time {
             plot_ui.ctx().request_repaint();

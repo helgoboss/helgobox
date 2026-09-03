@@ -951,7 +951,7 @@ impl SourceModel {
         self.category == SourceCategory::Midi
     }
 
-    fn channel_label(&self) -> Cow<str> {
+    fn channel_label(&self) -> Cow<'_, str> {
         if self.supports_channel() {
             match self.channel {
                 None => "Any channel".into(),
@@ -962,14 +962,14 @@ impl SourceModel {
         }
     }
 
-    fn note_label(&self) -> Cow<str> {
+    fn note_label(&self) -> Cow<'_, str> {
         match self.midi_message_number {
             None => "Any note".into(),
             Some(n) => format!("Note number {}", n.get()).into(),
         }
     }
 
-    fn program_label(&self) -> Cow<str> {
+    fn program_label(&self) -> Cow<'_, str> {
         match self.midi_message_number {
             None => "Any program".into(),
             Some(n) => format!("Program {}", n.get()).into(),

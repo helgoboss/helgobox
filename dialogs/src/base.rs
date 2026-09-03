@@ -351,7 +351,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn global(&self) -> ScopedContext {
+    pub fn global(&self) -> ScopedContext<'_> {
         ScopedContext {
             context: self,
             scope: None,

@@ -1702,7 +1702,7 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
 trait DisplayItem {
     fn prop_count() -> u32;
     fn prop_label(prop_index: u32) -> &'static str;
-    fn prop_value(&self, prop_index: u32) -> Option<Cow<str>>;
+    fn prop_value(&self, prop_index: u32) -> Option<Cow<'_, str>>;
 }
 
 impl DisplayItem for PreviewRecorderFailure {
@@ -1718,7 +1718,7 @@ impl DisplayItem for PreviewRecorderFailure {
         }
     }
 
-    fn prop_value(&self, prop_index: u32) -> Option<Cow<str>> {
+    fn prop_value(&self, prop_index: u32) -> Option<Cow<'_, str>> {
         match prop_index {
             i if i < PresetWithId::prop_count() => self.preset.prop_value(i),
             3 => Some(self.reason.as_str().into()),
@@ -1741,7 +1741,7 @@ impl DisplayItem for PresetWithId {
         }
     }
 
-    fn prop_value(&self, prop_index: u32) -> Option<Cow<str>> {
+    fn prop_value(&self, prop_index: u32) -> Option<Cow<'_, str>> {
         match prop_index {
             0 => Some(shorten_preset_name(self.preset.name())),
             1 => self.preset.common.product_name.as_ref().map(|s| s.into()),
@@ -3061,7 +3061,7 @@ fn show_as_list(ui: &mut Ui, entries: &[impl AsRef<str>], height: f32) {
         });
 }
 
-fn shorten_preset_name(name: &str) -> Cow<str> {
+fn shorten_preset_name(name: &str) -> Cow<'_, str> {
     const MAX_PRESET_NAME_LEN: usize = 40;
     shorten(name.into(), MAX_PRESET_NAME_LEN)
 }

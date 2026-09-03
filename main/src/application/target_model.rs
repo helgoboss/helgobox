@@ -3041,7 +3041,7 @@ impl TargetModel {
         self.category == TargetCategory::Virtual
     }
 
-    fn command_id_label(&self) -> Cow<str> {
+    fn command_id_label(&self) -> Cow<'_, str> {
         match self.resolve_action() {
             None => "-".into(),
             Some(action) => {
@@ -3076,7 +3076,7 @@ impl TargetModel {
         Ok(action.clone())
     }
 
-    pub fn action_name_label(&self) -> Cow<str> {
+    pub fn action_name_label(&self) -> Cow<'_, str> {
         match self.resolved_available_action().ok() {
             None => "-".into(),
             Some(a) => a
@@ -3214,7 +3214,7 @@ impl<'a> TargetModelFormatMultiLine<'a> {
         }
     }
 
-    fn route_label(&self) -> Cow<str> {
+    fn route_label(&self) -> Cow<'_, str> {
         let virtual_route = self.target.virtual_track_route().ok();
         let virtual_route = match virtual_route.as_ref() {
             None => return TARGET_UNDEFINED_LABEL.into(),
@@ -3233,7 +3233,7 @@ impl<'a> TargetModelFormatMultiLine<'a> {
         }
     }
 
-    fn fx_label(&self) -> Cow<str> {
+    fn fx_label(&self) -> Cow<'_, str> {
         let fx_descriptor = match self.target.fx_descriptor() {
             Ok(d) => d,
             Err(_) => return TARGET_UNDEFINED_LABEL.into(),
@@ -3241,7 +3241,7 @@ impl<'a> TargetModelFormatMultiLine<'a> {
         get_virtual_fx_label(&fx_descriptor, self.compartment, self.context).into()
     }
 
-    fn fx_param_label(&self) -> Cow<str> {
+    fn fx_param_label(&self) -> Cow<'_, str> {
         let virtual_param = self.target.virtual_fx_parameter();
         let virtual_param = match virtual_param.as_ref() {
             None => return TARGET_UNDEFINED_LABEL.into(),
