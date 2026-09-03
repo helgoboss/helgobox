@@ -120,7 +120,7 @@ fn compile_dialogs() {
 /// On Windows we can directly embed the dialog resource file produced by ResEdit.
 #[cfg(target_family = "windows")]
 fn embed_dialog_resources(rc_file: impl AsRef<Path>) {
-    let target = std::env::var("TARGET").unwrap();
+    let target = unsafe { std::env::var("TARGET").unwrap() };
     if let Some(tool) = cc::windows_registry::find_tool(target.as_str(), "cl.exe") {
         for (key, value) in tool.env() {
             std::env::set_var(key, value);
