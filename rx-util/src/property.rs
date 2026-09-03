@@ -220,17 +220,22 @@ where
     /// much easier if they have the same type. UI event handlers for example are often not
     /// interested in the new value anyway because they will just call some reusable
     /// invalidation code that queries the new value itself.
-    pub fn changed(&self) -> impl LocalObservable<'a, Item = (), Err = ()> {
+    pub fn changed(&self) -> impl LocalObservable<'a, Item = (), Err = ()> + use<'a, T, I, N, N2> {
         self.subject.clone().map_to(())
     }
 
     /// Fires whenever the value has changed. Also delivers the initiator of the change, if any.
-    pub fn changed_with_initiator(&self) -> impl LocalObservable<'a, Item = Option<I>, Err = ()> {
+    pub fn changed_with_initiator(
+        &self,
+    ) -> impl LocalObservable<'a, Item = Option<I>, Err = ()> + use<'a, T, I, N, N2> {
         self.subject.clone()
     }
 
     /// Fires whenever the value has changed to the given value.
-    pub fn changed_to(&self, value: T) -> impl LocalObservable<'a, Item = (), Err = ()>
+    pub fn changed_to(
+        &self,
+        value: T,
+    ) -> impl LocalObservable<'a, Item = (), Err = ()> + use<'a, T, I, N, N2>
     where
         T: Clone + 'static,
     {
@@ -240,7 +245,7 @@ where
             .map_to(())
     }
 
-    pub fn values(&self) -> impl LocalObservable<'a, Item = T, Err = ()>
+    pub fn values(&self) -> impl LocalObservable<'a, Item = T, Err = ()> + use<'a, T, I, N, N2>
     where
         T: Clone + 'static,
     {

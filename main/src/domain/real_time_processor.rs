@@ -1,13 +1,13 @@
 use crate::domain::{
-    classify_midi_message, match_partially, BasicSettings, CompartmentKind, CompoundMappingSource,
-    ControlEvent, ControlEventTimestamp, ControlLogEntry, ControlLogEntryKind, ControlMainTask,
-    ControlMode, ControlOptions, FeedbackSendBehavior, LifecycleMidiMessage, LifecyclePhase,
-    MappingCore, MappingId, MatchOutcome, MidiClockCalculator, MidiEvent,
-    MidiMessageClassification, MidiScanResult, MidiScanner, MidiTransformationContainer,
-    NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
-    PersistentMappingProcessingState, QualifiedMappingId, RealTimeCompoundMappingTarget,
-    RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget, SampleOffset, UnitId,
-    VirtualSourceValue, WeakRealTimeInstance,
+    BasicSettings, CompartmentKind, CompoundMappingSource, ControlEvent, ControlEventTimestamp,
+    ControlLogEntry, ControlLogEntryKind, ControlMainTask, ControlMode, ControlOptions,
+    FeedbackSendBehavior, LifecycleMidiMessage, LifecyclePhase, MappingCore, MappingId,
+    MatchOutcome, MidiClockCalculator, MidiEvent, MidiMessageClassification, MidiScanResult,
+    MidiScanner, MidiTransformationContainer, NormalRealTimeToMainThreadTask, OrderedMappingMap,
+    OwnedIncomingMidiMessage, PersistentMappingProcessingState, QualifiedMappingId,
+    RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
+    SampleOffset, UnitId, VirtualSourceValue, WeakRealTimeInstance, classify_midi_message,
+    match_partially,
 };
 use helgoboss_learn::{ControlValue, MidiSourceValue, ModeControlResult, RawMidiEvent};
 use helgoboss_midi::{
@@ -21,7 +21,7 @@ use reaper_medium::{
 };
 
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
-use enum_map::{enum_map, EnumMap};
+use enum_map::{EnumMap, enum_map};
 use helgobox_allocator::permit_alloc;
 use std::convert::TryInto;
 use std::ptr::null_mut;
@@ -871,24 +871,23 @@ impl RealTimeProcessor {
     ) -> MatchOutcome {
         let is_rendering = is_rendering();
         // We do pattern matching in order to use Rust's borrow splitting.
-        let controller_outcome = if let [ref mut controller_mappings, ref mut main_mappings] =
-            self.mappings.as_mut_slice()
-        {
-            control_controller_mappings_midi(
-                &self.settings,
-                &self.control_main_task_sender,
-                &self.feedback_task_sender,
-                controller_mappings,
-                main_mappings,
-                value_event,
-                caller,
-                &self.instance,
-                is_rendering,
-                transformation_container,
-            )
-        } else {
-            unreachable!()
-        };
+        let controller_outcome =
+            if let [controller_mappings, main_mappings] = self.mappings.as_mut_slice() {
+                control_controller_mappings_midi(
+                    &self.settings,
+                    &self.control_main_task_sender,
+                    &self.feedback_task_sender,
+                    controller_mappings,
+                    main_mappings,
+                    value_event,
+                    caller,
+                    &self.instance,
+                    is_rendering,
+                    transformation_container,
+                )
+            } else {
+                unreachable!()
+            };
         let main_outcome = self.control_main_mappings_midi(
             value_event,
             caller,

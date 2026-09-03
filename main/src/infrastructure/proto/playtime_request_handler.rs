@@ -30,12 +30,12 @@ use playtime_api::persistence::{
     ClipId, ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress, TrackId,
 };
 use playtime_api::runtime::{CellAddress, SimpleMappingTarget};
+use playtime_clip_engine::PlaytimeEngine;
 use playtime_clip_engine::base::WriteArrangementPosition;
 use playtime_clip_engine::rt::TriggerSlotMainOptions;
-use playtime_clip_engine::PlaytimeEngine;
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::{
-    base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions, PlaytimeMainEngine,
+    PlaytimeMainEngine, base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions,
 };
 
 #[derive(Debug)]

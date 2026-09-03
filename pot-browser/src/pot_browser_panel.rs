@@ -1,17 +1,17 @@
 use anyhow::anyhow;
 use base::enigo::EnigoMouse;
-use base::{
-    blocking_lock, blocking_lock_arc, blocking_read_lock, NamedChannelSender, SenderToNormalThread,
-};
 use base::{Mouse, MouseCursorPosition};
+use base::{
+    NamedChannelSender, SenderToNormalThread, blocking_lock, blocking_lock_arc, blocking_read_lock,
+};
 use camino::{Utf8Path, Utf8PathBuf};
 use chrono::{DateTime, Local, Utc};
 use crossbeam_channel::Receiver;
 use egui::collapsing_header::CollapsingState;
 use egui::{
-    popup_below_widget, vec2, Align, Align2, Button, CentralPanel, Color32, DragValue, Event,
-    FontFamily, FontId, Frame, InputState, Key, Label, Layout, RichText, ScrollArea, TextEdit,
-    TextStyle, TopBottomPanel, Ui, Visuals, Widget, WidgetText,
+    Align, Align2, Button, CentralPanel, Color32, DragValue, Event, FontFamily, FontId, Frame,
+    InputState, Key, Label, Layout, RichText, ScrollArea, TextEdit, TextStyle, TopBottomPanel, Ui,
+    Visuals, Widget, WidgetText, popup_below_widget, vec2,
 };
 use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
@@ -19,22 +19,21 @@ use egui_toast::Toasts;
 use helgobox_api::persistence::PotFilterKind;
 use lru::LruCache;
 use pot::preset_crawler::{
-    crawl_presets, import_crawled_presets, CrawlPresetArgs, PresetCrawlerStopReason,
-    PresetCrawlingState, SharedPresetCrawlingState,
+    CrawlPresetArgs, PresetCrawlerStopReason, PresetCrawlingState, SharedPresetCrawlingState,
+    crawl_presets, import_crawled_presets,
 };
 use pot::preview_recorder::{
-    prepare_preview_recording, record_previews, ExportPreviewOutputConfig, PreviewOutputConfig,
-    PreviewRecorderFailure, PreviewRecorderState, RecordPreviewsArgs, SharedPreviewRecorderState,
+    ExportPreviewOutputConfig, PreviewOutputConfig, PreviewRecorderFailure, PreviewRecorderState,
+    RecordPreviewsArgs, SharedPreviewRecorderState, prepare_preview_recording, record_previews,
 };
 use pot::providers::projects::{ProjectDatabase, ProjectDbConfig};
 use pot::{
-    create_plugin_factory_preset, find_preview_file, pot_db, spawn_in_pot_worker, ChangeHint,
-    CurrentPreset, Debounce, DestinationTrackDescriptor, FiledBasedPotPresetKind, Filters,
-    LoadAudioSampleBehavior, LoadPresetError, LoadPresetOptions, LoadPresetWindowBehavior,
+    ChangeHint, CurrentPreset, Debounce, DestinationTrackDescriptor, FiledBasedPotPresetKind,
+    Filters, LoadAudioSampleBehavior, LoadPresetError, LoadPresetOptions, LoadPresetWindowBehavior,
     MacroParam, MainThreadDispatcher, MainThreadSpawner, OptFilter, PersistentDatabaseId,
     PotFavorites, PotFilterExcludes, PotFxParamId, PotPreset, PotPresetKind, PotWorkerDispatcher,
     PotWorkerSpawner, PresetWithId, RuntimePotUnit, SearchField, SharedRuntimePotUnit,
-    WorkerDispatcher,
+    WorkerDispatcher, create_plugin_factory_preset, find_preview_file, pot_db, spawn_in_pot_worker,
 };
 use pot::{FilterItemId, PresetId};
 use reaper_high::{Fx, FxParameter, Reaper, SliderVolume, Track};
@@ -688,9 +687,10 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                         .on_hover_text("Play preset preview")
                                         .on_disabled_hover_text("Preset preview not available")
                                         .clicked()
-                                        && let Err(e) = pot_unit.play_preview(preset_id) {
-                                            show_error_toast(e.to_string(), &mut toasts);
-                                        }
+                                        && let Err(e) = pot_unit.play_preview(preset_id)
+                                    {
+                                        show_error_toast(e.to_string(), &mut toasts);
+                                    }
                                 },
                             );
                         })
@@ -916,7 +916,10 @@ fn process_dialogs<I: PotBrowserIntegration>(input: ProcessDialogsInput<I>, ctx:
                                 Dialog::preset_crawler_ready(fx.fx, p)
                             } else {
                                 Dialog::preset_crawler_failure(
-                                    format!("Identified FX \"{}\" but it's not open in a floating window.", fx.fx.name()),
+                                    format!(
+                                        "Identified FX \"{}\" but it's not open in a floating window.",
+                                        fx.fx.name()
+                                    ),
                                     "Please use the floating window to point the mouse to the \"Next preset\" button!",
                                 )
                             }
@@ -2379,12 +2382,13 @@ fn execute_key_action(
     match key_action {
         KeyAction::NavigateWithinPresets(amount) => {
             if let Some(next_preset_index) = pot_unit.find_next_preset_index(amount)
-                && let Some(next_preset_id) = pot_unit.find_preset_id_at_index(next_preset_index) {
-                    pot_unit.set_preset_id(Some(next_preset_id));
-                    if input.auto_preview {
-                        let _ = pot_unit.play_preview(next_preset_id);
-                    }
+                && let Some(next_preset_id) = pot_unit.find_preset_id_at_index(next_preset_index)
+            {
+                pot_unit.set_preset_id(Some(next_preset_id));
+                if input.auto_preview {
+                    let _ = pot_unit.play_preview(next_preset_id);
                 }
+            }
         }
         KeyAction::LoadPreset => {
             if let Some((_, preset)) = pot_unit.preset_and_id() {
@@ -2772,21 +2776,19 @@ fn add_filter_view_content<I: PotBrowserIntegration>(
                 // Hover text
                 if let Some(more_info) = filter_item.more_info.as_ref() {
                     resp = resp.on_hover_text(more_info);
-                } else if let Some(parent_kind) = kind.parent() {
-                    if let Some(parent_name) = filter_item.parent_name.as_ref()
-                        && !parent_name.is_empty() {
-                            resp = resp.on_hover_ui(|ui| {
-                                let tooltip = match &filter_item.name {
-                                    None => {
-                                        format!(
-                                            "{parent_name} (directly associated with {parent_kind})"
-                                        )
-                                    }
-                                    Some(n) => format!("{parent_name} / {n}"),
-                                };
-                                ui.label(tooltip);
-                            });
-                        }
+                } else if let Some(parent_kind) = kind.parent()
+                    && let Some(parent_name) = filter_item.parent_name.as_ref()
+                    && !parent_name.is_empty()
+                {
+                    resp = resp.on_hover_ui(|ui| {
+                        let tooltip = match &filter_item.name {
+                            None => {
+                                format!("{parent_name} (directly associated with {parent_kind})")
+                            }
+                            Some(n) => format!("{parent_name} / {n}"),
+                        };
+                        ui.label(tooltip);
+                    });
                 }
                 // Context menu
                 if kind.allows_excludes() {

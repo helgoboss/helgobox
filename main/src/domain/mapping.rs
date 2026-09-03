@@ -1,6 +1,6 @@
 use crate::domain::{
-    prop_feedback_resolution, prop_is_affected_by, ActivationChange, ActivationCondition,
-    BoxedHitInstruction, CompartmentParamIndex, CompoundChangeEvent, ControlContext, ControlEvent,
+    ActivationChange, ActivationCondition, BoxedHitInstruction, COMPARTMENT_PARAMETER_COUNT,
+    CompartmentParamIndex, CompoundChangeEvent, ControlContext, ControlEvent,
     ControlEventTimestamp, ControlOptions, ExtendedProcessorContext, FeedbackResolution, GroupId,
     HitResponse, KeyMessage, KeySource, MappingActivationEffect, MappingControlContext,
     MappingData, MappingInfo, MappingPropProvider, MessageCaptureEvent, MidiScanResult, MidiSource,
@@ -11,16 +11,18 @@ use crate::domain::{
     StreamDeckDeviceId, StreamDeckMessage, StreamDeckScanResult, StreamDeckSource,
     StreamDeckSourceAddress, StreamDeckSourceFeedbackValue, Tag, TargetCharacter, TrackExclusivity,
     UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue, VirtualSource,
-    VirtualSourceAddress, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    VirtualSourceAddress, VirtualSourceValue, VirtualTarget, prop_feedback_resolution,
+    prop_is_affected_by,
 };
 use derive_more::Display;
 use enum_map::Enum;
 use helgoboss_learn::{
-    format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlResult,
-    ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
-    ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
-    OscSource, OscSourceAddress, PreliminaryMidiSourceFeedbackValue, PropValue, RawMidiEvent,
-    SourceCharacter, Target, UnitValue, ValueFormatter, ValueParser,
+    AbsoluteValue, ControlResult, ControlType, ControlValue, FeedbackValue, GroupInteraction,
+    MidiSourceAddress, MidiSourceValue, ModeControlOptions, ModeControlResult, ModeFeedbackOptions,
+    NumericFeedbackValue, NumericValue, OscSource, OscSourceAddress,
+    PreliminaryMidiSourceFeedbackValue, PropValue, RawMidiEvent, SourceCharacter, Target,
+    UnitValue, ValueFormatter, ValueParser, format_percentage_without_unit,
+    parse_percentage_without_unit,
 };
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -74,7 +76,7 @@ impl ProcessorMappingOptions {
     PartialEq,
     Hash,
     Debug,
-Default,
+    Default,
     Enum,
     EnumIter,
     TryFromPrimitive,
@@ -490,7 +492,9 @@ impl MainMapping {
     ///
     /// In particular, it returns the IDs of the lead mappings (the ones which provide the
     /// target values that influence the activation state).
-    pub fn activation_can_be_affected_by_target_values(&self) -> impl Iterator<Item = MappingId> {
+    pub fn activation_can_be_affected_by_target_values(
+        &self,
+    ) -> impl Iterator<Item = MappingId> + use<> {
         self.activation_condition_1
             .target_value_lead_mapping()
             .into_iter()
@@ -1439,11 +1443,7 @@ pub enum LifecyclePhase {
 impl From<bool> for LifecyclePhase {
     fn from(v: bool) -> Self {
         use LifecyclePhase::*;
-        if v {
-            Activation
-        } else {
-            Deactivation
-        }
+        if v { Activation } else { Deactivation }
     }
 }
 
