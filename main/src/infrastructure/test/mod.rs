@@ -1484,7 +1484,10 @@ mod macos_impl {
             Screenshooter::new(dirs::download_dir().unwrap().join("realearn-screenshots"));
         // Main panel
         let main_panel_window = Window::from_hwnd(realearn.outcome.fx.floating_window().unwrap());
-        let main_panel_image = shooter.capture(main_panel_window).await;
+        let Ok(main_panel_image) = shooter.capture(main_panel_window).await else {
+            log("Unable to take main panel screenshot. Ignoring.\n");
+            return Ok(());
+        };
         shooter.save_image(&main_panel_image, "main-panel")?;
         let main_panel_parts = [
             ("main-panel-input-output", (14, 110, 714, 124)),
@@ -1513,7 +1516,10 @@ mod macos_impl {
             .borrow_mut()
             .edit_mapping(&mapping);
         let mapping_window = mapping_panel.view_context().require_window();
-        let mapping_image = shooter.capture(mapping_window).await;
+        let Ok(mapping_image) = shooter.capture(mapping_window).await else {
+            log("Unable to take mapping panel screenshot. Ignoring.\n");
+            return Ok(());
+        };
         shooter.save_image(&mapping_image, "mapping-panel")?;
         let mapping_panel_parts = [
             ("mapping-panel-general", (4, 52, 1434, 190)),
@@ -1555,21 +1561,24 @@ mod macos_impl {
         }
 
         pub async fn save(&self, window: Window, name: &str) -> anyhow::Result<()> {
-            let img = self.capture(window).await;
+            let img = self.capture(window).await?;
             self.save_image(&img, name)?;
             Ok(())
         }
 
-        pub async fn capture(&self, window: Window) -> DynamicImage {
+        pub async fn capture(&self, window: Window) -> anyhow::Result<DynamicImage> {
             millis(100).await;
-            xcap::Window::all()
+            let image = xcap::Window::all()
                 .unwrap()
                 .iter()
-                .find(|w| w.app_name() == "REAPER" && w.title() == window.text().unwrap())
-                .expect("couldn't find window to take screenshot from")
+                .find(|w| {
+                    w.app_name().is_ok_and(|n| n == "REAPER")
+                        && w.title().is_ok_and(|t| t == window.text().unwrap())
+                })
+                .context("couldn't find window to take screenshot from")?
                 .capture_image()
-                .unwrap()
-                .into()
+                .context("capture_image")?;
+            Ok(image.into())
         }
 
         pub fn save_image_part(
