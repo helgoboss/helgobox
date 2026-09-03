@@ -97,7 +97,7 @@ jobs:
           license-processor-deploy-key: ${{ secrets.PRIVATE_HELGOBOSS_LICENSE_PROCESSOR_DEPLOY_KEY }}
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.84.0
+        uses: dtolnay/rust-toolchain@1.98.0
         with:
           target: ${{ matrix.target }}
 

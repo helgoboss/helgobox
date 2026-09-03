@@ -9,7 +9,7 @@ runs:
   using: "composite"
   steps:
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@1.84.0
+      uses: dtolnay/rust-toolchain@1.98.0
       with:
         components: clippy
 
