@@ -85,10 +85,11 @@ impl AppLibrary {
             .iter()
             .map(|dep| load_library(&app_base_dir.join(dep)))
             .collect();
+        let loaded_dependencies = loaded_dependencies?;
         let library = AppLibrary {
             main_library: load_library(&app_base_dir.join(main_library))?,
             app_base_dir,
-            _dependencies: loaded_dependencies?,
+            _dependencies: loaded_dependencies,
         };
         library.verify_version_compatibility()?;
         Ok(library)
