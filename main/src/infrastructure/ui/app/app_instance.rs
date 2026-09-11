@@ -273,29 +273,18 @@ impl AppInstance for StandaloneAppInstance {
     }
 
     fn stop(&mut self) -> Result<()> {
-        // TODO-high CONTINUE With the new Flutter version containing the "Great thread merge", stopping
-        //  the application can easily lead to a crash. That's why we just hide it, temporarily. This works but it prevents
-        //  the user from truly shutting down the user interface, freeing resources that might be valuable.
-        //  More importantly, even after closing a project, resources might not be freed up (to be verified), causing
-        //  multiple engine instances to fill up memory over time.
-        //  On macOS, I tried to find out why this happens.
-        //  It looks like the (new) FlutterRunLoop continues to run even after the view and engine has stopped.
-        //  It asynchronously performs a task (ResizeSynchronizer task) that has been scheduled to be executed async, and it performs this
-        //  task when the engine is already gone. This task probably tries to access the engine and things crash.
-        //  Relevant log messages:
-        //      Deiniting StandaloneFlutterWindow
-        //      Deiniting StandaloneFlutterViewController
-        //      Communicating on a dead channel.
-        //      embedder.cc (3235): 'FlutterEngineOnVsync' returned 'kInvalidArguments'. Invalid engine handle.
+        // On macOS, with the new Flutter version containing the "Great thread merge" (3.47.3 for example), stopping
+        // the application can easily lead to a crash when built with the official Flutter engine.
+        // This is because the (new) FlutterRunLoop continues to run even after the view and engine has stopped.
+        // In one case, it asynchronously performs a task (ResizeSynchronizer task) that has been scheduled to be executed async, and it performs this
+        // task when the engine is already gone. This task tries to access the engine and things crash.
+        // Relevant log messages:
+        //     Deiniting StandaloneFlutterWindow
+        //     Deiniting StandaloneFlutterViewController
+        //     Communicating on a dead channel.
+        //     embedder.cc (3235): 'FlutterEngineOnVsync' returned 'kInvalidArguments'. Invalid engine handle.
         //  See https://github.com/flutter/flutter/blob/da72d5936d697169c8ee2535ad6f615b0352dabd/engine/src/flutter/shell/platform/darwin/macos/framework/Source/FlutterRunLoop.swift#L70
-        //  The FlutterRunLoop is a static singleton. So disposing it by destroying it while REAPER is still running
-        //  looks impossible. I can think of a few approaches to fix this:
-        //  - Make the FlutterRunLoop public and give it some kind of "disable" method
-        //  - Prevent the ResizeSynchronizer from scheduling the culprit task in the first place, maybe by looking
-        //    at the isShuttingDown flag before scheduling: https://github.com/flutter/flutter/blob/da72d5936d697169c8ee2535ad6f615b0352dabd/engine/src/flutter/shell/platform/darwin/macos/framework/Source/ResizeSynchronizer.swift#L124
-        //  All this needs some in-depth native debugging in XCode with the correct Flutter engine source files
-        //  available.
-        // self.hide()?;
+        // I forked the engine to fix this in a few places, mostly by preventing illegal engine accesses.
         self.running_state
             .take()
             .ok_or(anyhow!("app was already stopped"))?

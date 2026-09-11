@@ -66,9 +66,9 @@ impl AppLibrary {
                     "Contents/Frameworks/device_info_plus.framework/device_info_plus",
                     "Contents/Frameworks/desktop_drop.framework/desktop_drop",
                     "Contents/Frameworks/native_context_menu.framework/native_context_menu",
-                    // "Contents/Frameworks/path_provider_foundation.framework/path_provider_foundation",
+                    "Contents/Frameworks/path_provider_foundation.framework/path_provider_foundation",
                     "Contents/Frameworks/screen_retriever.framework/screen_retriever",
-                    // "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
+                    "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
                     "Contents/Frameworks/window_manager.framework/window_manager",
                     "Contents/Frameworks/pointer_lock.framework/pointer_lock",
                     // "Contents/MacOS/helgobox.debug.dylib",
@@ -85,7 +85,18 @@ impl AppLibrary {
         };
         let loaded_dependencies: Result<Vec<Library>> = dependencies
             .iter()
-            .map(|dep| load_library(&app_base_dir.join(dep)))
+            .filter_map(|dep| {
+                let path = &app_base_dir.join(dep);
+                if path.exists() {
+                    Some(load_library(path))
+                } else {
+                    // Different app builds have different dependencies.
+                    // For example, in newer macOS builds, "url_launcher_macos" and
+                    // "path_provider_foundation" are linked statically, so they
+                    // won't exist at that path. In that case, we don't want to fail.
+                    None
+                }
+            })
             .collect();
         let loaded_dependencies = loaded_dependencies?;
         let library = AppLibrary {
