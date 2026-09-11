@@ -295,12 +295,13 @@ impl AppInstance for StandaloneAppInstance {
         //    at the isShuttingDown flag before scheduling: https://github.com/flutter/flutter/blob/da72d5936d697169c8ee2535ad6f615b0352dabd/engine/src/flutter/shell/platform/darwin/macos/framework/Source/ResizeSynchronizer.swift#L124
         //  All this needs some in-depth native debugging in XCode with the correct Flutter engine source files
         //  available.
-        self.hide()
-        // self.running_state
-        //     .take()
-        //     .ok_or(anyhow!("app was already stopped"))?
-        //     .common_state
-        //     .stop(None)
+        self.hide()?;
+        self.running_state
+            .take()
+            .ok_or(anyhow!("app was already stopped"))?
+            .common_state
+            .stop(None)?;
+        Ok(())
     }
 
     fn send(&self, reply: &Reply) -> Result<()> {
