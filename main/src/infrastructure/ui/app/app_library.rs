@@ -66,12 +66,14 @@ impl AppLibrary {
                     "Contents/Frameworks/device_info_plus.framework/device_info_plus",
                     "Contents/Frameworks/desktop_drop.framework/desktop_drop",
                     "Contents/Frameworks/native_context_menu.framework/native_context_menu",
-                    "Contents/Frameworks/path_provider_foundation.framework/path_provider_foundation",
+                    // "Contents/Frameworks/path_provider_foundation.framework/path_provider_foundation",
                     "Contents/Frameworks/screen_retriever.framework/screen_retriever",
-                    "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
+                    // "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
                     "Contents/Frameworks/window_manager.framework/window_manager",
                     "Contents/Frameworks/pointer_lock.framework/pointer_lock",
-                ].as_slice(),
+                    // "Contents/MacOS/helgobox.debug.dylib",
+                ]
+                .as_slice(),
             )
         } else if cfg!(target_os = "linux") {
             (
