@@ -866,6 +866,17 @@ pub fn called_from_dart() -> bool {
     CALLED_FROM_DART.get()
 }
 
+/// If we are currently being called from Dart (in the main thread), this will defer execution of `op`
+/// to the next main loop cycle. Otherwise, it will execute immediately.
+pub fn defer_from_dart_callstack(op: impl FnOnce() + 'static) -> Result<(), &'static str> {
+    if called_from_dart() {
+        Global::task_support().do_later_in_main_thread_from_main_thread_asap(op)
+    } else {
+        op();
+        Ok(())
+    }
+}
+
 thread_local! {
     static CALLED_FROM_DART: Cell<bool> = const { Cell::new(false) };
 }

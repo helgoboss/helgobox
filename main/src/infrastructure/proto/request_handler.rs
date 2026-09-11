@@ -34,6 +34,7 @@ use crate::infrastructure::proto::{
     TriggerGlobalRequest, TriggerInstanceAction, TriggerInstanceRequest, TriggerMatrixRequest,
     TriggerRowRequest, TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest,
 };
+use crate::infrastructure::ui::defer_from_dart_callstack;
 
 #[derive(Debug)]
 pub struct ProtoRequestHandler;
@@ -331,7 +332,11 @@ impl ProtoRequestHandler {
                         .show_in_floating_window()?;
                 }
                 TriggerInstanceAction::CloseApp => {
-                    instance.panel().stop_app_instance();
+                    let panel = instance.panel().clone();
+                    // Closing the app should not happen directly when being called from Dart
+                    // (pressing close icon in Helgobox App). Especially important on Windows,
+                    // but generally a good thing to not tear down the carpet below us ;)
+                    let _ = defer_from_dart_callstack(move || panel.stop_app_instance());
                 }
                 TriggerInstanceAction::HideApp => {
                     instance.panel().hide_app_instance();
