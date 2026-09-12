@@ -535,14 +535,11 @@ cargo deny check licenses
 
 == License report
 
-It's important to make sure that the licenses of all dependencies are compatible with the final license.
-We use link:https://github.com/EmbarkStudios/cargo-deny[cargo-deny] for this.
-
 Installation:
 
 [source]
 ----
-cargo install --locked cargo-about
+cargo install --locked cargo-about --features cli
 ----
 
 Generate the report:
