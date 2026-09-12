@@ -568,7 +568,7 @@ This serves mainly as a checklist for Helgobox's author.
 . Create a version tag via `git tag v2.0.0-pre1`.
 . Push via `git push origin v2.0.0-pre.1`.
 . While GitHub Actions executes the release job, take care of the following.
-** Can only be done by @helgoboss because it needs access to the https://github.com/helgoboss/helgoboss-org[helgoboss.org website repository].
+** Can only be done by @helgoboss because it needs access to the https://github.com/helgoboss/helgoboss-org-2[helgoboss.org website repository].
 ** Add a changelog entry in https://github.com/helgoboss/helgoboss-org/blob/master/src/data/projects/realearn/data.yaml[data.yaml].
 ** In `src/snippets/projects/realearn/repo`, enter `git checkout master` and `git pull` to pull the latest user guide changes.
 ** Push via `git push origin HEAD` and wait until Netlify deployed the page.

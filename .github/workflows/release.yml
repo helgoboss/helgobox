@@ -26,15 +26,15 @@ jobs:
             lib_file_name_dst: helgobox-windows-x86_64.dll
             extension_file_name_dst: reaper_helgobox-windows-x86_64.dll
 
-          - artifact: windows-i686
-            os: windows-2022
-            lib_file_name: helgobox.dll
-            extension_file_name: reaper_helgobox.dll
-            target: i686-pc-windows-msvc
-            profile: release-llvm-out-of-memory-fix
-            features: "egui"
-            lib_file_name_dst: helgobox-windows-i686.dll
-            extension_file_name_dst: reaper_helgobox-windows-i686.dll
+          #          - artifact: windows-i686
+          #            os: windows-2022
+          #            lib_file_name: helgobox.dll
+          #            extension_file_name: reaper_helgobox.dll
+          #            target: i686-pc-windows-msvc
+          #            profile: release-llvm-out-of-memory-fix
+          #            features: "egui"
+          #            lib_file_name_dst: helgobox-windows-i686.dll
+          #            extension_file_name_dst: reaper_helgobox-windows-i686.dll
 
           - artifact: macos-x86_64
             os: macos-14
