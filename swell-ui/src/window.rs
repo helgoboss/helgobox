@@ -3,6 +3,7 @@ use crate::{
     ViewManager, menu_tree,
 };
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use reaper_high::Reaper;
 use reaper_low::raw::RECT;
 use reaper_low::{Swell, raw};
 use reaper_medium::{Hfont, Hwnd};
@@ -73,11 +74,16 @@ impl Window {
         #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             use palette::{IntoColor, Srgb};
-            let color = Swell::get().GetSysColor(raw::COLOR_WINDOW as _);
+            let reaper = Reaper::get().medium_reaper().low();
+            let color = if reaper.pointers().GSC_darkwrap.is_some() {
+                reaper.GSC_darkwrap(raw::COLOR_WINDOW as _)
+            } else {
+                Swell::get().GetSysColor(raw::COLOR_WINDOW as _) as std::ffi::c_uint
+            };
             let (r, g, b) = (
-                Swell::GetRValue(color as _),
-                Swell::GetGValue(color as _),
-                Swell::GetBValue(color as _),
+                Swell::GetRValue(color),
+                Swell::GetGValue(color),
+                Swell::GetBValue(color),
             );
             let rgb: Srgb = palette::Srgb::new(r, g, b).into_format();
             let luma: palette::luma::Luma = rgb.into_color();
