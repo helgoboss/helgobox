@@ -349,6 +349,28 @@ impl Window {
         // Ok(handle)
     }
 
+    #[cfg(target_os = "linux")]
+    pub fn x11_window_id(&self) -> Option<u64> {
+        let swell = Swell::get();
+        swell.pointers().SWELL_GetOSWindow.ok_or(
+            "Couldn't load function SWELL_GetOSWindow. Please use an up-to-date REAPER version!",
+        )?;
+        let gdk_window = unsafe {
+            swell.SWELL_GetOSWindow(
+                self.raw,
+                reaper_medium::reaper_str!("GdkWindow").as_c_str().as_ptr(),
+            )
+        } as *mut gdk_sys::GdkWindow;
+        if gdk_window.is_null() {
+            return None;
+        }
+        let xid = unsafe { gdk_x11_sys::gdk_x11_window_get_xid(gdk_window) };
+        if xid == 0 {
+            return None;
+        }
+        Some(xid)
+    }
+
     pub fn set_checked(self, is_checked: bool) {
         unsafe {
             Swell::get().SendMessage(

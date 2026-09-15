@@ -1,6 +1,5 @@
 use helgobox_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
 use reaper_high::ChangeEvent;
-use tracing::info;
 
 use crate::application::UnitModel;
 use crate::domain::{InstanceId, UnitId};

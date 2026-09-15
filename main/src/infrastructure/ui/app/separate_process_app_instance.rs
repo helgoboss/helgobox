@@ -1,4 +1,4 @@
-use crate::domain::{InstanceId, UnitId};
+use crate::domain::InstanceId;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::Reply;
 use crate::infrastructure::ui::{AppCallback, AppInstance, AppPage, InstanceRef};
@@ -75,6 +75,7 @@ impl AppInstance for SeparateProcessAppInstance {
         } else {
             bail!("OS not supported");
         };
+        // Build command
         let app_base_dir = BackboneShell::app_binary_base_dir_path();
         let server_grpc_port = BackboneShell::get().config().server_grpc_port();
         let mut command = std::process::Command::new(app_base_dir.join(program));
@@ -83,14 +84,21 @@ impl AppInstance for SeparateProcessAppInstance {
             .arg(format!("grpc://localhost:{server_grpc_port}"))
             .arg("--mode")
             .arg("guest");
+        #[cfg(target_os = "linux")]
+        {
+            if let Some(xid) = owning_window.x11_window_id() {
+                command
+                    .arg("--host-window-handle")
+                    .arg(format!("0x{xid:x}"));
+            }
+        }
         let initial_location = location.unwrap_or(AppPage::Projection(0.into()));
         command
             .arg("--location")
             .arg(initial_location.location(InstanceRef::Id(self.instance_id)));
+        // Invoke command
         info!("Invoking {command:?}");
-        let process = command
-            // TODO-high CONTINUE if applicable, pass host window ID
-            .spawn()?;
+        let process = command.spawn()?;
         let running_state = SeparateProcessAppRunningState {
             process,
             is_visible: true,
