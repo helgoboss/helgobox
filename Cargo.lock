@@ -7845,6 +7845,7 @@ dependencies = [
 name = "swell-ui"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base",
  "fragile",
  "gdk-sys",

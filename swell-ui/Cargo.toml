@@ -17,6 +17,7 @@ raw-window-handle.workspace = true
 tracing.workspace = true
 fragile.workspace = true
 palette.workspace = true
+anyhow.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 winapi = { workspace = true, features = ["winuser", "uxtheme"] }

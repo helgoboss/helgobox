@@ -94,7 +94,8 @@ pub fn create_shared_app_instance(instance_id: InstanceId) -> SharedAppInstance 
         // Therefore: Standalone mode on macOS!
         share(InProcessStandaloneAppInstance::new(instance_id))
     } else {
-        share(SeparateProcessAppInstance::new(instance_id))
+        share(InProcessStandaloneAppInstance::new(instance_id))
+        // share(SeparateProcessAppInstance::new(instance_id))
     }
 }
 

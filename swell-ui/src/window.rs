@@ -6,11 +6,12 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{Swell, raw};
 use reaper_medium::{Hfont, Hwnd};
-use std::ffi::CString;
+use std::ffi::{c_void, CString};
 use std::fmt::Display;
 use std::os::raw::c_char;
 use std::ptr::{null, null_mut};
 use std::time::Duration;
+use anyhow::Context;
 
 /// Represents a window.
 ///
@@ -349,16 +350,38 @@ impl Window {
         // Ok(handle)
     }
 
+    pub fn os_window(&self) -> anyhow::Result<*mut c_void> {
+        #[cfg(target_os = "windows")]
+        {
+            // On macOS, the HWND pointer is a HWND pointer already (of course it is)
+            Ok(self.as_ptr())
+        }
+        #[cfg(target_os = "macos")]
+        {
+            // On macOS, the HWND pointer is an NSWindow pointer already
+            Ok(self.as_ptr())
+        }
+        #[cfg(target_os = "linux")]
+        {
+            // On macOS, the HWND pointer is a special SWELL struct that contains a pointer
+            // to the GDK window. We need latter.
+            let swell = Swell::get();
+            swell.pointers().SWELL_GetOSWindow.context(
+                "Couldn't load function SWELL_GetOSWindow. Please use an up-to-date REAPER version!",
+            )?;
+            let os_window = unsafe {
+                swell.SWELL_GetOSWindow(
+                    self.raw,
+                    reaper_medium::reaper_str!("GdkWindow").as_c_str().as_ptr(),
+                )
+            };
+            Ok(os_window)
+        }
+    }
+
     #[cfg(target_os = "linux")]
     pub fn x11_window_id(&self) -> Option<u64> {
-        let swell = Swell::get();
-        swell.pointers().SWELL_GetOSWindow?;
-        let gdk_window = unsafe {
-            swell.SWELL_GetOSWindow(
-                self.raw,
-                reaper_medium::reaper_str!("GdkWindow").as_c_str().as_ptr(),
-            )
-        } as *mut gdk_sys::GdkWindow;
+        let gdk_window = self.os_window().ok()? as *mut gdk_sys::GdkWindow;
         if gdk_window.is_null() {
             return None;
         }

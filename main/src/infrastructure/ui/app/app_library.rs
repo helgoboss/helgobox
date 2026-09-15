@@ -148,6 +148,7 @@ impl AppLibrary {
             CString::new(location).map_err(|_| anyhow!("location contains a nul byte"))?;
         with_temporarily_changed_working_directory(&self.app_base_dir, || {
             prepare_app_start();
+            let main_window = Window::new(Reaper::get().main_window().as_ptr()).context("could not get REAPER main window")?;
             let app_handle = unsafe {
                 let start_app_instance: Symbol<StartAppInstance> = self
                     .main_library
@@ -159,7 +160,7 @@ impl AppLibrary {
                     invoke_host,
                     instance_id.into(),
                     location_c_string.as_ptr(),
-                    Reaper::get().main_window().as_ptr(),
+                    main_window.os_window()?,
                 )
             };
             let Some(app_handle) = app_handle else {
@@ -330,7 +331,7 @@ type StartAppInstance = unsafe extern "C" fn(
     host_callback: HostCallback,
     instance_id: c_uint,
     location: *const c_char,
-    main_window: HWND,
+    main_window: *const c_void,
 ) -> Option<AppHandle>;
 
 /// Signature of the function that we use to show an app instance.
