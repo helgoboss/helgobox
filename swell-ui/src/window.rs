@@ -2,16 +2,16 @@ use crate::{
     DialogUnits, Dimensions, FontDescriptor, Menu, MenuBar, Pixels, Point, Rect, SwellStringArg,
     ViewManager, menu_tree,
 };
+use anyhow::Context;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{Swell, raw};
 use reaper_medium::{Hfont, Hwnd};
-use std::ffi::{c_void, CString};
+use std::ffi::{CString, c_void};
 use std::fmt::Display;
 use std::os::raw::c_char;
 use std::ptr::{null, null_mut};
 use std::time::Duration;
-use anyhow::Context;
 
 /// Represents a window.
 ///
@@ -354,12 +354,12 @@ impl Window {
         #[cfg(target_os = "windows")]
         {
             // On macOS, the HWND pointer is a HWND pointer already (of course it is)
-            Ok(self.as_ptr())
+            Ok(self.raw as *mut c_void)
         }
         #[cfg(target_os = "macos")]
         {
             // On macOS, the HWND pointer is an NSWindow pointer already
-            Ok(self.as_ptr())
+            Ok(self.raw as *mut c_void)
         }
         #[cfg(target_os = "linux")]
         {
