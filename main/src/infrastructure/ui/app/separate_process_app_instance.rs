@@ -88,6 +88,7 @@ impl AppInstance for SeparateProcessAppInstance {
         {
             if let Some(xid) = owning_window.x11_window_id() {
                 command
+                    .env("GDK_BACKEND", "x11")
                     .arg("--host-window-handle")
                     .arg(format!("0x{xid:x}"));
             }

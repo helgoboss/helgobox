@@ -73,7 +73,7 @@ impl Window {
         #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             use palette::{IntoColor, Srgb};
-            let reaper = Reaper::get().medium_reaper().low();
+            let reaper = reaper_high::Reaper::get().medium_reaper().low();
             let color = if reaper.pointers().GSC_darkwrap.is_some() {
                 reaper.GSC_darkwrap(raw::COLOR_WINDOW as _)
             } else {
@@ -352,9 +352,7 @@ impl Window {
     #[cfg(target_os = "linux")]
     pub fn x11_window_id(&self) -> Option<u64> {
         let swell = Swell::get();
-        swell.pointers().SWELL_GetOSWindow.ok_or(
-            "Couldn't load function SWELL_GetOSWindow. Please use an up-to-date REAPER version!",
-        )?;
+        swell.pointers().SWELL_GetOSWindow?;
         let gdk_window = unsafe {
             swell.SWELL_GetOSWindow(
                 self.raw,
@@ -364,7 +362,7 @@ impl Window {
         if gdk_window.is_null() {
             return None;
         }
-        let xid = unsafe { gdk_x11_sys::gdk_x11_window_get_xid(gdk_window) };
+        let xid = unsafe { gdk_x11_sys::gdk_x11_window_get_xid(gdk_window as _) };
         if xid == 0 {
             return None;
         }
