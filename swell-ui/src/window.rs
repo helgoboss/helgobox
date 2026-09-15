@@ -3,7 +3,6 @@ use crate::{
     ViewManager, menu_tree,
 };
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-use reaper_high::Reaper;
 use reaper_low::raw::RECT;
 use reaper_low::{Swell, raw};
 use reaper_medium::{Hfont, Hwnd};

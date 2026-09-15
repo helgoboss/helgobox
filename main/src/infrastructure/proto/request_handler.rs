@@ -378,6 +378,20 @@ impl ProtoRequestHandler {
                             InstanceInfoEvent::generic("Saved REAPER project"),
                         );
                 }
+                TriggerInstanceAction::NotifyGainedFocus => {
+                    instance
+                        .panel()
+                        .app_instance()
+                        .borrow_mut()
+                        .notify_app_has_focus(true);
+                }
+                TriggerInstanceAction::NotifyLostFocus => {
+                    instance
+                        .panel()
+                        .app_instance()
+                        .borrow_mut()
+                        .notify_app_has_focus(false);
+                }
             }
             Ok(())
         })

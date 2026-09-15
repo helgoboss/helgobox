@@ -2360,6 +2360,10 @@ impl BackboneConfig {
         self.main.server_enabled > 0
     }
 
+    pub fn server_grpc_port(&self) -> u16 {
+        self.main.server_grpc_port
+    }
+
     pub fn companion_web_app_url(&self) -> url::Url {
         Url::parse(&self.main.companion_web_app_url).expect("invalid companion web app URL")
     }

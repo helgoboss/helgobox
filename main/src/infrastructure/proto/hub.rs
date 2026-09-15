@@ -1,6 +1,6 @@
-use reaper_high::ChangeEvent;
-
 use helgobox_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
+use reaper_high::ChangeEvent;
+use tracing::info;
 
 use crate::application::UnitModel;
 use crate::domain::{InstanceId, UnitId};
@@ -52,6 +52,24 @@ impl ProtoHub {
     ) {
         self.send_occasional_instance_updates(instance_id, || {
             [occasional_instance_update::Update::info_event(info_event)]
+        });
+    }
+
+    pub fn request_quit(&self, instance_id: InstanceId) {
+        self.send_occasional_instance_updates(instance_id, || {
+            [occasional_instance_update::Update::RequestQuit(())]
+        });
+    }
+
+    pub fn request_show(&self, instance_id: InstanceId) {
+        self.send_occasional_instance_updates(instance_id, || {
+            [occasional_instance_update::Update::RequestShow(())]
+        });
+    }
+
+    pub fn request_hide(&self, instance_id: InstanceId) {
+        self.send_occasional_instance_updates(instance_id, || {
+            [occasional_instance_update::Update::RequestHide(())]
         });
     }
 
