@@ -557,7 +557,7 @@ This serves mainly as a checklist for Helgobox's author.
 . Update license report (see above)
 . Take care of app versioning
 ** Plug-in repository: Adjust `HOST_API_VERSION` and `MIN_APP_API_VERSION`
-** App repository: Adjust `appApiVersion` (macOS, Swift), `APP_API_VERSION` (Windows, C++) and `_minHostApiVersionString` (Dart)
+** App repository: Adjust `appApiVersion` (macOS, Swift), `APP_API_VERSION` (Windows, C++), `kAppApiVersion` (Linux, C) and `_minHostApiVersionString` (Dart)
 . Bump up the app version number in `pubspec.yaml`.
 . Bump up the plug-in version number in link:main/Cargo.toml[main/Cargo.toml].
 ** Either to a prerelease (e.g. `2.0.0-pre1`) or a final release (e.g. `2.0.0`).
