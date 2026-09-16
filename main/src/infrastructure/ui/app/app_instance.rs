@@ -82,6 +82,7 @@ pub fn create_shared_app_instance(instance_id: InstanceId) -> SharedAppInstance 
         // };
         // share(instance)
         share(InProcessStandaloneAppInstance::new(instance_id))
+        // share(SeparateProcessAppInstance::new(instance_id))
     } else if cfg!(target_os = "macos") {
         // On macOS, parented mode is possible only by using Cocoa child windows (see app side
         // embedding docs). This means that the app doesn't really render itself in the NSView

@@ -93,6 +93,12 @@ impl AppInstance for SeparateProcessAppInstance {
                     .arg(format!("0x{xid:x}"));
             }
         }
+        #[cfg(target_os = "windows")]
+        {
+            command
+                .arg("--host-window-handle")
+                .arg(format!("0x{:x}", owning_window.raw() as usize));
+        }
         let initial_location = location.unwrap_or(AppPage::Projection(0.into()));
         command
             .arg("--location")
