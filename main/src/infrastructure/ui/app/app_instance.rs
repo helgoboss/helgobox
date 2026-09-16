@@ -1,12 +1,10 @@
 use crate::domain::{InstanceId, UnitId};
 use crate::infrastructure::proto::Reply;
-use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
     AppCallback, InProcessStandaloneAppInstance, SeparateProcessAppInstance,
 };
-use anyhow::{Result, bail};
-use reaper_high::Reaper;
-use reaper_medium::{Hwnd, MessageBoxResult, MessageBoxType};
+use anyhow::Result;
+use reaper_medium::Hwnd;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
@@ -97,56 +95,6 @@ pub fn create_shared_app_instance(instance_id: InstanceId) -> SharedAppInstance 
     } else {
         // share(InProcessStandaloneAppInstance::new(instance_id))
         share(SeparateProcessAppInstance::new(instance_id))
-    }
-}
-
-#[derive(Debug)]
-struct DummyAppInstance;
-
-impl AppInstance for DummyAppInstance {
-    fn is_running(&self) -> bool {
-        false
-    }
-
-    fn has_focus(&self) -> bool {
-        false
-    }
-
-    fn is_visible(&self) -> bool {
-        false
-    }
-
-    fn start_or_show(&mut self, _owning_window: Window, _page: Option<AppPage>) -> Result<()> {
-        let msg = "Linux support for the Helgobox App (including the Playtime user interface) is currently at stage 1!\n\
-            That means it can't yet run embedded within REAPER, but it's possible to run it as a separate program that connects to REAPER (\"remote mode\").\n\
-            \n\
-            Do you want to open the instructions?";
-        let result =
-            Reaper::get()
-                .medium_reaper()
-                .show_message_box(msg, "Helgobox", MessageBoxType::YesNo);
-        if result == MessageBoxResult::Yes {
-            open_in_browser("https://docs.helgoboss.org/helgobox/goto#app-remote-mode");
-        };
-        Ok(())
-    }
-
-    fn hide(&mut self) -> Result<()> {
-        bail!("not implemented for Linux")
-    }
-
-    fn stop(&mut self) -> Result<()> {
-        bail!("not implemented for Linux")
-    }
-
-    fn send(&self, _reply: &Reply) -> Result<()> {
-        bail!("not implemented for Linux")
-    }
-
-    fn notify_app_is_ready(&mut self, _callback: AppCallback) {}
-
-    fn window(&self) -> Option<Hwnd> {
-        None
     }
 }
 

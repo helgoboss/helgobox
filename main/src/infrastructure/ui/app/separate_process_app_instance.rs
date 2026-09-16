@@ -2,14 +2,12 @@ use crate::domain::InstanceId;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::Reply;
 use crate::infrastructure::ui::{AppCallback, AppInstance, AppPage, InstanceRef};
-use anyhow::{Context, bail};
+use anyhow::bail;
 use reaper_medium::Hwnd;
-use std::cell::Cell;
 use std::process::Child;
 use std::thread;
 use std::time::{Duration, Instant};
 use swell_ui::Window;
-use tokio::task::JoinHandle;
 use tracing::info;
 
 #[derive(Debug)]
@@ -84,6 +82,12 @@ impl AppInstance for SeparateProcessAppInstance {
             .arg(format!("grpc://localhost:{server_grpc_port}"))
             .arg("--mode")
             .arg("guest");
+        #[cfg(target_os = "macos")]
+        {
+            // macOS doesn't support ownership relationship with an out-of-process window.
+            // That's also why separate-process mode is not really a good option on macOS.
+            let _ = owning_window;
+        }
         #[cfg(target_os = "linux")]
         {
             if let Some(xid) = owning_window.x11_window_id() {
@@ -137,6 +141,7 @@ impl AppInstance for SeparateProcessAppInstance {
     }
 
     fn send(&self, reply: &Reply) -> anyhow::Result<()> {
+        let _ = reply;
         // Not relevant here. A separate-process instance subscribes itself to all events
         // via normal gRPC.
         bail!("should not be used in separate-process app instance")

@@ -26,7 +26,6 @@ use std::path::{Path, PathBuf};
 use std::ptr::{NonNull, null_mut};
 use swell_ui::Window;
 use tonic::Status;
-use tracing::debug;
 
 #[derive(Debug)]
 pub struct AppLibrary {

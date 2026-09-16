@@ -2,7 +2,6 @@ use crate::{
     DialogUnits, Dimensions, FontDescriptor, Menu, MenuBar, Pixels, Point, Rect, SwellStringArg,
     ViewManager, menu_tree,
 };
-use anyhow::Context;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{Swell, raw};
@@ -363,6 +362,7 @@ impl Window {
         }
         #[cfg(target_os = "linux")]
         {
+            use anyhow::Context;
             // On macOS, the HWND pointer is a special SWELL struct that contains a pointer
             // to the GDK window. We need latter.
             let swell = Swell::get();
