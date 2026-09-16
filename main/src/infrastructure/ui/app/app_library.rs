@@ -148,7 +148,8 @@ impl AppLibrary {
             CString::new(location).map_err(|_| anyhow!("location contains a nul byte"))?;
         with_temporarily_changed_working_directory(&self.app_base_dir, || {
             prepare_app_start();
-            let main_window = Window::new(Reaper::get().main_window().as_ptr()).context("could not get REAPER main window")?;
+            let main_window = Window::new(Reaper::get().main_window().as_ptr())
+                .context("could not get REAPER main window")?;
             let app_handle = unsafe {
                 let start_app_instance: Symbol<StartAppInstance> = self
                     .main_library
@@ -435,29 +436,36 @@ fn process_command_request(
             );
         }
     };
-    if Reaper::get().is_in_main_thread() {
-        debug!("Handle Dart command coming from main thread");
-        // We are already in the main thread! Since Helgobox 2.18.3-pre.2 this is the default!
-        // Because the app associated with this version was updated to Flutter 3.38.8 (previously 3.29.3)
-        // and therefore is affected by the "Great thread merge".
-        // (https://docs.flutter.dev/release/breaking-changes/macos-windows-merged-threads and https://www.youtube.com/watch?v=miW7vCmQwnw&vl=de)
-        // It's quite nice that we are called from the main thread now! But it's important to
-        // consider that we must never call back into Dart from the same callstack! That's why we
-        // do the thread-local stuff here.
-        CALLED_FROM_DART.set(true);
-        scopeguard::defer! {
-            CALLED_FROM_DART.set(false);
-        }
-        handler();
-    } else {
-        debug!("Handle Dart command coming from non-main thread");
-        // We are being called from another thread, not the main thread! This was most of the time the case
-        // in previous Helgobox versions and should almost never happen nowadays. Since most command handlers
-        // necessarily need to execute in the main thread, we schedule the handler fo execution on the main thread!
-        Global::task_support()
-            .do_later_in_main_thread_asap(handler)
-            .map_err(|e| anyhow!(e))?;
-    }
+    // App versions > 0.23.0 are compiled using Flutter 3.38.8+, which means they are affected
+    // by the "Great thread merge"
+    // (https://docs.flutter.dev/release/breaking-changes/macos-windows-merged-threads and
+    // https://www.youtube.com/watch?v=miW7vCmQwnw&vl=de). This means Flutter calls us from
+    // the main thread! This is good news as there are commands which might benefit from that
+    // directness. Before that, it was a Flutter-specific thread, and we always had to
+    // defer command handling to the main thread (since most of our commands are supposed
+    // to be handled in the main thread).
+    //
+    // Now we could in theory just invoke the command handlers without switching threads. But
+    // turns out there are serious issues with that:
+    //
+    // 1. We must never call back into Dart from the same callstack. That means, command replies
+    //    must always be sent when Dart is not on the callstack anymore, e.g. on the next main loop
+    //    cycle.
+    // 2. Some command handlers on some OS can lead to crashes when Dart is still on the callstack.
+    //    Example: Pressing the save button in the Playtime GUI when the project was not saved yet.
+    //    This opens REAPER's file-save dialog and - at least on macOS - crashes.
+    //
+    // (1) can be easily solved by defering only the reply (see commit cb1c687a for a
+    // thread-local-based implementation of this idea).
+    // (2) can only be solved by finding out which commands exactly have issues when Dart is on the
+    // call stack - and treating those differently.
+    //
+    // Especially (2) is too much trouble and too risky. So we do business as usual and defer
+    // handling to the next main thread cycle in general. In the future, we might make exceptions
+    // for some commands that can benefit from a "faster turn-around".
+    Global::task_support()
+        .do_later_in_main_thread_asap(handler)
+        .map_err(|e| anyhow!(e))?;
     Ok(())
 }
 
@@ -819,10 +827,9 @@ fn send_query_reply_to_app(
     future: impl Future<Output = Result<query_result::Value, Status>> + Send + 'static,
 ) {
     Global::future_support().spawn_in_main_thread(async move {
-        let query_result_value = match future.await {
-            Ok(outcome) => outcome,
-            Err(error) => query_result::Value::Error(error.to_string()),
-        };
+        let query_result_value = future
+            .await
+            .unwrap_or_else(|error| query_result::Value::Error(error.to_string()));
         let reply_value = reply::Value::QueryReply(QueryReply {
             id: req_id,
             result: Some(QueryResult {
