@@ -26,7 +26,7 @@ impl UnresolvedReaperTargetDef for UnresolvedMouseTarget {
         _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::Mouse(EnigoMouseTarget {
-            mouse: EnigoMouse::new(),
+            mouse: EnigoMouse,
             action_type: self.action_type,
             axis: self.axis,
             button: self.button,

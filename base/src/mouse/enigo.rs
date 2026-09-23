@@ -1,76 +1,84 @@
 use crate::{Mouse, MouseCursorPosition, blocking_lock};
-use anyhow::Context;
-use device_query::DeviceState;
 use enigo::{Coordinate, Direction, Enigo, Mouse as MouseEnigo, Settings};
+use enum_map::EnumMap;
 use helgobox_api::persistence::{Axis, MouseButton};
 use std::fmt::Debug;
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
-static ENIGO: LazyLock<Result<Mutex<Enigo>, enigo::NewConError>> = LazyLock::new(|| {
-    let enigo = Enigo::new(&Settings::default())?;
-    Ok(Mutex::new(enigo))
-});
+static ENIGO_MOUSE_STATE: LazyLock<Result<Mutex<EnigoMouseState>, enigo::NewConError>> =
+    LazyLock::new(|| {
+        let state = EnigoMouseState {
+            enigo: Enigo::new(&Settings::default())?,
+            mouse_button_states: Default::default(),
+        };
+        Ok(Mutex::new(state))
+    });
 
-#[derive(Clone, Debug)]
-pub struct EnigoMouse {
-    device_state: Option<DeviceState>,
+fn enigo_mouse_state() -> anyhow::Result<MutexGuard<'static, EnigoMouseState>> {
+    let enigo = ENIGO_MOUSE_STATE.as_ref()?;
+    Ok(blocking_lock(enigo, "enigo"))
 }
 
-impl Default for EnigoMouse {
-    fn default() -> Self {
-        Self::new()
-    }
+pub struct EnigoMouseState {
+    enigo: Enigo,
+    mouse_button_states: EnumMap<MouseButton, bool>,
 }
 
-impl EnigoMouse {
-    pub fn new() -> Self {
-        Self {
-            device_state: create_device_state(),
-        }
-    }
+#[derive(Eq, PartialEq, Clone, Debug)]
+pub struct EnigoMouse;
 
-    fn enigo(&self) -> anyhow::Result<MutexGuard<'_, Enigo>> {
-        let enigo = ENIGO.as_ref()?;
-        Ok(blocking_lock(enigo, "enigo"))
-    }
-}
-
-fn create_device_state() -> Option<DeviceState> {
-    #[cfg(target_os = "macos")]
-    {
-        let trusted =
-            macos_accessibility_client::accessibility::application_is_trusted_with_prompt();
-        if trusted {
-            Some(DeviceState::new())
-        } else {
-            reaper_high::Reaper::get().show_console_msg("This Helgobox feature only works if Helgobox can access the state of your mouse. For this, it needs macOS accessibility permissions. Please grant REAPER the accessibility permission in the macOS system settings and restart it!\n\n");
-            None
-        }
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        Some(DeviceState::new())
+impl EnigoMouseState {
+    fn invoke_button(&mut self, button: MouseButton, direction: Direction) -> anyhow::Result<()> {
+        self.enigo
+            .button(convert_button_to_enigo(button), direction)?;
+        self.mouse_button_states[button] = match direction {
+            Direction::Press => true,
+            Direction::Release => false,
+            Direction::Click => false,
+        };
+        Ok(())
     }
 }
-
-unsafe impl Send for EnigoMouse {}
-
-impl PartialEq for EnigoMouse {
-    fn eq(&self, _: &Self) -> bool {
-        true
-    }
-}
-
-impl Eq for EnigoMouse {}
 
 impl Mouse for EnigoMouse {
     fn axis_size(&self, axis: Axis) -> u32 {
+        enigo_mouse_state().map(|s| s.axis_size(axis)).unwrap_or(0)
+    }
+
+    fn cursor_position(&self) -> anyhow::Result<MouseCursorPosition> {
+        enigo_mouse_state()?.cursor_position()
+    }
+
+    fn set_cursor_position(&mut self, new_pos: MouseCursorPosition) -> anyhow::Result<()> {
+        enigo_mouse_state()?.set_cursor_position(new_pos)
+    }
+
+    fn adjust_cursor_position(&mut self, x_delta: i32, y_delta: i32) -> anyhow::Result<()> {
+        enigo_mouse_state()?.adjust_cursor_position(x_delta, y_delta)
+    }
+
+    fn scroll(&mut self, axis: Axis, delta: i32) -> anyhow::Result<()> {
+        enigo_mouse_state()?.scroll(axis, delta)
+    }
+
+    fn press(&mut self, button: MouseButton) -> anyhow::Result<()> {
+        enigo_mouse_state()?.press(button)
+    }
+
+    fn release(&mut self, button: MouseButton) -> anyhow::Result<()> {
+        enigo_mouse_state()?.release(button)
+    }
+
+    fn is_pressed(&self, button: MouseButton) -> anyhow::Result<bool> {
+        enigo_mouse_state()?.is_pressed(button)
+    }
+}
+
+impl Mouse for EnigoMouseState {
+    fn axis_size(&self, axis: Axis) -> u32 {
         #[cfg(any(target_os = "windows", target_os = "macos"))]
         {
-            let Ok(enigo) = self.enigo() else {
-                return 0;
-            };
-            let Ok((width, height)) = enigo.main_display() else {
+            let Ok((width, height)) = self.enigo.main_display() else {
                 return 0;
             };
             let axis_size = match axis {
@@ -90,19 +98,18 @@ impl Mouse for EnigoMouse {
     }
 
     fn cursor_position(&self) -> anyhow::Result<MouseCursorPosition> {
-        let (x, y) = self.enigo()?.location()?;
+        let (x, y) = self.enigo.location()?;
         Ok(MouseCursorPosition::new(x.max(0) as u32, y.max(0) as u32))
     }
 
     fn set_cursor_position(&mut self, new_pos: MouseCursorPosition) -> anyhow::Result<()> {
-        self.enigo()?
+        self.enigo
             .move_mouse(new_pos.x as _, new_pos.y as _, Coordinate::Abs)?;
         Ok(())
     }
 
     fn adjust_cursor_position(&mut self, x_delta: i32, y_delta: i32) -> anyhow::Result<()> {
-        self.enigo()?
-            .move_mouse(x_delta, y_delta, Coordinate::Rel)?;
+        self.enigo.move_mouse(x_delta, y_delta, Coordinate::Rel)?;
         Ok(())
     }
 
@@ -111,42 +118,20 @@ impl Mouse for EnigoMouse {
             Axis::X => enigo::Axis::Horizontal,
             Axis::Y => enigo::Axis::Vertical,
         };
-        self.enigo()?.scroll(delta, enigo_axis)?;
+        self.enigo.scroll(delta, enigo_axis)?;
         Ok(())
     }
 
     fn press(&mut self, button: MouseButton) -> anyhow::Result<()> {
-        self.enigo()?
-            .button(convert_button_to_enigo(button), Direction::Press)?;
-        Ok(())
+        self.invoke_button(button, Direction::Press)
     }
 
     fn release(&mut self, button: MouseButton) -> anyhow::Result<()> {
-        self.enigo()?
-            .button(convert_button_to_enigo(button), Direction::Release)?;
-        Ok(())
+        self.invoke_button(button, Direction::Release)
     }
 
     fn is_pressed(&self, button: MouseButton) -> anyhow::Result<bool> {
-        let mouse_state = self
-            .device_state
-            .as_ref()
-            .context("macOS accessibility permissions not granted")?
-            .query_pointer();
-        let button_index = convert_button_to_device_query(button);
-        let pressed = mouse_state
-            .button_pressed
-            .get(button_index)
-            .context("couldn't get button")?;
-        Ok(*pressed)
-    }
-}
-
-fn convert_button_to_device_query(button: MouseButton) -> usize {
-    match button {
-        MouseButton::Left => 1,
-        MouseButton::Middle => 3,
-        MouseButton::Right => 2,
+        Ok(self.mouse_button_states[button])
     }
 }
 

@@ -227,7 +227,7 @@ where
     // with recent REAPER versions.
     let fx_info = args.fx.info()?;
     let plugin_id = get_plugin_id_from_fx_info(&fx_info);
-    let mut mouse = EnigoMouse::new();
+    let mut mouse = EnigoMouse;
     let escape_catcher = EscapeCatcher::new();
     let mut chunks_file = tempfile::tempfile()?;
     let mut current_file_offset = 0u64;

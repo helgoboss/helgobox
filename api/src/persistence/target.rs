@@ -661,6 +661,7 @@ pub enum Axis {
     Serialize,
     Deserialize,
     derive_more::Display,
+    enum_map::Enum,
     strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,

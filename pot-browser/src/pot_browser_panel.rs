@@ -2585,7 +2585,7 @@ impl MainState {
             bank_index: 0,
             preset_cache: PresetCache::new(),
             dialog: Default::default(),
-            mouse: EnigoMouse::new(),
+            mouse: EnigoMouse,
             has_shown_legacy_vst3_scan_warning: false,
         }
     }
