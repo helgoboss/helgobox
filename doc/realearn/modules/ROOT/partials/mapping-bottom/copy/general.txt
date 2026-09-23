@@ -1,0 +1,1 @@
+copies the content of the mapping to the clipboard

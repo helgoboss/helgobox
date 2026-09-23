@@ -1,7 +1,7 @@
 use crate::application::{
-    Affected, CompartmentProp, MappingCommand, MappingModel, MappingProp, SharedMapping,
-    SharedUnitModel, SourceCategory, TargetCategory, TargetModelFormatMultiLine, UnitModel,
-    UnitProp, WeakUnitModel,
+    Affected, CompartmentProp, MappingCommand, MappingModel, MappingProp, MappingTriple,
+    SharedMapping, SharedUnitModel, SourceCategory, TargetCategory, TargetModelFormatMultiLine,
+    UnitModel, UnitProp, WeakUnitModel,
 };
 use crate::base::when;
 use crate::domain::{CompartmentKind, GroupId, GroupKey, MappingId, QualifiedMappingId};
@@ -619,12 +619,7 @@ impl MappingRowPanel {
     fn mapping_triple(&self) -> anyhow::Result<MappingTriple> {
         let mapping = self.get_mapping()?;
         let mapping = mapping.borrow();
-        let triple = MappingTriple {
-            compartment: mapping.compartment(),
-            mapping_id: mapping.id(),
-            group_id: mapping.group_id(),
-        };
-        Ok(triple)
+        Ok(mapping.triple())
     }
 
     fn open_context_menu(&self, location: Point<Pixels>) -> anyhow::Result<()> {
@@ -969,7 +964,7 @@ fn move_mapping_to_group(
     Ok(())
 }
 
-fn copy_mapping_object(
+pub fn copy_mapping_object(
     session: SharedUnitModel,
     compartment: CompartmentKind,
     mapping_id: MappingId,
@@ -1008,7 +1003,7 @@ fn copy_mapping_object(
     Ok(())
 }
 
-enum ObjectType {
+pub enum ObjectType {
     Mapping,
     Source,
     Glue,
@@ -1016,7 +1011,7 @@ enum ObjectType {
     ActivationCondition,
 }
 
-fn paste_data_object_in_place(
+pub fn paste_data_object_in_place(
     data_object: DataObject,
     shared_session: SharedUnitModel,
     triple: MappingTriple,
@@ -1131,12 +1126,6 @@ pub fn paste_mappings(
 }
 
 const SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 571;
-
-struct MappingTriple {
-    compartment: CompartmentKind,
-    mapping_id: MappingId,
-    group_id: GroupId,
-}
 
 fn build_mapping_color_panel_desc() -> ColorPanelDesc {
     ColorPanelDesc {

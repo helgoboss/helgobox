@@ -1,3 +1,4 @@
+use crate::infrastructure::ui::help::MappingTopic::CopyMapping;
 use derive_more::Display;
 use helgoboss_learn::ModeParameter;
 use include_dir::{Dir, include_dir};
@@ -42,6 +43,10 @@ pub enum MappingTopic {
     PreviousMapping,
     #[display(fmt = "Go to next mapping")]
     NextMapping,
+    #[display(fmt = "Copy mapping")]
+    CopyMapping,
+    #[display(fmt = "Paste mapping")]
+    PasteMapping,
     Enabled,
 }
 
@@ -139,7 +144,9 @@ impl HelpTopic {
                     FindInMappingList => (HelpSection::MappingTop, "find-in-mapping-list"),
                     BeepOnSuccess => (HelpSection::MappingBottom, "beep-on-success"),
                     PreviousMapping => (HelpSection::MappingBottom, "previous"),
+                    CopyMapping => (HelpSection::MappingBottom, "copy"),
                     NextMapping => (HelpSection::MappingBottom, "next"),
+                    PasteMapping => (HelpSection::MappingBottom, "paste"),
                     Enabled => (HelpSection::MappingBottom, "enabled"),
                 }
             }

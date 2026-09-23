@@ -725,6 +725,11 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         pushbutton(
             "<=",
             ids.named_id("ID_MAPPING_PANEL_PREVIOUS_BUTTON"),
+            context.rect(120, 514, 30, 14),
+        ),
+        pushbutton(
+            "Copy",
+            ids.named_id("ID_MAPPING_PANEL_COPY_BUTTON"),
             context.rect(160, 514, 30, 14),
         ),
         // We make this a normal push button instead of an OK button so that
@@ -735,9 +740,14 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             context.rect(200, 514, 50, 14),
         ),
         pushbutton(
+            "Paste",
+            ids.named_id("ID_MAPPING_PANEL_PASTE_BUTTON"),
+            context.rect(260, 514, 30, 14),
+        ),
+        pushbutton(
             "=>",
             ids.named_id("ID_MAPPING_PANEL_NEXT_BUTTON"),
-            context.rect(260, 514, 30, 14),
+            context.rect(300, 514, 30, 14),
         ),
         context.checkbox(
             "Enabled",

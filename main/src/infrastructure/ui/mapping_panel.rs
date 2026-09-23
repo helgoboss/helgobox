@@ -90,10 +90,11 @@ use crate::infrastructure::ui::util::{
 };
 use crate::infrastructure::ui::{
     EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine, ItemProp,
-    LuaFeedbackScriptEngine, LuaMidiScriptEngine, MappingHeaderPanel, MappingRowsPanel,
+    LuaFeedbackScriptEngine, LuaMidiScriptEngine, MappingHeaderPanel, MappingRowsPanel, ObjectType,
     OscFeedbackArgumentsEngine, PlainTextEngine, RawMidiScriptEngine, ScriptEditorInput,
-    ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, UnitPanel,
-    YamlEditorPanel, menus,
+    ScriptEngine, SerializationFormat, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine,
+    UnitPanel, UntaggedDataObject, YamlEditorPanel, copy_mapping_object, deserialize_data_object,
+    get_text_from_clipboard, menus, paste_data_object_in_place,
 };
 use base::Global;
 use base::hash_util::NonCryptoHashMap;
@@ -1640,6 +1641,36 @@ impl MappingPanel {
         self.mapping.replace(None);
         self.close_open_child_windows();
         self.mapping_header_panel.clear_item();
+    }
+
+    pub fn copy_mapping_to_clipboard(self: SharedView<Self>) -> anyhow::Result<()> {
+        let (mapping_id, compartment) = {
+            let mapping = self.mapping();
+            let mapping = mapping.borrow();
+            (mapping.id(), mapping.compartment())
+        };
+        copy_mapping_object(
+            self.session(),
+            compartment,
+            mapping_id,
+            ObjectType::Mapping,
+            SerializationFormat::JsonDataObject,
+        )
+    }
+    pub fn paste_mapping_from_clipboard(self: SharedView<Self>) -> anyhow::Result<()> {
+        let text = get_text_from_clipboard().context("Couldn't read from clipboard.")?;
+        let mapping_triple = self.mapping().borrow().triple();
+        let res = {
+            let session = self.session();
+            let session = session.borrow();
+            let compartment_in_session = session.compartment_in_unit(mapping_triple.compartment);
+            deserialize_data_object(&text, &compartment_in_session)?
+        };
+        let UntaggedDataObject::Tagged(data_object) = res else {
+            bail!("Clipboard doesn't contain a mapping.");
+        };
+        paste_data_object_in_place(data_object, self.session(), mapping_triple)?;
+        Ok(())
     }
 
     pub fn navigate_in_mappings(
@@ -7242,6 +7273,13 @@ impl View for MappingPanel {
                 // Ideally we would do the same here as the tab key. But since SWELL doesn't support
                 // GetNextDlgTabItem, doing this cross-platform would require a bit more effort. Whatever.
             }
+            root::ID_MAPPING_PANEL_COPY_BUTTON => {
+                let _ = self.copy_mapping_to_clipboard();
+            }
+            root::ID_MAPPING_PANEL_PASTE_BUTTON => {
+                let result = self.clone().paste_mapping_from_clipboard();
+                self.notify_user_on_anyhow_error(result);
+            }
             root::ID_MAPPING_PANEL_PREVIOUS_BUTTON => {
                 let _ = self.navigate_in_mappings(-1);
             }
@@ -8585,7 +8623,9 @@ impl Section {
             | ID_MAPPING_HELP_RIGHT_CONTENT_LABEL
             | IDC_BEEP_ON_SUCCESS_CHECK_BOX
             | ID_MAPPING_PANEL_PREVIOUS_BUTTON
+            | ID_MAPPING_PANEL_COPY_BUTTON
             | ID_MAPPING_PANEL_OK
+            | ID_MAPPING_PANEL_PASTE_BUTTON
             | ID_MAPPING_PANEL_NEXT_BUTTON
             | IDC_MAPPING_ENABLED_CHECK_BOX => Self::Help,
             _ => return None,
@@ -8683,6 +8723,14 @@ fn find_help_topic_for_resource(id: u32) -> Option<HelpTopic> {
         (
             &[root::ID_MAPPING_PANEL_PREVIOUS_BUTTON],
             HelpTopic::Mapping(MappingTopic::PreviousMapping),
+        ),
+        (
+            &[root::ID_MAPPING_PANEL_COPY_BUTTON],
+            HelpTopic::Mapping(MappingTopic::CopyMapping),
+        ),
+        (
+            &[root::ID_MAPPING_PANEL_PASTE_BUTTON],
+            HelpTopic::Mapping(MappingTopic::PasteMapping),
         ),
         (
             &[root::ID_MAPPING_PANEL_NEXT_BUTTON],

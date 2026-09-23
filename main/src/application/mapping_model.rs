@@ -227,6 +227,13 @@ impl MappingModel {
             extension_model: Default::default(),
         }
     }
+    pub fn triple(&self) -> MappingTriple {
+        MappingTriple {
+            compartment: self.compartment(),
+            mapping_id: self.id(),
+            group_id: self.group_id(),
+        }
+    }
 
     pub fn id(&self) -> MappingId {
         self.id
@@ -787,4 +794,10 @@ impl MappingModelWithContext<'_> {
             .target_model
             .with_context(self.context, self.mapping.compartment)
     }
+}
+
+pub struct MappingTriple {
+    pub compartment: CompartmentKind,
+    pub mapping_id: MappingId,
+    pub group_id: GroupId,
 }
