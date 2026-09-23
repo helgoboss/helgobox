@@ -1,12 +1,18 @@
-use crate::{Mouse, MouseCursorPosition};
+use crate::{Mouse, MouseCursorPosition, blocking_lock};
+use anyhow::Context;
 use device_query::DeviceState;
-use enigo::{Enigo, MouseControllable};
+use enigo::{Coordinate, Direction, Enigo, Mouse as MouseEnigo, Settings};
 use helgobox_api::persistence::{Axis, MouseButton};
 use std::fmt::Debug;
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
-#[derive(Debug)]
+static ENIGO: LazyLock<Result<Mutex<Enigo>, enigo::NewConError>> = LazyLock::new(|| {
+    let enigo = Enigo::new(&Settings::default())?;
+    Ok(Mutex::new(enigo))
+});
+
+#[derive(Clone, Debug)]
 pub struct EnigoMouse {
-    enigo: Enigo,
     device_state: Option<DeviceState>,
 }
 
@@ -19,9 +25,13 @@ impl Default for EnigoMouse {
 impl EnigoMouse {
     pub fn new() -> Self {
         Self {
-            enigo: Default::default(),
             device_state: create_device_state(),
         }
+    }
+
+    fn enigo(&self) -> anyhow::Result<MutexGuard<'_, Enigo>> {
+        let enigo = ENIGO.as_ref()?;
+        Ok(blocking_lock(enigo, "enigo"))
     }
 }
 
@@ -45,12 +55,6 @@ fn create_device_state() -> Option<DeviceState> {
 
 unsafe impl Send for EnigoMouse {}
 
-impl Clone for EnigoMouse {
-    fn clone(&self) -> Self {
-        Self::new()
-    }
-}
-
 impl PartialEq for EnigoMouse {
     fn eq(&self, _: &Self) -> bool {
         true
@@ -63,7 +67,12 @@ impl Mouse for EnigoMouse {
     fn axis_size(&self, axis: Axis) -> u32 {
         #[cfg(any(target_os = "windows", target_os = "macos"))]
         {
-            let (width, height) = Enigo::main_display_size();
+            let Ok(enigo) = self.enigo() else {
+                return 0;
+            };
+            let Ok((width, height)) = enigo.main_display() else {
+                return 0;
+            };
             let axis_size = match axis {
                 Axis::X => width,
                 Axis::Y => height,
@@ -80,9 +89,9 @@ impl Mouse for EnigoMouse {
         }
     }
 
-    fn cursor_position(&self) -> Result<MouseCursorPosition, &'static str> {
+    fn cursor_position(&self) -> anyhow::Result<MouseCursorPosition> {
         #[cfg(any(target_os = "windows", target_os = "macos"))]
-        let (x, y) = Enigo::mouse_location();
+        let (x, y) = self.enigo()?.location()?;
         #[cfg(target_os = "linux")]
         let (x, y) = {
             let device_state = self
@@ -95,49 +104,50 @@ impl Mouse for EnigoMouse {
         Ok(MouseCursorPosition::new(x.max(0) as u32, y.max(0) as u32))
     }
 
-    fn set_cursor_position(&mut self, new_pos: MouseCursorPosition) -> Result<(), &'static str> {
-        self.enigo.mouse_move_to(new_pos.x as _, new_pos.y as _);
+    fn set_cursor_position(&mut self, new_pos: MouseCursorPosition) -> anyhow::Result<()> {
+        self.enigo()?
+            .move_mouse(new_pos.x as _, new_pos.y as _, Coordinate::Abs)?;
         Ok(())
     }
 
-    fn adjust_cursor_position(&mut self, x_delta: i32, y_delta: i32) -> Result<(), &'static str> {
-        self.enigo.mouse_move_relative(x_delta, y_delta);
+    fn adjust_cursor_position(&mut self, x_delta: i32, y_delta: i32) -> anyhow::Result<()> {
+        self.enigo()?
+            .move_mouse(x_delta, y_delta, Coordinate::Rel)?;
         Ok(())
     }
 
-    fn scroll(&mut self, axis: Axis, delta: i32) -> Result<(), &'static str> {
-        match axis {
-            Axis::X => self.enigo.mouse_scroll_x(delta),
-            Axis::Y => {
-                // Handle https://github.com/enigo-rs/enigo/issues/117
-                let final_delta = if cfg!(windows) { delta } else { -delta };
-                self.enigo.mouse_scroll_y(final_delta)
-            }
-        }
+    fn scroll(&mut self, axis: Axis, delta: i32) -> anyhow::Result<()> {
+        let enigo_axis = match axis {
+            Axis::X => enigo::Axis::Horizontal,
+            Axis::Y => enigo::Axis::Vertical,
+        };
+        self.enigo()?.scroll(delta, enigo_axis)?;
         Ok(())
     }
 
-    fn press(&mut self, button: MouseButton) -> Result<(), &'static str> {
-        self.enigo.mouse_down(convert_button_to_enigo(button));
+    fn press(&mut self, button: MouseButton) -> anyhow::Result<()> {
+        self.enigo()?
+            .button(convert_button_to_enigo(button), Direction::Press)?;
         Ok(())
     }
 
-    fn release(&mut self, button: MouseButton) -> Result<(), &'static str> {
-        self.enigo.mouse_up(convert_button_to_enigo(button));
+    fn release(&mut self, button: MouseButton) -> anyhow::Result<()> {
+        self.enigo()?
+            .button(convert_button_to_enigo(button), Direction::Release)?;
         Ok(())
     }
 
-    fn is_pressed(&self, button: MouseButton) -> Result<bool, &'static str> {
+    fn is_pressed(&self, button: MouseButton) -> anyhow::Result<bool> {
         let mouse_state = self
             .device_state
             .as_ref()
-            .ok_or("macOS accessibility permissions not granted")?
+            .context("macOS accessibility permissions not granted")?
             .query_pointer();
         let button_index = convert_button_to_device_query(button);
         let pressed = mouse_state
             .button_pressed
             .get(button_index)
-            .ok_or("couldn't get button")?;
+            .context("couldn't get button")?;
         Ok(*pressed)
     }
 }
@@ -150,10 +160,10 @@ fn convert_button_to_device_query(button: MouseButton) -> usize {
     }
 }
 
-fn convert_button_to_enigo(button: MouseButton) -> enigo::MouseButton {
+fn convert_button_to_enigo(button: MouseButton) -> enigo::Button {
     match button {
-        MouseButton::Left => enigo::MouseButton::Left,
-        MouseButton::Middle => enigo::MouseButton::Middle,
-        MouseButton::Right => enigo::MouseButton::Right,
+        MouseButton::Left => enigo::Button::Left,
+        MouseButton::Middle => enigo::Button::Middle,
+        MouseButton::Right => enigo::Button::Right,
     }
 }

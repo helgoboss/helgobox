@@ -942,7 +942,7 @@ fn process_dialogs<I: PotBrowserIntegration>(input: ProcessDialogsInput<I>, ctx:
             Err(e) => {
                 *input.change_dialog = Some(Some(Dialog::preset_crawler_failure(
                     "Sorry, capturing the mouse position failed.",
-                    e,
+                    e.to_string(),
                 )));
             }
         },

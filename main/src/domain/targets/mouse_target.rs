@@ -4,6 +4,7 @@ use crate::domain::{
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, convert_count_to_step_size,
 };
+use anyhow::bail;
 use base::enigo::EnigoMouse;
 use base::{Mouse, MouseCursorPosition};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target};
@@ -94,11 +95,12 @@ impl<M: Mouse> RealearnTarget for MouseTarget<M> {
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         use MouseActionType::*;
-        match self.action_type {
+        let result = match self.action_type {
             MoveTo | MoveBy => self.move_cursor(value),
             PressOrRelease => self.click_button(value),
             Scroll => self.scroll_wheel(value),
-        }
+        };
+        result.map_err(|_| "mouse control failed")
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
@@ -128,7 +130,7 @@ impl<M: Mouse> MouseTarget<M> {
         self.mouse.axis_size(self.axis)
     }
 
-    fn move_cursor(&mut self, value: ControlValue) -> Result<HitResponse, &'static str> {
+    fn move_cursor(&mut self, value: ControlValue) -> anyhow::Result<HitResponse> {
         let instruction = match value {
             // Move to pixel
             ControlValue::AbsoluteDiscrete(v) => MoveCursorInstruction::To(v.actual()),
@@ -167,17 +169,17 @@ impl<M: Mouse> MouseTarget<M> {
         Ok(HitResponse::processed_with_effect())
     }
 
-    fn scroll_wheel(&mut self, value: ControlValue) -> Result<HitResponse, &'static str> {
+    fn scroll_wheel(&mut self, value: ControlValue) -> anyhow::Result<HitResponse> {
         let delta = match value {
             ControlValue::RelativeContinuous(v) => v.to_discrete_increment().get(),
             ControlValue::RelativeDiscrete(v) => v.get(),
-            _ => return Err("needs to be controlled relatively"),
+            _ => bail!("needs to be controlled relatively"),
         };
         self.mouse.scroll(self.axis, delta)?;
         Ok(HitResponse::processed_with_effect())
     }
 
-    fn click_button(&mut self, value: ControlValue) -> Result<HitResponse, &'static str> {
+    fn click_button(&mut self, value: ControlValue) -> anyhow::Result<HitResponse> {
         if value.is_on() {
             self.mouse.press(self.button)?;
         } else {
