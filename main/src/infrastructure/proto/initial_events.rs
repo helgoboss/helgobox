@@ -98,6 +98,18 @@ pub fn create_initial_instance_updates(
                 ));
             }
         }
+        // Check REAPER preference "Stop/repeat playback at and of project"
+        if let Ok(var) = Reaper::get().get_preference_ref::<i32>("audiocloseinactive") {
+            let value = *var;
+            if value > 0 {
+                let msg = "You have enabled the REAPER preference \"Options → Preferences/Settings... → Audio → Close audio device when stopped and application is inactive\". This prevents Playtime from playing clips when REAPER playback is stopped and the REAPER window is not in the foreground. For background playback, we highly recommend disabling this option.";
+                warnings.push(Update::warning(
+                    Severity::High,
+                    Some(Scope::Playtime),
+                    msg.to_string(),
+                ));
+            }
+        }
     }
     create(
         fixed_instance_updates
