@@ -90,17 +90,7 @@ impl Mouse for EnigoMouse {
     }
 
     fn cursor_position(&self) -> anyhow::Result<MouseCursorPosition> {
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
         let (x, y) = self.enigo()?.location()?;
-        #[cfg(target_os = "linux")]
-        let (x, y) = {
-            let device_state = self
-                .device_state
-                .as_ref()
-                .expect("DeviceState should always work on Linux")
-                .query_pointer();
-            (device_state.coords.0, device_state.coords.1)
-        };
         Ok(MouseCursorPosition::new(x.max(0) as u32, y.max(0) as u32))
     }
 
