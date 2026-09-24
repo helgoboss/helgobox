@@ -3301,8 +3301,6 @@ dependencies = [
 [[package]]
 name = "helgoboss-midi"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc8b9091737ce4a801c6248f600f2f787c16722890daf82187381e65d23214c7"
 dependencies = [
  "derive_more",
  "doc-comment",
@@ -5462,6 +5460,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordered-float"
+version = "5.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c7c9e0d9b23589f26070720bac724174bfec1083e82f7854cdd0267518343c0"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "ordered-multimap"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5810,7 +5817,9 @@ dependencies = [
  "libc",
  "nanoid",
  "num",
+ "num_enum 0.7.2",
  "once_cell",
+ "ordered-float 5.5.0",
  "path-slash",
  "pathdiff",
  "playtime-api",
@@ -7282,7 +7291,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3a1a3341211875ef120e117ea7fd5228530ae7e7036a779fdc9117be6b3282c"
 dependencies = [
- "ordered-float",
+ "ordered-float 2.10.1",
  "serde",
 ]
 

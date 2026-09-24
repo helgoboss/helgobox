@@ -1,8 +1,8 @@
 use helgoboss_learn::{MidiSourceValue, RawMidiEvent, SourceCharacter};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessageScanner, ControllerNumber,
-    PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage, ShortMessageFactory,
-    StructuredShortMessage, U7,
+    PollingParameterNumberMessageScanner, RawShortMessage, ScanOutcome, ShortMessage,
+    ShortMessageFactory, StructuredShortMessage, U7,
 };
 use reaper_medium::MidiInputDeviceId;
 use std::cmp::Ordering;
@@ -127,7 +127,7 @@ impl MidiScanner {
                 return res;
             }
         }
-        if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&msg) {
+        if let ScanOutcome::Complete(cc14_msg) = self.cc_14_bit_scanner.feed(&msg) {
             let res = self.feed(
                 MidiSourceValue::<RawShortMessage>::ControlChange14Bit(cc14_msg),
                 dev_id,
@@ -365,21 +365,23 @@ mod tests {
             // Message 1
             let msg_1 = control_change(1, 99, 0);
             let nrpn_1 = nrpn_scanner.feed(&msg_1);
-            assert_eq!(nrpn_1, None);
+            assert_eq!(nrpn_1, ScanOutcome::Consumed);
             let source_1 = source_scanner.feed(Plain(msg_1), None);
             // Message 2
             let msg_2 = control_change(1, 98, 99);
             let nrpn_2 = nrpn_scanner.feed(&msg_2);
             let source_2 = source_scanner.feed(Plain(msg_1), None);
-            assert_eq!(nrpn_2, None);
+            assert_eq!(nrpn_2, ScanOutcome::Consumed);
             // Message 3
             let msg_3 = control_change(1, 38, 3);
             let nrpn_3 = nrpn_scanner.feed(&msg_3);
-            assert_eq!(nrpn_3, None);
+            assert_eq!(nrpn_3, ScanOutcome::Consumed);
             let source_3 = source_scanner.feed(Plain(msg_3), None);
             // Message 4
             let msg_4 = control_change(1, 6, 2);
-            let nrpn_4 = nrpn_scanner.feed(&msg_4).unwrap();
+            let ScanOutcome::Complete(nrpn_4) = nrpn_scanner.feed(&msg_4) else {
+                panic!("nrpn_4 should be a complete NRPN message")
+            };
             assert_eq!(
                 nrpn_4,
                 ParameterNumberMessage::non_registered_14_bit(channel(1), u14(99), u14(259))

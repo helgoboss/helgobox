@@ -1,4 +1,3 @@
-use crate::infrastructure::ui::help::MappingTopic::CopyMapping;
 use derive_more::Display;
 use helgoboss_learn::ModeParameter;
 use include_dir::{Dir, include_dir};

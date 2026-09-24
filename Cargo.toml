@@ -47,6 +47,7 @@ helgoboss-midi = { version = "0.4", features = ["serde", "serde_repr"] }
 helgoboss-license-api = { git = "https://github.com/helgoboss/helgoboss-license-api" }
 
 # 3rd-party
+ordered-float = "5.5.0"
 scopeguard = "1.1.0"
 rxrust = { git = "https://github.com/rxRust/rxRust", rev = "349e50b3197e05926e2378ef8fc45cb67ad43b83" }
 indexmap = "2.1.0"
@@ -251,6 +252,9 @@ debug = 1
 # We need to use our on "vst" crate that contains a bunch of improvements
 vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param-props" }
 #vst = { path = "../vst-rs" }
+
+# This is for temporary development with local helgoboss-midi
+helgoboss-midi = { path = "../helgoboss-midi" }
 
 # This is for temporary development with local reaper-rs.
 #[patch.'https://github.com/helgoboss/reaper-rs.git']

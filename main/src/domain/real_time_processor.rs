@@ -12,8 +12,8 @@ use crate::domain::{
 use helgoboss_learn::{ControlValue, MidiSourceValue, ModeControlResult, RawMidiEvent};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
-    ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
-    ShortMessageFactory, ShortMessageType,
+    ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ScanOutcome,
+    ShortMessage, ShortMessageFactory, ShortMessageType,
 };
 use reaper_high::{MidiOutputDevice, Reaper};
 use reaper_medium::{
@@ -626,7 +626,7 @@ impl RealTimeProcessor {
                                 );
                                 nrpn_match_outcome.upgrade_from(child_match_outcome);
                             }
-                            let cc14_match_outcome = if let Some(cc14_msg) =
+                            let cc14_match_outcome = if let ScanOutcome::Complete(cc14_msg) =
                                 self.cc_14_bit_scanner.feed(&short_msg)
                             {
                                 let cc14_event = event
