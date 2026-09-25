@@ -697,7 +697,7 @@ dependencies = [
  "ascii",
  "camino",
  "crossbeam-channel",
- "derive_more",
+ "derive_more 0.99.16",
  "either",
  "enigo",
  "enum-map",
@@ -1431,6 +1431,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "convert_case"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "633458d4ef8c78b72454de2d54fd6ab2e60f9e02be22f3c6104cdc8a4e0fceb9"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "cookie-factory"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1895,6 +1904,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_more"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d751e9e49156b02b44f9c1815bcb94b984cdcc4396ecc32521c739452808b134"
+dependencies = [
+ "derive_more-impl",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "799a97264921d8623a957f6c3b9011f3b5492f557bbb7a5a19b7fa6d06ba8dcb"
+dependencies = [
+ "convert_case 0.10.0",
+ "proc-macro2",
+ "quote",
+ "rustc_version 0.4.0",
+ "syn 2.0.58",
+ "unicode-xid",
+]
+
+[[package]]
 name = "deunicode"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1972,12 +2004,6 @@ dependencies = [
  "socket2 0.5.5",
  "windows-sys 0.48.0",
 ]
-
-[[package]]
-name = "doc-comment"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "downcast-rs"
@@ -2693,7 +2719,7 @@ checksum = "24ef4f8ad0689d3a86bb483650422d72e6f79a37fdc83ed5426cafe96b776ce1"
 dependencies = [
  "bytecount",
  "cfg-if",
- "derive_more",
+ "derive_more 0.99.16",
  "full_moon_derive",
  "logos 0.12.1",
  "paste",
@@ -3250,14 +3276,14 @@ dependencies = [
  "base",
  "bytemuck",
  "derivative",
- "derive_more",
+ "derive_more 0.99.16",
  "helgoboss-midi",
  "image 0.25.2",
  "lazycell",
  "logos 0.13.0",
  "nom 7.1.3",
  "num",
- "num_enum 0.7.2",
+ "num_enum 0.7.6",
  "once_cell",
  "partial-min-max",
  "reaper-common-types",
@@ -3301,10 +3327,10 @@ dependencies = [
 [[package]]
 name = "helgoboss-midi"
 version = "0.4.0"
+source = "git+https://github.com/helgoboss/helgoboss-midi.git#a100631ab41e674532812d8d4acf05cd81ddd960"
 dependencies = [
- "derive_more",
- "doc-comment",
- "num_enum 0.5.4",
+ "derive_more 2.1.1",
+ "num_enum 0.7.6",
  "serde",
  "serde_repr",
 ]
@@ -3335,7 +3361,7 @@ dependencies = [
  "chrono",
  "crossbeam-channel",
  "derivative",
- "derive_more",
+ "derive_more 0.99.16",
  "dirs",
  "dns-lookup",
  "edit",
@@ -3372,7 +3398,7 @@ dependencies = [
  "mlua",
  "nanoid",
  "nom 7.1.3",
- "num_enum 0.7.2",
+ "num_enum 0.7.6",
  "once_cell",
  "open",
  "palette",
@@ -3449,14 +3475,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "darling 0.24.1",
- "derive_more",
+ "derive_more 0.99.16",
  "enum-map",
  "enumset",
  "heck 0.4.1",
  "helgoboss-license-api",
  "helgobox-macros",
  "mlua",
- "num_enum 0.7.2",
+ "num_enum 0.7.6",
  "playtime-api",
  "reaper-low",
  "semver 1.0.17",
@@ -3480,7 +3506,7 @@ dependencies = [
 name = "helgobox-dialogs"
 version = "0.1.0"
 dependencies = [
- "derive_more",
+ "derive_more 0.99.16",
  "indexmap 2.14.1",
 ]
 
@@ -5010,11 +5036,12 @@ dependencies = [
 
 [[package]]
 name = "num_enum"
-version = "0.7.2"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02339744ee7253741199f897151b38e72257d13802d4ee837285cc2990a90845"
+checksum = "5d0bca838442ec211fa11de3a8b0e0e8f3a4522575b5c4c06ed722e005036f26"
 dependencies = [
- "num_enum_derive 0.7.2",
+ "num_enum_derive 0.7.6",
+ "rustversion",
 ]
 
 [[package]]
@@ -5031,9 +5058,9 @@ dependencies = [
 
 [[package]]
 name = "num_enum_derive"
-version = "0.7.2"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "681030a937600a36906c185595136d26abfebb4aa9c65701cefcaf8578bb982b"
+checksum = "680998035259dcfcafe653688bf2aa6d3e2dc05e98be6ab46afb089dc84f1df8"
 dependencies = [
  "proc-macro-crate 3.5.0",
  "proc-macro2",
@@ -5773,10 +5800,10 @@ dependencies = [
  "base64 0.21.2",
  "camino",
  "chrono",
- "derive_more",
+ "derive_more 0.99.16",
  "helgobox-macros",
  "nanoid",
- "num_enum 0.7.2",
+ "num_enum 0.7.6",
  "reaper-common-types",
  "reaper-low",
  "rmp-serde",
@@ -5798,7 +5825,7 @@ dependencies = [
  "chrono",
  "crossbeam-channel",
  "derivative",
- "derive_more",
+ "derive_more 0.99.16",
  "ebur128",
  "either",
  "enumflags2",
@@ -5817,7 +5844,7 @@ dependencies = [
  "libc",
  "nanoid",
  "num",
- "num_enum 0.7.2",
+ "num_enum 0.7.6",
  "once_cell",
  "ordered-float 5.5.0",
  "path-slash",
@@ -5914,7 +5941,7 @@ dependencies = [
  "camino",
  "chrono",
  "derivative",
- "derive_more",
+ "derive_more 0.99.16",
  "dirs",
  "either",
  "enum-map",
@@ -6427,7 +6454,7 @@ name = "realearn-csi"
 version = "0.1.0"
 dependencies = [
  "base",
- "derive_more",
+ "derive_more 0.99.16",
  "helgoboss-midi",
  "helgobox-api",
  "nom 7.1.3",
@@ -6490,7 +6517,7 @@ source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#659b22bfb
 dependencies = [
  "c_str_macro",
  "cc 1.1.10",
- "derive_more",
+ "derive_more 0.99.16",
  "downcast-rs",
  "fragile",
  "libc",
@@ -6515,7 +6542,7 @@ version = "0.1.0"
 source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#659b22bfbc34bf4a5a40902e6fdf60ccfd34ca23"
 dependencies = [
  "camino",
- "derive_more",
+ "derive_more 0.99.16",
  "enumflags2",
  "helgoboss-midi",
  "libc",
@@ -8746,6 +8773,12 @@ name = "unicode-width"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
+
+[[package]]
+name = "unicode-xid"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "universal-hash"

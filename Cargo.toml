@@ -254,7 +254,7 @@ vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param
 #vst = { path = "../vst-rs" }
 
 # This is for temporary development with local helgoboss-midi
-helgoboss-midi = { path = "../helgoboss-midi" }
+helgoboss-midi = { git = "https://github.com/helgoboss/helgoboss-midi.git" }
 
 # This is for temporary development with local reaper-rs.
 #[patch.'https://github.com/helgoboss/reaper-rs.git']
