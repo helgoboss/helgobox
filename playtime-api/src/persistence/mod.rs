@@ -545,7 +545,8 @@ fn looped_default() -> bool {
 }
 
 fn allow_tempo_detection_recording_default() -> bool {
-    true
+    // Changed from true to false in 2.19.0-pre.3
+    false
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
