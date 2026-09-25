@@ -232,6 +232,10 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             context.rect(283, 116, 127, 30),
         ) + WS_VSCROLL
             + WS_TABSTOP,
+        edittext(
+            ids.named_id("ID_TARGET_LINE_2_EDIT_CONTROL_2"),
+            context.rect(412, 115, 26, 14),
+        ) + ES_AUTOHSCROLL,
         pushbutton(
             "Pick",
             ids.named_id("ID_TARGET_LINE_2_BUTTON"),

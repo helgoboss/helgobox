@@ -3472,19 +3472,33 @@ impl<'a> MutableMappingPanel<'a> {
                     ));
                 }
                 _ if self.mapping.target_model.supports_track() => {
-                    let project = self
-                        .session
-                        .processor_context()
-                        .project_or_current_project();
-                    let i = combo.selected_combo_box_item_index();
-                    if let Some(track) = project.track_by_index(i as _) {
-                        self.change_target_with_closure(Some(combo_id), |ctx| {
-                            ctx.mapping.target_model.set_concrete_track(
-                                ConcreteTrackInstruction::ByIdWithTrack(track),
-                                false,
-                                true,
-                            )
-                        });
+                    match self.mapping.target_model.track_type() {
+                        VirtualTrackType::FromClipColumn => {
+                            let kind = combo
+                                .selected_combo_box_item_index()
+                                .try_into()
+                                .unwrap_or_default();
+                            let desc = PlaytimeColumnDescriptor::from_kind(kind);
+                            self.change_mapping(MappingCommand::ChangeTarget(
+                                TargetCommand::SetPlaytimeColumn(desc),
+                            ));
+                        }
+                        _ => {
+                            let project = self
+                                .session
+                                .processor_context()
+                                .project_or_current_project();
+                            let i = combo.selected_combo_box_item_index();
+                            if let Some(track) = project.track_by_index(i as _) {
+                                self.change_target_with_closure(Some(combo_id), |ctx| {
+                                    ctx.mapping.target_model.set_concrete_track(
+                                        ConcreteTrackInstruction::ByIdWithTrack(track),
+                                        false,
+                                        true,
+                                    )
+                                });
+                            }
+                        }
                     }
                 }
                 _ => {}
@@ -3743,6 +3757,24 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
+    fn handle_target_line_2_edit_control_2_change(&mut self) {
+        let edit_control_id = root::ID_TARGET_LINE_2_EDIT_CONTROL_2;
+        let control = self.view.require_control(edit_control_id);
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_track() => match self.mapping.target_model.track_type() {
+                    VirtualTrackType::FromClipColumn => {
+                        let text = control.text().unwrap_or_default();
+                        self.update_playtime_column_from_text(text, edit_control_id);
+                    }
+                    _ => {}
+                },
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
+        }
+    }
+
     fn handle_target_line_3_edit_control_change(&mut self) {
         let edit_control_id = root::ID_TARGET_LINE_3_EDIT_CONTROL;
         let control = self.view.require_control(edit_control_id);
@@ -3769,28 +3801,7 @@ impl<'a> MutableMappingPanel<'a> {
                 }
                 ReaperTargetType::PlaytimeColumnAction => {
                     let text = control.text().unwrap_or_default();
-                    match self.mapping.target_model.playtime_column() {
-                        PlaytimeColumnDescriptor::Active => {}
-                        PlaytimeColumnDescriptor::ByIndex(_) => {
-                            let position: usize = text.parse().unwrap_or_default();
-                            self.change_mapping_with_initiator(
-                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeColumn(
-                                    PlaytimeColumnDescriptor::ByIndex(ColumnAddress {
-                                        index: position.saturating_sub(1),
-                                    }),
-                                )),
-                                Some(edit_control_id),
-                            );
-                        }
-                        PlaytimeColumnDescriptor::Dynamic { .. } => {
-                            self.change_mapping_with_initiator(
-                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeColumn(
-                                    PlaytimeColumnDescriptor::Dynamic { expression: text },
-                                )),
-                                Some(edit_control_id),
-                            );
-                        }
-                    }
+                    self.update_playtime_column_from_text(text, edit_control_id);
                 }
                 ReaperTargetType::PlaytimeRowAction => {
                     let text = control.text().unwrap_or_default();
@@ -3878,6 +3889,31 @@ impl<'a> MutableMappingPanel<'a> {
                 _ => {}
             },
             TargetCategory::Virtual => {}
+        }
+    }
+
+    fn update_playtime_column_from_text(&mut self, text: String, edit_control_id: u32) {
+        match self.mapping.target_model.playtime_column() {
+            PlaytimeColumnDescriptor::Active => {}
+            PlaytimeColumnDescriptor::ByIndex(_) => {
+                let position: usize = text.parse().unwrap_or_default();
+                self.change_mapping_with_initiator(
+                    MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeColumn(
+                        PlaytimeColumnDescriptor::ByIndex(ColumnAddress {
+                            index: position.saturating_sub(1),
+                        }),
+                    )),
+                    Some(edit_control_id),
+                );
+            }
+            PlaytimeColumnDescriptor::Dynamic { .. } => {
+                self.change_mapping_with_initiator(
+                    MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeColumn(
+                        PlaytimeColumnDescriptor::Dynamic { expression: text },
+                    )),
+                    Some(edit_control_id),
+                );
+            }
         }
     }
 
@@ -5271,34 +5307,39 @@ impl<'a> ImmutableMappingPanel<'a> {
                     );
                 }
                 _ if self.target.supports_track() => {
-                    if matches!(
-                        self.target.track_type(),
-                        VirtualTrackType::ById | VirtualTrackType::ByIdOrName
-                    ) {
-                        combo.show();
-                        let context = self.session.extended_context();
-                        let project = context.context().project_or_current_project();
-                        // Fill
-                        combo.fill_combo_box_indexed(track_combo_box_entries(project));
-                        // Set
-                        if let Some(virtual_track) = self.target.virtual_track() {
-                            if let Some(resolved_track) = virtual_track
-                                .resolve(context, self.mapping.compartment())
-                                .ok()
-                                .and_then(|tracks| tracks.into_iter().next())
-                            {
-                                let i = resolved_track.index().unwrap();
-                                combo.select_combo_box_item_by_index(i as _);
+                    match self.target.track_type() {
+                        VirtualTrackType::ById | VirtualTrackType::ByIdOrName => {
+                            combo.show();
+                            let context = self.session.extended_context();
+                            let project = context.context().project_or_current_project();
+                            // Fill
+                            combo.fill_combo_box_indexed(track_combo_box_entries(project));
+                            // Set
+                            if let Some(virtual_track) = self.target.virtual_track() {
+                                if let Some(resolved_track) = virtual_track
+                                    .resolve(context, self.mapping.compartment())
+                                    .ok()
+                                    .and_then(|tracks| tracks.into_iter().next())
+                                {
+                                    let i = resolved_track.index().unwrap();
+                                    combo.select_combo_box_item_by_index(i as _);
+                                } else {
+                                    combo.select_new_combo_box_item(
+                                        get_non_present_virtual_track_label(&virtual_track),
+                                    );
+                                }
                             } else {
-                                combo.select_new_combo_box_item(
-                                    get_non_present_virtual_track_label(&virtual_track),
-                                );
+                                combo.select_new_combo_box_item("<None>");
                             }
-                        } else {
-                            combo.select_new_combo_box_item("<None>");
                         }
-                    } else {
-                        combo.hide();
+                        VirtualTrackType::FromClipColumn => {
+                            combo.show();
+                            combo.fill_combo_box_indexed(PlaytimeColumnDescriptorKind::iter());
+                            combo.select_combo_box_item_by_index(
+                                self.target.playtime_column().kind().into(),
+                            );
+                        }
+                        _ => combo.hide(),
                     }
                 }
                 _ => {
@@ -5373,6 +5414,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_line_2_combo_box_1();
         self.invalidate_target_line_2_combo_box_2(initiator);
         self.invalidate_target_line_2_edit_control(initiator);
+        self.invalidate_target_line_2_edit_control_2(initiator);
         self.invalidate_target_line_2_button();
     }
 
@@ -5566,6 +5608,36 @@ impl<'a> ImmutableMappingPanel<'a> {
         };
         control.set_text_or_hide(text);
         control.set_enabled(!read_only);
+    }
+
+    fn invalidate_target_line_2_edit_control_2(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_TARGET_LINE_2_EDIT_CONTROL_2) {
+            return;
+        }
+        let c = self
+            .view
+            .require_control(root::ID_TARGET_LINE_2_EDIT_CONTROL_2);
+        let (value_text, read_only) = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_track() => match self.target.track_type() {
+                    VirtualTrackType::FromClipColumn => {
+                        let text = match self.target.playtime_column() {
+                            PlaytimeColumnDescriptor::Active => None,
+                            PlaytimeColumnDescriptor::ByIndex(a) => Some((a.index + 1).to_string()),
+                            PlaytimeColumnDescriptor::Dynamic { expression } => {
+                                Some(expression.clone())
+                            }
+                        };
+                        (text, false)
+                    }
+                    _ => (None, false),
+                },
+                _ => (None, false),
+            },
+            _ => (None, false),
+        };
+        c.set_text_or_hide(value_text);
+        c.set_enabled(!read_only);
     }
 
     fn invalidate_target_line_3_edit_control(&self, initiator: Option<u32>) {
@@ -7495,6 +7567,9 @@ impl View for MappingPanel {
             // Target
             root::ID_TARGET_LINE_2_EDIT_CONTROL => {
                 view.write(|p| p.handle_target_line_2_edit_control_change())
+            }
+            root::ID_TARGET_LINE_2_EDIT_CONTROL_2 => {
+                view.write(|p| p.handle_target_line_2_edit_control_2_change())
             }
             root::ID_TARGET_LINE_3_EDIT_CONTROL => {
                 view.write(|p| p.handle_target_line_3_edit_control_change())
