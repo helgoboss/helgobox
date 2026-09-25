@@ -9,10 +9,10 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::fs;
 
+use anyhow::anyhow;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-
 use url::Url;
 
 use crate::infrastructure::server::grpc::start_grpc_server;
@@ -132,7 +132,7 @@ impl RealearnServer {
     }
 
     /// Idempotent
-    pub fn start(&mut self, runtime: &Runtime, services: Services) -> Result<(), String> {
+    pub fn start(&mut self, runtime: &Runtime, services: Services) -> anyhow::Result<()> {
         if self.state.is_starting_or_running() {
             return Ok(());
         }
@@ -405,7 +405,7 @@ impl PortType {
     }
 }
 
-fn check_port(port_type: PortType, port: u16) -> Result<(), String> {
+fn check_port(port_type: PortType, port: u16) -> anyhow::Result<()> {
     if !local_port_available(port) {
         let msg = format!(
             r#"{port_type_display_label} port {port} is not available. Possible causes and solutions:
@@ -432,7 +432,7 @@ Set another {port_type_display_label} port in "realearn.ini", for example:
             port = port,
             alternate_port = port_type.alternate_port_example(),
         );
-        return Err(msg);
+        return Err(anyhow!(msg));
     }
     Ok(())
 }

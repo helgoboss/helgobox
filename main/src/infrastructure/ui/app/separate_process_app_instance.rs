@@ -1,9 +1,11 @@
 use crate::domain::InstanceId;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::Reply;
+use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{AppCallback, AppInstance, AppPage, InstanceRef};
 use anyhow::bail;
-use reaper_medium::Hwnd;
+use reaper_high::Reaper;
+use reaper_medium::{Hwnd, MessageBoxResult, MessageBoxType};
 use std::process::Child;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -55,6 +57,19 @@ impl AppInstance for SeparateProcessAppInstance {
         owning_window: Window,
         location: Option<AppPage>,
     ) -> anyhow::Result<()> {
+        let backbone_shell = BackboneShell::get();
+        if !backbone_shell.server_is_running() {
+            let msg = "On this system, the Helgobox App (the fancy user interface for Playtime and ReaLearn Projection) only works while the Helgobox server is active. If you press OK, the server will start automatically and remain enabled in the future.\n\nYou can disable it at any time in the Helgobox Plug-In by choosing Menu → Server → Disable and stop.";
+            let result = Reaper::get().medium_reaper().show_message_box(
+                msg,
+                "Helgobox",
+                MessageBoxType::OkayCancel,
+            );
+            if result == MessageBoxResult::Cancel {
+                return Ok(());
+            }
+            backbone_shell.start_server_persistently()?;
+        }
         // App already running. Just need to show the window.
         if let Some(s) = &mut self.running_state {
             BackboneShell::get()

@@ -1123,16 +1123,16 @@ impl BackboneShell {
         self.server.borrow().is_running()
     }
 
-    pub fn start_server_persistently(&self) -> Result<(), String> {
-        let res = self.with_async_runtime(|runtime| {
+    pub fn start_server_persistently(&self) -> anyhow::Result<()> {
+        self.with_async_runtime(|runtime| {
             let start_result = self
                 .server
                 .borrow_mut()
                 .start(runtime, self.create_services());
             self.change_config(BackboneConfig::enable_server);
             start_result
-        });
-        res.unwrap_or_else(|e| Err(e.to_string()))
+        })??;
+        Ok(())
     }
 
     pub fn stop_server_persistently(&self) {
@@ -2547,9 +2547,9 @@ fn build_detailed_version() -> String {
     format!("v{PKG_VERSION}/{CFG_TARGET_ARCH}{debug_mark}{dirty_mark} ({date_info})")
 }
 
-pub fn warn_about_failed_server_start(info: String) {
+pub fn warn_about_failed_server_start(error: anyhow::Error) {
     Reaper::get().show_console_msg(format!(
-        "Couldn't start ReaLearn projection server because {info}"
+        "Couldn't start ReaLearn projection server because {error}"
     ))
 }
 
