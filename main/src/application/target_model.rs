@@ -65,8 +65,8 @@ use helgobox_api::persistence::{
     ActionScope, Axis, BrowseTracksMode, ClipColumnTrackContext, FxChainDescriptor,
     FxDescriptorCommons, FxToolAction, InputDeviceMidiDestination, InstanceTagKind,
     LearnTargetMappingModification, LearnableTargetKind, MappingModification,
-    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
-    MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeMatrixAction,
+    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MatrixScrollBehavior, MonitoringMode,
+    MouseAction, MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeMatrixAction,
     PlaytimeRowAction, PlaytimeRowDescriptor, PlaytimeSlotDescriptor, PlaytimeSlotManagementAction,
     PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior, SendMidiDestination,
     SetTargetToLastTouchedMappingModification, TargetTouchCause, TrackDescriptorCommons,
@@ -155,6 +155,7 @@ pub enum TargetCommand {
     SetOscDevId(Option<OscDeviceId>),
     SetMouseActionType(MouseActionType),
     SetAxis(Axis),
+    SetMatrixScrollBehavior(MatrixScrollBehavior),
     SetMouseButton(MouseButton),
     SetPlaytimeSlot(PlaytimeSlotDescriptor),
     SetPlaytimeColumn(PlaytimeColumnDescriptor),
@@ -258,6 +259,7 @@ pub enum TargetProp {
     OscDevId,
     MouseActionType,
     Axis,
+    MatrixScrollBehavior,
     MouseButton,
     PlaytimeSlot,
     PlaytimeColumn,
@@ -581,6 +583,10 @@ impl Change<'_> for TargetModel {
                 self.axis = v;
                 One(P::Axis)
             }
+            C::SetMatrixScrollBehavior(v) => {
+                self.matrix_scroll_behavior = v;
+                One(P::MatrixScrollBehavior)
+            }
             C::SetMouseButton(v) => {
                 self.mouse_button = v;
                 One(P::MouseButton)
@@ -793,6 +799,7 @@ pub struct TargetModel {
     // # For mouse target
     mouse_action_type: MouseActionType,
     axis: Axis,
+    matrix_scroll_behavior: MatrixScrollBehavior,
     mouse_button: MouseButton,
     // # For clip targets
     playtime_slot: PlaytimeSlotDescriptor,
@@ -942,6 +949,7 @@ impl Default for TargetModel {
             osc_dev_id: None,
             mouse_action_type: Default::default(),
             axis: Default::default(),
+            matrix_scroll_behavior: Default::default(),
             mouse_button: Default::default(),
             poll_for_feedback: true,
             instance_tag_kind: Default::default(),
@@ -1139,6 +1147,10 @@ impl TargetModel {
 
     pub fn axis(&self) -> Axis {
         self.axis
+    }
+
+    pub fn matrix_scroll_behavior(&self) -> MatrixScrollBehavior {
+        self.matrix_scroll_behavior
     }
 
     pub fn mouse_button(&self) -> MouseButton {
@@ -2606,7 +2618,10 @@ impl TargetModel {
                         },
                     ),
                     PlaytimeBrowseCells => UnresolvedReaperTarget::PlaytimeBrowseCells(
-                        crate::domain::UnresolvedPlaytimeBrowseCellsTarget { axis: self.axis },
+                        crate::domain::UnresolvedPlaytimeBrowseCellsTarget {
+                            axis: self.axis,
+                            scroll_behavior: self.matrix_scroll_behavior,
+                        },
                     ),
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot(
                         UnresolvedLoadMappingSnapshotTarget {

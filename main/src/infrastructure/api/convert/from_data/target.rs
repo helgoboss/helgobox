@@ -341,6 +341,7 @@ fn convert_real_target(
             T::PlaytimeBrowseCells(helgobox_api::persistence::PlaytimeBrowseCellsTarget {
                 commons,
                 axis: data.axis,
+                scroll_behavior: data.matrix_scroll_behavior,
             })
         }
         PlaytimeSlotSeek => {

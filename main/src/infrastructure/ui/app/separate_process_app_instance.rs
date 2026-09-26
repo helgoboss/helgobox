@@ -1,7 +1,6 @@
 use crate::domain::InstanceId;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::Reply;
-use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{AppCallback, AppInstance, AppPage, InstanceRef};
 use anyhow::bail;
 use reaper_high::Reaper;

@@ -927,6 +927,8 @@ pub struct PlaytimeBrowseCellsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub axis: Axis,
+    #[serde(default)]
+    pub scroll_behavior: MatrixScrollBehavior,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
@@ -1403,6 +1405,29 @@ pub struct VirtualTarget {
 pub enum AutomationModeOverride {
     Bypass,
     Mode { mode: AutomationMode },
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    derive_more::Display,
+    strum::EnumIter,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+)]
+#[repr(usize)]
+pub enum MatrixScrollBehavior {
+    #[display(fmt = "Ensure visible")]
+    #[default]
+    EnsureVisible,
+    #[display(fmt = "Force top-left")]
+    ForceTopLeft,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]

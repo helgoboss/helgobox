@@ -3,11 +3,12 @@ use crate::domain::{
     TargetTypeDef, UnresolvedReaperTargetDef,
 };
 
-use helgobox_api::persistence::Axis;
+use helgobox_api::persistence::{Axis, MatrixScrollBehavior};
 
 #[derive(Debug)]
 pub struct UnresolvedPlaytimeBrowseCellsTarget {
     pub axis: Axis,
+    pub scroll_behavior: MatrixScrollBehavior,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedPlaytimeBrowseCellsTarget {
@@ -16,7 +17,10 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeBrowseCellsTarget {
         _: ExtendedProcessorContext,
         _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        let target = PlaytimeBrowseCellsTarget { axis: self.axis };
+        let target = PlaytimeBrowseCellsTarget {
+            axis: self.axis,
+            scroll_behavior: self.scroll_behavior,
+        };
         Ok(vec![ReaperTarget::PlaytimeBrowseCells(target)])
     }
 }
@@ -24,6 +28,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeBrowseCellsTarget {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlaytimeBrowseCellsTarget {
     axis: Axis,
+    pub scroll_behavior: MatrixScrollBehavior,
 }
 
 pub const PLAYTIME_BROWSE_CELLS_TARGET: TargetTypeDef = TargetTypeDef {
@@ -53,7 +58,7 @@ mod playtime_impl {
         convert_count_to_step_size, convert_unit_to_discrete_value_with_none,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
-    use helgobox_api::persistence::Axis;
+    use helgobox_api::persistence::{Axis, MatrixScrollBehavior};
     use playtime_api::runtime::CellAddress;
     #[cfg(feature = "playtime")]
     use playtime_clip_engine::base::ClipMatrixEvent;
@@ -129,6 +134,9 @@ mod playtime_impl {
             matrix
                 .activate_cell(new_cell)
                 .map_err(|_| "cell doesn't exist")?;
+            if self.scroll_behavior == MatrixScrollBehavior::ForceTopLeft {
+                matrix.scroll_active_cell_to_top_left();
+            }
             Ok(HitResponse::processed_with_effect())
         }
 

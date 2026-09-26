@@ -819,6 +819,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::PlaytimeBrowseCells,
             axis: d.axis,
+            matrix_scroll_behavior: d.scroll_behavior,
             ..init(d.commons)
         },
         Target::SendMidi(d) => {

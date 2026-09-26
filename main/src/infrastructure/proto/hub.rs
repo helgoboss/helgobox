@@ -371,6 +371,15 @@ mod playtime_impl {
                     ClipMatrixEvent::ActiveCellChanged => Some(OccasionalMatrixUpdate {
                         update: Some(occasional_matrix_update::Update::active_cell(matrix)),
                     }),
+                    ClipMatrixEvent::RequestScrollActiveCellToTopLeft => {
+                        Some(OccasionalMatrixUpdate {
+                            update: Some(
+                                occasional_matrix_update::Update::RequestScrollActiveCellToTopLeft(
+                                    (),
+                                ),
+                            ),
+                        })
+                    }
                     ClipMatrixEvent::ControlUnitsChanged => Some(OccasionalMatrixUpdate {
                         update: Some(occasional_matrix_update::Update::control_unit_config(
                             matrix,

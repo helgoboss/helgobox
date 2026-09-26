@@ -29,11 +29,12 @@ use helgoboss_learn::{
 };
 use helgobox_api::persistence::{
     ActionScope, Axis, BrowseTracksMode, FxDescriptor, FxToolAction, InstanceTagKind,
-    LearnableTargetKind, MidiScriptKind, MonitoringMode, MouseButton, PlaytimeColumnAction,
-    PlaytimeColumnDescriptor, PlaytimeColumnDescriptorKind, PlaytimeMatrixAction,
-    PlaytimeRowAction, PlaytimeRowDescriptor, PlaytimeRowDescriptorKind, PlaytimeSlotDescriptor,
-    PlaytimeSlotDescriptorKind, PlaytimeSlotManagementAction, PlaytimeSlotTransportAction,
-    PotFilterKind, SeekBehavior, TrackToolAction, VirtualControlElementCharacter,
+    LearnableTargetKind, MatrixScrollBehavior, MidiScriptKind, MonitoringMode, MouseButton,
+    PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeColumnDescriptorKind,
+    PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeRowDescriptor, PlaytimeRowDescriptorKind,
+    PlaytimeSlotDescriptor, PlaytimeSlotDescriptorKind, PlaytimeSlotManagementAction,
+    PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior, TrackToolAction,
+    VirtualControlElementCharacter,
 };
 use swell_ui::{
     DeviceContext, DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView,
@@ -565,6 +566,9 @@ impl MappingPanel {
                                             }
                                             P::Axis => {
                                                 view.invalidate_target_line_3(initiator);
+                                            }
+                                            P::MatrixScrollBehavior => {
+                                                view.invalidate_target_line_2(initiator);
                                             }
                                             P::MouseButton => {
                                                 view.invalidate_target_line_4(initiator);
@@ -3436,6 +3440,13 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetMappingModificationKind(v),
                     ));
                 }
+                ReaperTargetType::PlaytimeBrowseCells => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid matrix scroll behavior");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetMatrixScrollBehavior(v),
+                    ));
+                }
                 ReaperTargetType::PlaytimeMatrixAction => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid matrix action");
@@ -5031,6 +5042,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::BrowseGroup => Some("Group"),
                 ReaperTargetType::BrowseTracks => Some("Scope"),
                 ReaperTargetType::ModifyMapping => Some("Kind"),
+                ReaperTargetType::PlaytimeBrowseCells => Some("Scroll"),
                 ReaperTargetType::PlaytimeMatrixAction
                 | ReaperTargetType::PlaytimeRowAction
                 | ReaperTargetType::PlaytimeColumnAction
@@ -5263,6 +5275,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.fill_combo_box_indexed(MappingModificationKind::iter());
                     combo.select_combo_box_item_by_index(
                         self.mapping.target_model.mapping_modification_kind().into(),
+                    );
+                }
+                ReaperTargetType::PlaytimeBrowseCells => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(MatrixScrollBehavior::iter());
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.matrix_scroll_behavior().into(),
                     );
                 }
                 ReaperTargetType::PlaytimeMatrixAction => {

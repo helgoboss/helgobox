@@ -28,9 +28,9 @@ use base::hash_util::NonCryptoHashSet;
 use helgoboss_learn::{AbsoluteValue, Fraction, OscTypeTag, UnitValue};
 use helgobox_api::persistence::{
     ActionScope, Axis, BrowseTracksMode, FxToolAction, InstanceTagKind, LearnableTargetKind,
-    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
-    PotFilterKind, SeekBehavior, TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
-    VirtualControlElementCharacter,
+    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MatrixScrollBehavior, MonitoringMode,
+    MouseAction, PotFilterKind, SeekBehavior, TargetTouchCause, TargetValue, TrackScope,
+    TrackToolAction, VirtualControlElementCharacter,
 };
 use helgobox_api::persistence::{
     ClipColumnTrackContext, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeMatrixAction,
@@ -412,6 +412,12 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub axis: Axis,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub matrix_scroll_behavior: MatrixScrollBehavior,
     /// Not supported anymore since v2.12.0-pre.5
     #[serde(
         default,
@@ -651,6 +657,7 @@ impl TargetModelData {
             clip_matrix_action: model.playtime_matrix_action(),
             stop_column_if_slot_empty: model.stop_column_if_slot_empty(),
             axis: model.axis(),
+            matrix_scroll_behavior: model.matrix_scroll_behavior(),
             mouse_action: model.mouse_action(),
             pot_filter_item_kind: model.pot_filter_item_kind(),
             mapping_modification_kind: model.mapping_modification_kind(),
@@ -918,6 +925,7 @@ impl TargetModelData {
             // the axis model property is also used for other things.
             model.change(C::SetAxis(self.axis));
         }
+        model.change(C::SetMatrixScrollBehavior(self.matrix_scroll_behavior));
         model.change(C::SetTrackToolAction(self.track_tool_action));
         model.change(C::SetFxToolAction(self.fx_tool_action));
         // "Load mapping snapshot" stuff
