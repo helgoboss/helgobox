@@ -35,6 +35,7 @@ use helgobox_api::persistence::{
     FxChainDescriptor, FxDescriptorCommons, TrackDescriptorCommons, TrackScope,
 };
 use playtime_api::persistence::SlotAddress;
+use playtime_api::runtime::CellAddress;
 use reaper_high::{
     BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     SendPartnerType, Track, TrackRoute,
@@ -2272,7 +2273,7 @@ fn first_selected_track_scoped(
 fn additional_playtime_vars(
     context: ControlContext<'_>,
 ) -> impl Fn(&str, &[f64]) -> Option<f64> + '_ {
-    |name, _| match name {
+    move |name, _| match name {
         "control_unit_column_index" => Some(
             context
                 .unit
@@ -2287,6 +2288,30 @@ fn additional_playtime_vars(
                 .control_unit_top_left_corner()
                 .row_index as f64,
         ),
+        "active_cell_column_index" => {
+            get_playtime_matrix_active_cell_index(context, |addr| addr.column_index)
+        }
+        "active_cell_row_index" => {
+            get_playtime_matrix_active_cell_index(context, |addr| addr.row_index)
+        }
         _ => None,
+    }
+}
+
+fn get_playtime_matrix_active_cell_index(
+    context: ControlContext<'_>,
+    get_index: impl Fn(CellAddress) -> Option<usize>,
+) -> Option<f64> {
+    #[cfg(not(feature = "playtime"))]
+    {
+        None
+    }
+    #[cfg(feature = "playtime")]
+    {
+        let instance = context.instance.borrow();
+        let matrix = instance.get_playtime_matrix().ok()?;
+        let index = get_index(matrix.active_cell());
+        let output = index.map(|i| i as f64).unwrap_or(EXPRESSION_NONE_VALUE);
+        Some(output)
     }
 }
