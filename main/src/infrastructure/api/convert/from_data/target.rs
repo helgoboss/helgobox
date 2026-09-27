@@ -4,9 +4,9 @@ use crate::application::{
     VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
 use crate::domain::{
-    ActionInvocationType, AnyOnParameter, Exclusivity, FeedbackResolution, FxDisplayType,
-    ReaperTargetType, SendMidiDestinationType, SoloBehavior, TouchedRouteParameterType,
-    TouchedTrackParameterType, TrackExclusivity, TrackRouteType, TransportAction,
+    ActionInvocationType, Exclusivity, FeedbackResolution, FxDisplayType, ReaperTargetType,
+    SendMidiDestinationType, SoloBehavior, TouchedRouteParameterType, TouchedTrackParameterType,
+    TrackExclusivity, TrackRouteType, TransportAction,
 };
 use crate::infrastructure::api::convert::from_data::{
     ConversionStyle, convert_control_element_id, convert_osc_argument, convert_tags,
@@ -19,7 +19,7 @@ use crate::infrastructure::data::{
 use base::hash_util::convert_into_other_hash_set;
 use helgobox_api::persistence;
 use helgobox_api::persistence::{
-    AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget,
+    AllTrackFxOnOffStateTarget, AnyOnParameter, AnyOnTarget, AutomationModeOverrideTarget,
     BackwardCompatibleMappingSnapshotDescForTake, BookmarkDescriptor, BookmarkRef,
     BrowseFxChainTarget, BrowseFxPresetsTarget, BrowseGroupMappingsTarget,
     BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget,

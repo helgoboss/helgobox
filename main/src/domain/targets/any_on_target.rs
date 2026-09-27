@@ -4,14 +4,11 @@ use crate::domain::{
     TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
     format_value_as_on_off,
 };
-use derive_more::Display;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use num_enum::{IntoPrimitive, TryFromPrimitive};
+use helgobox_api::persistence::AnyOnParameter;
 use reaper_high::{ChangeEvent, GroupingBehavior, Project};
 use reaper_medium::GangBehavior;
-use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use strum::EnumIter;
 
 #[derive(Debug)]
 pub struct UnresolvedAnyOnTarget {
@@ -142,38 +139,6 @@ impl<'a> Target<'a> for AnyOnTarget {
     fn control_type(&self, context: Self::Context) -> ControlType {
         self.control_type_and_character(context).0
     }
-}
-
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    Default,
-    Serialize,
-    Deserialize,
-    EnumIter,
-    TryFromPrimitive,
-    IntoPrimitive,
-    Display,
-)]
-#[repr(usize)]
-#[allow(clippy::enum_variant_names)]
-pub enum AnyOnParameter {
-    #[serde(rename = "track-solo")]
-    #[display(fmt = "Track solo")]
-    #[default]
-    TrackSolo,
-    #[serde(rename = "track-mute")]
-    #[display(fmt = "Track mute")]
-    TrackMute,
-    #[serde(rename = "track-arm")]
-    #[display(fmt = "Track arm")]
-    TrackArm,
-    #[serde(rename = "track-selection")]
-    #[display(fmt = "Track selection")]
-    TrackSelection,
 }
 
 pub const ANY_ON_TARGET: TargetTypeDef = TargetTypeDef {

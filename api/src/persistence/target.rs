@@ -1661,12 +1661,37 @@ pub enum PlaytimeMatrixAction {
     TapTempo,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    Serialize,
+    Deserialize,
+    EnumIter,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
 pub enum AnyOnParameter {
+    #[serde(alias = "track-solo")]
+    #[display(fmt = "Track solo")]
+    #[default]
     TrackSolo,
+    #[serde(alias = "track-mute")]
+    #[display(fmt = "Track mute")]
     TrackMute,
+    #[serde(alias = "track-arm")]
+    #[display(fmt = "Track arm")]
     TrackArm,
+    #[serde(alias = "track-selection")]
+    #[display(fmt = "Track selection")]
     TrackSelection,
+    // #[display(fmt = "MIDI editor focus")]
+    // MidiEditorFocus,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]

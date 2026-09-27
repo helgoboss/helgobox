@@ -28,9 +28,9 @@ use helgoboss_learn::{
     ValueSequence, VirtualColor, format_percentage_without_unit,
 };
 use helgobox_api::persistence::{
-    ActionScope, Axis, BrowseTracksMode, FxDescriptor, FxToolAction, InstanceTagKind,
-    LearnableTargetKind, MatrixScrollBehavior, MidiScriptKind, MonitoringMode, MouseButton,
-    PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeColumnDescriptorKind,
+    ActionScope, AnyOnParameter, Axis, BrowseTracksMode, FxDescriptor, FxToolAction,
+    InstanceTagKind, LearnableTargetKind, MatrixScrollBehavior, MidiScriptKind, MonitoringMode,
+    MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeColumnDescriptorKind,
     PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeRowDescriptor, PlaytimeRowDescriptorKind,
     PlaytimeSlotDescriptor, PlaytimeSlotDescriptorKind, PlaytimeSlotManagementAction,
     PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior, TrackToolAction,
@@ -68,10 +68,10 @@ use crate::domain::{
     get_non_present_virtual_track_label, resolve_track_route_by_index,
 };
 use crate::domain::{
-    AnyOnParameter, Backbone, ControlContext, Exclusivity, FeedbackSendBehavior,
-    KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTarget, ReaperTargetType,
-    SendMidiDestinationType, SimpleExclusivity, SourceFeedbackEvent, TargetControlEvent,
-    TouchedRouteParameterType, TrackGangBehavior, WithControlContext, control_element_domains,
+    Backbone, ControlContext, Exclusivity, FeedbackSendBehavior, KeyStrokePortability,
+    MouseActionType, PortabilityIssue, ReaperTarget, ReaperTargetType, SendMidiDestinationType,
+    SimpleExclusivity, SourceFeedbackEvent, TargetControlEvent, TouchedRouteParameterType,
+    TrackGangBehavior, WithControlContext, control_element_domains,
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;

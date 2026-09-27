@@ -106,7 +106,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
         Target::AnyOn(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::AnyOn,
-            any_on_parameter: convert_any_on_parameter(d.parameter),
+            any_on_parameter: d.parameter,
             ..init(d.commons)
         },
         Target::BrowseTracks(d) => TargetModelData {
@@ -1460,17 +1460,6 @@ fn convert_transport_action(transport_action: TransportAction) -> domain::Transp
         Pause => T::Pause,
         Record => T::RecordStop,
         Repeat => T::Repeat,
-    }
-}
-
-fn convert_any_on_parameter(parameter: AnyOnParameter) -> domain::AnyOnParameter {
-    use AnyOnParameter::*;
-    use domain::AnyOnParameter as T;
-    match parameter {
-        TrackSolo => T::TrackSolo,
-        TrackMute => T::TrackMute,
-        TrackArm => T::TrackArm,
-        TrackSelection => T::TrackSelection,
     }
 }
 
