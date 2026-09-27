@@ -1690,8 +1690,8 @@ pub enum AnyOnParameter {
     #[serde(alias = "track-selection")]
     #[display(fmt = "Track selection")]
     TrackSelection,
-    // #[display(fmt = "MIDI editor focus")]
-    // MidiEditorFocus,
+    #[display(fmt = "MIDI editor focus")]
+    MidiEditorFocus,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]

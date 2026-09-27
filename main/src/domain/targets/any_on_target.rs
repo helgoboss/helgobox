@@ -1,14 +1,16 @@
 use crate::domain::{
-    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
-    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET,
+    ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
     format_value_as_on_off,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use helgobox_api::persistence::AnyOnParameter;
-use reaper_high::{ChangeEvent, GroupingBehavior, Project};
+use reaper_high::{ChangeEvent, GroupingBehavior, Project, Reaper};
 use reaper_medium::GangBehavior;
 use std::borrow::Cow;
+use std::ptr::null_mut;
+use swell_ui::Window;
 
 #[derive(Debug)]
 pub struct UnresolvedAnyOnTarget {
@@ -59,15 +61,25 @@ impl RealearnTarget for AnyOnTarget {
         }
         for t in self.project.tracks() {
             use AnyOnParameter::*;
-            match self.parameter {
-                TrackSolo => t.unsolo(GangBehavior::DenyGang, GroupingBehavior::PreventGrouping),
-                TrackMute => t.unmute(GangBehavior::DenyGang, GroupingBehavior::PreventGrouping),
-                TrackArm => t.disarm(
-                    false,
-                    GangBehavior::DenyGang,
-                    GroupingBehavior::PreventGrouping,
-                ),
-                TrackSelection => t.unselect(),
+            unsafe {
+                match self.parameter {
+                    TrackSolo => {
+                        t.unsolo(GangBehavior::DenyGang, GroupingBehavior::PreventGrouping)
+                    }
+                    TrackMute => {
+                        t.unmute(GangBehavior::DenyGang, GroupingBehavior::PreventGrouping)
+                    }
+                    TrackArm => t.disarm(
+                        false,
+                        GangBehavior::DenyGang,
+                        GroupingBehavior::PreventGrouping,
+                    ),
+                    TrackSelection => t.unselect(),
+                    MidiEditorFocus => Reaper::get()
+                        .medium_reaper()
+                        .low()
+                        .SetCursorContext(1, null_mut()),
+                }
             }
         }
         Ok(HitResponse::processed_with_effect())
@@ -109,6 +121,11 @@ impl RealearnTarget for AnyOnTarget {
             {
                 (true, None)
             }
+            Additional(AdditionalFeedbackEvent::MidiEditorFocusChanged)
+                if self.parameter == MidiEditorFocus =>
+            {
+                (true, None)
+            }
             _ => (false, None),
         }
     }
@@ -132,6 +149,7 @@ impl<'a> Target<'a> for AnyOnTarget {
             TrackMute => self.project.tracks().any(|t| t.is_muted()),
             TrackArm => self.project.tracks().any(|t| t.is_armed(false)),
             TrackSelection => self.project.tracks().any(|t| t.is_selected()),
+            MidiEditorFocus => focused_midi_editor().is_some(),
         };
         Some(AbsoluteValue::from_bool(on))
     }
@@ -147,3 +165,18 @@ pub const ANY_ON_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Any on",
     ..DEFAULT_TARGET
 };
+
+pub fn focused_midi_editor() -> Option<Window> {
+    let active_midi_editor_window = Reaper::get()
+        .medium_reaper()
+        .midi_editor_get_active()
+        .map(Window::from_hwnd)?;
+    let focused_window = Window::focused()?;
+    let focused = active_midi_editor_window == focused_window
+        || active_midi_editor_window.is_child_of(focused_window);
+    if focused {
+        Some(active_midi_editor_window)
+    } else {
+        None
+    }
+}

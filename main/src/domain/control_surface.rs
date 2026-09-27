@@ -5,7 +5,7 @@ use crate::domain::{
     MonitoringFxChainChangeDetector, OscDeviceId, OscInputDevice, OscScanResult,
     QualifiedInstanceEvent, ReaperConfigChangeDetector, ReaperMessage, ReaperTarget,
     SharedInstance, SharedMainProcessors, StreamDeckDevicePayload, TargetTouchEvent,
-    TouchedTrackParameterType, UnitEvent, UnitId, WeakInstance,
+    TouchedTrackParameterType, UnitEvent, UnitId, WeakInstance, focused_midi_editor,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, metrics_util};
 use crossbeam_channel::Receiver;
@@ -29,6 +29,7 @@ use reaper_medium::{
 use rxrust::prelude::*;
 use std::fmt::Debug;
 use std::mem;
+use swell_ui::Window;
 use tracing::debug;
 
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
@@ -59,6 +60,8 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     counter: u64,
     full_beats: NonCryptoHashMap<ReaProject, u32>,
     deprecated_fx_focus_state: Option<GetFocusedFx2Result>,
+    /// MIDI editor that is currently active **and** focused, otherwise `None`.
+    focused_midi_editor: Option<Window>,
     _modern_fx_focus_state: Option<GetTouchedOrFocusedFxCurrentlyFocusedFxResult>,
     target_capture_senders: NonCryptoHashMap<Option<UnitId>, TargetCaptureSender>,
     osc_capture_sender: Option<OscCaptureSender>,
@@ -129,6 +132,7 @@ pub enum AdditionalFeedbackEvent {
     ///
     /// Attention: This will only be fired for REAPER 7+!
     FocusSwitchedBetweenMainAndFx,
+    MidiEditorFocusChanged,
     /// Forwarded unit state event
     ///
     /// Not all unit events are forwarded, only those that might matter for other
@@ -225,6 +229,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             monitoring_fx_chain_change_detector: Default::default(),
             rx_middleware: ControlSurfaceRxMiddleware::new(Global::control_surface_rx().clone()),
             instances: Default::default(),
+            focused_midi_editor: None,
             main_processors,
             main_task_receiver,
             instance_event_receiver,
@@ -296,6 +301,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.process_instance_orchestration_events();
         // Inform ReaLearn about various changes that are not relevant for target learning
         self.detect_reaper_config_changes();
+        self.emit_midi_editor_focus_change_as_feedback_event();
         self.emit_focus_switch_between_main_and_fx_as_feedback_event();
         self.emit_instance_events();
         self.emit_stream_deck_events(timestamp);
@@ -633,6 +639,18 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             for p in &mut *self.main_processors.borrow_mut() {
                 p.process_additional_feedback_event(&event);
             }
+        }
+    }
+
+    fn emit_midi_editor_focus_change_as_feedback_event(&mut self) {
+        let old = self.focused_midi_editor;
+        let new = focused_midi_editor();
+        if new == old {
+            return;
+        }
+        self.focused_midi_editor = new;
+        for p in &mut *self.main_processors.borrow_mut() {
+            p.process_additional_feedback_event(&AdditionalFeedbackEvent::MidiEditorFocusChanged);
         }
     }
 

@@ -246,6 +246,10 @@ impl Window {
         }
     }
 
+    pub fn is_child_of(&self, other: Window) -> bool {
+        unsafe { Swell::get().IsChild(self.raw, other.raw) > 0 }
+    }
+
     /// This return the first child *window* (not subview) on macOS.
     #[cfg(target_os = "macos")]
     pub fn first_child_window(&self) -> Option<Window> {

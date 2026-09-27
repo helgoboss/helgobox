@@ -19,7 +19,7 @@ use crate::infrastructure::data::{
 use base::hash_util::convert_into_other_hash_set;
 use helgobox_api::persistence;
 use helgobox_api::persistence::{
-    AllTrackFxOnOffStateTarget, AnyOnParameter, AnyOnTarget, AutomationModeOverrideTarget,
+    AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget,
     BackwardCompatibleMappingSnapshotDescForTake, BookmarkDescriptor, BookmarkRef,
     BrowseFxChainTarget, BrowseFxPresetsTarget, BrowseGroupMappingsTarget,
     BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget,
@@ -120,7 +120,7 @@ fn convert_real_target(
         }),
         AnyOn => T::AnyOn(AnyOnTarget {
             commons,
-            parameter: convert_any_on_parameter(data.any_on_parameter),
+            parameter: data.any_on_parameter,
         }),
         GoToBookmark => T::GoToBookmark(GoToBookmarkTarget {
             commons,
@@ -834,17 +834,6 @@ fn convert_transport_action(transport_action: TransportAction) -> persistence::T
         Pause => T::Pause,
         RecordStop => T::Record,
         Repeat => T::Repeat,
-    }
-}
-
-fn convert_any_on_parameter(parameter: AnyOnParameter) -> persistence::AnyOnParameter {
-    use AnyOnParameter::*;
-    use persistence::AnyOnParameter as T;
-    match parameter {
-        TrackSolo => T::TrackSolo,
-        TrackMute => T::TrackMute,
-        TrackArm => T::TrackArm,
-        TrackSelection => T::TrackSelection,
     }
 }
 
