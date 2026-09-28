@@ -87,7 +87,7 @@ enumset = "1.0.12"
 mlua = { version = "0.10.2", features = ["vendored", "luau", "serialize", "anyhow"] }
 chrono = "0.4.11"
 dirs = "5.0.1"
-libloading = "0.8"
+libloading = "0.9.0"
 tokio-stream = { version = "0.1.8", features = ["sync"] }
 raw-window-handle = "0.4.2"
 egui = "0.21.0"

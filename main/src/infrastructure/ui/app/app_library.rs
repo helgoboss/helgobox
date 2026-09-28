@@ -63,13 +63,12 @@ impl AppLibrary {
                     // The rest can have an arbitrary order.
                     "Contents/Frameworks/cryptography_flutter.framework/cryptography_flutter",
                     "Contents/Frameworks/device_info_plus.framework/device_info_plus",
-                    "Contents/Frameworks/desktop_drop.framework/desktop_drop",
+                    "Contents/Frameworks/irondash_engine_context.framework/irondash_engine_context",
                     "Contents/Frameworks/native_context_menu.framework/native_context_menu",
-                    "Contents/Frameworks/path_provider_foundation.framework/path_provider_foundation",
-                    "Contents/Frameworks/screen_retriever.framework/screen_retriever",
-                    "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
-                    "Contents/Frameworks/window_manager.framework/window_manager",
                     "Contents/Frameworks/pointer_lock.framework/pointer_lock",
+                    "Contents/Frameworks/screen_retriever.framework/screen_retriever",
+                    "Contents/Frameworks/super_native_extensions.framework/super_native_extensions",
+                    "Contents/Frameworks/window_manager.framework/window_manager",
                     // "Contents/MacOS/helgobox.debug.dylib",
                 ]
                 .as_slice(),
@@ -84,17 +83,9 @@ impl AppLibrary {
         };
         let loaded_dependencies: Result<Vec<Library>> = dependencies
             .iter()
-            .filter_map(|dep| {
+            .map(|dep| {
                 let path = &app_base_dir.join(dep);
-                if path.exists() {
-                    Some(load_library(path))
-                } else {
-                    // Different app builds have different dependencies.
-                    // For example, in newer macOS builds, "url_launcher_macos" and
-                    // "path_provider_foundation" are linked statically, so they
-                    // won't exist at that path. In that case, we don't want to fail.
-                    None
-                }
+                load_library(path)
             })
             .collect();
         let loaded_dependencies = loaded_dependencies?;
@@ -362,7 +353,17 @@ fn load_library(path: &Path) -> Result<Library> {
         Err(e) => bail!("App library {path:?} not accessible: {e}"),
         _ => {}
     }
-    let lib = unsafe { Library::new(path) };
+    let lib = {
+        #[cfg(target_family = "unix")]
+        {
+            use libloading::os::unix::{Library as UnixLibrary, RTLD_GLOBAL, RTLD_NOW};
+            unsafe { UnixLibrary::open(Some(path), RTLD_NOW | RTLD_GLOBAL).map(Library::from) }
+        }
+        #[cfg(target_family = "windows")]
+        {
+            unsafe { Library::new(path) }
+        }
+    };
     lib.with_context(|| format!("Failed to load app library {path:?}."))
 }
 
