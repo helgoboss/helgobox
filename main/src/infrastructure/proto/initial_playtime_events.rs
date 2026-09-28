@@ -141,6 +141,7 @@ pub fn create_initial_clip_updates(matrix: Option<&Matrix>) -> Vec<QualifiedOcca
         .map(|item| QualifiedOccasionalClipUpdate {
             clip_address: Some(ClipAddress::from_engine(item.address)),
             update: Some(qualified_occasional_clip_update::Update::content_info(
+                matrix,
                 item.clip_employment,
             )),
         })

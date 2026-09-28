@@ -3,21 +3,11 @@ use std::num::NonZeroU32;
 use helgoboss_license_api::persistence::LicenseData;
 use helgoboss_license_api::runtime::License;
 use helgoboss_midi::Channel;
+use reaper_common_types::PositionInSeconds;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{Db, MidiInputDeviceId, ReaperPanValue, RecordingInput};
 
-use playtime_api::runtime::ControlUnitConfig;
-use playtime_clip_engine::base::{
-    Clip, ClipEmployment, ClipSource, ColumnTrackInputMonitoring, History, Matrix, MatrixSequencer,
-    SaveOptions, SequencerStatus, Slot,
-};
-use playtime_clip_engine::rt::{
-    ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents,
-};
-use playtime_clip_engine::{
-    PlaytimeEngine, SteadyProjectTimelineHandle, Timeline, base, clip_timeline,
-};
-
+use crate::infrastructure::proto;
 use crate::infrastructure::proto::track_input::Input;
 use crate::infrastructure::proto::{
     AudioClipContentInfo, CellAddress, ClipAddress, ClipContentInfo, ColumnKind,
@@ -28,6 +18,19 @@ use crate::infrastructure::proto::{
     occasional_playtime_engine_update, occasional_track_update, qualified_occasional_clip_update,
     qualified_occasional_column_update, qualified_occasional_row_update,
     qualified_occasional_slot_update,
+};
+use playtime_api::runtime::ControlUnitConfig;
+use playtime_clip_engine::base::{
+    Clip, ClipEmployment, ClipSource, ColumnTrackInputMonitoring, History, Matrix, MatrixSequencer,
+    SaveOptions, SequencerStatus, Slot,
+};
+use playtime_clip_engine::rt::supplier::audio::GlobalBlockProvider;
+use playtime_clip_engine::rt::{
+    ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents,
+};
+use playtime_clip_engine::{
+    PlaytimeEngine, ReaperArrangementTimeline, SteadyProjectTimelineHandle, Timeline, base,
+    clip_timeline,
 };
 
 impl occasional_playtime_engine_update::Update {
@@ -370,9 +373,30 @@ impl qualified_occasional_clip_update::Update {
         Ok(Self::CompletePersistentData(json))
     }
 
-    pub fn content_info(clip_employment: &ClipEmployment) -> Self {
+    pub fn content_info(matrix: &Matrix, clip_employment: &ClipEmployment) -> Self {
+        let runtime_info = clip_employment.online_data.as_ref().map(|online_data| {
+            let settings = clip_employment.clip.rt_settings();
+            let timeline = matrix.timeline();
+            // We must put the item exactly how we would play it so the grid is correct (important
+            // for MIDI editor).
+            let timeline_tempo = timeline.next_block().tempo_entry.props.tempo;
+            let tempo_factor = online_data
+                .runtime_data
+                .calc_tempo_factor(settings, timeline_tempo);
+            let effective_length_in_seconds = online_data
+                .runtime_data
+                .effective_length_in_timeline_secs(tempo_factor, settings);
+            let effective_length_in_quarter_notes =
+                timeline.full_qn_at_pos(effective_length_in_seconds.into());
+            proto::ClipContentRuntimeInfo {
+                effective_length_in_seconds: effective_length_in_seconds.get(),
+                effective_length_in_quarter_notes: effective_length_in_quarter_notes.get(),
+            }
+        });
+        let type_specific_info = clip_content_info::Info::from_engine(clip_employment);
         Self::ContentInfo(ClipContentInfo {
-            info: Some(clip_content_info::Info::from_engine(clip_employment)),
+            info: Some(type_specific_info),
+            runtime_info,
         })
     }
 }

@@ -621,9 +621,9 @@ mod playtime_impl {
                                 )
                                 .ok()?
                             }
-                            Content => {
-                                qualified_occasional_clip_update::Update::content_info(employment)
-                            }
+                            Content => qualified_occasional_clip_update::Update::content_info(
+                                matrix, employment,
+                            ),
                         };
                         Some(QualifiedOccasionalClipUpdate {
                             clip_address: Some(proto::ClipAddress::from_engine(*clip_address)),

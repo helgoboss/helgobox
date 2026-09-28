@@ -137,7 +137,7 @@ impl PlaytimeProtoRequestHandler {
             }
             TriggerClipAction::ExportToClipboard => matrix.export_clip_to_clipboard(clip_address),
             TriggerClipAction::ExportToArrangement => {
-                matrix.export_clip_to_arrangement(clip_address)
+                matrix.export_clip_to_arrangement(clip_address, req.payload.as_deref())
             }
         })
     }
