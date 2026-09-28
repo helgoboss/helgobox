@@ -3,7 +3,6 @@ use std::num::NonZeroU32;
 use helgoboss_license_api::persistence::LicenseData;
 use helgoboss_license_api::runtime::License;
 use helgoboss_midi::Channel;
-use reaper_common_types::PositionInSeconds;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{Db, MidiInputDeviceId, ReaperPanValue, RecordingInput};
 
@@ -29,8 +28,7 @@ use playtime_clip_engine::rt::{
     ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents,
 };
 use playtime_clip_engine::{
-    PlaytimeEngine, ReaperArrangementTimeline, SteadyProjectTimelineHandle, Timeline, base,
-    clip_timeline,
+    PlaytimeEngine, SteadyProjectTimelineHandle, Timeline, base, clip_timeline,
 };
 
 impl occasional_playtime_engine_update::Update {
