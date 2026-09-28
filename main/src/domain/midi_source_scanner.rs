@@ -365,17 +365,17 @@ mod tests {
             // Message 1
             let msg_1 = control_change(1, 99, 0);
             let nrpn_1 = nrpn_scanner.feed(&msg_1);
-            assert_eq!(nrpn_1, ScanOutcome::Consumed);
+            assert_eq!(nrpn_1, ScanOutcome::Pending);
             let source_1 = source_scanner.feed(Plain(msg_1), None);
             // Message 2
             let msg_2 = control_change(1, 98, 99);
             let nrpn_2 = nrpn_scanner.feed(&msg_2);
             let source_2 = source_scanner.feed(Plain(msg_1), None);
-            assert_eq!(nrpn_2, ScanOutcome::Consumed);
+            assert_eq!(nrpn_2, ScanOutcome::Pending);
             // Message 3
             let msg_3 = control_change(1, 38, 3);
             let nrpn_3 = nrpn_scanner.feed(&msg_3);
-            assert_eq!(nrpn_3, ScanOutcome::Consumed);
+            assert_eq!(nrpn_3, ScanOutcome::Pending);
             let source_3 = source_scanner.feed(Plain(msg_3), None);
             // Message 4
             let msg_4 = control_change(1, 6, 2);

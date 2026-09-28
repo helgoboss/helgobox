@@ -1731,7 +1731,12 @@ export type Target_PlaytimeMatrixAction = {
 
 export type Target_PlaytimeControlUnitScroll = { kind: "PlaytimeControlUnitScroll", unit: TargetUnit?, axis: Axis }
 
-export type Target_PlaytimeBrowseCells = { kind: "PlaytimeBrowseCells", unit: TargetUnit?, axis: Axis }
+export type Target_PlaytimeBrowseCells = {
+	kind: "PlaytimeBrowseCells",
+	unit: TargetUnit?,
+	axis: Axis,
+	scroll_behavior: MatrixScrollBehavior?,
+}
 
 export type Target_PlaytimeSlotSeek = {
 	kind: "PlaytimeSlotSeek",
@@ -3143,6 +3148,7 @@ end
 export type PlaytimeBrowseCellsTarget = {
 	unit: TargetUnit?,
 	axis: Axis,
+	scroll_behavior: MatrixScrollBehavior?,
 }
 --- Creates a PlaytimeBrowseCellsTarget value.
 function module.PlaytimeBrowseCellsTarget(value: PlaytimeBrowseCellsTarget): PlaytimeBrowseCellsTarget
@@ -3520,6 +3526,8 @@ function module.AutomationModeOverride.Mode(value: { mode: AutomationMode }): Au
 	return t
 end
 
+export type MatrixScrollBehavior = "EnsureVisible" | "ForceTopLeft"
+
 export type AutomationMode = "TrimRead" | "Read" | "Touch" | "Write" | "Latch" | "LatchPreview"
 
 export type MonitoringMode = "Off" | "Normal" | "TapeStyle"
@@ -3558,7 +3566,7 @@ export type PlaytimeMatrixAction =
 	| "SequencerPlayOnOffState"
 	| "TapTempo"
 
-export type AnyOnParameter = "TrackSolo" | "TrackMute" | "TrackArm" | "TrackSelection"
+export type AnyOnParameter = "TrackSolo" | "TrackMute" | "TrackArm" | "TrackSelection" | "MidiEditorFocus"
 
 export type ActionInvocationKind = "Trigger" | "Absolute14Bit" | "Absolute7Bit" | "Relative"
 
