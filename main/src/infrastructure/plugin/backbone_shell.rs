@@ -70,8 +70,7 @@ use helgobox_api::persistence::{
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use reaper_high::{
-    ChangeEvent, Fx, Guid, MiddlewareControlSurface, PluginInfo, Project, Reaper, TaskSupport,
-    Track,
+    ChangeEvent, Fx, Guid, MiddlewareControlSurface, PluginInfo, Project, Reaper, Track,
 };
 use reaper_low::{PluginContext, PluginDestroyHook, Swell, raw, register_plugin_destroy_hook};
 use reaper_macros::reaper_extension_plugin;
