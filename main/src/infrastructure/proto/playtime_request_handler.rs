@@ -23,15 +23,15 @@ use crate::infrastructure::proto::{
     TriggerRowRequest, TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction,
     TriggerSlotRequest, TriggerTrackAction, TriggerTrackRequest,
 };
-use base::future_util;
 use base::tracing_util::ok_or_log_as_warn;
+use base::{future_util, spawn_in_main_thread};
 use helgoboss_learn::UnitValue;
 use playtime_api::persistence::{
     ClipId, ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress, TrackId,
 };
 use playtime_api::runtime::{CellAddress, SimpleMappingTarget};
 use playtime_clip_engine::PlaytimeEngine;
-use playtime_clip_engine::base::WriteArrangementPosition;
+use playtime_clip_engine::base::{MatrixHandle, WriteArrangementPosition};
 use playtime_clip_engine::rt::TriggerSlotMainOptions;
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::{
@@ -124,6 +124,27 @@ impl PlaytimeProtoRequestHandler {
     pub fn trigger_clip(&self, req: TriggerClipRequest) -> Result<Response<Empty>, Status> {
         let action = TriggerClipAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown trigger clip action"))?;
+        let full_clip_address = require_full_clip_address(&req.clip_address)?;
+        match action {
+            TriggerClipAction::ExportToArrangement => {
+                if let Some(payload) = req.payload {
+                    let matrix_handle = require_clip_matrix_handle(full_clip_address.matrix_id)?;
+                    let clip_address =
+                        convert_clip_address_to_engine(&full_clip_address.clip_address)?;
+                    spawn_in_main_thread(async move {
+                        matrix_handle
+                            .try_export_clip_to_arrangement_placeholder_internal(
+                                clip_address,
+                                payload,
+                            )
+                            .await?;
+                        Ok(())
+                    });
+                    return Ok(Response::new(Empty {}));
+                }
+            }
+            _ => {}
+        }
         self.handle_clip_command(&req.clip_address, |matrix, clip_address| match action {
             TriggerClipAction::MidiOverdub => matrix.midi_overdub_clip(clip_address),
             TriggerClipAction::ToggleMidiOverdub => matrix.toggle_midi_overdub_clip(clip_address),
@@ -137,7 +158,7 @@ impl PlaytimeProtoRequestHandler {
             }
             TriggerClipAction::ExportToClipboard => matrix.export_clip_to_clipboard(clip_address),
             TriggerClipAction::ExportToArrangement => {
-                matrix.export_clip_to_arrangement(clip_address, req.payload.as_deref())
+                matrix.export_clip_to_arrangement(clip_address)
             }
         })
     }
@@ -852,9 +873,7 @@ impl PlaytimeProtoRequestHandler {
         full_clip_address: &Option<FullClipAddress>,
         handler: impl FnOnce(&mut Matrix, ClipAddress) -> anyhow::Result<R>,
     ) -> Result<R, Status> {
-        let full_clip_address = full_clip_address
-            .as_ref()
-            .ok_or_else(|| Status::invalid_argument("need full clip address"))?;
+        let full_clip_address = require_full_clip_address(full_clip_address)?;
         let clip_addr = convert_clip_address_to_engine(&full_clip_address.clip_address)?;
         self.handle_matrix_internal(full_clip_address.matrix_id, |matrix| {
             handler(matrix, clip_addr)
@@ -929,4 +948,19 @@ fn convert_clip_address_to_engine(
         .to_engine()
         .map_err(Status::invalid_argument)?;
     Ok(addr)
+}
+
+fn require_full_clip_address(
+    full_clip_address: &Option<FullClipAddress>,
+) -> Result<&FullClipAddress, Status> {
+    full_clip_address
+        .as_ref()
+        .ok_or_else(|| Status::invalid_argument("need full clip address"))
+}
+
+fn require_clip_matrix_handle(matrix_id: u32) -> Result<MatrixHandle, Status> {
+    let matrix_handle = BackboneShell::get()
+        .clip_matrix_handle(matrix_id.into())
+        .map_err(|e| Status::not_found(format!("{e:#}")))?;
+    Ok(matrix_handle)
 }

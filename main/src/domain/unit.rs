@@ -304,7 +304,7 @@ impl Unit {
         {
             let instance = self.instance();
             if let Some(m) = instance.borrow().clip_matrix() {
-                m.notify_control_units_changed();
+                m.borrow().notify_control_units_changed();
             };
         }
     }

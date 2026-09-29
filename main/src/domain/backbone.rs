@@ -653,7 +653,7 @@ impl Backbone {
     ) -> anyhow::Result<R> {
         let instance = instance.borrow();
         let matrix = instance.get_playtime_matrix()?;
-        Ok(f(matrix))
+        Ok(f(&matrix.borrow()))
     }
 
     /// Grants mutable access to the Playtime matrix defined for the given ReaLearn instance,
@@ -664,9 +664,8 @@ impl Backbone {
         instance: &SharedInstance,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
-        let mut instance = instance.borrow_mut();
-        let matrix = instance.get_playtime_matrix_mut()?;
-        Ok(f(matrix))
+        let matrix = instance.borrow().get_playtime_matrix()?;
+        Ok(f(&mut matrix.borrow_mut()))
     }
 
     pub fn register_instance(&self, id: InstanceId, instance: WeakInstance) {

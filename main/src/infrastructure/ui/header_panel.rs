@@ -1441,8 +1441,9 @@ impl HeaderPanel {
                 let instance = shared_session.borrow().instance().clone();
                 instance
                     .borrow_mut()
-                    .clip_matrix_mut()
+                    .clip_matrix()
                     .expect("this instance has no Playtime matrix")
+                    .borrow_mut()
                     .freeze()
                     .await;
                 Ok(())
@@ -2150,7 +2151,7 @@ impl HeaderPanel {
                     use playtime_api::persistence::FlexibleMatrix;
                     let old_matrix_label = match self.session().borrow().instance().borrow().clip_matrix() {
                         None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
-                        Some(matrix) => get_clip_matrix_label(matrix.column_count())
+                        Some(matrix) => get_clip_matrix_label(matrix.borrow().column_count())
                     };
                     let new_matrix_label = match &*value {
                         None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
@@ -2325,7 +2326,7 @@ impl HeaderPanel {
                         .instance()
                         .borrow()
                         .clip_matrix()
-                        .map(|matrix| matrix.save());
+                        .map(|matrix| matrix.borrow().save());
                     let envelope = BackboneShell::create_envelope(Box::new(matrix));
                     let data_object = DataObject::ClipMatrix(envelope);
                     let text = serialize_data_object(data_object, format)?;

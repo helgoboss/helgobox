@@ -69,9 +69,12 @@ mod playtime_impl {
                 .instance()
                 .borrow()
                 .clip_matrix()
-                .map(|m| match self.axis {
-                    Axis::X => m.column_count(),
-                    Axis::Y => m.row_count(),
+                .map(|m| {
+                    let m = m.borrow();
+                    match self.axis {
+                        Axis::X => m.column_count(),
+                        Axis::Y => m.row_count(),
+                    }
                 } as u32)
                 .unwrap_or(0)
         }
@@ -124,8 +127,13 @@ mod playtime_impl {
             } else {
                 Some(new_value as usize - 1)
             };
-            let mut instance = context.control_context.instance.borrow_mut();
-            let matrix = instance.clip_matrix_mut().ok_or("no matrix")?;
+            let matrix = context
+                .control_context
+                .instance
+                .borrow()
+                .clip_matrix()
+                .ok_or("no matrix")?;
+            let mut matrix = matrix.borrow_mut();
             let current_cell = matrix.active_cell();
             let new_cell = match self.axis {
                 Axis::X => CellAddress::new(new_index, current_cell.row_index),
@@ -194,7 +202,7 @@ mod playtime_impl {
         fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
             let instance = context.instance.borrow();
             let matrix = instance.clip_matrix()?;
-            let active_cell = matrix.active_cell();
+            let active_cell = matrix.borrow().active_cell();
             self.calculate_value(context, active_cell)
         }
 

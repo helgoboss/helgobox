@@ -300,7 +300,7 @@ impl InstanceShell {
             .notify_instance_units_changed(self);
         #[cfg(feature = "playtime")]
         if let Some(matrix) = self.model.get().borrow().instance().borrow().clip_matrix() {
-            matrix.notify_control_units_changed();
+            matrix.borrow().notify_control_units_changed();
         }
         for unit_shell in blocking_read_lock(&self.additional_unit_shells, "add_unit").iter() {
             unit_shell.panel().notify_units_changed();
@@ -516,7 +516,7 @@ impl InstanceShell {
             clip_matrix: {
                 #[cfg(feature = "playtime")]
                 {
-                    instance.clip_matrix().map(|matrix| matrix.save())
+                    instance.clip_matrix().map(|matrix| matrix.borrow().save())
                 }
                 #[cfg(not(feature = "playtime"))]
                 None
@@ -578,6 +578,7 @@ impl InstanceShell {
                 let mut instance = instance_model.instance().borrow_mut();
                 self.clone()
                     .get_or_insert_owned_clip_matrix(&mut instance)?
+                    .borrow_mut()
                     .load(m)?;
             } else {
                 instance.borrow_mut().set_clip_matrix(None);
@@ -698,6 +699,7 @@ impl InstanceShell {
             if let Some(matrix) = matrix {
                 self.clone()
                     .get_or_insert_owned_clip_matrix(&mut instance)?
+                    .borrow_mut()
                     .load(matrix)?;
             } else {
                 instance.set_clip_matrix(None);
@@ -714,7 +716,7 @@ impl InstanceShell {
     pub fn get_or_insert_owned_clip_matrix(
         self: SharedInstanceShell,
         instance: &mut Instance,
-    ) -> anyhow::Result<&mut playtime_clip_engine::base::Matrix> {
+    ) -> anyhow::Result<playtime_clip_engine::base::MatrixHandle> {
         let main_unit_model = Rc::downgrade(self.main_unit_shell.model());
         let weak_instance_shell = Arc::downgrade(&self);
         let create_handler =
@@ -730,6 +732,6 @@ impl InstanceShell {
                 Box::new(handler)
             };
         instance.create_and_install_clip_matrix_if_necessary(create_handler)?;
-        Ok(instance.clip_matrix_mut().unwrap())
+        Ok(instance.clip_matrix().unwrap())
     }
 }

@@ -772,6 +772,7 @@ impl VirtualPlaytimeSlot {
                         .get_playtime_matrix()
                         .map_err(|_| "couldn't get matrix")?;
                     matrix
+                        .borrow()
                         .active_cell()
                         .to_slot_address()
                         .ok_or("no slot active")?
@@ -857,6 +858,7 @@ impl VirtualPlaytimeColumn {
                         .get_playtime_matrix()
                         .map_err(|_| "couldn't get matrix")?;
                     matrix
+                        .borrow()
                         .active_cell()
                         .column_index
                         .ok_or("no column selected")?
@@ -913,7 +915,11 @@ impl VirtualPlaytimeRow {
                     let matrix = instance
                         .get_playtime_matrix()
                         .map_err(|_| "couldn't get matrix")?;
-                    matrix.active_cell().row_index.ok_or("no row selected")?
+                    matrix
+                        .borrow()
+                        .active_cell()
+                        .row_index
+                        .ok_or("no row selected")?
                 }
             }
             ByIndex(index) => *index,
@@ -2310,7 +2316,7 @@ fn get_playtime_matrix_active_cell_index(
     {
         let instance = context.instance.borrow();
         let matrix = instance.get_playtime_matrix().ok()?;
-        let index = get_index(matrix.active_cell());
+        let index = get_index(matrix.borrow().active_cell());
         let output = index.map(|i| i as f64).unwrap_or(EXPRESSION_NONE_VALUE);
         Some(output)
     }

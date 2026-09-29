@@ -26,6 +26,7 @@ pub use mutex_util::*;
 pub mod file_util;
 
 pub mod future_util;
+pub use future_util::*;
 
 pub mod metrics_util;
 

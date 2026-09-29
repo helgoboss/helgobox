@@ -643,7 +643,7 @@ impl TargetProp for TargetPlaytimeSlotColorProp {
             let slot_address = args.object.target.clip_slot_address()?;
             let instance = args.control_context.instance.borrow();
             let matrix = instance.clip_matrix()?;
-            let reaper_color = matrix.resolve_slot_color(slot_address)?;
+            let reaper_color = matrix.borrow().resolve_slot_color(slot_address)?;
             let final_color = convert_reaper_color_to_helgoboss_learn(reaper_color);
             Some(PropValue::Color(final_color))
         }

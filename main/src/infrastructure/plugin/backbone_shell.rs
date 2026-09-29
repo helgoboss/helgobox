@@ -1426,6 +1426,17 @@ impl BackboneShell {
         Backbone::get().with_clip_matrix_mut(&instance, f)
     }
 
+    #[cfg(feature = "playtime")]
+    pub fn clip_matrix_handle(
+        &self,
+        clip_matrix_id: InstanceId,
+    ) -> anyhow::Result<playtime_clip_engine::base::MatrixHandle> {
+        let instance = self
+            .find_instance_by_instance_id(clip_matrix_id)
+            .context("instance not found")?;
+        instance.borrow().get_playtime_matrix()
+    }
+
     #[allow(unused)]
     pub fn create_clip_matrix(&self, clip_matrix_id: InstanceId) -> anyhow::Result<()> {
         let instance_shell = self
@@ -2690,9 +2701,8 @@ fn post_process_action_invocation_for_playtime(
                     // Switched metronome off. Switch Playtime clicks off as well!
                     BackboneShell::get().with_instance_shell_infos(|infos| {
                         for instance in infos.iter().flat_map(|info| info.instance.upgrade()) {
-                            let mut instance = instance.borrow_mut();
-                            if let Some(matrix) = instance.clip_matrix_mut() {
-                                matrix.set_click_enabled(false);
+                            if let Some(matrix) = instance.borrow().clip_matrix() {
+                                matrix.borrow_mut().set_click_enabled(false);
                             }
                         }
                     });
@@ -2717,9 +2727,8 @@ fn post_process_action_invocation_for_playtime(
                             })
                             .flat_map(|info| info.instance.upgrade());
                         for instance in relevant_helgobox_instances {
-                            let mut instance = instance.borrow_mut();
-                            if let Some(matrix) = instance.clip_matrix_mut() {
-                                matrix.panic_slot_with_open_midi_editor(hwnd);
+                            if let Some(matrix) = instance.borrow().clip_matrix() {
+                                matrix.borrow_mut().panic_slot_with_open_midi_editor(hwnd);
                             }
                         }
                     });
@@ -3028,9 +3037,8 @@ impl LicenseManagerEventHandler for BackboneLicenseManagerEventHandler {
             // Give all Playtime instances a chance to load previously unloaded matrices
             shell.with_instance_shell_infos(|infos| {
                 for instance in infos.iter().filter_map(|info| info.instance.upgrade()) {
-                    let mut instance = instance.borrow_mut();
-                    if let Some(matrix) = instance.clip_matrix_mut() {
-                        let result = matrix.notify_license_state_changed();
+                    if let Some(matrix) = instance.borrow().clip_matrix() {
+                        let result = matrix.borrow_mut().notify_license_state_changed();
                         notification::notify_user_on_anyhow_error(result);
                     }
                 }

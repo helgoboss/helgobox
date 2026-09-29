@@ -46,7 +46,7 @@ pub struct Instance {
 #[cfg(feature = "playtime")]
 #[derive(Debug)]
 pub struct PlaytimeInstance {
-    clip_matrix: Option<playtime_clip_engine::base::Matrix>,
+    pub clip_matrix: Option<playtime_clip_engine::base::MatrixHandle>,
     pub clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
 }
 
@@ -219,12 +219,13 @@ impl Instance {
             if events.is_empty() {
                 return;
             }
-            if let Some(matrix) = self.playtime.clip_matrix.as_mut() {
+            if let Some(matrix) = self.playtime.clip_matrix.as_ref() {
+                let mut matrix = matrix.borrow_mut();
                 // Let matrix react to track changes etc.
                 matrix.process_reaper_change_events(events);
                 // Process for GUI
                 self.handler
-                    .process_control_surface_change_event_for_clip_engine(self.id, matrix, events);
+                    .process_control_surface_change_event_for_clip_engine(self.id, &matrix, events);
             }
         }
     }
@@ -238,7 +239,7 @@ impl Instance {
         if unit_id == self.main_unit_id
             && let Some(matrix) = self.clip_matrix()
         {
-            matrix.notify_simple_mappings_changed();
+            matrix.borrow().notify_simple_mappings_changed();
         }
     }
 
@@ -251,7 +252,7 @@ impl Instance {
         if unit_id == self.main_unit_id
             && let Some(matrix) = self.clip_matrix()
         {
-            matrix.notify_learning_target_changed();
+            matrix.borrow().notify_learning_target_changed();
         }
     }
 
@@ -281,12 +282,12 @@ mod playtime_impl {
         pub fn poll_owned_clip_matrix(
             &mut self,
         ) -> Vec<playtime_clip_engine::base::ClipMatrixEvent> {
-            let Some(matrix) = self.playtime.clip_matrix.as_mut() else {
+            let Some(matrix) = &self.playtime.clip_matrix else {
                 return vec![];
             };
-            let events = matrix.poll();
+            let events = matrix.borrow_mut().poll();
             self.handler
-                .clip_matrix_changed(self.id, matrix, &events, true);
+                .clip_matrix_changed(self.id, &matrix.borrow(), &events, true);
             events
         }
 
@@ -302,34 +303,23 @@ mod playtime_impl {
             };
             self.handler.clip_matrix_changed(
                 self.id,
-                matrix,
+                &matrix.borrow(),
                 std::slice::from_ref(&event.event),
                 false,
             );
         }
 
-        pub fn get_playtime_matrix(&self) -> anyhow::Result<&playtime_clip_engine::base::Matrix> {
+        pub fn get_playtime_matrix(
+            &self,
+        ) -> anyhow::Result<playtime_clip_engine::base::MatrixHandle> {
             self.playtime
                 .clip_matrix
-                .as_ref()
+                .clone()
                 .context(NO_CLIP_MATRIX_SET)
         }
 
-        pub fn get_playtime_matrix_mut(
-            &mut self,
-        ) -> anyhow::Result<&mut playtime_clip_engine::base::Matrix> {
-            self.playtime
-                .clip_matrix
-                .as_mut()
-                .context(NO_CLIP_MATRIX_SET)
-        }
-
-        pub fn clip_matrix(&self) -> Option<&playtime_clip_engine::base::Matrix> {
-            self.playtime.clip_matrix.as_ref()
-        }
-
-        pub fn clip_matrix_mut(&mut self) -> Option<&mut playtime_clip_engine::base::Matrix> {
-            self.playtime.clip_matrix.as_mut()
+        pub fn clip_matrix(&self) -> Option<playtime_clip_engine::base::MatrixHandle> {
+            self.playtime.clip_matrix.clone()
         }
 
         /// Returns `Ok(true)` if it installed a Playtime matrix and `Ok(false)` if one was installed already.
@@ -368,7 +358,7 @@ mod playtime_impl {
                 tracing::debug!("Shutdown existing Playtime matrix");
                 self.update_real_time_clip_matrix(None);
             }
-            self.playtime.clip_matrix = matrix;
+            self.playtime.clip_matrix = matrix.map(playtime_clip_engine::base::MatrixHandle::new);
         }
 
         pub(super) fn update_real_time_clip_matrix(

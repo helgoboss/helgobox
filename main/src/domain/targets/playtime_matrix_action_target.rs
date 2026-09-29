@@ -259,12 +259,10 @@ mod playtime_impl {
             value: ControlValue,
             context: MappingControlContext,
         ) -> Result<HitResponse, &'static str> {
-            let mut instance = context.control_context.instance().borrow_mut();
-            let matrix = instance
-                .clip_matrix_mut()
-                .ok_or("couldn't acquire matrix")?;
+            let instance = context.control_context.instance().borrow();
+            let matrix = instance.clip_matrix().ok_or("couldn't acquire matrix")?;
             let response = self
-                .invoke(matrix, value)
+                .invoke(&mut matrix.borrow_mut(), value)
                 .map_err(|_| "couldn't carry out matrix action")?;
             Ok(response)
         }

@@ -64,9 +64,12 @@ mod playtime_impl {
                 .instance()
                 .borrow()
                 .clip_matrix()
-                .map(|m| match self.axis {
-                    Axis::X => m.column_count(),
-                    Axis::Y => m.row_count(),
+                .map(|m| {
+                    let m = m.borrow();
+                    match self.axis {
+                        Axis::X => m.column_count(),
+                        Axis::Y => m.row_count(),
+                    }
                 } as u32)
                 .unwrap_or(0);
             let unit = context.unit.borrow();
