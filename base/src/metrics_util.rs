@@ -88,6 +88,17 @@ pub fn record_occurrence(id: &'static str) {
     metrics::counter!(id).increment(1);
 }
 
+/// Asynchronously measures and records the time of the given operation and logs it on info level.
+///
+/// Mainly a tool for quick debugging.
+#[allow(dead_code)]
+pub fn log_time<R>(id: &'static str, f: impl FnOnce() -> R) -> R {
+    let start = Instant::now();
+    let result = f();
+    tracing::info!("log_time: {id} took {:?}", start.elapsed());
+    result
+}
+
 /// Asynchronously measures and records the time of the given operation and exposes it at the
 /// metrics endpoint.
 pub fn measure_time<R>(id: &'static str, f: impl FnOnce() -> R) -> R {

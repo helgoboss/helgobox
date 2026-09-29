@@ -29,7 +29,7 @@ use crate::infrastructure::server::{
     COMPANION_WEB_APP_URL, MetricsReporter, RealearnServer, SharedRealearnServer,
 };
 use crate::infrastructure::ui::{
-    MessagePanel, app_window_is_in_text_entry_mode, is_app_window, menus,
+    AppLibrary, MessagePanel, app_window_is_in_text_entry_mode, is_app_window, menus,
 };
 use base::default_util::is_default;
 use base::{
@@ -60,7 +60,7 @@ use crate::infrastructure::ui::welcome_panel::WelcomePanel;
 use anyhow::{Context, anyhow, bail};
 use base::future_util::millis;
 use base::hash_util::NonCryptoHashSet;
-use base::metrics_util::MetricsHook;
+use base::metrics_util::{MetricsHook, measure_time};
 use camino::{Utf8Path, Utf8PathBuf};
 use helgobox_allocator::{AsyncDeallocatorCommandReceiver, start_async_deallocation_thread};
 use helgobox_api::persistence::{
@@ -70,7 +70,8 @@ use helgobox_api::persistence::{
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use reaper_high::{
-    ChangeEvent, Fx, Guid, MiddlewareControlSurface, PluginInfo, Project, Reaper, Track,
+    ChangeEvent, Fx, Guid, MiddlewareControlSurface, PluginInfo, Project, Reaper, TaskSupport,
+    Track,
 };
 use reaper_low::{PluginContext, PluginDestroyHook, Swell, raw, register_plugin_destroy_hook};
 use reaper_macros::reaper_extension_plugin;
@@ -445,14 +446,19 @@ impl BackboneShell {
         // This doesn't yet activate the accelerator (will happen on wake up)
         let accelerator =
             RealearnAccelerator::new(shared_main_processors, BackboneHelgoboxWindowSnitch);
-        // Silently decompress app and load library in background so it's ready when needed. We want to do this
+        // Decompress app and load library so it's ready when needed. We want to do this
         // already here in order to let actions such as "Show/hide Playtime" work instantly without delay.
-        let _ = std::thread::Builder::new()
-            .name("Helgobox app loader".to_string())
-            .spawn(|| {
-                let result = decompress_app().and_then(|_| load_app_library());
-                let _ = APP_LIBRARY.set(result);
-            });
+        // In the past, we did this in a background thread. Not anymore! Because the app has a few plugins
+        // which on some platforms assume that the shared-library loading thread is the main thread
+        // (in particular, irondash_engine_context and everything relying on that). On Windows, this led
+        // to non-working drag and drop with error message (via super_drag_and_drop package).
+        //
+        // Doing it here synchronously blocks REAPER, but this is not a problem. Decompression takes less
+        // than a second and is only done after reinstalling or updating Helgobox, after that less than a millisecond
+        // because it detects that the app is already decompressed. Loading the app library is maybe 50ms.
+        // So all in all, no problem to this on REAPER start.
+        let app_library = decompress_app_and_load_app_library();
+        let _ = APP_LIBRARY.set(app_library);
         // We want actions and menu entries to be available even in sleeping state because there are some convenience
         // actions among them that boot up an instance when none is found yet.
         Self::register_actions();
@@ -3075,6 +3081,12 @@ fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
         }
     }
     lib
+}
+
+fn decompress_app_and_load_app_library() -> anyhow::Result<AppLibrary> {
+    measure_time("decompressing app", decompress_app)?;
+    let library = measure_time("loading app library", load_app_library)?;
+    Ok(library)
 }
 
 fn decompress_app() -> anyhow::Result<()> {

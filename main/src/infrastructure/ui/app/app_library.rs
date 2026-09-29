@@ -44,12 +44,14 @@ impl AppLibrary {
                     // depend on it.
                     "flutter_windows.dll",
                     // The rest can have an arbitrary order.
-                    "desktop_drop_plugin.dll",
+                    "irondash_engine_context_plugin.dll",
                     "native_context_menu_plugin.dll",
+                    "pointer_lock_plugin.dll",
                     "screen_retriever_plugin.dll",
+                    "super_native_extensions.dll",
+                    "super_native_extensions_plugin.dll",
                     "url_launcher_windows_plugin.dll",
                     "window_manager_plugin.dll",
-                    "pointer_lock_plugin.dll",
                 ]
                 .as_slice(),
             )
