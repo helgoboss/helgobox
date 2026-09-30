@@ -70,6 +70,28 @@ impl ApiObject {
     }
 }
 
+type HelgoboxApiResult<T> = Result<T, HelgoboxApiError>;
+
+/// Important: Since some of these types are going to be used in real-time contexts, we don't
+/// want heap-allocated types in here!
+#[derive(thiserror::Error, Debug)]
+#[error("{msg}")]
+pub struct HelgoboxApiError {
+    msg: &'static str,
+}
+
+impl From<&'static str> for HelgoboxApiError {
+    fn from(msg: &'static str) -> Self {
+        Self { msg }
+    }
+}
+
+impl From<HelgoboxApiError> for &'static str {
+    fn from(value: HelgoboxApiError) -> Self {
+        value.msg
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

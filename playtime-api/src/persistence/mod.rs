@@ -797,9 +797,23 @@ pub struct ClipPlayStopTimingOverride {
     pub value: ClipPlayStopTiming,
 }
 
-/// An even quantization.
+/// An even musical quantization interval.
 ///
-/// "Even" in the sense that it's not swing or dotted.
+/// "Even" means that the interval is not something like "swing".
+///
+/// A denominator of `1` expresses the interval in bars, while a denominator
+/// greater than `1` expresses it as a fraction of a whole note.
+///
+/// For example:
+///
+/// - `1/1` represents one bar.
+/// - `2/1` represents two bars.
+/// - `1/2` represents a half note.
+/// - `1/4` represents a quarter note.
+/// - `1/8` represents an eighth note.
+///
+/// Bar-based intervals depend on the time signature, whereas note-based
+/// intervals don't.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(try_from = "RawEvenQuantization")]
 pub struct EvenQuantization {
@@ -843,6 +857,9 @@ impl EvenQuantization {
         if denominator == 0 {
             return Err("denominator must be > 0".into());
         }
+        if numerator > 1 && denominator != 1 {
+            return Err("denominator must be 1 if numerator is greater than 1".into());
+        }
         let q = Self {
             numerator,
             denominator,
@@ -850,18 +867,24 @@ impl EvenQuantization {
         Ok(q)
     }
 
-    /// The number of bars.
+    /// The number of quantization units.
     ///
     /// Must not be zero.
+    ///
+    /// If greater than `1`, the denominator must be `1`.
     pub fn numerator(&self) -> u32 {
         self.numerator
     }
 
-    /// Defines the fraction of a bar.
+    /// Defines the quantization unit.
+    ///
+    /// `1` represents one bar. A value greater than `1` represents the
+    /// corresponding fraction of a whole note: `2` a half note, `4` a
+    /// quarter note, `8` an eighth note, etc.
     ///
     /// Must not be zero.
     ///
-    /// If the numerator is > 1, this must be 1.
+    /// If the numerator is greater than `1`, this must be `1`.
     pub fn denominator(&self) -> u32 {
         self.denominator
     }
