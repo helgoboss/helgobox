@@ -391,7 +391,6 @@ impl Backbone {
         let button_count = sd.kind().key_count();
         if value.button_index >= button_count as u32 {
             return Ok(());
-            return Ok(());
         }
         let button_size = sd.kind().key_image_format().size.0 as u32;
         let StreamDeckSourceFeedbackPayload::On(payload) = value.payload else {

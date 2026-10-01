@@ -6,15 +6,16 @@ use elgato_streamdeck::{StreamDeck, list_devices, refresh_device_list};
 use hidapi::{HidApi, HidResult};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
-static HID_API: LazyLock<HidResult<HidApi>> = LazyLock::new(HidApi::new);
+static HID_API: LazyLock<HidResult<Mutex<HidApi>>> =
+    LazyLock::new(|| HidApi::new().map(Mutex::new));
 
-fn hid_api() -> anyhow::Result<&'static HidApi> {
-    let hid_api_result = &*HID_API;
-    Ok(hid_api_result
-        .as_ref()
-        .context("failed to initialize HID API")?)
+fn hid_api() -> anyhow::Result<MutexGuard<'static, HidApi>> {
+    match &*HID_API {
+        Ok(api) => Ok(api.lock().unwrap()),
+        Err(e) => Err(e.into()),
+    }
 }
 
 pub struct ProbedStreamDeckDevice {
@@ -35,10 +36,9 @@ impl StreamDeckDevice {
 }
 
 pub fn probe_stream_deck_devices() -> anyhow::Result<Vec<ProbedStreamDeckDevice>> {
-    let hid_api = hid_api()?;
-    // TODO-high CONTINUE refresh device list (we need hid_api mutable)
-    // refresh_device_list(&mut hid_api);
-    let devices = elgato_streamdeck::list_devices(hid_api)
+    let mut hid_api = hid_api()?;
+    refresh_device_list(&mut hid_api)?;
+    let devices = elgato_streamdeck::list_devices(&hid_api)
         .into_iter()
         .map(|(kind, serial)| ProbedStreamDeckDevice {
             dev: StreamDeckDevice::new(
@@ -80,11 +80,11 @@ impl StreamDeckDeviceId {
     pub fn connect(&self) -> anyhow::Result<StreamDeck> {
         let hid_api = hid_api()?;
         let desired_kind = self.kind().context("unknown kind of StreamDeck")?;
-        let (_, serial) = list_devices(hid_api)
+        let (_, serial) = list_devices(&hid_api)
             .into_iter()
             .find(|(kind, _)| *kind == desired_kind)
             .context("not StreamDeck of that kind connected")?;
-        let sd = StreamDeck::connect(hid_api, desired_kind, &serial)?;
+        let sd = StreamDeck::connect(&hid_api, desired_kind, &serial)?;
         Ok(sd)
     }
 
