@@ -1,59 +1,55 @@
 use crate::domain::UnitId;
+use anyhow::Context;
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
-use hidapi::HidApi;
+use elgato_streamdeck::info::Kind;
+use elgato_streamdeck::{StreamDeck, list_devices, refresh_device_list};
+use hidapi::{HidApi, HidResult};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
-use streamdeck::{StreamDeck, pids};
+use std::sync::LazyLock;
+
+static HID_API: LazyLock<HidResult<HidApi>> = LazyLock::new(HidApi::new);
+
+fn hid_api() -> anyhow::Result<&'static HidApi> {
+    let hid_api_result = &*HID_API;
+    Ok(hid_api_result
+        .as_ref()
+        .context("failed to initialize HID API")?)
+}
 
 pub struct ProbedStreamDeckDevice {
     pub dev: StreamDeckDevice,
     pub available: bool,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct StreamDeckDevice {
     pub id: StreamDeckDeviceId,
-    pub name: &'static str,
+    pub name: String,
 }
 
 impl StreamDeckDevice {
-    pub const fn new(vid: u16, pid: u16, name: &'static str) -> Self {
-        let id = StreamDeckDeviceId { vid, pid };
+    pub const fn new(id: StreamDeckDeviceId, name: String) -> Self {
         Self { id, name }
     }
 }
 
 pub fn probe_stream_deck_devices() -> anyhow::Result<Vec<ProbedStreamDeckDevice>> {
-    let mut api = HidApi::new()?;
-    api.refresh_devices()?;
-    let connected_devs: NonCryptoHashSet<_> = api
-        .device_list()
-        .map(|info| StreamDeckDeviceId {
-            vid: info.vendor_id(),
-            pid: info.product_id(),
+    let hid_api = hid_api()?;
+    // TODO-high CONTINUE refresh device list (we need hid_api mutable)
+    // refresh_device_list(&mut hid_api);
+    let devices = elgato_streamdeck::list_devices(hid_api)
+        .into_iter()
+        .map(|(kind, serial)| ProbedStreamDeckDevice {
+            dev: StreamDeckDevice::new(
+                StreamDeckDeviceId::from_kind(kind),
+                format!("{kind:?} ({serial})"),
+            ),
+            available: true,
         })
         .collect();
-    let probed_devs = SUPPORTED_DEVICES
-        .iter()
-        .copied()
-        .map(|dev| ProbedStreamDeckDevice {
-            dev,
-            available: connected_devs.contains(&dev.id),
-        })
-        .collect();
-    Ok(probed_devs)
+    Ok(devices)
 }
-
-const ELGATO_VENDOR_ID: u16 = 0x0fd9;
-
-const SUPPORTED_DEVICES: &[StreamDeckDevice] = &[
-    StreamDeckDevice::new(ELGATO_VENDOR_ID, pids::ORIGINAL, "Original"),
-    StreamDeckDevice::new(ELGATO_VENDOR_ID, pids::ORIGINAL_V2, "Original v2"),
-    StreamDeckDevice::new(ELGATO_VENDOR_ID, pids::MINI, "Mini"),
-    StreamDeckDevice::new(ELGATO_VENDOR_ID, pids::XL, "XL"),
-    StreamDeckDevice::new(ELGATO_VENDOR_ID, pids::MK2, "MK2"),
-    StreamDeckDevice::new(ELGATO_VENDOR_ID, pids::REVISED_MINI, "Revised Mini"),
-];
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct StreamDeckDeviceId {
@@ -61,6 +57,8 @@ pub struct StreamDeckDeviceId {
     pub vid: u16,
     /// Product ID.
     pub pid: u16,
+    // TODO-high CONTINUE I think the only reason we don't have this so far is that this makes the ID non-copyable?
+    //  Let's deal with it later.
     // Serial number (for distinguishing between multiple devices of the same type).
     // pub serial_number: Option<String>,
 }
@@ -72,10 +70,26 @@ impl Display for StreamDeckDeviceId {
 }
 
 impl StreamDeckDeviceId {
-    pub fn connect(&self) -> Result<StreamDeck, streamdeck::Error> {
-        let mut sd = StreamDeck::connect(self.vid, self.pid, None)?;
-        sd.set_blocking(false)?;
+    pub fn from_kind(kind: Kind) -> Self {
+        Self {
+            vid: kind.vendor_id(),
+            pid: kind.product_id(),
+        }
+    }
+
+    pub fn connect(&self) -> anyhow::Result<StreamDeck> {
+        let hid_api = hid_api()?;
+        let desired_kind = self.kind().context("unknown kind of StreamDeck")?;
+        let (_, serial) = list_devices(hid_api)
+            .into_iter()
+            .find(|(kind, _)| *kind == desired_kind)
+            .context("not StreamDeck of that kind connected")?;
+        let sd = StreamDeck::connect(hid_api, desired_kind, &serial)?;
         Ok(sd)
+    }
+
+    pub fn kind(&self) -> Option<Kind> {
+        Kind::from_vid_pid(self.vid, self.pid)
     }
 }
 

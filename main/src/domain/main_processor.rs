@@ -39,6 +39,7 @@ use crate::domain::ui_util::{
     log_virtual_control_input, log_virtual_feedback_output,
 };
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet, NonCryptoIndexSet};
+use base::tracing_util::log_if_error;
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread, hash_util};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
 use playtime_api::runtime::ControlUnitId;
@@ -3956,7 +3957,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 }
                 (FinalSourceFeedbackValue::StreamDeck(v), _) => {
                     if let Some(dev_id) = self.settings.streamdeck_device_id {
-                        let _ = Backbone::get().send_stream_deck_feedback(dev_id, v);
+                        let result = Backbone::get().send_stream_deck_feedback(dev_id, v);
+                        log_if_error(result);
                     }
                 }
                 _ => {}

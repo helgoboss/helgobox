@@ -25,6 +25,7 @@ use helgobox_api::persistence::{
 use imageproc::definitions::{HasBlack, HasWhite};
 use once_cell::sync::Lazy;
 // Use once_cell::sync::Lazy instead of std::sync::LazyLock to be able to build with Rust 1.77.2 (to stay Win7-compatible)
+use elgato_streamdeck::{StreamDeck, StreamDeckError, StreamDeckInput};
 use once_cell::sync::Lazy as LazyLock;
 use palette::IntoColor;
 use reaper_high::{Fx, Reaper};
@@ -34,7 +35,6 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
-use streamdeck::StreamDeck;
 use strum::EnumCount;
 
 make_available_globally_in_main_thread_on_demand!(Backbone);
@@ -67,7 +67,7 @@ pub struct Backbone {
     recently_focused_fx_container: Rc<RefCell<RecentlyFocusedFxContainer>>,
     stream_deck_device_manager: RefCell<StreamDeckDeviceManager>,
     stream_decks: RefCell<NonCryptoHashMap<StreamDeckDeviceId, StreamDeck>>,
-    stream_deck_button_states: RefCell<NonCryptoHashMap<StreamDeckDeviceId, Vec<u8>>>,
+    stream_deck_button_states: RefCell<NonCryptoHashMap<StreamDeckDeviceId, Vec<bool>>>,
 }
 
 #[derive(Debug, Default)]
@@ -256,7 +256,6 @@ impl Backbone {
             let result = poll_stream_deck_messages(&mut messages, *id, deck, &mut button_states);
             match result {
                 Ok(_) => true,
-                Err(streamdeck::Error::NoData) => true,
                 Err(e) => {
                     tracing::warn!(msg = "Error polling for stream deck events", %e);
                     false
@@ -389,11 +388,17 @@ impl Backbone {
         let sd = stream_decks
             .get_mut(&dev_id)
             .context("stream deck not connected")?;
-        let button_size = sd.kind().image_size().0 as u32;
+        let button_count = sd.kind().key_count();
+        if value.button_index >= button_count as u32 {
+            return Ok(());
+            return Ok(());
+        }
+        let button_size = sd.kind().key_image_format().size.0 as u32;
         let StreamDeckSourceFeedbackPayload::On(payload) = value.payload else {
             // Switch display off
             let black = RgbaImage::from_pixel(button_size, button_size, Rgba::black());
             sd.set_button_image(value.button_index as _, black.into())?;
+            sd.flush()?;
             return Ok(());
         };
         // Paint grounding (important for images with alpha channel)
@@ -542,6 +547,7 @@ impl Backbone {
             }
         }
         sd.set_button_image(value.button_index as _, bg_layer.into())?;
+        sd.flush()?;
         Ok(())
     }
 
@@ -843,18 +849,21 @@ fn poll_stream_deck_messages(
     messages: &mut Vec<QualifiedStreamDeckMessage>,
     dev_id: StreamDeckDeviceId,
     sd: &mut StreamDeck,
-    button_states: &mut NonCryptoHashMap<StreamDeckDeviceId, Vec<u8>>,
-) -> Result<(), streamdeck::Error> {
+    button_states: &mut NonCryptoHashMap<StreamDeckDeviceId, Vec<bool>>,
+) -> Result<(), StreamDeckError> {
     let old_button_states = button_states.entry(dev_id).or_default();
-    let new_button_states = sd.read_buttons(None)?;
+    let StreamDeckInput::ButtonStateChange(new_button_states) = sd.read_input(None)? else {
+        // No data or (yet) unsupported kind of input
+        return Ok(());
+    };
     for (i, new_is_on) in new_button_states.iter().enumerate() {
-        let old_is_on = old_button_states.get(i).copied().unwrap_or(0);
+        let old_is_on = old_button_states.get(i).copied().unwrap_or_default();
         if *new_is_on == old_is_on {
             continue;
         }
         let msg = QualifiedStreamDeckMessage {
             dev_id,
-            msg: StreamDeckMessage::new(i as u32, *new_is_on > 0),
+            msg: StreamDeckMessage::new(i as u32, *new_is_on),
         };
         messages.push(msg);
     }

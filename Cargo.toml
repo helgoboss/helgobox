@@ -165,9 +165,9 @@ egui-baseview = { git = "https://github.com/helgoboss/egui-baseview.git", branch
 baseview = { git = "https://github.com/helgoboss/baseview.git", branch = "realearn" }
 include_dir = "0.7.3"
 whoami = "1.4.1"
-streamdeck = "0.9.0"
+elgato-streamdeck = "0.13.1"
 ab_glyph = "0.2.29"
-hidapi = "2.4"
+hidapi = "2.6.7"
 xcap = "0.9.8"
 syn = "3.0.4"
 darling = "0.24.1"

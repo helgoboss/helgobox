@@ -197,7 +197,7 @@ atomic.workspace = true
 # For making sure that sharing global audio state uses atomics
 static_assertions.workspace = true
 # For Stream Deck support
-streamdeck.workspace = true
+elgato-streamdeck.workspace = true
 # For Stream Deck support
 ab_glyph.workspace = true
 # For Stream Deck support
