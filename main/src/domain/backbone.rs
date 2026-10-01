@@ -189,13 +189,15 @@ impl Backbone {
 
     /// Returns IDs of newly connected Stream Deck devices.
     pub fn detect_stream_deck_device_changes(&self) -> NonCryptoHashSet<StreamDeckDeviceId> {
-        let devices_in_use = self.stream_deck_device_manager.borrow().devices_in_use();
-        let actually_connected_devices: NonCryptoHashSet<_> =
-            self.stream_decks.borrow().keys().copied().collect();
+        let device_manager = self.stream_deck_device_manager.borrow();
+        let devices_in_use = device_manager.devices_in_use();
+        let mut stream_decks = self.stream_decks.borrow_mut();
+        let actually_connected_devices: NonCryptoHashSet<&StreamDeckDeviceId> =
+            stream_decks.keys().collect();
         if devices_in_use == actually_connected_devices {
             return Default::default();
         }
-        self.connect_or_disconnect_stream_deck_devices(&devices_in_use)
+        connect_or_disconnect_stream_deck_devices(&devices_in_use, &mut stream_decks)
     }
 
     pub fn register_stream_deck_usage(&self, unit_id: UnitId, device: Option<StreamDeckDeviceId>) {
@@ -204,46 +206,19 @@ impl Backbone {
         manager.register_device_usage(unit_id, device);
         let devices_in_use = manager.devices_in_use();
         // Update connections
-        self.connect_or_disconnect_stream_deck_devices(&devices_in_use);
-    }
-
-    fn connect_or_disconnect_stream_deck_devices(
-        &self,
-        devices_in_use: &NonCryptoHashSet<StreamDeckDeviceId>,
-    ) -> NonCryptoHashSet<StreamDeckDeviceId> {
-        let mut decks = self.stream_decks.borrow_mut();
-        // Disconnect from devices that are not in use anymore
-        decks.retain(|id, _| devices_in_use.contains(id));
-        // Connect to devices
-        devices_in_use
-            .iter()
-            .filter_map(|dev_id| {
-                if decks.contains_key(dev_id) {
-                    return None;
-                }
-                match dev_id.connect() {
-                    Ok(dev) => {
-                        decks.insert(*dev_id, dev);
-                        Some(*dev_id)
-                    }
-                    Err(e) => {
-                        tracing::warn!(msg = "Couldn't connect to Stream Deck device", %e);
-                        None
-                    }
-                }
-            })
-            .collect()
+        connect_or_disconnect_stream_deck_devices(
+            &devices_in_use,
+            &mut self.stream_decks.borrow_mut(),
+        );
     }
 
     pub fn set_stream_deck_brightness(
         &self,
-        dev_id: StreamDeckDeviceId,
+        dev_id: &StreamDeckDeviceId,
         percent: UnitValue,
     ) -> anyhow::Result<()> {
         let mut decks = self.stream_decks.borrow_mut();
-        let sd = decks
-            .get_mut(&dev_id)
-            .context("stream deck not connected")?;
+        let sd = decks.get_mut(dev_id).context("stream deck not connected")?;
         sd.set_brightness((percent.get() * 100.0).round() as _)?;
         Ok(())
     }
@@ -253,7 +228,7 @@ impl Backbone {
         let mut button_states = self.stream_deck_button_states.borrow_mut();
         let mut messages = vec![];
         decks.retain(|id, deck| {
-            let result = poll_stream_deck_messages(&mut messages, *id, deck, &mut button_states);
+            let result = poll_stream_deck_messages(&mut messages, id, deck, &mut button_states);
             match result {
                 Ok(_) => true,
                 Err(e) => {
@@ -267,7 +242,7 @@ impl Backbone {
 
     pub fn send_stream_deck_feedback(
         &self,
-        dev_id: StreamDeckDeviceId,
+        dev_id: &StreamDeckDeviceId,
         value: StreamDeckSourceFeedbackValue,
     ) -> anyhow::Result<()> {
         use image::{Pixel, Rgba, RgbaImage};
@@ -386,7 +361,7 @@ impl Backbone {
 
         let mut stream_decks = self.stream_decks.borrow_mut();
         let sd = stream_decks
-            .get_mut(&dev_id)
+            .get_mut(dev_id)
             .context("stream deck not connected")?;
         let button_count = sd.kind().key_count();
         if value.button_index >= button_count as u32 {
@@ -846,11 +821,11 @@ impl RecentlyFocusedFxContainer {
 
 fn poll_stream_deck_messages(
     messages: &mut Vec<QualifiedStreamDeckMessage>,
-    dev_id: StreamDeckDeviceId,
+    dev_id: &StreamDeckDeviceId,
     sd: &mut StreamDeck,
     button_states: &mut NonCryptoHashMap<StreamDeckDeviceId, Vec<bool>>,
 ) -> Result<(), StreamDeckError> {
-    let old_button_states = button_states.entry(dev_id).or_default();
+    let old_button_states = button_states.entry(dev_id.clone()).or_default();
     let StreamDeckInput::ButtonStateChange(new_button_states) = sd.read_input(None)? else {
         // No data or (yet) unsupported kind of input
         return Ok(());
@@ -861,11 +836,39 @@ fn poll_stream_deck_messages(
             continue;
         }
         let msg = QualifiedStreamDeckMessage {
-            dev_id,
+            dev_id: dev_id.clone(),
             msg: StreamDeckMessage::new(i as u32, *new_is_on),
         };
         messages.push(msg);
     }
     *old_button_states = new_button_states;
     Ok(())
+}
+
+fn connect_or_disconnect_stream_deck_devices(
+    devices_in_use: &NonCryptoHashSet<&StreamDeckDeviceId>,
+    decks: &mut NonCryptoHashMap<StreamDeckDeviceId, StreamDeck>,
+) -> NonCryptoHashSet<StreamDeckDeviceId> {
+    // Disconnect from devices that are not in use anymore
+    decks.retain(|id, _| devices_in_use.contains(&id));
+    // Connect to devices
+    devices_in_use
+        .iter()
+        .filter_map(|dev_id| {
+            if decks.contains_key(*dev_id) {
+                return None;
+            }
+            match dev_id.connect() {
+                Ok(dev) => {
+                    let dev_id = (*dev_id).clone();
+                    decks.insert(dev_id.clone(), dev);
+                    Some(dev_id)
+                }
+                Err(e) => {
+                    tracing::warn!(msg = "Couldn't connect to Stream Deck device", %e);
+                    None
+                }
+            }
+        })
+        .collect()
 }

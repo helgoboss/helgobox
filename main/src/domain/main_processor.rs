@@ -1464,13 +1464,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics
             .channels
             .normal_real_time_task_sender
-            .send_complaining(NormalRealTimeTask::UpdateSettings(settings));
+            .send_complaining(NormalRealTimeTask::UpdateSettings(settings.clone()));
         let any_main_mapping_is_effectively_on = self.any_main_mapping_is_effectively_on();
+        let stream_deck_device_id = settings.streamdeck_device_id.clone();
         self.basics
             .update_settings_internal(settings, any_main_mapping_is_effectively_on);
         self.potentially_enable_or_disable_control_or_feedback(any_main_mapping_is_effectively_on);
-        Backbone::get()
-            .register_stream_deck_usage(self.basics.unit_id, settings.streamdeck_device_id);
+        Backbone::get().register_stream_deck_usage(self.basics.unit_id, stream_deck_device_id);
     }
 
     fn update_all_mappings(
@@ -1884,8 +1884,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         // Convenience: Send all feedback whenever a Stream Deck device is connected.
         if let ReaperMessage::StreamDeckDevicesConnected(payload) = evt.payload()
-            && let Some(dev_id) = self.basics.settings.streamdeck_device_id
-            && payload.devices.contains(&dev_id)
+            && let Some(dev_id) = &self.basics.settings.streamdeck_device_id
+            && payload.devices.contains(dev_id)
         {
             self.basics
                 .channels
@@ -1973,12 +1973,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.process_incoming_message_internal(evt.map_payload(MainSourceMessage::StreamDeck));
     }
 
-    pub fn wants_stream_deck_input_from(&self, dev: StreamDeckDeviceId) -> bool {
+    pub fn wants_stream_deck_input_from(&self, dev: &StreamDeckDeviceId) -> bool {
         self.wants_messages_in_general()
             && self
                 .basics
                 .settings
                 .streamdeck_device_id
+                .as_ref()
                 .is_some_and(|d| d == dev)
     }
 
@@ -2925,7 +2926,7 @@ pub enum NormalMainTask {
     UseIntegrationTestFeedbackSender(SenderToNormalThread<FinalSourceFeedbackValue>),
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct BasicSettings {
     pub unit_enabled: bool,
     pub control_input: ControlInput,
@@ -3412,7 +3413,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             feedback_real_time_task_sender: &self.channels.feedback_real_time_task_sender,
             osc_feedback_task_sender: &self.channels.osc_feedback_task_sender,
             feedback_output: self.settings.feedback_output,
-            stream_deck_dev_id: self.settings.streamdeck_device_id,
+            stream_deck_dev_id: self.settings.streamdeck_device_id.as_ref(),
             unit_container: self.unit_container,
             instance_id: self.instance_id,
             instance: &self.instance,
@@ -3956,7 +3957,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     let _ = say(v);
                 }
                 (FinalSourceFeedbackValue::StreamDeck(v), _) => {
-                    if let Some(dev_id) = self.settings.streamdeck_device_id {
+                    if let Some(dev_id) = &self.settings.streamdeck_device_id {
                         let result = Backbone::get().send_stream_deck_feedback(dev_id, v);
                         log_if_error(result);
                     }

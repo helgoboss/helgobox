@@ -2771,7 +2771,7 @@ impl MessageCaptureResult {
             },
             Keyboard(_) => InputDescriptor::Keyboard,
             StreamDeck(r) => InputDescriptor::StreamDeck {
-                device_id: r.dev_id?,
+                device_id: r.dev_id.clone()?,
             },
             RealearnParameter(_) => return None,
         };

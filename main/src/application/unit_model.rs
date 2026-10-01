@@ -483,9 +483,10 @@ impl UnitModel {
                 _ => false,
             },
             InputDescriptor::Keyboard => self.wants_keyboard_input,
-            InputDescriptor::StreamDeck { device_id } => {
-                self.stream_deck_device_id == Some(*device_id)
-            }
+            InputDescriptor::StreamDeck { device_id } => self
+                .stream_deck_device_id
+                .as_ref()
+                .is_some_and(|id| id == device_id),
         }
     }
 
@@ -787,8 +788,8 @@ impl UnitModel {
             })
     }
 
-    pub fn stream_deck_device_id(&self) -> Option<StreamDeckDeviceId> {
-        self.stream_deck_device_id
+    pub fn stream_deck_device_id(&self) -> Option<&StreamDeckDeviceId> {
+        self.stream_deck_device_id.as_ref()
     }
 
     pub fn wants_keyboard_input(&self) -> bool {
@@ -889,7 +890,7 @@ impl UnitModel {
             feedback_real_time_task_sender: &self.feedback_real_time_task_sender,
             osc_feedback_task_sender: self.global_osc_feedback_task_sender,
             feedback_output: self.feedback_output(),
-            stream_deck_dev_id: self.stream_deck_device_id,
+            stream_deck_dev_id: self.stream_deck_device_id.as_ref(),
             unit_container: self.unit_container,
             instance_id: self.instance_id,
             instance: &self.instance,
@@ -2652,7 +2653,7 @@ impl UnitModel {
             control_input: self.control_input(),
             wants_keyboard_input: self.wants_keyboard_input,
             match_even_inactive_mappings: self.match_even_inactive_mappings,
-            streamdeck_device_id: self.stream_deck_device_id,
+            streamdeck_device_id: self.stream_deck_device_id.clone(),
             feedback_output: self.feedback_output(),
             real_input_logging_enabled: self.real_input_logging_enabled.get(),
             real_output_logging_enabled: self.real_output_logging_enabled.get(),

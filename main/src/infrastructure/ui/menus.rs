@@ -71,7 +71,7 @@ fn get_open_and_closed_midi_input_devs() -> (Vec<MidiInputDevice>, Vec<MidiInput
 pub fn control_input_menu(
     current_value: ControlInput,
     current_wants_keyboard_input: bool,
-    current_stream_deck_dev_id: Option<StreamDeckDeviceId>,
+    current_stream_deck_dev_id: Option<&StreamDeckDeviceId>,
 ) -> Menu<ControlInputMenuAction> {
     let fx_input = ControlInput::Midi(MidiControlInput::FxInput);
     let (open_midi_devs, closed_midi_devs) = get_open_and_closed_midi_input_devs();
@@ -91,14 +91,8 @@ pub fn control_input_menu(
         .into_iter()
         .map(|dev| build_osc_input_dev_menu_item(dev, current_value))
         .collect();
-    let unavailable_stream_deck_devs = stream_deck_devices
-        .iter()
-        .filter(|d| !d.available)
-        .map(|dev| build_stream_deck_dev_menu_item(dev, current_stream_deck_dev_id))
-        .collect();
     let available_stream_deck_devs = stream_deck_devices
-        .iter()
-        .filter(|d| d.available)
+        .into_iter()
         .map(|dev| build_stream_deck_dev_menu_item(dev, current_stream_deck_dev_id));
     let entries = [item_with_opts(
         CONTROL_INPUT_MIDI_FX_INPUT_LABEL,
@@ -143,10 +137,6 @@ pub fn control_input_menu(
         ControlInputMenuAction::SelectStreamDeckDevice(None),
     )])
     .chain(available_stream_deck_devs)
-    .chain([
-        create_category_menu("Unavailable Stream Decks", unavailable_stream_deck_devs),
-        separator(),
-    ])
     .chain([item_with_opts(
         CONTROL_INPUT_KEYBOARD_LABEL,
         ItemOpts {
@@ -326,14 +316,14 @@ fn build_osc_output_dev_menu_item(
 }
 
 fn build_stream_deck_dev_menu_item(
-    dev: &ProbedStreamDeckDevice,
-    current: Option<StreamDeckDeviceId>,
+    dev: ProbedStreamDeckDevice,
+    current: Option<&StreamDeckDeviceId>,
 ) -> Entry<ControlInputMenuAction> {
     item_with_opts(
         format!("Stream Deck: {}", dev.dev.name),
         ItemOpts {
             enabled: true,
-            checked: current == Some(dev.dev.id),
+            checked: current == Some(&dev.dev.id),
         },
         ControlInputMenuAction::SelectStreamDeckDevice(Some(dev.dev.id)),
     )

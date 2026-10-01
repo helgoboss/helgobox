@@ -516,7 +516,7 @@ impl UnitData {
             },
             wants_keyboard_input: session.wants_keyboard_input(),
             match_even_inactive_mappings: session.match_even_inactive_mappings(),
-            stream_deck_device_id: session.stream_deck_device_id(),
+            stream_deck_device_id: session.stream_deck_device_id().cloned(),
             feedback_device_id: {
                 session.feedback_output().map(|output| match output {
                     FeedbackOutput::Midi(MidiDestination::FxOutput) => {
@@ -711,7 +711,9 @@ impl UnitData {
         let _ = session.change(UnitCommand::SetWantsKeyboardInput(
             self.wants_keyboard_input || wants_keyboard_input_legacy,
         ));
-        let _ = session.change(UnitCommand::SetStreamDeckDevice(self.stream_deck_device_id));
+        let _ = session.change(UnitCommand::SetStreamDeckDevice(
+            self.stream_deck_device_id.clone(),
+        ));
         let _ = session.change(UnitCommand::SetMatchEvenInactiveMappings(
             self.match_even_inactive_mappings,
         ));

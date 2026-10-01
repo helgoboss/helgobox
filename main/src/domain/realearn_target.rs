@@ -454,7 +454,7 @@ pub struct ControlContext<'a> {
     pub feedback_real_time_task_sender: &'a SenderToRealTimeThread<FeedbackRealTimeTask>,
     pub osc_feedback_task_sender: &'a SenderToNormalThread<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
-    pub stream_deck_dev_id: Option<StreamDeckDeviceId>,
+    pub stream_deck_dev_id: Option<&'a StreamDeckDeviceId>,
     pub unit_container: &'a dyn UnitContainer,
     pub instance: &'a SharedInstance,
     pub unit: &'a SharedUnit,

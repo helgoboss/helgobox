@@ -108,7 +108,7 @@ pub struct StreamDeckMessage {
     pub press: bool,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct QualifiedStreamDeckMessage {
     pub dev_id: StreamDeckDeviceId,
     pub msg: StreamDeckMessage,

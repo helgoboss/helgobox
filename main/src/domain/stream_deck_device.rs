@@ -5,6 +5,7 @@ use elgato_streamdeck::info::Kind;
 use elgato_streamdeck::{StreamDeck, list_devices, refresh_device_list};
 use hidapi::{HidApi, HidResult};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
@@ -20,7 +21,6 @@ fn hid_api() -> anyhow::Result<MutexGuard<'static, HidApi>> {
 
 pub struct ProbedStreamDeckDevice {
     pub dev: StreamDeckDevice,
-    pub available: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -38,29 +38,26 @@ impl StreamDeckDevice {
 pub fn probe_stream_deck_devices() -> anyhow::Result<Vec<ProbedStreamDeckDevice>> {
     let mut hid_api = hid_api()?;
     refresh_device_list(&mut hid_api)?;
-    let devices = elgato_streamdeck::list_devices(&hid_api)
+    let devices = list_devices(&hid_api)
         .into_iter()
         .map(|(kind, serial)| ProbedStreamDeckDevice {
             dev: StreamDeckDevice::new(
-                StreamDeckDeviceId::from_kind(kind),
+                StreamDeckDeviceId::from_kind_and_serial(kind, Some(serial.clone())),
                 format!("{kind:?} ({serial})"),
             ),
-            available: true,
         })
         .collect();
     Ok(devices)
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct StreamDeckDeviceId {
     /// Vendor ID.
     pub vid: u16,
     /// Product ID.
     pub pid: u16,
-    // TODO-high CONTINUE I think the only reason we don't have this so far is that this makes the ID non-copyable?
-    //  Let's deal with it later.
     // Serial number (for distinguishing between multiple devices of the same type).
-    // pub serial_number: Option<String>,
+    pub serial: Option<String>,
 }
 
 impl Display for StreamDeckDeviceId {
@@ -70,20 +67,26 @@ impl Display for StreamDeckDeviceId {
 }
 
 impl StreamDeckDeviceId {
-    pub fn from_kind(kind: Kind) -> Self {
+    pub fn from_kind_and_serial(kind: Kind, serial: Option<String>) -> Self {
         Self {
             vid: kind.vendor_id(),
             pid: kind.product_id(),
+            serial,
         }
     }
 
     pub fn connect(&self) -> anyhow::Result<StreamDeck> {
         let hid_api = hid_api()?;
         let desired_kind = self.kind().context("unknown kind of StreamDeck")?;
-        let (_, serial) = list_devices(&hid_api)
-            .into_iter()
-            .find(|(kind, _)| *kind == desired_kind)
-            .context("not StreamDeck of that kind connected")?;
+        let serial: Cow<str> = if let Some(serial) = &self.serial {
+            serial.into()
+        } else {
+            let (_, serial) = list_devices(&hid_api)
+                .into_iter()
+                .find(|(kind, _)| *kind == desired_kind)
+                .context("not StreamDeck of that kind connected")?;
+            serial.into()
+        };
         let sd = StreamDeck::connect(&hid_api, desired_kind, &serial)?;
         Ok(sd)
     }
@@ -107,7 +110,7 @@ impl StreamDeckDeviceManager {
         }
     }
 
-    pub fn devices_in_use(&self) -> NonCryptoHashSet<StreamDeckDeviceId> {
-        self.device_usage.values().copied().collect()
+    pub fn devices_in_use(&self) -> NonCryptoHashSet<&StreamDeckDeviceId> {
+        self.device_usage.values().collect()
     }
 }

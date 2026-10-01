@@ -726,7 +726,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         let backbone = Backbone::get();
         for msg in backbone.poll_stream_deck_messages() {
             for p in &mut *self.main_processors.borrow_mut() {
-                if !p.wants_stream_deck_input_from(msg.dev_id) {
+                if !p.wants_stream_deck_input_from(&msg.dev_id) {
                     continue;
                 }
                 let event = ControlEvent::new(msg.msg, timestamp);

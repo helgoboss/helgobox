@@ -1858,14 +1858,14 @@ impl HeaderPanel {
             (
                 session.control_input(),
                 session.wants_keyboard_input(),
-                session.stream_deck_device_id(),
+                session.stream_deck_device_id().cloned(),
             )
         };
         let result = self.view.require_window().open_popup_menu(
             menus::control_input_menu(
                 current_control_input,
                 current_wants_keyboard_input,
-                current_stream_deck_dev_id,
+                current_stream_deck_dev_id.as_ref(),
             ),
             Window::cursor_pos(),
         );
