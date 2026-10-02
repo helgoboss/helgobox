@@ -9,17 +9,19 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::fs;
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use url::Url;
 
+use crate::base::notification::notify_user_about_anyhow_error;
 use crate::infrastructure::server::grpc::start_grpc_server;
 use crate::infrastructure::server::http::ServerClients;
 use crate::infrastructure::server::http::start_http_server;
 use crate::infrastructure::server::services::Services;
 use derivative::Derivative;
+use mdns_sd::{ServiceDaemon, ServiceInfo};
 use tokio::runtime::Runtime;
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
@@ -93,10 +95,13 @@ enum ServerState {
     Running(ServerRuntimeData),
 }
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 struct ServerRuntimeData {
     clients: ServerClients,
     server_join_handle: tokio::task::JoinHandle<()>,
+    #[derivative(Debug = "ignore")]
+    service_daemon: Option<ServiceDaemon>,
 }
 
 impl ServerState {
@@ -155,9 +160,15 @@ impl RealearnServer {
             metrics_reporter,
             services,
         ));
+        let service_daemon = setup_advertisement(grpc_port)
+            .inspect_err(|e| {
+                notify_user_about_anyhow_error(e);
+            })
+            .ok();
         let runtime_data = ServerRuntimeData {
             clients,
             server_join_handle,
+            service_daemon,
         };
         self.state = ServerState::Starting(runtime_data);
         self.notify_changed();
@@ -186,6 +197,9 @@ impl RealearnServer {
     pub fn stop(&mut self) {
         match std::mem::replace(&mut self.state, ServerState::Stopped) {
             ServerState::Running(runtime_data) | ServerState::Starting(runtime_data) => {
+                if let Some(d) = runtime_data.service_daemon {
+                    let _ = d.shutdown();
+                }
                 runtime_data.server_join_handle.abort();
             }
             ServerState::Stopped => {}
@@ -439,4 +453,35 @@ Set another {port_type_display_label} port in "realearn.ini", for example:
 
 fn local_port_available(port: u16) -> bool {
     std::net::TcpListener::bind(("0.0.0.0", port)).is_ok()
+}
+
+fn setup_advertisement(grpc_port: u16) -> anyhow::Result<ServiceDaemon> {
+    let service_daemon = ServiceDaemon::new().context("failed to start MDNS service daemon")?;
+    let pure_host_name = get_pure_hostname().unwrap_or_else(|| "computer".to_string());
+    let hostname = format!("{pure_host_name}.local.");
+    let service = ServiceInfo::new(
+        "_helgobox._tcp.local.",
+        "Helgobox",
+        &hostname,
+        "",
+        grpc_port,
+        // In the future we will probaby add stuff such as [("version", "1"), ("id", "installation-id")],
+        vec![],
+    )
+    .context("failed to create MDNS service info")?
+    .enable_addr_auto();
+    service_daemon
+        .register(service)
+        .context("failed to register MDNS service")?;
+    Ok(service_daemon)
+}
+
+/// Gets the system hostname without any ".local" suffix.
+fn get_pure_hostname() -> Option<String> {
+    let name = hostname::get().ok()?;
+    Some(
+        name.to_string_lossy()
+            .trim_end_matches(".local")
+            .to_string(),
+    )
 }

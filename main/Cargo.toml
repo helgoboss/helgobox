@@ -213,6 +213,8 @@ pathdiff.workspace = true
 reqwest = { workspace = true, default-features = false, features = ["rustls-tls-no-provider"] }
 # For MIDI clock processing
 simple_moving_average.workspace = true
+# For advertising the server
+mdns-sd.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source
