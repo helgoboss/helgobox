@@ -1324,7 +1324,9 @@ impl BackboneShell {
             CompartmentKind::Controller => "controller",
             CompartmentKind::Main => "main",
         };
-        Self::realearn_preset_dir_path().join(sub_dir)
+        let dir = Self::realearn_preset_dir_path().join(sub_dir);
+        let _ = fs::create_dir_all(&dir);
+        dir
     }
 
     pub fn realearn_auto_load_configs_dir_path() -> Utf8PathBuf {
