@@ -457,12 +457,19 @@ fn local_port_available(port: u16) -> bool {
 
 fn setup_advertisement(grpc_port: u16) -> anyhow::Result<ServiceDaemon> {
     let service_daemon = ServiceDaemon::new().context("failed to start MDNS service daemon")?;
-    let pure_host_name = get_pure_hostname().unwrap_or_else(|| "computer".to_string());
-    let hostname = format!("{pure_host_name}.local.");
+    // In commit db561e73, we still used hostname::get() for this. But interestingly, it
+    // triggered a macOS notification:
+    //
+    //     This computer's localhostname "MacBook-Pro.local" is already in use on this network.
+    //     The name has been changed to "MacBook-Pro-2.local".
+    //
+    // So macOS detected this as a duplicate host name and changed its own hostname. Of course,
+    // we don't want this to happen. So we choose a custom hostname.
+    let hostname = "_helgobox._tcp.local.";
     let service = ServiceInfo::new(
         "_helgobox._tcp.local.",
         "Helgobox",
-        &hostname,
+        hostname,
         "",
         grpc_port,
         // In the future we will probaby add stuff such as [("version", "1"), ("id", "installation-id")],
@@ -474,14 +481,4 @@ fn setup_advertisement(grpc_port: u16) -> anyhow::Result<ServiceDaemon> {
         .register(service)
         .context("failed to register MDNS service")?;
     Ok(service_daemon)
-}
-
-/// Gets the system hostname without any ".local" suffix.
-fn get_pure_hostname() -> Option<String> {
-    let name = hostname::get().ok()?;
-    Some(
-        name.to_string_lossy()
-            .trim_end_matches(".local")
-            .to_string(),
-    )
 }
