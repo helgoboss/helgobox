@@ -775,11 +775,13 @@ impl MappingRowPanel {
             ];
             anonymous_menu(entries)
         };
-        let result = self
+        let Some(result) = self
             .view
             .require_window()
             .open_popup_menu(pure_menu, location)
-            .context("no entry selected")?;
+        else {
+            return Ok(());
+        };
         let triple = self.mapping_triple()?;
         let result = match result {
             MenuAction::None => Ok(()),
