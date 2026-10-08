@@ -47,7 +47,7 @@ pub mod reply {
 pub struct CommandRequest {
     #[prost(
         oneof = "command_request::Value",
-        tags = "1, 54, 3, 4, 5, 52, 6, 7, 55, 8, 9, 10, 11, 50, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 53, 40, 25, 26, 27, 34, 28, 29, 31, 32, 56, 33, 35, 36, 38, 39, 41, 42, 43, 44, 51, 45, 46, 47, 48, 49"
+        tags = "1, 54, 3, 4, 5, 52, 6, 7, 55, 8, 9, 10, 11, 50, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 57, 37, 53, 40, 25, 26, 27, 34, 28, 29, 31, 32, 56, 33, 35, 36, 38, 39, 41, 42, 43, 44, 51, 45, 46, 47, 48, 49"
     )]
     pub value: ::core::option::Option<command_request::Value>,
 }
@@ -114,6 +114,8 @@ pub mod command_request {
         SetClipName(super::SetClipNameRequest),
         #[prost(message, tag = "24")]
         SetClipData(super::SetClipDataRequest),
+        #[prost(message, tag = "57")]
+        PatchMidiClipContent(super::PatchMidiClipContentRequest),
         /// Event re-subscription commands (only for occasional aggregate events, the rest will be sent anyway)
         #[prost(message, tag = "37")]
         GetOccasionalGlobalUpdates(super::GetOccasionalGlobalUpdatesRequest),
@@ -875,6 +877,14 @@ pub struct SetClipDataRequest {
     /// Clip data as JSON
     #[prost(string, tag = "2")]
     pub data: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PatchMidiClipContentRequest {
+    #[prost(message, optional, tag = "1")]
+    pub clip_address: ::core::option::Option<FullClipAddress>,
+    #[prost(message, optional, tag = "2")]
+    pub patch: ::core::option::Option<MidiSequencePatch>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1865,6 +1875,8 @@ pub struct ClipContentRuntimeInfo {
 pub struct MidiClipContentInfo {
     #[prost(bool, tag = "1")]
     pub quantized: bool,
+    #[prost(message, optional, tag = "2")]
+    pub sequence: ::core::option::Option<MidiSequence>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1908,6 +1920,52 @@ pub struct ContinuousClipUpdate {
     /// Number between 0 and 1.
     #[prost(double, tag = "5")]
     pub peak: f64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MidiSequence {
+    #[prost(uint64, tag = "1")]
+    pub ppq: u64,
+    #[prost(uint64, tag = "2")]
+    pub length: u64,
+    #[prost(message, optional, tag = "3")]
+    pub time_signature: ::core::option::Option<TimeSignature>,
+    #[prost(message, repeated, tag = "4")]
+    pub notes: ::prost::alloc::vec::Vec<MidiSequenceNote>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MidiSequencePatch {
+    #[prost(uint64, optional, tag = "1")]
+    pub clip_length: ::core::option::Option<u64>,
+    #[prost(uint64, optional, tag = "2")]
+    pub ppq: ::core::option::Option<u64>,
+    #[prost(message, optional, tag = "3")]
+    pub time_signature: ::core::option::Option<TimeSignature>,
+    #[prost(message, repeated, tag = "4")]
+    pub notes: ::prost::alloc::vec::Vec<MidiSequenceNote>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MidiSequenceNote {
+    #[prost(uint64, tag = "1")]
+    pub start: u64,
+    #[prost(uint64, tag = "2")]
+    pub duration: u64,
+    #[prost(message, optional, tag = "3")]
+    pub note: ::core::option::Option<MidiNote>,
+    #[prost(bool, tag = "4")]
+    pub mute: bool,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MidiNote {
+    #[prost(uint32, tag = "1")]
+    pub channel: u32,
+    #[prost(uint32, tag = "2")]
+    pub pitch: u32,
+    #[prost(uint32, tag = "3")]
+    pub velocity: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3303,6 +3361,10 @@ pub mod helgobox_service_server {
         async fn set_clip_data(
             &self,
             request: tonic::Request<super::SetClipDataRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn patch_midi_clip_content(
+            &self,
+            request: tonic::Request<super::PatchMidiClipContentRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn drag_clip(
             &self,
@@ -5837,6 +5899,56 @@ pub mod helgobox_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = SetClipDataSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/PatchMidiClipContent" => {
+                    #[allow(non_camel_case_types)]
+                    struct PatchMidiClipContentSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::PatchMidiClipContentRequest>
+                    for PatchMidiClipContentSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::PatchMidiClipContentRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::patch_midi_clip_content(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = PatchMidiClipContentSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

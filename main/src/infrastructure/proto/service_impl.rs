@@ -19,14 +19,14 @@ use crate::infrastructure::proto::{
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, GetOccasionalUnitUpdatesReply,
     GetOccasionalUnitUpdatesRequest, GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest,
-    InsertColumnsRequest, OpenTrackFxRequest, ProtoRequestHandler, ProveAuthenticityReply,
-    ProveAuthenticityRequest, SaveControllerRequest, SaveCustomCompartmentDataRequest,
-    SetAppSettingsRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
-    SetColumnTrackRequest, SetCustomInstanceDataRequest, SetInstanceSettingsRequest,
-    SetMatrixClickChannelRequest, SetMatrixPanRequest, SetMatrixPlayRateRequest,
-    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
-    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
-    SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
+    InsertColumnsRequest, OpenTrackFxRequest, PatchMidiClipContentRequest, ProtoRequestHandler,
+    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
+    SaveCustomCompartmentDataRequest, SetAppSettingsRequest, SetClipDataRequest,
+    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixClickChannelRequest,
+    SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
+    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
+    SetRowDataRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
     SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
     TriggerColumnRequest, TriggerGlobalRequest, TriggerInstanceRequest, TriggerMatrixRequest,
     TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest, create_initial_global_updates,
@@ -796,6 +796,14 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Empty>, Status> {
         self.command_handler
             .audition_midi_through_clip(request.into_inner())
+    }
+
+    async fn patch_midi_clip_content(
+        &self,
+        request: Request<PatchMidiClipContentRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler
+            .patch_midi_clip_content(request.into_inner())
     }
 }
 

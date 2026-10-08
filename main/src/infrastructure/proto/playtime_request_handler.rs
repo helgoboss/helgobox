@@ -13,28 +13,30 @@ use crate::infrastructure::proto::{
     FullSlotAddress, FullTrackAddress, GetArrangementInfoReply, GetArrangementInfoRequest,
     GetClipDetailReply, GetClipDetailRequest, GetProjectDirReply, GetProjectDirRequest,
     ImportFilesRequest, InsertColumnsRequest, MatrixVolumeKind, OpenTrackFxRequest,
-    ProveAuthenticityReply, ProveAuthenticityRequest, SetClipDataRequest, SetClipNameRequest,
-    SetColumnSettingsRequest, SetColumnTrackRequest, SetMatrixClickChannelRequest,
-    SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
-    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
-    SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
-    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TriggerClipAction, TriggerClipRequest, TriggerColumnAction,
-    TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction,
-    TriggerRowRequest, TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction,
-    TriggerSlotRequest, TriggerTrackAction, TriggerTrackRequest,
+    PatchMidiClipContentRequest, ProveAuthenticityReply, ProveAuthenticityRequest,
+    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    SetMatrixClickChannelRequest, SetMatrixPanRequest, SetMatrixPlayRateRequest,
+    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
+    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
+    SetSequenceInfoRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest,
+    SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest,
+    TriggerClipAction, TriggerClipRequest, TriggerColumnAction, TriggerColumnRequest,
+    TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest,
+    TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest,
+    TriggerTrackAction, TriggerTrackRequest,
 };
 use base::tracing_util::ok_or_log_as_warn;
 use base::{future_util, spawn_in_main_thread};
 use helgoboss_learn::UnitValue;
 use playtime_api::persistence::{
-    ClipId, ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress, TrackId,
+    ClipId, ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress,
+    TimeSignature, TrackId,
 };
 use playtime_api::runtime::{CellAddress, SimpleMappingTarget};
 use playtime_clip_engine::PlaytimeEngine;
 use playtime_clip_engine::base::{MatrixHandle, WriteArrangementPosition};
 use playtime_clip_engine::rt::TriggerSlotMainOptions;
-use playtime_clip_engine::rt::supplier::midi::MidiMessage;
+use playtime_clip_engine::rt::supplier::midi::{MidiMessage, MidiSequenceNote, Note};
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::{
     PlaytimeMainEngine, base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions,
@@ -282,6 +284,50 @@ impl PlaytimeProtoRequestHandler {
         .map_err(|e| Status::invalid_argument(e.to_string()))?;
         self.handle_clip_command(&req.clip_address, |matrix, clip| {
             matrix.audition_midi_through_clip(clip, MidiMessage::Short(short))
+        })
+    }
+
+    pub fn patch_midi_clip_content(
+        &self,
+        req: PatchMidiClipContentRequest,
+    ) -> Result<Response<Empty>, Status> {
+        let patch = req
+            .patch
+            .ok_or_else(|| Status::invalid_argument("missing patch"))?;
+        self.handle_clip_command(&req.clip_address, move |matrix, clip| {
+            matrix.patch_midi_clip_content(clip, move |seq| {
+                if let Some(v) = patch.ppq {
+                    seq.resample_to_ppq(v);
+                }
+                if let Some(v) = patch.clip_length {
+                    seq.set_length_in_pulses(v);
+                }
+                let notes = patch
+                    .notes
+                    .into_iter()
+                    .filter_map(|n| {
+                        let note = n.note?;
+                        let note = MidiSequenceNote {
+                            start: n.start,
+                            duration: n.duration,
+                            note: Note {
+                                channel: note.channel.try_into().ok()?,
+                                key_number: note.pitch.try_into().ok()?,
+                                velocity: note.velocity.try_into().ok()?,
+                            },
+                            selected: false,
+                            mute: false,
+                            quantization_shift: 0,
+                        };
+                        Some(note)
+                    })
+                    .collect();
+                seq.replace_notes(notes);
+                if let Some(v) = patch.time_signature {
+                    seq.set_time_signature(convert_time_signature_to_engine(v));
+                }
+            })?;
+            Ok(())
         })
     }
 
@@ -973,6 +1019,13 @@ fn convert_clip_address_to_engine(
         .to_engine()
         .map_err(Status::invalid_argument)?;
     Ok(addr)
+}
+
+fn convert_time_signature_to_engine(value: proto::TimeSignature) -> TimeSignature {
+    TimeSignature {
+        numerator: value.numerator,
+        denominator: value.denominator,
+    }
 }
 
 fn require_full_clip_address(

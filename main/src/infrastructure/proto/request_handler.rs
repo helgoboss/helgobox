@@ -22,17 +22,18 @@ use crate::infrastructure::proto::{
     GetClipDetailReply, GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest,
     GetCustomInstanceDataReply, GetCustomInstanceDataRequest, GetHostInfoReply, GetHostInfoRequest,
     GetProjectDirReply, GetProjectDirRequest, HOST_API_VERSION, ImportFilesRequest,
-    InsertColumnsRequest, OpenTrackFxRequest, ProveAuthenticityReply, ProveAuthenticityRequest,
-    SaveControllerRequest, SaveCustomCompartmentDataRequest, SetAppSettingsRequest,
-    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
-    SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixClickChannelRequest,
-    SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
-    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
-    SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
-    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerGlobalAction,
-    TriggerGlobalRequest, TriggerInstanceAction, TriggerInstanceRequest, TriggerMatrixRequest,
-    TriggerRowRequest, TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest,
+    InsertColumnsRequest, OpenTrackFxRequest, PatchMidiClipContentRequest, ProveAuthenticityReply,
+    ProveAuthenticityRequest, SaveControllerRequest, SaveCustomCompartmentDataRequest,
+    SetAppSettingsRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
+    SetColumnTrackRequest, SetCustomInstanceDataRequest, SetInstanceSettingsRequest,
+    SetMatrixClickChannelRequest, SetMatrixPanRequest, SetMatrixPlayRateRequest,
+    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
+    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
+    SetSequenceInfoRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest,
+    SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest,
+    TriggerClipRequest, TriggerColumnRequest, TriggerGlobalAction, TriggerGlobalRequest,
+    TriggerInstanceAction, TriggerInstanceRequest, TriggerMatrixRequest, TriggerRowRequest,
+    TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest,
 };
 use crate::infrastructure::ui::defer_from_dart_callstack;
 
@@ -285,6 +286,21 @@ impl ProtoRequestHandler {
         #[cfg(feature = "playtime")]
         {
             PlaytimeProtoRequestHandler.audition_midi_through_clip(req)
+        }
+    }
+
+    pub fn patch_midi_clip_content(
+        &self,
+        req: PatchMidiClipContentRequest,
+    ) -> Result<Response<Empty>, Status> {
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = req;
+            playtime_not_available()
+        }
+        #[cfg(feature = "playtime")]
+        {
+            PlaytimeProtoRequestHandler.patch_midi_clip_content(req)
         }
     }
 

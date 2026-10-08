@@ -11,12 +11,12 @@ use crate::infrastructure::proto::track_input::Input;
 use crate::infrastructure::proto::{
     AudioClipContentInfo, CellAddress, ClipAddress, ClipContentInfo, ColumnKind,
     ContinuousClipUpdate, ContinuousSlotUpdate, Fx, FxChain, HistoryState, LearnState,
-    LicenseState, MidiClipContentInfo, PlaytimeEngineStats, RgbColor, SequencerPlayState,
-    SlotAddress, SlotPlayState, TimeSignature, TrackInput, TrackInputMonitoring, TrackList,
-    TrackMidiInput, clip_content_info, generated, occasional_matrix_update,
-    occasional_playtime_engine_update, occasional_track_update, qualified_occasional_clip_update,
-    qualified_occasional_column_update, qualified_occasional_row_update,
-    qualified_occasional_slot_update,
+    LicenseState, MidiClipContentInfo, MidiNote, MidiSequence, MidiSequenceNote,
+    PlaytimeEngineStats, RgbColor, SequencerPlayState, SlotAddress, SlotPlayState, TimeSignature,
+    TrackInput, TrackInputMonitoring, TrackList, TrackMidiInput, clip_content_info, generated,
+    occasional_matrix_update, occasional_playtime_engine_update, occasional_track_update,
+    qualified_occasional_clip_update, qualified_occasional_column_update,
+    qualified_occasional_row_update, qualified_occasional_slot_update,
 };
 use playtime_api::runtime::ControlUnitConfig;
 use playtime_clip_engine::base::{
@@ -405,9 +405,38 @@ impl clip_content_info::Info {
             ClipSource::File(_) => Self::Audio(AudioClipContentInfo {
                 online: clip_employment.online_data.is_some(),
             }),
-            ClipSource::Midi(s) => Self::Midi(MidiClipContentInfo {
-                quantized: s.sequence().is_quantized(),
-            }),
+            ClipSource::Midi(s) => {
+                let seq = s.sequence();
+                let sig = seq.time_info().time_signature;
+                let notes = seq.extract_notes();
+                Self::Midi(MidiClipContentInfo {
+                    quantized: seq.is_quantized(),
+                    sequence: Some(MidiSequence {
+                        ppq: seq.ppq(),
+                        length: seq.total_pulse_count(),
+                        time_signature: Some(TimeSignature {
+                            numerator: sig.numerator,
+                            denominator: sig.denominator,
+                        }),
+                        notes: notes
+                            .into_iter()
+                            .map(|entry| {
+                                let note = entry.note;
+                                MidiSequenceNote {
+                                    start: entry.start,
+                                    duration: entry.duration,
+                                    note: Some(MidiNote {
+                                        channel: note.channel.get() as _,
+                                        pitch: note.key_number.get() as _,
+                                        velocity: note.velocity.get() as _,
+                                    }),
+                                    mute: entry.mute,
+                                }
+                            })
+                            .collect(),
+                    }),
+                })
+            }
         }
     }
 }
