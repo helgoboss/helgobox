@@ -761,6 +761,9 @@ fn process_command(
         TriggerClip(req) => {
             handler.trigger_clip(req)?;
         }
+        AuditionMidiThroughClip(req) => {
+            handler.audition_midi_through_clip(req)?;
+        }
         SetClipName(req) => {
             handler.set_clip_name(req)?;
         }

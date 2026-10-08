@@ -1,4 +1,5 @@
 use anyhow::Context;
+use helgoboss_midi::{RawShortMessage, ShortMessageFactory};
 use reaper_high::{GroupingBehavior, Guid, Track, TrackSetSmartOpts};
 use reaper_medium::{Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, SoloMode};
 use tonic::{Response, Status};
@@ -6,15 +7,15 @@ use tonic::{Response, Status};
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
-    ColumnKind, DragClipAction, DragClipRequest, DragColumnAction, DragColumnRequest,
-    DragRowAction, DragRowRequest, DragSlotAction, DragSlotRequest, Empty, FullClipAddress,
-    FullClipId, FullColumnAddress, FullRowAddress, FullSequenceId, FullSlotAddress,
-    FullTrackAddress, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
-    GetClipDetailRequest, GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest,
-    InsertColumnsRequest, MatrixVolumeKind, OpenTrackFxRequest, ProveAuthenticityReply,
-    ProveAuthenticityRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
-    SetColumnTrackRequest, SetMatrixClickChannelRequest, SetMatrixPanRequest,
-    SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
+    AuditionMidiThroughClipRequest, ColumnKind, DragClipAction, DragClipRequest, DragColumnAction,
+    DragColumnRequest, DragRowAction, DragRowRequest, DragSlotAction, DragSlotRequest, Empty,
+    FullClipAddress, FullClipId, FullColumnAddress, FullRowAddress, FullSequenceId,
+    FullSlotAddress, FullTrackAddress, GetArrangementInfoReply, GetArrangementInfoRequest,
+    GetClipDetailReply, GetClipDetailRequest, GetProjectDirReply, GetProjectDirRequest,
+    ImportFilesRequest, InsertColumnsRequest, MatrixVolumeKind, OpenTrackFxRequest,
+    ProveAuthenticityReply, ProveAuthenticityRequest, SetClipDataRequest, SetClipNameRequest,
+    SetColumnSettingsRequest, SetColumnTrackRequest, SetMatrixClickChannelRequest,
+    SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
     SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
     SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
     SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
@@ -33,6 +34,7 @@ use playtime_api::runtime::{CellAddress, SimpleMappingTarget};
 use playtime_clip_engine::PlaytimeEngine;
 use playtime_clip_engine::base::{MatrixHandle, WriteArrangementPosition};
 use playtime_clip_engine::rt::TriggerSlotMainOptions;
+use playtime_clip_engine::rt::supplier::midi::MidiMessage;
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::{
     PlaytimeMainEngine, base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions,
@@ -258,6 +260,29 @@ impl PlaytimeProtoRequestHandler {
             .set_settings(settings)
             .map_err(|e| Status::unknown(e.to_string()))?;
         Ok(Response::new(Empty {}))
+    }
+
+    pub fn audition_midi_through_clip(
+        &self,
+        req: AuditionMidiThroughClipRequest,
+    ) -> Result<Response<Empty>, Status> {
+        let msg = req
+            .msg
+            .ok_or_else(|| Status::invalid_argument("missing MIDI message"))?;
+        let packed = msg.packed;
+        let short = RawShortMessage::from_bytes((
+            (packed & 0xFF) as u8,
+            ((packed >> 8) & 0xFF)
+                .try_into()
+                .map_err(|_| Status::invalid_argument("data1 too high"))?,
+            ((packed >> 16) & 0xFF)
+                .try_into()
+                .map_err(|_| Status::invalid_argument("data2 too high"))?,
+        ))
+        .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        self.handle_clip_command(&req.clip_address, |matrix, clip| {
+            matrix.audition_midi_through_clip(clip, MidiMessage::Short(short))
+        })
     }
 
     pub fn insert_columns(&self, req: InsertColumnsRequest) -> Result<Response<Empty>, Status> {

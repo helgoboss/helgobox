@@ -16,10 +16,10 @@ use crate::infrastructure::plugin::{BackboneShell, InstanceShell, UnitShell};
 #[cfg(feature = "playtime")]
 use crate::infrastructure::proto::PlaytimeProtoRequestHandler;
 use crate::infrastructure::proto::{
-    AddLicenseRequest, Compartment, DeleteControllerRequest, DragClipRequest, DragColumnRequest,
-    DragRowRequest, DragSlotRequest, Empty, FullCompartmentId, GetAppSettingsReply,
-    GetAppSettingsRequest, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
-    GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest,
+    AddLicenseRequest, AuditionMidiThroughClipRequest, Compartment, DeleteControllerRequest,
+    DragClipRequest, DragColumnRequest, DragRowRequest, DragSlotRequest, Empty, FullCompartmentId,
+    GetAppSettingsReply, GetAppSettingsRequest, GetArrangementInfoReply, GetArrangementInfoRequest,
+    GetClipDetailReply, GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest,
     GetCustomInstanceDataReply, GetCustomInstanceDataRequest, GetHostInfoReply, GetHostInfoRequest,
     GetProjectDirReply, GetProjectDirRequest, HOST_API_VERSION, ImportFilesRequest,
     InsertColumnsRequest, OpenTrackFxRequest, ProveAuthenticityReply, ProveAuthenticityRequest,
@@ -270,6 +270,21 @@ impl ProtoRequestHandler {
         #[cfg(feature = "playtime")]
         {
             PlaytimeProtoRequestHandler.set_playtime_engine_settings(req)
+        }
+    }
+
+    pub fn audition_midi_through_clip(
+        &self,
+        req: AuditionMidiThroughClipRequest,
+    ) -> Result<Response<Empty>, Status> {
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = req;
+            playtime_not_available()
+        }
+        #[cfg(feature = "playtime")]
+        {
+            PlaytimeProtoRequestHandler.audition_midi_through_clip(req)
         }
     }
 

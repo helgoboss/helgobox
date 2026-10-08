@@ -789,6 +789,14 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         self.command_handler
             .set_playtime_engine_settings(request.into_inner())
     }
+
+    async fn audition_midi_through_clip(
+        &self,
+        request: Request<super::AuditionMidiThroughClipRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler
+            .audition_midi_through_clip(request.into_inner())
+    }
 }
 
 type SyncBoxStream<'a, T> = Pin<Box<dyn Stream<Item = T> + Send + Sync + 'a>>;
