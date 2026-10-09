@@ -595,6 +595,7 @@ impl ContinuousClipUpdate {
             position_in_seconds: event.seconds.get(),
             source_position_in_frames: event.source_pos_in_frames,
             hypothetical_source_position_in_frames: event.hypothetical_source_pos_in_frames,
+            source_position_in_ticks: event.source_pos_in_ticks,
             peak: event.peak.get(),
         }
     }

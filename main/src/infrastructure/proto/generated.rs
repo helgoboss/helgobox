@@ -1917,6 +1917,14 @@ pub struct ContinuousClipUpdate {
     /// much from the hypothetical one.
     #[prost(int64, tag = "4")]
     pub hypothetical_source_position_in_frames: i64,
+    /// Position in MIDI ticks according to the PPQ (resolution).
+    ///
+    /// Only set for MIDI clips.
+    ///
+    /// This is a floating-point number because the PPQ might be quite coarse-grained and we want the cursor
+    /// to be smooth, no matter the PPQ.
+    #[prost(double, optional, tag = "6")]
+    pub source_position_in_ticks: ::core::option::Option<f64>,
     /// Number between 0 and 1.
     #[prost(double, tag = "5")]
     pub peak: f64,
