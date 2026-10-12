@@ -465,7 +465,7 @@ fn setup_advertisement(grpc_port: u16) -> anyhow::Result<ServiceDaemon> {
     //
     // So macOS detected this as a duplicate host name and changed its own hostname. Of course,
     // we don't want this to happen. So we choose a custom hostname.
-    let hostname = "_helgobox._tcp.local.";
+    let hostname = "_helgobox.local.";
     let service = ServiceInfo::new(
         "_helgobox._tcp.local.",
         "Helgobox",
