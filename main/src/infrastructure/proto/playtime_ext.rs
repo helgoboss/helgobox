@@ -431,6 +431,8 @@ impl clip_content_info::Info {
                                         velocity: note.velocity.get() as _,
                                     }),
                                     mute: entry.mute,
+                                    selected: entry.selected,
+                                    quantization_shift: entry.quantization_shift,
                                 }
                             })
                             .collect(),

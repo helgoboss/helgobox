@@ -1964,6 +1964,10 @@ pub struct MidiSequenceNote {
     pub note: ::core::option::Option<MidiNote>,
     #[prost(bool, tag = "4")]
     pub mute: bool,
+    #[prost(bool, tag = "5")]
+    pub selected: bool,
+    #[prost(int32, tag = "6")]
+    pub quantization_shift: i32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

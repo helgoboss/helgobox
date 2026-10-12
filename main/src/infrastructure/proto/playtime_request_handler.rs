@@ -315,9 +315,9 @@ impl PlaytimeProtoRequestHandler {
                                 key_number: note.pitch.try_into().ok()?,
                                 velocity: note.velocity.try_into().ok()?,
                             },
-                            selected: false,
-                            mute: false,
-                            quantization_shift: 0,
+                            selected: n.selected,
+                            mute: n.mute,
+                            quantization_shift: n.quantization_shift,
                         };
                         Some(note)
                     })
