@@ -67,7 +67,6 @@ impl AppLibrary {
                     "Contents/Frameworks/device_info_plus.framework/device_info_plus",
                     "Contents/Frameworks/irondash_engine_context.framework/irondash_engine_context",
                     "Contents/Frameworks/native_context_menu.framework/native_context_menu",
-                    "Contents/Frameworks/pointer_lock.framework/pointer_lock",
                     "Contents/Frameworks/screen_retriever.framework/screen_retriever",
                     "Contents/Frameworks/super_native_extensions.framework/super_native_extensions",
                     "Contents/Frameworks/window_manager.framework/window_manager",
