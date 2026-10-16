@@ -103,8 +103,9 @@ fn keep_logging(receiver: Receiver<AsyncLoggerCommand>, mut inner: impl Write) {
         match cmd {
             AsyncLoggerCommand::Finish => break,
             AsyncLoggerCommand::Log(msg) => {
-                inner.write_all(&msg).unwrap();
-                inner.flush().unwrap();
+                if inner.write_all(&msg).is_ok() {
+                    let _ = inner.flush();
+                }
             }
         }
     }
