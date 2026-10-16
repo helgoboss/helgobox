@@ -255,8 +255,7 @@ impl RealearnServer {
     }
 
     pub fn local_hostname(&self) -> Option<String> {
-        let hn = hostname::get().ok()?;
-        Some(hn.to_string_lossy().into())
+        get_real_hostname()
     }
 
     pub fn local_hostname_dns(&self) -> Option<String> {
@@ -464,11 +463,13 @@ fn setup_advertisement(grpc_port: u16) -> anyhow::Result<ServiceDaemon> {
     //     The name has been changed to "MacBook-Pro-2.local".
     //
     // So macOS detected this as a duplicate host name and changed its own hostname. Of course,
-    // we don't want this to happen. So we choose a custom hostname.
+    // we don't want this to happen. So we choose a custom hostname and send the real hostname
+    // (for display purposes) as a meta attribute.
     let hostname = "_helgobox.local.";
+    let computer_name = whoami::devicename();
     let service = ServiceInfo::new(
         "_helgobox._tcp.local.",
-        "Helgobox",
+        &format!("Helgobox @ {computer_name}"),
         hostname,
         "",
         grpc_port,
@@ -481,4 +482,9 @@ fn setup_advertisement(grpc_port: u16) -> anyhow::Result<ServiceDaemon> {
         .register(service)
         .context("failed to register MDNS service")?;
     Ok(service_daemon)
+}
+
+fn get_real_hostname() -> Option<String> {
+    let hn = hostname::get().ok()?;
+    Some(hn.to_string_lossy().into())
 }
