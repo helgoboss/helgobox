@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 2.0.26">
+<title>Contributing</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700">
+<style>
+/*! Asciidoctor default stylesheet | MIT License | https://asciidoctor.org */
+/* Uncomment the following line when using as a custom stylesheet */
+/* @import "https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700"; */
+html{font-family:sans-serif;-webkit-text-size-adjust:100%}
+a{background:none}
+a:focus{outline:thin dotted}
+a:active,a:hover{outline:0}
+h1{font-size:2em;margin:.67em 0}
+b,strong{font-weight:bold}
+abbr{font-size:.9em}
+abbr[title]{cursor:help;border-bottom:1px dotted #dddddf;text-decoration:none}
+dfn{font-style:italic}
+hr{height:0}
+mark{background:#ff0;color:#000}
+code,kbd,pre,samp{font-family:monospace;font-size:1em}
+pre{white-space:pre-wrap}
+q{quotes:"\201C" "\201D" "\2018" "\2019"}
+small{font-size:80%}
+sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}
+sup{top:-.5em}
+sub{bottom:-.25em}
+img{border:0}
+svg:not(:root){overflow:hidden}
+figure{margin:0}
+audio,video{display:inline-block}
+audio:not([controls]){display:none;height:0}
+fieldset{border:1px solid silver;margin:0 2px;padding:.35em .625em .75em}
+legend{border:0;padding:0}
+button,input,select,textarea{font-family:inherit;font-size:100%;margin:0}
+button,input{line-height:normal}
+button,select{text-transform:none}
+button,html input[type=button],input[type=reset],input[type=submit]{-webkit-appearance:button;cursor:pointer}
+button[disabled],html input[disabled]{cursor:default}
+input[type=checkbox],input[type=radio]{padding:0}
+button::-moz-focus-inner,input::-moz-focus-inner{border:0;padding:0}
+textarea{overflow:auto;vertical-align:top}
+table{border-collapse:collapse;border-spacing:0}
+*,::before,::after{box-sizing:border-box}
+html,body{font-size:100%}
+body{background:#fff;color:rgba(0,0,0,.8);padding:0;margin:0;font-family:"Noto Serif","DejaVu Serif",serif;line-height:1;position:relative;cursor:auto;-moz-tab-size:4;-o-tab-size:4;tab-size:4;word-wrap:anywhere;-moz-osx-font-smoothing:grayscale;-webkit-font-smoothing:antialiased}
+a:hover{cursor:pointer}
+img,object,embed{max-width:100%;height:auto}
+object,embed{height:100%}
+img{-ms-interpolation-mode:bicubic}
+.left{float:left!important}
+.right{float:right!important}
+.text-left{text-align:left!important}
+.text-right{text-align:right!important}
+.text-center{text-align:center!important}
+.text-justify{text-align:justify!important}
+.hide{display:none}
+img,object,svg{display:inline-block;vertical-align:middle}
+textarea{height:auto;min-height:50px}
+select{width:100%}
+.subheader,.admonitionblock td.content>.title,.audioblock>.title,.exampleblock>.title,.imageblock>.title,.listingblock>.title,.literalblock>.title,.stemblock>.title,.openblock>.title,.paragraph>.title,.quoteblock>.title,table.tableblock>.title,.verseblock>.title,.videoblock>.title,.dlist>.title,.olist>.title,.ulist>.title,.qlist>.title,.hdlist>.title{line-height:1.45;color:#7a2518;font-weight:400;margin-top:0;margin-bottom:.25em}
+div,dl,dt,dd,ul,ol,li,h1,h2,h3,#toctitle,.sidebarblock>.content>.title,h4,h5,h6,pre,form,p,blockquote,th,td{margin:0;padding:0}
+a{color:#2156a5;text-decoration:underline;line-height:inherit}
+a:hover,a:focus{color:#1d4b8f}
+a img{border:0}
+p{line-height:1.6;margin-bottom:1.25em;text-rendering:optimizeLegibility}
+p aside{font-size:.875em;line-height:1.35;font-style:italic}
+h1,h2,h3,#toctitle,.sidebarblock>.content>.title,h4,h5,h6{font-family:"Open Sans","DejaVu Sans",sans-serif;font-weight:300;font-style:normal;color:#ba3925;text-rendering:optimizeLegibility;margin-top:1em;margin-bottom:.5em;line-height:1.0125em}
+h1 small,h2 small,h3 small,#toctitle small,.sidebarblock>.content>.title small,h4 small,h5 small,h6 small{font-size:60%;color:#e99b8f;line-height:0}
+h1{font-size:2.125em}
+h2{font-size:1.6875em}
+h3,#toctitle,.sidebarblock>.content>.title{font-size:1.375em}
+h4,h5{font-size:1.125em}
+h6{font-size:1em}
+hr{border:solid #dddddf;border-width:1px 0 0;clear:both;margin:1.25em 0 1.1875em}
+em,i{font-style:italic;line-height:inherit}
+strong,b{font-weight:bold;line-height:inherit}
+small{font-size:60%;line-height:inherit}
+code{font-family:"Droid Sans Mono","DejaVu Sans Mono",monospace;font-weight:400;color:rgba(0,0,0,.9)}
+ul,ol,dl{line-height:1.6;margin-bottom:1.25em;list-style-position:outside;font-family:inherit}
+ul,ol{margin-left:1.5em}
+ul li ul,ul li ol{margin-left:1.25em;margin-bottom:0}
+ul.circle{list-style-type:circle}
+ul.disc{list-style-type:disc}
+ul.square{list-style-type:square}
+ul.circle ul:not([class]),ul.disc ul:not([class]),ul.square ul:not([class]){list-style:inherit}
+ol li ul,ol li ol{margin-left:1.25em;margin-bottom:0}
+dl dt{margin-bottom:.3125em;font-weight:bold}
+dl dd{margin-bottom:1.25em}
+blockquote{margin:0 0 1.25em;padding:.5625em 1.25em 0 1.1875em;border-left:1px solid #ddd}
+blockquote,blockquote p{line-height:1.6;color:rgba(0,0,0,.85)}
+@media screen and (min-width:768px){h1,h2,h3,#toctitle,.sidebarblock>.content>.title,h4,h5,h6{line-height:1.2}
+h1{font-size:2.75em}
+h2{font-size:2.3125em}
+h3,#toctitle,.sidebarblock>.content>.title{font-size:1.6875em}
+h4{font-size:1.4375em}}
+table{background:#fff;margin-bottom:1.25em;border:1px solid #dedede;word-wrap:normal}
+table thead,table tfoot{background:#f7f8f7}
+table thead tr th,table thead tr td,table tfoot tr th,table tfoot tr td{padding:.5em .625em .625em;font-size:inherit;color:rgba(0,0,0,.8);text-align:left}
+table tr th,table tr td{padding:.5625em .625em;font-size:inherit;color:rgba(0,0,0,.8)}
+table tr.even,table tr.alt{background:#f8f8f7}
+table thead tr th,table tfoot tr th,table tbody tr td,table tr td,table tfoot tr td{line-height:1.6}
+h1,h2,h3,#toctitle,.sidebarblock>.content>.title,h4,h5,h6{line-height:1.2;word-spacing:-.05em}
+h1 strong,h2 strong,h3 strong,#toctitle strong,.sidebarblock>.content>.title strong,h4 strong,h5 strong,h6 strong{font-weight:400}
+.center{margin-left:auto;margin-right:auto}
+.stretch{width:100%}
+.clearfix::before,.clearfix::after,.float-group::before,.float-group::after{content:" ";display:table}
+.clearfix::after,.float-group::after{clear:both}
+:not(pre).nobreak{word-wrap:normal}
+:not(pre).nowrap{white-space:nowrap}
+:not(pre).pre-wrap{white-space:pre-wrap}
+:not(pre):not([class^=L])>code{font-size:.9375em;font-style:normal!important;letter-spacing:0;padding:.1em .5ex;word-spacing:-.15em;background:#f7f7f8;border-radius:4px;line-height:1.45;text-rendering:optimizeSpeed}
+pre{color:rgba(0,0,0,.9);font-family:"Droid Sans Mono","DejaVu Sans Mono",monospace;line-height:1.45;text-rendering:optimizeSpeed}
+pre code,pre pre{color:inherit;font-size:inherit;line-height:inherit}
+pre.nowrap,pre.nowrap pre{white-space:pre;word-wrap:normal}
+em em{font-style:normal}
+strong strong{font-weight:400}
+.keyseq{color:rgba(51,51,51,.8)}
+kbd{font-family:"Droid Sans Mono","DejaVu Sans Mono",monospace;display:inline-block;color:rgba(0,0,0,.8);font-size:.65em;line-height:1.45;background:#f7f7f7;border:1px solid #ccc;border-radius:3px;box-shadow:0 1px 0 rgba(0,0,0,.2),inset 0 0 0 .1em #fff;margin:0 .15em;padding:.2em .5em;vertical-align:middle;position:relative;top:-.1em;white-space:nowrap}
+.keyseq kbd:first-child{margin-left:0}
+.keyseq kbd:last-child{margin-right:0}
+.menuseq,.menuref{color:#000}
+.menuseq b:not(.caret),.menuref{font-weight:inherit}
+.menuseq{word-spacing:-.02em}
+.menuseq b.caret{font-size:1.25em;line-height:.8}
+.menuseq i.caret{font-weight:bold;text-align:center;width:.45em}
+b.button::before,b.button::after{position:relative;top:-1px;font-weight:400}
+b.button::before{content:"[";padding:0 3px 0 2px}
+b.button::after{content:"]";padding:0 2px 0 3px}
+p a>code:hover{color:rgba(0,0,0,.9)}
+#header,#content,#footnotes,#footer{width:100%;margin:0 auto;max-width:62.5em;*zoom:1;position:relative;padding-left:.9375em;padding-right:.9375em}
+#header::before,#header::after,#content::before,#content::after,#footnotes::before,#footnotes::after,#footer::before,#footer::after{content:" ";display:table}
+#header::after,#content::after,#footnotes::after,#footer::after{clear:both}
+#content{margin-top:1.25em}
+#content::before{content:none}
+#header>h1:first-child{color:rgba(0,0,0,.85);margin-top:2.25rem;margin-bottom:0}
+#header>h1:first-child+#toc{margin-top:8px;border-top:1px solid #dddddf}
+#header>h1:only-child{border-bottom:1px solid #dddddf;padding-bottom:8px}
+#header .details{border-bottom:1px solid #dddddf;line-height:1.45;padding-top:.25em;padding-bottom:.25em;padding-left:.25em;color:rgba(0,0,0,.6);display:flex;flex-flow:row wrap}
+#header .details span:first-child{margin-left:-.125em}
+#header .details span.email a{color:rgba(0,0,0,.85)}
+#header .details br{display:none}
+#header .details br+span::before{content:"\00a0\2013\00a0"}
+#header .details br+span.author::before{content:"\00a0\22c5\00a0";color:rgba(0,0,0,.85)}
+#header .details br+span#revremark::before{content:"\00a0|\00a0"}
+#header #revnumber{text-transform:capitalize}
+#header #revnumber::after{content:"\00a0"}
+#content>h1:first-child:not([class]){color:rgba(0,0,0,.85);border-bottom:1px solid #dddddf;padding-bottom:8px;margin-top:0;padding-top:1rem;margin-bottom:1.25rem}
+#toc{border-bottom:1px solid #e7e7e9;padding-bottom:.5em}
+#toc>ul{margin-left:.125em}
+#toc ul.sectlevel0>li>a{font-style:italic}
+#toc ul.sectlevel0 ul.sectlevel1{margin:.5em 0}
+#toc ul{font-family:"Open Sans","DejaVu Sans",sans-serif;list-style-type:none}
+#toc li{line-height:1.3334;margin-top:.3334em}
+#toc a{text-decoration:none}
+#toc a:active{text-decoration:underline}
+#toctitle{color:#7a2518;font-size:1.2em}
+@media screen and (min-width:768px){#toctitle{font-size:1.375em}
+body.toc2{padding-left:15em;padding-right:0}
+body.toc2 #header>h1:nth-last-child(2){border-bottom:1px solid #dddddf;padding-bottom:8px}
+#toc.toc2{margin-top:0!important;background:#f8f8f7;position:fixed;width:15em;left:0;top:0;border-right:1px solid #e7e7e9;border-top-width:0!important;border-bottom-width:0!important;z-index:1000;padding:1.25em 1em;height:100%;overflow:auto}
+#toc.toc2 #toctitle{margin-top:0;margin-bottom:.8rem;font-size:1.2em}
+#toc.toc2>ul{font-size:.9em;margin-bottom:0}
+#toc.toc2 ul ul{margin-left:0;padding-left:1em}
+#toc.toc2 ul.sectlevel0 ul.sectlevel1{padding-left:0;margin-top:.5em;margin-bottom:.5em}
+body.toc2.toc-right{padding-left:0;padding-right:15em}
+body.toc2.toc-right #toc.toc2{border-right-width:0;border-left:1px solid #e7e7e9;left:auto;right:0}}
+@media screen and (min-width:1280px){body.toc2{padding-left:20em;padding-right:0}
+#toc.toc2{width:20em}
+#toc.toc2 #toctitle{font-size:1.375em}
+#toc.toc2>ul{font-size:.95em}
+#toc.toc2 ul ul{padding-left:1.25em}
+body.toc2.toc-right{padding-left:0;padding-right:20em}}
+#content #toc{border:1px solid #e0e0dc;margin-bottom:1.25em;padding:1.25em;background:#f8f8f7;border-radius:4px}
+#content #toc>:first-child{margin-top:0}
+#content #toc>:last-child{margin-bottom:0}
+#footer{max-width:none;background:rgba(0,0,0,.8);padding:1.25em}
+#footer-text{color:hsla(0,0%,100%,.8);line-height:1.44}
+#content{margin-bottom:.625em}
+.sect1{padding-bottom:.625em}
+@media screen and (min-width:768px){#content{margin-bottom:1.25em}
+.sect1{padding-bottom:1.25em}}
+.sect1:last-child{padding-bottom:0}
+.sect1+.sect1{border-top:1px solid #e7e7e9}
+#content h1>a.anchor,h2>a.anchor,h3>a.anchor,#toctitle>a.anchor,.sidebarblock>.content>.title>a.anchor,h4>a.anchor,h5>a.anchor,h6>a.anchor{position:absolute;z-index:1001;width:1.5ex;margin-left:-1.5ex;display:block;text-decoration:none!important;visibility:hidden;text-align:center;font-weight:400}
+#content h1>a.anchor::before,h2>a.anchor::before,h3>a.anchor::before,#toctitle>a.anchor::before,.sidebarblock>.content>.title>a.anchor::before,h4>a.anchor::before,h5>a.anchor::before,h6>a.anchor::before{content:"\00A7";font-size:.85em;display:block;padding-top:.1em}
+#content h1:hover>a.anchor,#content h1>a.anchor:hover,h2:hover>a.anchor,h2>a.anchor:hover,h3:hover>a.anchor,#toctitle:hover>a.anchor,.sidebarblock>.content>.title:hover>a.anchor,h3>a.anchor:hover,#toctitle>a.anchor:hover,.sidebarblock>.content>.title>a.anchor:hover,h4:hover>a.anchor,h4>a.anchor:hover,h5:hover>a.anchor,h5>a.anchor:hover,h6:hover>a.anchor,h6>a.anchor:hover{visibility:visible}
+#content h1>a.link,h2>a.link,h3>a.link,#toctitle>a.link,.sidebarblock>.content>.title>a.link,h4>a.link,h5>a.link,h6>a.link{color:#ba3925;text-decoration:none}
+#content h1>a.link:hover,h2>a.link:hover,h3>a.link:hover,#toctitle>a.link:hover,.sidebarblock>.content>.title>a.link:hover,h4>a.link:hover,h5>a.link:hover,h6>a.link:hover{color:#a53221}
+details,.audioblock,.imageblock,.literalblock,.listingblock,.stemblock,.videoblock{margin-bottom:1.25em}
+details{margin-left:1.25rem}
+details>summary{cursor:pointer;display:block;position:relative;line-height:1.6;margin-bottom:.625rem;outline:none;-webkit-tap-highlight-color:transparent}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"";border:solid transparent;border-left:solid;border-width:.3em 0 .3em .5em;position:absolute;top:.5em;left:-1.25rem;transform:translateX(15%)}
+details[open]>summary::before{border:solid transparent;border-top:solid;border-width:.5em .3em 0;transform:translateY(15%)}
+details>summary::after{content:"";width:1.25rem;height:1em;position:absolute;top:.3em;left:-1.25rem}
+.admonitionblock td.content>.title,.audioblock>.title,.exampleblock>.title,.imageblock>.title,.listingblock>.title,.literalblock>.title,.stemblock>.title,.openblock>.title,.paragraph>.title,.quoteblock>.title,table.tableblock>.title,.verseblock>.title,.videoblock>.title,.dlist>.title,.olist>.title,.ulist>.title,.qlist>.title,.hdlist>.title{text-rendering:optimizeLegibility;text-align:left;font-family:"Noto Serif","DejaVu Serif",serif;font-size:1rem;font-style:italic}
+table.tableblock.fit-content>caption.title{white-space:nowrap;width:0}
+.paragraph.lead>p,#preamble>.sectionbody>[class=paragraph]:first-of-type p{font-size:1.21875em;line-height:1.6;color:rgba(0,0,0,.85)}
+.admonitionblock>table{border-collapse:separate;border:0;background:none;width:100%}
+.admonitionblock>table td.icon{text-align:center;width:80px}
+.admonitionblock>table td.icon img{max-width:none}
+.admonitionblock>table td.icon .title{font-weight:bold;font-family:"Open Sans","DejaVu Sans",sans-serif;text-transform:uppercase}
+.admonitionblock>table td.content{padding-left:1.125em;padding-right:1.25em;border-left:1px solid #dddddf;color:rgba(0,0,0,.6);word-wrap:anywhere}
+.admonitionblock>table td.content>:last-child>:last-child{margin-bottom:0}
+.exampleblock>.content{border:1px solid #e6e6e6;margin-bottom:1.25em;padding:1.25em;background:#fff;border-radius:4px}
+.sidebarblock{border:1px solid #dbdbd6;margin-bottom:1.25em;padding:1.25em;background:#f3f3f2;border-radius:4px}
+.sidebarblock>.content>.title{color:#7a2518;margin-top:0;text-align:center}
+.exampleblock>.content>:first-child,.sidebarblock>.content>:first-child{margin-top:0}
+.exampleblock>.content>:last-child,.exampleblock>.content>:last-child>:last-child,.exampleblock>.content .olist>ol>li:last-child>:last-child,.exampleblock>.content .ulist>ul>li:last-child>:last-child,.exampleblock>.content .qlist>ol>li:last-child>:last-child,.sidebarblock>.content>:last-child,.sidebarblock>.content>:last-child>:last-child,.sidebarblock>.content .olist>ol>li:last-child>:last-child,.sidebarblock>.content .ulist>ul>li:last-child>:last-child,.sidebarblock>.content .qlist>ol>li:last-child>:last-child{margin-bottom:0}
+.literalblock pre,.listingblock>.content>pre{border-radius:4px;overflow-x:auto;padding:1em;font-size:.8125em}
+@media screen and (min-width:768px){.literalblock pre,.listingblock>.content>pre{font-size:.90625em}}
+@media screen and (min-width:1280px){.literalblock pre,.listingblock>.content>pre{font-size:1em}}
+.literalblock pre,.listingblock>.content>pre:not(.highlight),.listingblock>.content>pre[class=highlight],.listingblock>.content>pre[class^="highlight "]{background:#f7f7f8}
+.literalblock.output pre{color:#f7f7f8;background:rgba(0,0,0,.9)}
+.listingblock>.content{position:relative}
+.listingblock pre>code{display:block}
+.listingblock code[data-lang]::before{display:none;content:attr(data-lang);position:absolute;font-size:.75em;top:.425rem;right:.5rem;line-height:1;text-transform:uppercase;color:inherit;opacity:.5}
+.listingblock:hover code[data-lang]::before{display:block}
+.listingblock.terminal pre .command::before{content:attr(data-prompt);padding-right:.5em;color:inherit;opacity:.5}
+.listingblock.terminal pre .command:not([data-prompt])::before{content:"$"}
+.listingblock pre.highlightjs{padding:0}
+.listingblock pre.highlightjs>code{padding:1em;border-radius:4px}
+.listingblock pre.prettyprint{border-width:0}
+.prettyprint{background:#f7f7f8}
+pre.prettyprint .linenums{line-height:1.45;margin-left:2em}
+pre.prettyprint li{background:none;list-style-type:inherit;padding-left:0}
+pre.prettyprint li code[data-lang]::before{opacity:1}
+pre.prettyprint li:not(:first-child) code[data-lang]::before{display:none}
+table.linenotable{border-collapse:separate;border:0;margin-bottom:0;background:none}
+table.linenotable td[class]{color:inherit;vertical-align:top;padding:0;line-height:inherit;white-space:normal}
+table.linenotable td.code{padding-left:.75em}
+table.linenotable td.linenos,pre.pygments .linenos{border-right:1px solid;opacity:.35;padding-right:.5em;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}
+pre.pygments span.linenos{display:inline-block;margin-right:.75em}
+.quoteblock{margin:0 1em 1.25em 1.5em;display:table}
+.quoteblock:not(.excerpt)>.title{margin-left:-1.5em;margin-bottom:.75em}
+.quoteblock blockquote,.quoteblock p{color:rgba(0,0,0,.85);font-size:1.15rem;line-height:1.75;word-spacing:.1em;letter-spacing:0;font-style:italic;text-align:justify}
+.quoteblock blockquote{margin:0;padding:0;border:0}
+.quoteblock blockquote::before{content:"\201c";float:left;font-size:2.75em;font-weight:bold;line-height:.6em;margin-left:-.6em;color:#7a2518;text-shadow:0 1px 2px rgba(0,0,0,.1)}
+.quoteblock blockquote>.paragraph:last-child p{margin-bottom:0}
+.quoteblock .attribution{margin-top:.75em;margin-right:.5ex;text-align:right}
+.verseblock{margin:0 1em 1.25em}
+.verseblock pre{font-family:"Open Sans","DejaVu Sans",sans-serif;font-size:1.15rem;color:rgba(0,0,0,.85);font-weight:300;text-rendering:optimizeLegibility}
+.verseblock pre strong{font-weight:400}
+.verseblock .attribution{margin-top:1.25rem;margin-left:.5ex}
+.quoteblock .attribution,.verseblock .attribution{font-size:.9375em;line-height:1.45;font-style:italic}
+.quoteblock .attribution br,.verseblock .attribution br{display:none}
+.quoteblock .attribution cite,.verseblock .attribution cite{display:block;letter-spacing:-.025em;color:rgba(0,0,0,.6)}
+.quoteblock.abstract blockquote::before,.quoteblock.excerpt blockquote::before,.quoteblock .quoteblock blockquote::before{display:none}
+.quoteblock.abstract blockquote,.quoteblock.abstract p,.quoteblock.excerpt blockquote,.quoteblock.excerpt p,.quoteblock .quoteblock blockquote,.quoteblock .quoteblock p{line-height:1.6;word-spacing:0}
+.quoteblock.abstract{margin:0 1em 1.25em;display:block}
+.quoteblock.abstract>.title{margin:0 0 .375em;font-size:1.15em;text-align:center}
+.quoteblock.excerpt>blockquote,.quoteblock .quoteblock{padding:0 0 .25em 1em;border-left:.25em solid #dddddf}
+.quoteblock.excerpt,.quoteblock .quoteblock{margin-left:0}
+.quoteblock.excerpt blockquote,.quoteblock.excerpt p,.quoteblock .quoteblock blockquote,.quoteblock .quoteblock p{color:inherit;font-size:1.0625rem}
+.quoteblock.excerpt .attribution,.quoteblock .quoteblock .attribution{color:inherit;font-size:.85rem;text-align:left;margin-right:0}
+p.tableblock:last-child{margin-bottom:0}
+td.tableblock>.content{margin-bottom:1.25em;word-wrap:anywhere}
+td.tableblock>.content>:last-child{margin-bottom:-1.25em}
+table.tableblock,th.tableblock,td.tableblock{border:0 solid #dedede}
+table.grid-all>*>tr>*{border-width:1px}
+table.grid-cols>*>tr>*{border-width:0 1px}
+table.grid-rows>*>tr>*{border-width:1px 0}
+table.frame-all{border-width:1px}
+table.frame-ends{border-width:1px 0}
+table.frame-sides{border-width:0 1px}
+table.frame-none>colgroup+*>:first-child>*,table.frame-sides>colgroup+*>:first-child>*{border-top-width:0}
+table.frame-none>:last-child>:last-child>*,table.frame-sides>:last-child>:last-child>*{border-bottom-width:0}
+table.frame-none>*>tr>:first-child,table.frame-ends>*>tr>:first-child{border-left-width:0}
+table.frame-none>*>tr>:last-child,table.frame-ends>*>tr>:last-child{border-right-width:0}
+table.stripes-all>*>tr,table.stripes-odd>*>tr:nth-of-type(odd),table.stripes-even>*>tr:nth-of-type(even),table.stripes-hover>*>tr:hover{background:#f8f8f7}
+th.halign-left,td.halign-left{text-align:left}
+th.halign-right,td.halign-right{text-align:right}
+th.halign-center,td.halign-center{text-align:center}
+th.valign-top,td.valign-top{vertical-align:top}
+th.valign-bottom,td.valign-bottom{vertical-align:bottom}
+th.valign-middle,td.valign-middle{vertical-align:middle}
+table thead th,table tfoot th{font-weight:bold}
+tbody tr th{background:#f7f8f7}
+tbody tr th,tbody tr th p,tfoot tr th,tfoot tr th p{color:rgba(0,0,0,.8);font-weight:bold}
+p.tableblock>code:only-child{background:none;padding:0}
+p.tableblock{font-size:1em}
+ol{margin-left:1.75em}
+ul li ol{margin-left:1.5em}
+dl dd{margin-left:1.125em}
+dl dd:last-child,dl dd:last-child>:last-child{margin-bottom:0}
+li p,ul dd,ol dd,.olist .olist,.ulist .ulist,.ulist .olist,.olist .ulist{margin-bottom:.625em}
+ul.checklist,ul.none,ol.none,ul.no-bullet,ol.no-bullet,ol.unnumbered,ul.unstyled,ol.unstyled{list-style-type:none}
+ul.no-bullet,ol.no-bullet,ol.unnumbered{margin-left:.625em}
+ul.unstyled,ol.unstyled{margin-left:0}
+li>p:empty:only-child::before{content:"";display:inline-block}
+ul.checklist>li>p:first-child{margin-left:-1em}
+ul.checklist>li>p:first-child>.fa-square-o:first-child,ul.checklist>li>p:first-child>.fa-check-square-o:first-child{width:1.25em;font-size:.8em;position:relative;bottom:.125em}
+ul.checklist>li>p:first-child>input[type=checkbox]:first-child{margin-right:.25em}
+ul.inline{display:flex;flex-flow:row wrap;list-style:none;margin:0 0 .625em -1.25em}
+ul.inline>li{margin-left:1.25em}
+.unstyled dl dt{font-weight:400;font-style:normal}
+ol.arabic{list-style-type:decimal}
+ol.decimal{list-style-type:decimal-leading-zero}
+ol.loweralpha{list-style-type:lower-alpha}
+ol.upperalpha{list-style-type:upper-alpha}
+ol.lowerroman{list-style-type:lower-roman}
+ol.upperroman{list-style-type:upper-roman}
+ol.lowergreek{list-style-type:lower-greek}
+.hdlist>table,.colist>table{border:0;background:none}
+.hdlist>table>tbody>tr,.colist>table>tbody>tr{background:none}
+td.hdlist1,td.hdlist2{vertical-align:top;padding:0 .625em}
+td.hdlist1{font-weight:bold;padding-bottom:1.25em}
+td.hdlist2{word-wrap:anywhere}
+.literalblock+.colist,.listingblock+.colist{margin-top:-.5em}
+.colist td:not([class]):first-child{padding:.4em .75em 0;line-height:1;vertical-align:top}
+.colist td:not([class]):first-child img{max-width:none}
+.colist td:not([class]):last-child{padding:.25em 0}
+.thumb,.th{line-height:0;display:inline-block;border:4px solid #fff;box-shadow:0 0 0 1px #ddd}
+.imageblock.left{margin:.25em .625em 1.25em 0}
+.imageblock.right{margin:.25em 0 1.25em .625em}
+.imageblock>.title{margin-bottom:0}
+.imageblock.thumb,.imageblock.th{border-width:6px}
+.imageblock.thumb>.title,.imageblock.th>.title{padding:0 .125em}
+.image.left,.image.right{margin-top:.25em;margin-bottom:.25em;display:inline-block;line-height:0}
+.image.left{margin-right:.625em}
+.image.right{margin-left:.625em}
+a.image{text-decoration:none;display:inline-block}
+a.image object{pointer-events:none}
+sup.footnote,sup.footnoteref{font-size:.875em;position:static;vertical-align:super}
+sup.footnote a,sup.footnoteref a{text-decoration:none}
+sup.footnote a:active,sup.footnoteref a:active,#footnotes .footnote a:first-of-type:active{text-decoration:underline}
+#footnotes{padding-top:.75em;padding-bottom:.75em;margin-bottom:.625em}
+#footnotes hr{width:20%;min-width:6.25em;margin:-.25em 0 .75em;border-width:1px 0 0}
+#footnotes .footnote{padding:0 .375em 0 .225em;line-height:1.3334;font-size:.875em;margin-left:1.2em;margin-bottom:.2em}
+#footnotes .footnote a:first-of-type{font-weight:bold;text-decoration:none;margin-left:-1.05em}
+#footnotes .footnote:last-of-type{margin-bottom:0}
+#content #footnotes{margin-top:-.625em;margin-bottom:0;padding:.75em 0}
+div.unbreakable{page-break-inside:avoid}
+.big{font-size:larger}
+.small{font-size:smaller}
+.underline{text-decoration:underline}
+.overline{text-decoration:overline}
+.line-through{text-decoration:line-through}
+.aqua{color:#00bfbf}
+.aqua-background{background:#00fafa}
+.black{color:#000}
+.black-background{background:#000}
+.blue{color:#0000bf}
+.blue-background{background:#0000fa}
+.fuchsia{color:#bf00bf}
+.fuchsia-background{background:#fa00fa}
+.gray{color:#606060}
+.gray-background{background:#7d7d7d}
+.green{color:#006000}
+.green-background{background:#007d00}
+.lime{color:#00bf00}
+.lime-background{background:#00fa00}
+.maroon{color:#600000}
+.maroon-background{background:#7d0000}
+.navy{color:#000060}
+.navy-background{background:#00007d}
+.olive{color:#606000}
+.olive-background{background:#7d7d00}
+.purple{color:#600060}
+.purple-background{background:#7d007d}
+.red{color:#bf0000}
+.red-background{background:#fa0000}
+.silver{color:#909090}
+.silver-background{background:#bcbcbc}
+.teal{color:#006060}
+.teal-background{background:#007d7d}
+.white{color:#bfbfbf}
+.white-background{background:#fafafa}
+.yellow{color:#bfbf00}
+.yellow-background{background:#fafa00}
+span.icon>.fa{cursor:default}
+a span.icon>.fa{cursor:inherit}
+.admonitionblock td.icon [class^="fa icon-"]{font-size:2.5em;text-shadow:1px 1px 2px rgba(0,0,0,.5);cursor:default}
+.admonitionblock td.icon .icon-note::before{content:"\f05a";color:#19407c}
+.admonitionblock td.icon .icon-tip::before{content:"\f0eb";text-shadow:1px 1px 2px rgba(155,155,0,.8);color:#111}
+.admonitionblock td.icon .icon-warning::before{content:"\f071";color:#bf6900}
+.admonitionblock td.icon .icon-caution::before{content:"\f06d";color:#bf3400}
+.admonitionblock td.icon .icon-important::before{content:"\f06a";color:#bf0000}
+.conum[data-value]{display:inline-block;color:#fff!important;background:rgba(0,0,0,.8);border-radius:50%;text-align:center;font-size:.75em;width:1.67em;height:1.67em;line-height:1.67em;font-family:"Open Sans","DejaVu Sans",sans-serif;font-style:normal;font-weight:bold}
+.conum[data-value] *{color:#fff!important}
+.conum[data-value]+b{display:none}
+.conum[data-value]::after{content:attr(data-value)}
+pre .conum[data-value]{position:relative;top:-.125em}
+b.conum *{color:inherit!important}
+.conum:not([data-value]):empty{display:none}
+dt,th.tableblock,td.content,div.footnote{text-rendering:optimizeLegibility}
+h1,h2,p,td.content,span.alt,summary{letter-spacing:-.01em}
+p strong,td.content strong,div.footnote strong{letter-spacing:-.005em}
+p,blockquote,dt,td.content,td.hdlist1,span.alt,summary{font-size:1.0625rem}
+p{margin-bottom:1.25rem}
+.sidebarblock p,.sidebarblock dt,.sidebarblock td.content,p.tableblock{font-size:1em}
+.exampleblock>.content{background:#fffef7;border-color:#e0e0dc;box-shadow:0 1px 4px #e0e0dc}
+.print-only{display:none!important}
+@page{margin:1.25cm .75cm}
+@media print{*{box-shadow:none!important;text-shadow:none!important}
+html{font-size:80%}
+a{color:inherit!important;text-decoration:underline!important}
+a.bare,a[href^="#"],a[href^="mailto:"]{text-decoration:none!important}
+a[href^="http:"]:not(.bare)::after,a[href^="https:"]:not(.bare)::after{content:"(" attr(href) ")";display:inline-block;font-size:.875em;padding-left:.25em}
+abbr[title]{border-bottom:1px dotted}
+abbr[title]::after{content:" (" attr(title) ")"}
+pre,blockquote,tr,img,object,svg{page-break-inside:avoid}
+thead{display:table-header-group}
+svg{max-width:100%}
+p,blockquote,dt,td.content{font-size:1em;orphans:3;widows:3}
+h2,h3,#toctitle,.sidebarblock>.content>.title{page-break-after:avoid}
+#header,#content,#footnotes,#footer{max-width:none}
+#toc,.sidebarblock,.exampleblock>.content{background:none!important}
+#toc{border-bottom:1px solid #dddddf!important;padding-bottom:0!important}
+body.book #header{text-align:center}
+body.book #header>h1:first-child{border:0!important;margin:2.5em 0 1em}
+body.book #header .details{border:0!important;display:block;padding:0!important}
+body.book #header .details span:first-child{margin-left:0!important}
+body.book #header .details br{display:block}
+body.book #header .details br+span::before{content:none!important}
+body.book #toc{border:0!important;text-align:left!important;padding:0!important;margin:0!important}
+body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-break-before:always}
+.listingblock code[data-lang]::before{display:block}
+#footer{padding:0 .9375em}
+.hide-on-print{display:none!important}
+.print-only{display:block!important}
+.hide-for-print{display:none!important}
+.show-for-print{display:inherit!important}}
+@media amzn-kf8,print{#header>h1:first-child{margin-top:1.25rem}
+.sect1{padding:0!important}
+.sect1+.sect1{border:0}
+#footer{background:none}
+#footer-text{color:rgba(0,0,0,.6);font-size:.9em}}
+@media amzn-kf8{#header,#content,#footnotes,#footer{padding:0}}
+</style>
+<style>
+/*! Asciidoctor Tabs | Copyright (c) 2018-present Dan Allen | MIT License */
+.tabs {
+    margin-bottom: 1.25em;
+}
+
+.tablist > ul {
+    display: flex;
+    flex-wrap: wrap;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.tablist > ul li {
+    align-items: center;
+    background-color: #fff;
+    cursor: pointer;
+    display: flex;
+    font-weight: bold;
+    line-height: 1.5;
+    padding: 0.25em 1em;
+    position: relative;
+}
+
+.tablist > ul li:focus-visible {
+    outline: none;
+}
+
+.tablist.ulist,
+.tablist.ulist > ul li {
+    margin: 0;
+}
+
+.tablist.ulist > ul li + li {
+    margin-left: 0.25em;
+}
+
+.tabs .tablist li::after {
+    content: "";
+    display: block;
+    height: 1px;
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+}
+
+.tabs.is-loading .tablist li:not(:first-child),
+.tabs:not(.is-loading) .tablist li:not(.is-selected) {
+    background-color: #f5f5f5;
+}
+
+.tabs.is-loading .tablist li:first-child::after,
+.tabs:not(.is-loading) .tablist li.is-selected::after {
+    background-color: #fff;
+}
+
+/*
+.tabs:not(.is-loading) .tablist li,
+.tabs:not(.is-loading) .tablist li::after {
+  transition: background-color 200ms ease-in-out;
+}
+*/
+
+.tablist > ul p {
+    line-height: inherit;
+    margin: 0;
+}
+
+.tabpanel {
+    background-color: #fff;
+    padding: 1.25em;
+}
+
+.tablist > ul li,
+.tabpanel {
+    border: 1px solid #dcdcdc;
+}
+
+.tablist > ul li {
+    border-bottom: 0;
+}
+
+.tabs.is-loading .tabpanel + .tabpanel,
+.tabs:not(.is-loading) .tabpanel.is-hidden {
+    display: none;
+}
+
+.tabpanel > :first-child {
+    margin-top: 0;
+}
+
+/* #content is a signature of the Asciidoctor standalone HTML output */
+#content .tabpanel > :last-child,
+#content .tabpanel > :last-child > :last-child,
+#content .tabpanel > :last-child > :last-child > li:last-child > :last-child {
+    margin-bottom: 0;
+}
+
+.tablecontainer {
+    overflow-x: auto;
+}
+
+#content .tablecontainer {
+    margin-bottom: 1.25em;
+}
+
+#content .tablecontainer > table.tableblock {
+    margin-bottom: 0;
+}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Contributing</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_basics">1. Basics</a></li>
+<li><a href="#_code_statistics">2. Code statistics</a></li>
+<li><a href="#_architecture">3. Architecture</a></li>
+<li><a href="#_directory_structure">4. Directory structure</a></li>
+<li><a href="#_build">5. Build</a>
+<ul class="sectlevel2">
+<li><a href="#_all_operating_systems">5.1. All operating systems</a></li>
+<li><a href="#_windows">5.2. Windows</a></li>
+<li><a href="#_linux">5.3. Linux</a></li>
+<li><a href="#_macos">5.4. macOS</a></li>
+</ul>
+</li>
+<li><a href="#_gui">6. GUI</a></li>
+<li><a href="#_test">7. Test</a>
+<ul class="sectlevel2">
+<li><a href="#_unit_tests">7.1. Unit tests</a></li>
+<li><a href="#_integration_tests">7.2. Integration tests</a></li>
+</ul>
+</li>
+<li><a href="#_log">8. Log</a></li>
+<li><a href="#_metrics">9. Metrics</a>
+<ul class="sectlevel2">
+<li><a href="#_prometheus_endpoint">9.1. Prometheus endpoint</a></li>
+<li><a href="#_realearn_metrics">9.2. ReaLearn metrics</a></li>
+</ul>
+</li>
+<li><a href="#_debug">10. Debug</a>
+<ul class="sectlevel2">
+<li><a href="#_debug_reaper_scanning_realearn">10.1. Debug REAPER scanning ReaLearn</a></li>
+<li><a href="#_obtain_debug_symbols">10.2. Obtain debug symbols</a></li>
+<li><a href="#_turn_on_complete_backtraces">10.3. Turn on complete backtraces</a></li>
+<li><a href="#_lookup_symbols_for_symbol_less_backtraces">10.4. Lookup symbols for symbol-less backtraces</a></li>
+<li><a href="#_differences_between_debug_levels">10.5. Differences between debug levels</a></li>
+</ul>
+</li>
+<li><a href="#_documentation">11. Documentation</a></li>
+<li><a href="#_license_check">12. License check</a></li>
+<li><a href="#_license_report">13. License report</a></li>
+<li><a href="#_release">14. Release</a></li>
+<li><a href="#_troubleshooting">15. Troubleshooting</a>
+<ul class="sectlevel2">
+<li><a href="#_windows_realearn_dll_doesnt_unload">15.1. Windows: ReaLearn DLL doesn&#8217;t unload</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Contributions are welcome! <strong>However, please open an issue first and discuss the details with me, preferably before you start working on a pull request!</strong> And if possible, avoid very large PRs.
+I usually can&#8217;t find the time to process large PRs.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_basics">1. Basics</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>ReaLearn is written in the programming language <a href="https://www.rust-lang.org/">Rust</a>.
+It makes heavy use of
+<a href="https://github.com/helgoboss/reaper-rs">reaper-rs</a>, which provides Rust bindings for the
+<a href="https://www.reaper.fm/sdk/plugin/plugin.php">REAPER C++ API</a>. <em>reaper-rs</em> was developed together with ReaLearn but is designed as independent library that can be used for REAPER plug-ins of all sorts.</p>
+</div>
+<div class="paragraph">
+<p>Another noteworthy dependency and byproduct of ReaLearn is <a href="https://github.com/helgoboss/helgoboss-learn">helgoboss-learn</a>, a crate which provides DAW-agnostic MIDI learn logic (basically the <em>source</em> and <em>mode</em> parts of ReaLearn).
+Like <em>reaper-rs</em>, it&#8217;s designed as independent library and could be used to provide similar MIDI-learn functionality in other DAWs.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_code_statistics">2. Code statistics</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Use <a href="https://github.com/XAMPPRocky/tokei">Tokei</a> or <a href="https://github.com/o2sh/onefetch:">Onefetch</a> to display some interesting statistics about the code, e.g. the lines of code and used languages.
+The file <code>.tokeignore</code> contains code to be ignored when counting the lines of code.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_architecture">3. Architecture</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>See <a href="ARCHITECTURE.adoc">here</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_directory_structure">4. Directory structure</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Directory entry</th>
+<th class="tableblock halign-left valign-top">Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Workspace root</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/allocator</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A custom global allocator for deferring deallocation in real-time threads</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/api</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Data structures of ReaLearn&#8217;s preset API (which is e.g. used in the Lua-based ReaLearn Script)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/base</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Very generic utility code used by many crates in the workspace</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/csi</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Code for interfacing with the ControlSurfaceIntegrator (CSI) project</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/dialogs</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The single source of truth for ReaLearn&#8217;s GUI dialogs</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/doc</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Documentation</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/extension</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Helgobox REAPER extension (provides some additional convenience around the actual ReaLearn plug-in)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/helgoboss-license-processor</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Contains code for license processing (currently a private submodule)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/macros</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Various Rust macros for usage in this project only</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/main</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Main crate: The actual ReaLearn instrument plug-in (<code>realearn</code>)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/playtime-api</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Playtime data structures for describing e.g. clip engine presets</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/playtime-clip-engine</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Playtime Clip Engine for playing/recording clips (currently a private submodule). Is a workspace member because that makes it much simpler to use the same dependency versions everywhere.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/playtime-clip-engine-placeholder</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A placeholder crate for the Playtime Clip Engine. Users who don&#8217;t have access to
+the Playtime Clip Engine submodule, must rename this directory to <code>playtime-clip-engine</code> in order to be able to build
+ReaLearn without feature <code>playtime</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/pot</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Core logic behind Pot Browser, also powers the Pot targets</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/pot-browser</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The actual Pot Browser user interface</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/resources</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">REAPER projects for manual testing, controller preset files, etc.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/rx-util</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Some reactive programming helpers</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/swell-ui</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Minimalistic UI framework based on <a href="https://www.cockos.com/wdl/">SWELL</a> (<code>swell-ui</code>)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_build">5. Build</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_all_operating_systems">5.1. All operating systems</h3>
+<div class="sect3">
+<h4 id="_update_cockos_wdl_optional">Update Cockos WDL (optional)</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="shell">cd main/lib/WDL
+git checkout main
+git pull
+# After updating Cockos WDL, regenerate Rust bindings (because we use WDL's EEL code, for example)
+cargo build --features generate
+cargo fmt</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_regenerate_luau_language_bindings_optional">Regenerate Luau language bindings (optional)</h4>
+<div class="paragraph">
+<p>Luau language bindings should be regenerated from Rust after changing something in <a href="api">api</a> or <a href="playtime-api">playtime-api</a>.
+This is done simply by executing all tests like this:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="shell">RUST_MIN_STACK=5242880 cargo test --package helgobox-api --lib bindings::luau::export_luau</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_regenerate_artwork_optional">Regenerate artwork (optional)</h4>
+<div class="paragraph">
+<p>Artwork such as toolbar icons can be regenerated by running a crate:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="shell">cargo run helgobox-artwork-processor</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>3 different approaches for generating code &#8230;&#8203; yes, maybe it&#8217;s time to unify this ;)</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_regenerate_diagrams_in_documentation">Regenerate diagrams in documentation</h4>
+<div class="paragraph">
+<p>This is about the diagrams in the Antora documentation, e.g. the glue signal flow.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="shell">sh regenerate-doc-diagrams.sh</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_building_with_playtime_can_only_be_done_by_helgoboss">Building with Playtime (can only be done by Helgoboss)</h4>
+<div class="paragraph">
+<p>Add this to <code>$HOME/.cargo/config</code> (otherwise Cargo will have issues fetching the private submodules):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="ini">[net]
+git-fetch-with-cli = true</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_windows">5.2. Windows</h3>
+<div class="paragraph">
+<p>In the following, you will find the complete instructions for Windows 10/11, including Rust setup.
+Points where you have to consider the target architecture (for example, REAPER 32-bit vs. 64-bit) are marked with :star:.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Enable "Developer mode" in the Windows settings (this is needed because ReaLearn uses <a href="https://stackoverflow.com/a/59761201">Symlinks within its Git repository</a>)</p>
+</li>
+<li>
+<p>Setup "Visual Studio" (currently tested with version 2022)</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Rust uses native build toolchains.
+On Windows, it&#8217;s necessary to use the MSVC (Microsoft Visual Studio C++) toolchain because REAPER plug-ins only work with that.</p>
+</li>
+<li>
+<p><a href="https://visualstudio.microsoft.com/downloads/">Visual Studio downloads</a> → All downloads → Tools for Visual Studio 2022
+→ Build Tools for Visual Studio 2022</p>
+</li>
+<li>
+<p>Start it and follow the installer instructions</p>
+</li>
+<li>
+<p>Required components</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Workloads tab</p>
+<div class="ulist">
+<ul>
+<li>
+<p>"C++ build tools" (large box on the left)</p>
+</li>
+<li>
+<p>Make sure "Windows 10 SDK" is checked on the right side (usually it is)</p>
+</li>
+<li>
+<p>If on Windows ARM64: Make sure "C++ Clang-Tools" is checked on the right side (normally not checked!, currently necessary for compilation of <code>ring</code> dependency)</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Language packs</p>
+<div class="ulist">
+<ul>
+<li>
+<p>English</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Setup Rust</p>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://www.rust-lang.org/tools/install">Download</a> and execute <code>rustup-init.exe</code></p>
+</li>
+<li>
+<p>Accept the defaults</p>
+</li>
+<li>
+<p>Set the correct toolchain default :star:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="shell">rustup default 1.98.1-x86_64-pc-windows-msvc</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>If you want to regenerate bindings (usually not necessary): Download and install LLVM from <a href="https://github.com/llvm/llvm-project/releases" class="bare">https://github.com/llvm/llvm-project/releases</a> (look for something like <code>LLVM-*-win64.exe</code>)</p>
+</li>
+<li>
+<p>Download and install <a href="https://git-scm.com/download/win">Git for Windows</a></p>
+</li>
+<li>
+<p>Clone the ReaLearn Git repository</p>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="shell">git clone https://github.com/helgoboss/helgobox.git`
+cd helgobox
+git checkout v2.16.0 # or any other release tag
+
+# ONLY IF YOU ARE HELGOBOSS
+git submodule update --init
+
+# OTHERWISE
+git submodule update --init main/lib/WDL main/lib/helgoboss-learn
+rmdir playtime-clip-engine
+rename playtime-clip-engine-placeholder playtime-clip-engine</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Build ReaLearn (after that you should have a <code>helgobox.dll</code> in <code>target\debug</code>)</p>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="shell">cargo build --features egui</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="sect3">
+<h4 id="_windows_7_support_is_gone_and_its_future_is_uncertain">Windows 7 support is gone and its future is uncertain</h4>
+<div class="paragraph">
+<p>Helgobox 2.16.15 brought back Windows 7 support, which has gone missing at some point before that.
+This was primarily achieved by producing the Windows build using the last official Rust version that supported Windows 7, namely Rust 1.77.2.</p>
+</div>
+<div class="paragraph">
+<p>However, it turned out that it&#8217;s very hard to stick with that version.
+It means having to give up on new Rust features.
+But most importantly, it means updating dependencies is not possible if they raise their MSRV (minimal supported Rust version).
+A high price to pay for a rarely used OS.</p>
+</div>
+<div class="paragraph">
+<p>An alternative would be to use the tier 3 target <code>x86_64-win7-windows-msvc</code>.
+Compilation works using the <code>RUSTC_BOOTSTRAP</code> hack:</p>
+</div>
+<div class="listingblock">
+<div class="title">PowerShell</div>
+<div class="content">
+<pre class="CodeRay highlight"><code>$env:RUSTC_BOOTSTRAP=1
+# For compiling indexmap
+$env:CARGO_FEATURE_STD=1
+cargo build -Z build-std --release --target x86_64-win7-windows-msvc</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>However, linking fails because <code>windows.lib</code> can&#8217;t be opened.
+Probably related to <a href="https://www.reddit.com/r/rust/comments/1dikeq6/compiling_for_win7_missing_windows0485lib/">this</a> and <a href="https://github.com/rust-lang/rust/issues/128218#issuecomment-2251864932">this</a> issue.
+If&#8201;&#8212;&#8201;and only if&#8201;&#8212;&#8201;users are genuinely interested in a working Windows 7 build of ReaLearn, I would look into it a bit further.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_linux">5.3. Linux</h3>
+<div class="paragraph">
+<p>Complete instructions to build ReaLearn from a <em>fresh</em> Ubuntu 18.04.3 LTS installation, including Rust setup:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="shell"># Install native dependencies
+sudo apt update
+sudo apt install -y curl git build-essential pkg-config php nasm llvm-dev libclang-dev clang libudev-dev libxdo-dev libx11-dev  libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev libspeechd-dev libgtk-3-dev
+
+
+# Install Rust (copied from the official Linux installation instructions)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (default)
+source $HOME/.cargo/env
+
+# Set the correct toolchain default
+rustup default 1.98.1-x86_64-unknown-linux-gnu
+
+# Clone ReaLearn repository
+git clone https://github.com/helgoboss/helgobox.git
+cd helgobox
+git checkout v2.16.0 # or any other release tag
+
+# ONLY IF YOU ARE HELGOBOSS
+git submodule update --init
+
+# OTHERWISE
+git submodule update --init main/lib/WDL main/lib/helgoboss-learn
+rmdir playtime-clip-engine
+mv playtime-clip-engine-placeholder playtime-clip-engine
+
+# Build (after that you should have a &quot;libhelgobox.so&quot; in &quot;target/debug&quot;)
+cargo build --features egui</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Some words about the native dependencies:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>curl git build-essential pkg-config</code> are bare essentials.</p>
+</li>
+<li>
+<p><code>php</code> is needed to translate the ReaLearn dialog resource file to C so it can be processed by the SWELL
+dialog generator. It's also necessary for generating the 64-bit EEL assembler code. All of this is the
+typical WDL C way of doing things, no Rust specifics here.</p>
+</li>
+<li>
+<p><code>nasm</code> is needed for assembling the 64-bit EEL assembler code to produce <code>asm-nseel-x64.o</code>, which is necessary to make the custom <a href="https://www.cockos.com/EEL2/">EEL</a> control and feedback transformations in ReaLearn&#8217;s absolute mode work.</p>
+</li>
+<li>
+<p><code>llvm-dev libclang-dev clang</code> are necessary for building with feature <code>generate</code> (to generate bindings to C).</p>
+</li>
+<li>
+<p><code>libxdo-dev</code> is needed to control the mouse (see target "Global: Mouse")</p>
+</li>
+<li>
+<p><code>libudev-dev</code> is needed for connecting to Stream Deck via HID API</p>
+</li>
+<li>
+<p><code>libx11-dev libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev</code> are necessary for <a href="https://github.com/BillyDM/egui-baseview">egui-baseview</a> (<a href="https://github.com/emilk/egui">egui</a> is the GUI framework used for ReaLearn&#8217;s control transformation editor)</p>
+</li>
+<li>
+<p><code>libspeechd-dev</code> is necessary for the speech source</p>
+</li>
+<li>
+<p><code>libgtk-3-dev</code> is necessary to obtain the X window and X display from a SWELL OS window, in order to fire up OpenGL/egui in it</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_macos">5.4. macOS</h3>
+<div class="paragraph">
+<p>The following instructions include Rust setup.
+However, it&#8217;s very well possible that some native toolchain setup instructions are missing, because I don&#8217;t have a bare macOS installation at my disposal.
+The Rust installation script should provide you with the necessary instructions if something is missing.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="shell"># Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (default)
+source $HOME/.cargo/env
+rustup default 1.98.1-x86_64-apple-darwin
+
+# Clone ReaLearn
+cd Downloads
+git clone https://github.com/helgoboss/helgobox.git
+cd helgobox
+git checkout v2.16.0 # or any other release tag
+
+# ONLY IF YOU ARE HELGOBOSS
+git submodule update --init
+
+# OTHERWISE
+git submodule update --init main/lib/WDL main/lib/helgoboss-learn
+rmdir playtime-clip-engine
+mv playtime-clip-engine-placeholder playtime-clip-engine
+
+# Install build dependencies
+brew install php
+
+# Build ReaLearn
+cargo build --features egui</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_gui">6. GUI</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The GUI dialogs are defined in the <code>dialogs</code> directory.
+Whenever ReaLearn is built, the code there generates an old-school Windows dialog resource file (<code>target/generated/msvc.rc</code>) and a Rust file which contains all the resource ID constants (<code>main/src/infrastructure/ui/bindings.rs</code>).</p>
+</div>
+<div class="paragraph">
+<p>Previously I used the Visual Studio C++ 2019 resource editor to WYSIWYG-edit this file as part of the solution
+<a href="main/src/infrastructure/ui/msvc/msvc.sln">msvc.sln</a>, but this was too tedious.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<div class="title">Warning</div>
+</td>
+<td class="content">
+You can still preview the generated file in Visual Studio but don&#8217;t edit the RC file, the changes will be overwritten at build time!
+Adjust the Rust code in the <code>dialogs</code> directory instead.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>On macOS and Linux, an extra step will happen at build time: It will try to use a PHP script (part of Cockos SWELL) to generate
+<code>target/generated/msvc.rc_mac_dlg</code>, which is a translation of the RC file to C code using SWELL.
+So make sure you have PHP installed on these platforms!</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_test">7. Test</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Yes, there are tests but there should be more.
+While ReaLearn&#8217;s basic building blocks
+<a href="https://github.com/helgoboss/helgoboss-learn">helgoboss-learn</a> and <a href="https://github.com/helgoboss/reaper-rs">reaper-rs</a>
+are tested pretty thoroughly, ReaLearn itself has room for improvement in that aspect.</p>
+</div>
+<div class="sect2">
+<h3 id="_unit_tests">7.1. Unit tests</h3>
+<div class="paragraph">
+<p>Unit tests should be executed with a higher stack size because there&#8217;s one unit test that generates and formats Lua code and this currently overflows the stack in debug builds.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="shell">RUST_MIN_STACK=104857600 cargo test</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_integration_tests">7.2. Integration tests</h3>
+<div class="paragraph">
+<p>There&#8217;s a growing built-in integration test, launchable via action <code>[developer] ReaLearn: Run integration test</code>.
+In future, it would be nice to run this integration test during continuous integration, just like in <em>reaper-rs</em>.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_log">8. Log</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>It&#8217;s possible to make ReaLearn output log messages to <code>stdout</code> by setting the <code>HELGOBOX_LOG</code> environment variable, e.g. to <code>debug,vst=info</code>.
+It follows <a href="https://docs.rs/env_logger/0.8.2/env_logger/index.html">this</a> format.
+Beware that e.g. on Windows, <code>stdout</code> is not shown, not even when executing REAPER from the command line.
+One way to make it visible is to execute REAPER with a debugger.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_metrics">9. Metrics</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>It&#8217;s possible to make ReaLearn expose execution metrics.</p>
+</div>
+<div class="sect2">
+<h3 id="_prometheus_endpoint">9.1. Prometheus endpoint</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>If the projection server is running, metrics will then be exposed at <code>/realearn/metrics</code> in the popular
+<a href="https://prometheus.io/">Prometheus</a> format.
+That&#8217;s great for visualization.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Just add this to your <code>prometheus.yml</code> (you might need to adjust the port):</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>scrape_configs:
+  - job_name: 'realearn'
+    metrics_path: '/realearn/metrics'
+    static_configs:
+      - targets: ['localhost:39080']</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>If you don&#8217;t have any metrics enabled, this will show zeros only.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Prometheus is usually available at <a href="http://localhost:9090/" class="bare">http://localhost:9090/</a>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_realearn_metrics">9.2. ReaLearn metrics</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>You can turn on ReaLearn metrics by setting the environment variable <code>HELGOBOX_METRICS</code> (value doesn&#8217;t matter).</p>
+</li>
+<li>
+<p>If this environment variable is set (value doesn&#8217;t matter), ReaLearn will record some metrics and expose them on the Prometheus endpoint mentioned above.</p>
+</li>
+<li>
+<p>If ReaLearn is built with the Playtime Clip Engine, this flag will also enable Clip Engine metrics.
+This can negatively effect clip playing performance because many clip engine metrics are captured in real-time threads.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_debug">10. Debug</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_debug_reaper_scanning_realearn">10.1. Debug REAPER scanning ReaLearn</h3>
+<div class="paragraph">
+<p>Set <code>vst_scan=1</code> in the <code>[reaper]</code> section of <code>reaper.ini</code>.
+That makes the debugged REAPER process itself do the scanning.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_obtain_debug_symbols">10.2. Obtain debug symbols</h3>
+<div class="paragraph">
+<p>Debug symbols are stripped from release builds but stored as build artifact of the GitHub Actions "Create release" workflow.
+If you want the symbols for a specific build, proceed as follows:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Open the <a href="https://github.com/helgoboss/helgobox/actions?query=workflow%3A%22Create+release%22">list of ReaLearn "Create release" workflows</a>.</p>
+</li>
+<li>
+<p>Use the branch filter to show all releases builds made for a specific version, e.g. "v1.11.0".</p>
+</li>
+<li>
+<p>Click the desired workflow.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>GitHub seems to do a fuzzy search, so if there are pre-releases (e.g. "v1.11.0-pre2"), you will see them, too.</p>
+</li>
+<li>
+<p>In that case, just choose the latest one.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>You will see a list of artifacts, one for each OS-architecture combination.</p>
+</li>
+<li>
+<p>Download the one you need and unzip it.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>You will find both the library file and the symbol file (e.g. <code>realearn.pdb</code> for a Windows build).</p>
+</li>
+</ul>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_turn_on_complete_backtraces">10.3. Turn on complete backtraces</h3>
+<div class="paragraph">
+<p>As soon as you have the debug symbols, you can make ReaLearn print full backtraces (including line number etc.) in the REAPER ReaScript console.
+Here&#8217;s how you do it.</p>
+</div>
+<div class="sect3">
+<h4 id="_windows_2">Windows</h4>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Set the environment variable <code>_NT_ALT_SYMBOL_PATH</code> to some directory of your choice.</p>
+</li>
+<li>
+<p>Copy the PDB file in there.</p>
+</li>
+<li>
+<p>Fire up REAPER with ReaLearn an make it panic.
+You should see a complete backtrace now.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_lookup_symbols_for_symbol_less_backtraces">10.4. Lookup symbols for symbol-less backtraces</h3>
+<div class="paragraph">
+<p>The problem with release builds is that they don&#8217;t contain debug symbols and therefore backtraces usually contain not much more than memory addresses.
+Especially backtraces generated by Windows release builds leave a lot to be desired.</p>
+</div>
+<div class="paragraph">
+<p>ReaLearn has a built-in REAPER action which attempts to look up symbol information for a given error report:
+"ReaLearn: Resolve symbols from clipboard".
+Works on Windows only.
+To be used like this:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Make sure the PDB for the release build in question is on the search path (see section above).</p>
+</li>
+<li>
+<p>Fire up an ReaLearn using exactly that release build.</p>
+</li>
+<li>
+<p>Copy the error report to the clipboard.</p>
+</li>
+<li>
+<p>Execute the action.</p>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_differences_between_debug_levels">10.5. Differences between debug levels</h3>
+<div class="sect3">
+<h4 id="_macos_2">macOS</h4>
+<div class="paragraph">
+<p>Insights:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The size difference between <code>debug = 1</code> and <code>debug = 2</code> is almost nothing (both 58 MB), and there&#8217;s nothing to gain from <code>debug = 2</code> in terms of stack traces.</p>
+</li>
+<li>
+<p>The size difference between <code>debug = 0</code> and <code>debug = 1</code> is around 5 MB (53 MB vs. 58 MB), and <code>debug = 1</code> only makes a difference if the source files exist (showing line numbers), and only for panics.</p>
+</li>
+<li>
+<p>Hard crash stack traces are completely independent of the <code>debug</code> value.
+They are always helpful except when stripping the symbols.</p>
+</li>
+<li>
+<p><code>strip = symbols</code> leads to the smallest binaries (38 MB) but also to completely useless stack traces, both in soft and hard crashes.
+However, <code>split-debuginfo = "packed" seems to fix this at least for hard crashes, at a similar-sized binary (not for panics though) &#8230;&#8203; even if the DSYM directories are not on disk. What also fixes this for hard crashes is stripping via `strip -u -r</code>.
+We shouldn&#8217;t do that anymore!</p>
+</li>
+<li>
+<p><code>strip = debuginfo</code> leads to an okay size reduction (53 MB) but removes line numbers even if source files exist.
+However, <code>split-debuginfo = "packed"</code> solves this by creating dSYM directories, as long as they are there.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Takeaway:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>We should build with <code>debug = 2</code></p>
+<div class="ulist">
+<ul>
+<li>
+<p>While <code>debug = 1</code> is actually enough for most purposes, it can&#8217;t hurt building with <code>debug = 2</code> since we strip debuginfo anyway.
+So there&#8217;s no size difference for the final binary.
+That way we have more debuginfo on the server whenever we need it.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>strip = debuginfo</code> is the max we can strip away if we want panics to contain something useful</p>
+</li>
+<li>
+<p><code>strip = symbols</code> is only okay if we are fine with bogus stack traces in panics.
+In that case, we must use <code>split-debuginfo = "packed"</code> to get at least detailed stack traces in case of hard crashes.</p>
+</li>
+<li>
+<p>We should use <code>split-debuginfo = "packed"</code> in all cases.</p>
+</li>
+<li>
+<p>Would be good to find a way to leverage symbols for panic stack traces, but I think there is none.</p>
+</li>
+</ul>
+</div>
+<div class="sect4">
+<h5 id="_debug_0">"debug = 0"</h5>
+<div class="listingblock">
+<div class="title">Panic (sources don&#8217;t matter)</div>
+<div class="content">
+<pre>7:        0x120531450 - helgobox::infrastructure::plugin::sandbox::execute::h9608b1370cb08106</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Hard crash (sources don&#8217;t matter)</div>
+<div class="content">
+<pre>4   helgobox-arm64.vst.dylib      	       0x120527df4 _$LT$helgobox..domain..targets..track_volume_target..TrackVolumeTarget$u20$as$u20$helgoboss_learn..mode..target..Target$GT$::current_value::hff7df2fe68cec5d5 + 20</pre>
+</div>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_debug_1">"debug = 1"</h5>
+<div class="listingblock">
+<div class="title">Panic if sources exist</div>
+<div class="content">
+<pre>7:        0x13071ffdc - helgobox::infrastructure::plugin::sandbox::execute::hb564445c2d9211ee
+                               at /Users/helgoboss/Documents/projects/dev/realearn/main/src/infrastructure/plugin/sandbox.rs:3:5</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Panic if sources are gone</div>
+<div class="content">
+<pre>7:        0x140f1ffdc - helgobox::infrastructure::plugin::sandbox::execute::hb564445c2d9211ee</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Hard crash (sources don&#8217;t matter)</div>
+<div class="content">
+<pre>6   helgobox-arm64.vst.dylib      	       0x1302d4a64 _$LT$helgobox..domain..mapping..CompoundMappingTarget$u20$as$u20$helgoboss_learn..mode..target..Target$GT$::current_value::hadfcb1be993900b3 + 20 (mapping.rs:2498) [inlined]</pre>
+</div>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_debug_2">"debug = 2"</h5>
+<div class="listingblock">
+<div class="title">Panic if sources exist</div>
+<div class="content">
+<pre>7:        0x12160dafc - helgobox::infrastructure::plugin::sandbox::execute::h18fb689d4112e2d3
+                               at /Users/helgoboss/Documents/projects/dev/realearn/main/src/infrastructure/plugin/sandbox.rs:3:5</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Panic if sources are gone</div>
+<div class="content">
+<pre>7:        0x153f81afc - helgobox::infrastructure::plugin::sandbox::execute::h18fb689d4112e2d3</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Hard crash (sources don&#8217;t matter)</div>
+<div class="content">
+<pre>6   helgobox-arm64.vst.dylib      	       0x1212d8148 _$LT$helgobox..domain..mapping..CompoundMappingTarget$u20$as$u20$helgoboss_learn..mode..target..Target$GT$::current_value::h15041e3226fa455d + 20 (mapping.rs:2498) [inlined]</pre>
+</div>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_debug_2_strip_debuginfo">"debug = 2; strip = debuginfo"</h5>
+<div class="listingblock">
+<div class="title">Panic (sources don&#8217;t matter)</div>
+<div class="content">
+<pre>7:        0x138616570 - helgobox::infrastructure::plugin::sandbox::execute::hd0d406afe4d62df9</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Hard crash (sources don&#8217;t matter)</div>
+<div class="content">
+<pre>4   helgobox-arm64.vst.dylib      	       0x13885aab4 _$LT$helgobox..domain..targets..track_volume_target..TrackVolumeTarget$u20$as$u20$helgoboss_learn..mode..target..Target$GT$::current_value::h35c07d80eb0a312b + 20</pre>
+</div>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_debug_2_strip_symbols">"debug = 2; strip = symbols"</h5>
+<div class="listingblock">
+<div class="title">Soft crash (sources don&#8217;t matter)</div>
+<div class="content">
+<pre>0:        0x14bdef0ec - _NSEEL_HOSTSTUB_EnterMutex
+1:        0x14bd56f08 - _NSEEL_HOSTSTUB_EnterMutex
+2:        0x14bfbe4e4 - _cpp_to_rust_ProjectStateContext_SetTempFlag
+3:        0x14bfbddcc - _cpp_to_rust_ProjectStateContext_SetTempFlag
+4:        0x14bfbca08 - _cpp_to_rust_ProjectStateContext_SetTempFlag
+5:        0x14bfbdabc - _cpp_to_rust_ProjectStateContext_SetTempFlag
+6:        0x14c075710 - _cpp_to_rust_ProjectStateContext_SetTempFlag
+7:        0x14af50aa0 - _ReaperPluginEntry
+8:        0x14bd58fcc - _NSEEL_HOSTSTUB_EnterMutex
+9:        0x14bd82844 - _NSEEL_HOSTSTUB_EnterMutex</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Hard crash (sources don&#8217;t matter)</div>
+<div class="content">
+<pre>7   helgobox-arm64.vst.dylib      	       0x14b34b5e0 0x14a65c000 + 13563360</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_documentation">11. Documentation</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>All documentation is written in AsciiDoc.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="doc/realearn/README.adoc">ReaLearn Reference</a></p>
+</li>
+<li>
+<p><a href="ARCHITECTURE.adoc">Software architecture documentation</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Some SVGs embedded in the architecture documentation are generated via <a href="https://nodejs.org/">NodeJS</a> / <a href="https://svgjs.dev/">SVG.js</a> in <a href="doc/svg-gen/index.js" class="bare">doc/svg-gen/index.js</a>.
+After modifying this file, you need to execute the following command in the project root:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>node doc/svg-gen/index.js</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_license_check">12. License check</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>It&#8217;s important to make sure that the licenses of all dependencies are compatible with the final license.
+We use <a href="https://github.com/EmbarkStudios/cargo-deny">cargo-deny</a> for this.</p>
+</div>
+<div class="paragraph">
+<p>Installation:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code>cargo install --locked cargo-deny</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Check:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code>cargo deny check licenses</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_license_report">13. License report</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Installation:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code>cargo install --locked cargo-about --features cli</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Generate the report:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="CodeRay highlight"><code>cargo about generate --fail --workspace --all-features --threshold 0.93 about.hbs &gt; about.html</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_release">14. Release</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This serves mainly as a checklist for Helgobox&#8217;s author.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Check licenses via <code>cargo deny check licenses</code> and make sure the outcome is "licenses ok"</p>
+</li>
+<li>
+<p>Update license report (see above)</p>
+</li>
+<li>
+<p>Take care of app versioning</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Plug-in repository: Adjust <code>HOST_API_VERSION</code> and <code>MIN_APP_API_VERSION</code></p>
+</li>
+<li>
+<p>App repository: Adjust <code>appApiVersion</code> (macOS, Swift), <code>APP_API_VERSION</code> (Windows, C++), <code>kAppApiVersion</code> (Linux, C) and <code>_minHostApiVersionString</code> (Dart)</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Bump up the app version number in <code>pubspec.yaml</code>.</p>
+</li>
+<li>
+<p>Bump up the plug-in version number in <a href="main/Cargo.toml">main/Cargo.toml</a>.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Either to a prerelease (e.g. <code>2.0.0-pre1</code>) or a final release (e.g. <code>2.0.0</code>).</p>
+</li>
+<li>
+<p>This is important for having the correct version number displayed in ReaLearn UI.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Build at least once via <code>cargo build --features playtime,egui</code>.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>This updates <code>Cargo.lock</code> and is important for not having the <code>-dirty</code> display in ReaLearn UI.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Update the user guide if not done already.</p>
+</li>
+<li>
+<p>Create a version tag via <code>git tag v2.0.0-pre1</code>.</p>
+</li>
+<li>
+<p>Push via <code>git push origin v2.0.0-pre.1</code>.</p>
+</li>
+<li>
+<p>While GitHub Actions executes the release job, take care of the following.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Can only be done by @helgoboss because it needs access to the <a href="https://github.com/helgoboss/helgoboss-org-2">helgoboss.org website repository</a>.</p>
+</li>
+<li>
+<p>Add a changelog entry in <a href="https://github.com/helgoboss/helgoboss-org/blob/master/src/data/projects/realearn/data.yaml">data.yaml</a>.</p>
+</li>
+<li>
+<p>In <code>src/snippets/projects/realearn/repo</code>, enter <code>git checkout master</code> and <code>git pull</code> to pull the latest user guide changes.</p>
+</li>
+<li>
+<p>Push via <code>git push origin HEAD</code> and wait until Netlify deployed the page.</p>
+</li>
+<li>
+<p>All the following stuff needs to be done using Netlify&#8217;s branch preview if it&#8217;s a prerelease!</p>
+</li>
+<li>
+<p>Update <a href="https://github.com/helgoboss/reaper-packages/blob/master/index.xml">helgoboss ReaPack index</a>.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Generate ReaLearn-only ReaPack index by requesting <a href="https://www.helgoboss.org/projects/realearn/reapack.txt">/projects/realearn/reapack.txt</a>.</p>
+</li>
+<li>
+<p>Integrate the generated index by copying everything from <code>&lt;category name=&quot;Extensions&quot;&gt;</code> and pasting it to the
+<a href="https://github.com/helgoboss/reaper-packages/blob/master/index.xml">helgoboss ReaPack index</a> without overwriting the preset categories on the top of the file.</p>
+</li>
+<li>
+<p>Don&#8217;t push the index yet!</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Create a REAPER forum ReaLearn thread entry with help of <a href="https://www.helgoboss.org/projects/realearn/reaper-forum.txt">/projects/realearn/reaper-forum.txt</a>
+but don&#8217;t submit yet!</p>
+</li>
+<li>
+<p>Download the user guide by requesting <a href="https://www.helgoboss.org/projects/realearn/user-guide">/projects/realearn/user-guide</a>.</p>
+</li>
+<li>
+<p>Copy the corresponding changelog entry in markdown format by requesting <a href="https://www.helgoboss.org/projects/realearn/changelog.md">/projects/realearn/changelog.md</a>.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Once the release job has finished successfully, edit the not-yet-published release that has been created.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Paste the copied changelog entry to the release notes.</p>
+</li>
+<li>
+<p>Manually add the previously downloaded user guide as release artifact named <code>realearn-user-guide.pdf</code>.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Publish the release.</p>
+</li>
+<li>
+<p>Push the <a href="https://github.com/helgoboss/reaper-packages/blob/master/index.xml">helgoboss ReaPack index</a>.</p>
+</li>
+<li>
+<p>Submit the REAPER forum ReaLearn thread entry.</p>
+</li>
+<li>
+<p>Check if synchronization of the ReaPack repository works.</p>
+</li>
+<li>
+<p>Update website&#8217;s <code>config.yaml</code> latest versions (for update notifications)</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_troubleshooting">15. Troubleshooting</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_windows_realearn_dll_doesnt_unload">15.1. Windows: ReaLearn DLL doesn&#8217;t unload</h3>
+<div class="paragraph">
+<p>In REAPER for Windows it&#8217;s possible to enable complete unload of VST plug-ins (Options &#8594; Settings/Preferences &#8594; Plug-ins &#8594; VST &#8594; Allow complete unload of VST plug-ins).
+This also affects ReaLearn.
+Removing the last ReaLearn instance should work with and without this flag enabled, it&#8217;s important to test this.</p>
+</div>
+<div class="paragraph">
+<p>I ran into a case in which Windows was <strong>not</strong> unloading ReaLearn even though that option was enabled.
+The reason turned out to be a registry entry that Windows must have created automatically at some point:</p>
+</div>
+<div class="paragraph">
+<p><code>HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers</code> &#8594; <code>C:\REAPER\reaper.exe</code> with value <code>$ IgnoreFreeLibrary&lt;realearn.dll&gt;</code></p>
+</div>
+<div class="paragraph">
+<p>Removing this entry made unloading work again.
+What a nasty trap!</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+Last updated 2026-09-16 16:53:28 +0200
+</div>
+</div>
+<script>
+;(function () { /*! Asciidoctor Tabs | Copyright (c) 2018-present Dan Allen | MIT License */
+  'use strict'
+
+  var config = (document.currentScript || {}).dataset || {}
+  var forEach = Array.prototype.forEach
+
+  init(document.querySelectorAll('.tabs'))
+
+  function init (tabsBlocks) {
+    if (!tabsBlocks.length) return
+    forEach.call(tabsBlocks, function (tabs) {
+      var syncIds = tabs.classList.contains('is-sync') ? {} : undefined
+      var tablist = tabs.querySelector('.tablist ul')
+      tablist.setAttribute('role', 'tablist')
+      var start
+      forEach.call(tablist.querySelectorAll('li'), function (tab, idx) {
+        tab.tabIndex = -1
+        tab.setAttribute('role', tab.classList.add('tab') || 'tab')
+        var id, anchor, syncId
+        if (!(id = tab.id) && (anchor = tab.querySelector('a[id]'))) {
+          id = tab.id = anchor.parentNode.removeChild(anchor).id
+        }
+        var panel = id && tabs.querySelector('.tabpanel[aria-labelledby~="' + id + '"]')
+        if (!panel) return idx ? undefined : toggleSelected(tab, true) // invalid state
+        syncIds && (((syncId = tab.textContent.trim()) in syncIds) ? (syncId = undefined) : true) &&
+        (syncIds[(tab.dataset.syncId = syncId)] = tab)
+        idx || (syncIds && (start = { tab: tab, panel: panel })) ? toggleHidden(panel, true) : toggleSelected(tab, true)
+        tab.setAttribute('aria-controls', panel.id)
+        panel.setAttribute('role', 'tabpanel')
+        var onClick = syncId === undefined ? activateTab : activateTabSync
+        tab.addEventListener('click', onClick.bind({ tabs: tabs, tab: tab, panel: panel }))
+      })
+      if (!tabs.closest('.tabpanel')) {
+        forEach.call(tabs.querySelectorAll('.tabpanel table.tableblock'), function (table) {
+          var container = Object.assign(document.createElement('div'), { className: 'tablecontainer' })
+          table.parentNode.insertBefore(container, table).appendChild(table)
+        })
+      }
+      if (start) {
+        var syncGroupId
+        for (var i = 0, lst = tabs.classList, len = lst.length, className; i !== len; i++) {
+          if (!(className = lst.item(i)).startsWith('data-sync-group-id=')) continue
+          tabs.dataset.syncGroupId = syncGroupId = lst.remove(className) || className.slice(19).replace(/\u00a0/g, ' ')
+          break
+        }
+        if (syncGroupId === undefined) tabs.dataset.syncGroupId = syncGroupId = Object.keys(syncIds).sort().join('|')
+        var preferredSyncId = 'syncStorageKey' in config &&
+          window[(config.syncStorageScope || 'local') + 'Storage'].getItem(config.syncStorageKey + '-' + syncGroupId)
+        var tab = preferredSyncId && syncIds[preferredSyncId]
+        tab && Object.assign(start, { tab: tab, panel: document.getElementById(tab.getAttribute('aria-controls')) })
+        toggleSelected(start.tab, true) || toggleHidden(start.panel, false)
+      }
+    })
+    onHashChange()
+    toggleClassOnEach(tabsBlocks, 'is-loading', 'remove')
+    window.setTimeout(toggleClassOnEach.bind(null, tabsBlocks, 'is-loaded', 'add'), 0)
+    window.addEventListener('hashchange', onHashChange)
+  }
+
+  function activateTab (e) {
+    var tab = this.tab
+    var tabs = this.tabs || (this.tabs = tab.closest('.tabs'))
+    var panel = this.panel || (this.panel = document.getElementById(tab.getAttribute('aria-controls')))
+    querySelectorWithSiblings(tabs, '.tablist .tab', 'tab').forEach(function (el) {
+      toggleSelected(el, el === tab)
+    })
+    querySelectorWithSiblings(tabs, '.tabpanel', 'tabpanel').forEach(function (el) {
+      toggleHidden(el, el !== panel)
+    })
+    if (!this.isSync && 'syncStorageKey' in config && 'syncGroupId' in tabs.dataset) {
+      var storageKey = config.syncStorageKey + '-' + tabs.dataset.syncGroupId
+      window[(config.syncStorageScope || 'local') + 'Storage'].setItem(storageKey, tab.dataset.syncId)
+    }
+    if (!e) return
+    var loc = window.location
+    var hashIdx = loc.hash ? loc.href.indexOf('#') : -1
+    if (~hashIdx) window.history.replaceState(null, '', loc.href.slice(0, hashIdx))
+    e.preventDefault()
+  }
+
+  function activateTabSync (e) {
+    activateTab.call(this, e)
+    var thisTabs = this.tabs
+    var thisTab = this.tab
+    var initialY = thisTabs.getBoundingClientRect().y
+    forEach.call(document.querySelectorAll('.tabs'), function (tabs) {
+      if (tabs === thisTabs || tabs.dataset.syncGroupId !== thisTabs.dataset.syncGroupId) return
+      querySelectorWithSiblings(tabs, '.tablist .tab', 'tab').forEach(function (tab) {
+        if (tab.dataset.syncId === thisTab.dataset.syncId) activateTab.call({ tabs: tabs, tab: tab, isSync: true })
+      })
+    })
+    var shiftedBy = thisTabs.getBoundingClientRect().y - initialY
+    if (shiftedBy && (shiftedBy = Math.round(shiftedBy))) window.scrollBy({ top: shiftedBy, behavior: 'instant' })
+  }
+
+  function querySelectorWithSiblings (scope, selector, siblingClass) {
+    var el = scope.querySelector(selector)
+    if (!el) return []
+    var result = [el]
+    while ((el = el.nextElementSibling) && el.classList.contains(siblingClass)) result.push(el)
+    return result
+  }
+
+  function toggleClassOnEach (elements, className, method) {
+    forEach.call(elements, function (el) {
+      el.classList[method](className)
+    })
+  }
+
+  function toggleHidden (el, state) {
+    el.classList[(el.hidden = state) ? 'add' : 'remove']('is-hidden')
+  }
+
+  function toggleSelected (el, state) {
+    el.setAttribute('aria-selected', '' + state)
+    el.classList[state ? 'add' : 'remove']('is-selected')
+    el.tabIndex = state ? 0 : -1
+  }
+
+  function onHashChange () {
+    var id = window.location.hash.slice(1)
+    if (!id) return
+    var tab = document.getElementById(~id.indexOf('%') ? decodeURIComponent(id) : id)
+    if (!(tab && tab.classList.contains('tab'))) return
+    'syncId' in tab.dataset ? activateTabSync.call({ tab: tab }) : activateTab.call({ tab: tab })
+  }
+})()
+</script>
+</body>
+</html>
