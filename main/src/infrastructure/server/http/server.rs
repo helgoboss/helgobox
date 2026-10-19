@@ -64,19 +64,19 @@ fn create_router(
             get(|| async move { create_cert_response(cert.clone(), "realearn.cer") }),
         )
         .route(
-            "/realearn/session/:id",
+            "/realearn/session/{id}",
             get(session_handler.layer(MainThreadLayer)),
         )
         .route(
-            "/realearn/session/:id/controller",
+            "/realearn/session/{id}/controller",
             get(session_controller_handler.layer(MainThreadLayer)),
         )
         .route(
-            "/realearn/session/:id/controller-routing",
+            "/realearn/session/{id}/controller-routing",
             get(controller_routing_handler.layer(MainThreadLayer)),
         )
         .route(
-            "/realearn/controller/:id",
+            "/realearn/controller/{id}",
             patch(patch_controller_handler.layer(MainThreadLayer)),
         )
         .route(

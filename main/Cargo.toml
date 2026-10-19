@@ -95,6 +95,7 @@ tower-http = { workspace = true, features = ["cors"] }
 # For ReaLearn's gRPC server
 tonic.workspace = true
 prost.workspace = true
+tonic-prost.workspace = true
 # For generating projection QR code
 qrcode.workspace = true
 # For rendering projection QR code to PNG

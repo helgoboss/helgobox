@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::fs;
 
-use anyhow::{Context, anyhow};
+use anyhow::{Context, anyhow, bail};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -210,11 +210,11 @@ impl RealearnServer {
         self.changed_subject.next(());
     }
 
-    pub fn clients(&self) -> Result<&ServerClients, &'static str> {
+    pub fn clients(&self) -> anyhow::Result<&ServerClients> {
         if let ServerState::Running(runtime_data) = &self.state {
             Ok(&runtime_data.clients)
         } else {
-            Err("server not running")
+            bail!("server not running")
         }
     }
 

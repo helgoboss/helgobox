@@ -79,7 +79,6 @@ pub async fn create_metrics_response(metrics_reporter: MetricsReporter) -> Respo
         .body(Body::from(text))
         .unwrap()
 }
-
 pub async fn handle_websocket_upgrade(socket: WebSocket, topics: Topics, clients: ServerClients) {
     use futures::{FutureExt, StreamExt};
     let (ws_sender_sink, mut ws_receiver_stream) = socket.split();
@@ -99,6 +98,7 @@ pub async fn handle_websocket_upgrade(socket: WebSocket, topics: Topics, clients
     // Create client struct
     static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
     let client_id = NEXT_CLIENT_ID.fetch_add(1, Ordering::Relaxed);
+
     let client = WebSocketClient {
         topics,
         sender: client_sender,
@@ -119,9 +119,9 @@ pub async fn handle_websocket_upgrade(socket: WebSocket, topics: Topics, clients
             Err(e) => {
                 eprintln!("websocket error: {e}");
                 break;
-            }
-        };
-    }
+        }
+    };
+        }
     // Stream closed up, so remove from the client list
     clients.write().unwrap().remove(&client_id);
 }

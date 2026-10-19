@@ -9,7 +9,9 @@ use crate::infrastructure::server::data::{
     send_initial_feedback,
 };
 use crate::infrastructure::server::http::client::WebSocketClient;
+use anyhow::anyhow;
 use base::Global;
+use base::tracing_util::ok_or_log_as_warn;
 use rxrust::prelude::*;
 use serde::Serialize;
 use std::rc::Rc;
@@ -20,10 +22,7 @@ pub fn send_initial_events(client: &WebSocketClient) {
     }
 }
 
-fn send_initial_events_for_topic(
-    client: &WebSocketClient,
-    topic: &Topic,
-) -> Result<(), &'static str> {
+fn send_initial_events_for_topic(client: &WebSocketClient, topic: &Topic) -> anyhow::Result<()> {
     use Topic::*;
     match topic {
         Session { session_id } => send_initial_session(client, session_id),
@@ -36,10 +35,7 @@ fn send_initial_events_for_topic(
     }
 }
 
-pub fn send_initial_session(
-    client: &WebSocketClient,
-    session_id: &str,
-) -> Result<(), &'static str> {
+pub fn send_initial_session(client: &WebSocketClient, session_id: &str) -> anyhow::Result<()> {
     let event = if BackboneShell::get()
         .find_unit_model_by_key(session_id)
         .is_some()
@@ -54,7 +50,7 @@ pub fn send_initial_session(
 fn send_initial_controller_routing(
     client: &WebSocketClient,
     session_id: &str,
-) -> Result<(), &'static str> {
+) -> anyhow::Result<()> {
     let event = if let Some(session) = BackboneShell::get().find_unit_model_by_key(session_id) {
         get_controller_routing_updated_event(session_id, Some(&session.borrow()))
     } else {
@@ -63,7 +59,7 @@ fn send_initial_controller_routing(
     client.send(event)
 }
 
-fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result<(), &'static str> {
+fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> anyhow::Result<()> {
     let event = if let Some(session) = BackboneShell::get().find_unit_model_by_key(session_id) {
         get_active_controller_updated_event(session_id, Some(&session.borrow()))
     } else {
@@ -72,7 +68,7 @@ fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result
     client.send(&event)
 }
 
-pub fn send_updated_active_controller(session: &UnitModel) -> Result<(), &'static str> {
+pub fn send_updated_active_controller(session: &UnitModel) -> anyhow::Result<()> {
     send_to_clients_subscribed_to(
         &Topic::ActiveController {
             session_id: session.unit_key().to_string(),
@@ -86,7 +82,7 @@ pub fn send_updated_active_controller(session: &UnitModel) -> Result<(), &'stati
     )
 }
 
-pub fn send_updated_controller_routing(session: &UnitModel) -> Result<(), &'static str> {
+pub fn send_updated_controller_routing(session: &UnitModel) -> anyhow::Result<()> {
     BackboneShell::get()
         .proto_hub()
         .notify_controller_routing_changed(session);
@@ -106,7 +102,7 @@ pub fn send_updated_controller_routing(session: &UnitModel) -> Result<(), &'stat
 pub fn send_projection_feedback_to_subscribed_clients(
     session_id: &str,
     value: ProjectionFeedbackValue,
-) -> Result<(), &'static str> {
+) -> anyhow::Result<()> {
     send_to_clients_subscribed_to(
         &Topic::Feedback {
             session_id: session_id.to_string(),
@@ -118,13 +114,13 @@ pub fn send_projection_feedback_to_subscribed_clients(
 fn send_to_clients_subscribed_to<T: Serialize>(
     topic: &Topic,
     create_message: impl FnOnce() -> Option<T>,
-) -> Result<(), &'static str> {
+) -> anyhow::Result<()> {
     for_each_client(
         |client, cached| {
             if let Some(cached) = cached
                 && client.is_subscribed_to(topic)
             {
-                let _ = client.send(cached);
+                ok_or_log_as_warn(client.send(cached));
             }
         },
         create_message,
@@ -134,7 +130,7 @@ fn send_to_clients_subscribed_to<T: Serialize>(
 pub fn for_each_client<T: Serialize>(
     op: impl Fn(&WebSocketClient, &T),
     cache: impl FnOnce() -> T,
-) -> Result<(), &'static str> {
+) -> anyhow::Result<()> {
     let server = BackboneShell::get().server().borrow();
     if !server.is_running() {
         return Ok(());
@@ -142,7 +138,7 @@ pub fn for_each_client<T: Serialize>(
     let clients = server.clients()?.clone();
     let clients = clients
         .read()
-        .map_err(|_| "couldn't get read lock for client")?;
+        .map_err(|_| anyhow!("couldn't get read lock for client"))?;
     if clients.is_empty() {
         return Ok(());
     }

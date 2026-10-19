@@ -481,28 +481,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-stream"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd56dd203fef61ac097dd65721a419ddccb106b2d2b70ba60a6b529f03961a51"
-dependencies = [
- "async-stream-impl",
- "futures-core",
- "pin-project-lite",
-]
-
-[[package]]
-name = "async-stream-impl"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16e62a023e7c117e27523144c5d2459f4397fcc3cab0085af8e2224f643a0193"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.58",
-]
-
-[[package]]
 name = "async-task"
 version = "4.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -594,14 +572,14 @@ dependencies = [
 
 [[package]]
 name = "axum"
-version = "0.7.9"
+version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edca88bc138befd0323b20752846e6587272d3b03b0343c8ea28a6f819e6e71f"
+checksum = "31b698c5f9a010f6573133b09e0de5408834d0c82f8d7475a89fc1867a71cd90"
 dependencies = [
- "async-trait",
  "axum-core",
  "base64 0.22.1",
  "bytes",
+ "form_urlencoded",
  "futures-util",
  "http",
  "http-body",
@@ -614,8 +592,7 @@ dependencies = [
  "mime",
  "percent-encoding",
  "pin-project-lite",
- "rustversion",
- "serde",
+ "serde_core",
  "serde_json",
  "serde_path_to_error",
  "serde_urlencoded",
@@ -623,7 +600,7 @@ dependencies = [
  "sync_wrapper",
  "tokio",
  "tokio-tungstenite",
- "tower 0.5.2",
+ "tower",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -631,19 +608,17 @@ dependencies = [
 
 [[package]]
 name = "axum-core"
-version = "0.4.5"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09f2bd6146b97ae3359fa0cc6d6b376d9539582c7b4220f041a33ec24c226199"
+checksum = "08c78f31d7b1291f7ee735c1c6780ccde7785daae9a9206026862dab7d8792d1"
 dependencies = [
- "async-trait",
  "bytes",
- "futures-util",
+ "futures-core",
  "http",
  "http-body",
  "http-body-util",
  "mime",
  "pin-project-lite",
- "rustversion",
  "sync_wrapper",
  "tower-layer",
  "tower-service",
@@ -652,25 +627,23 @@ dependencies = [
 
 [[package]]
 name = "axum-server"
-version = "0.7.1"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56bac90848f6a9393ac03c63c640925c4b7c8ca21654de40d53f55964667c7d8"
+checksum = "b1df331683d982a0b9492b38127151e6453639cd34926eb9c07d4cd8c6d22bfc"
 dependencies = [
  "arc-swap",
  "bytes",
- "futures-util",
+ "either",
+ "fs-err",
  "http",
  "http-body",
- "http-body-util",
  "hyper",
  "hyper-util",
  "pin-project-lite",
  "rustls",
- "rustls-pemfile",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
- "tower 0.4.13",
  "tower-service",
 ]
 
@@ -2192,9 +2165,9 @@ dependencies = [
 
 [[package]]
 name = "either"
-version = "1.8.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90e5c1c8368803113bf0c9584fc495a58b86dc8a29edbf8fe877d21d9507e797"
+checksum = "0e9c71c2167ca323c882b99918929403426e2373ea17242ff5653e0d5e1058be"
 
 [[package]]
 name = "elgato-streamdeck"
@@ -2711,6 +2684,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
+name = "fs-err"
+version = "3.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5c95b673b8f6f7235229ae11c5642d81b04c2e64c1e2fb417bc0cf73ca45f29"
+dependencies = [
+ "autocfg",
+ "tokio",
+]
+
+[[package]]
 name = "full_moon"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3171,9 +3154,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.4.7"
+version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccae279728d634d083c00f6099cb58f01cc99c145b84b8be2f6c74618d79922e"
+checksum = "7d29020232d6aa3fb1daca64c1127cf662cf97f254ae16c18c05b8ab635fc118"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -3438,7 +3421,8 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic",
- "tower 0.5.2",
+ "tonic-prost",
+ "tower",
  "tower-http",
  "tracing",
  "tracing-core",
@@ -3631,9 +3615,9 @@ dependencies = [
 
 [[package]]
 name = "httparse"
-version = "1.8.0"
+version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d897f394bad6a705d5f4104762e116a75639e470d80901eed05a860a95cb1904"
+checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 
 [[package]]
 name = "httpdate"
@@ -3658,13 +3642,14 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
-version = "1.5.2"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "256fb8d4bd6413123cc9d91832d78325c48ff41677595be797d90f42969beae0"
+checksum = "2c3e324da4c95177d6291d4c8730197c0d1822f8a9766814a4a44fa5ab797c9c"
 dependencies = [
+ "atomic-waker",
  "bytes",
  "futures-channel",
- "futures-util",
+ "futures-core",
  "h2",
  "http",
  "http-body",
@@ -3710,18 +3695,20 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.10"
+version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df2dcfbe0677734ab2f3ffa7fa7bfd4706bfdc1ef393f2ee30184aed67e631b4"
+checksum = "ddc03d96684f9226b8a787cdb71488417b53ab5ea8fdb1dac946cb9431cc8bff"
 dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
  "http",
  "http-body",
+ "httparse",
  "hyper",
+ "libc",
  "pin-project-lite",
- "socket2 0.5.5",
+ "socket2 0.6.5",
  "tokio",
  "tower-service",
  "tracing",
@@ -4535,9 +4522,9 @@ dependencies = [
 
 [[package]]
 name = "matchit"
-version = "0.7.0"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b87248edafb776e59e6ee64a79086f65890d3510f2c656c000bf2a7e8a0aea40"
+checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "matrixmultiply"
@@ -4569,7 +4556,7 @@ dependencies = [
  "flume 0.12.0",
  "if-addrs",
  "log",
- "mio 1.2.3",
+ "mio",
  "socket-pktinfo",
  "socket2 0.6.5",
 ]
@@ -4716,17 +4703,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2d80299ef12ff69b16a84bb182e3b9df68b5a91574d3d4fa6e41b65deec4df1"
 dependencies = [
  "adler2",
-]
-
-[[package]]
-name = "mio"
-version = "0.8.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f3d0b296e374a4e6f3c7b0a1f5a51d748a0d34c85e7dc48fc3fa9a87657fe09"
-dependencies = [
- "libc",
- "wasi",
- "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -6092,9 +6068,9 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.13.4"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c0fef6c4230e4ccf618a35c59d7ede15dea37de8427500f50aff708806e42ec"
+checksum = "528ac67416ff8646872a3c02cad9cc4ee5dc9f9540c9b10771855c95cb2e5ae1"
 dependencies = [
  "bytes",
  "prost-derive",
@@ -6102,9 +6078,9 @@ dependencies = [
 
 [[package]]
 name = "prost-derive"
-version = "0.13.4"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "157c5a9d7ea5c2ed2d9fb8f495b64759f7816c7eaea54ba3978f0d63000162e3"
+checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
  "itertools 0.12.0",
@@ -6483,7 +6459,7 @@ dependencies = [
 [[package]]
 name = "reaper-common-types"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#659b22bfbc34bf4a5a40902e6fdf60ccfd34ca23"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c2c5207bbb2cce70ba707c0397f8e3627e39b140"
 dependencies = [
  "hex-literal",
  "nutype",
@@ -6494,7 +6470,7 @@ dependencies = [
 [[package]]
 name = "reaper-fluent"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#659b22bfbc34bf4a5a40902e6fdf60ccfd34ca23"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c2c5207bbb2cce70ba707c0397f8e3627e39b140"
 dependencies = [
  "fragile",
  "reaper-low",
@@ -6504,7 +6480,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#659b22bfbc34bf4a5a40902e6fdf60ccfd34ca23"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c2c5207bbb2cce70ba707c0397f8e3627e39b140"
 dependencies = [
  "backtrace",
  "base64 0.13.0",
@@ -6533,7 +6509,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#659b22bfbc34bf4a5a40902e6fdf60ccfd34ca23"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c2c5207bbb2cce70ba707c0397f8e3627e39b140"
 dependencies = [
  "c_str_macro",
  "cc 1.5.1",
@@ -6549,7 +6525,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#659b22bfbc34bf4a5a40902e6fdf60ccfd34ca23"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c2c5207bbb2cce70ba707c0397f8e3627e39b140"
 dependencies = [
  "darling 0.24.1",
  "quote",
@@ -6559,7 +6535,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#659b22bfbc34bf4a5a40902e6fdf60ccfd34ca23"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c2c5207bbb2cce70ba707c0397f8e3627e39b140"
 dependencies = [
  "camino",
  "derive_more 0.99.16",
@@ -6578,7 +6554,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#659b22bfbc34bf4a5a40902e6fdf60ccfd34ca23"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c2c5207bbb2cce70ba707c0397f8e3627e39b140"
 dependencies = [
  "helgoboss-midi",
  "reaper-high",
@@ -6877,7 +6853,7 @@ checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
 [[package]]
 name = "rppxml-parser"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#659b22bfbc34bf4a5a40902e6fdf60ccfd34ca23"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c2c5207bbb2cce70ba707c0397f8e3627e39b140"
 dependencies = [
  "splitty",
 ]
@@ -8202,30 +8178,28 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.35.1"
+version = "1.53.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c89b4efa943be685f629b149f53829423f8f5531ea21249408e8e2f8671ec104"
+checksum = "ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e"
 dependencies = [
- "backtrace",
  "bytes",
  "libc",
- "mio 0.8.10",
- "num_cpus",
+ "mio",
  "pin-project-lite",
- "socket2 0.5.5",
+ "socket2 0.6.5",
  "tokio-macros",
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
 name = "tokio-macros"
-version = "2.2.0"
+version = "2.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b8a1e28f2deaa14e508979454cb3a223b10b938b45af148bc0986de36f1923b"
+checksum = "78773a2a397f451582ce068015985c33193cf6dea8b74d2a639fe457b2f07b0e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.58",
+ "syn 3.0.4",
 ]
 
 [[package]]
@@ -8252,9 +8226,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-tungstenite"
-version = "0.24.0"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edc5f74e248dc973e0dbb7b74c7e0d6fcc301c694ff50049504004ef4d0cdcd9"
+checksum = "8f72a05e828585856dacd553fba484c242c46e391fb0e58917c942ee9202915c"
 dependencies = [
  "futures-util",
  "log",
@@ -8383,11 +8357,10 @@ checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 
 [[package]]
 name = "tonic"
-version = "0.12.3"
+version = "0.14.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "877c5b330756d856ffcc4553ab34a5684481ade925ecc54bcd1bf02b1d0d4d52"
+checksum = "ac2a5518c70fa84342385732db33fb3f44bc4cc748936eb5833d2df34d6445ef"
 dependencies = [
- "async-stream",
  "async-trait",
  "axum",
  "base64 0.22.1",
@@ -8401,34 +8374,25 @@ dependencies = [
  "hyper-util",
  "percent-encoding",
  "pin-project",
- "prost",
- "socket2 0.5.5",
+ "socket2 0.6.5",
+ "sync_wrapper",
  "tokio",
  "tokio-stream",
- "tower 0.4.13",
+ "tower",
  "tower-layer",
  "tower-service",
  "tracing",
 ]
 
 [[package]]
-name = "tower"
-version = "0.4.13"
+name = "tonic-prost"
+version = "0.14.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8fa9be0de6cf49e536ce1851f987bd21a43b771b09473c3549a6c853db37c1c"
+checksum = "50849f68853be452acf590cde0b146665b8d507b3b8af17261df47e02c209ea0"
 dependencies = [
- "futures-core",
- "futures-util",
- "indexmap 1.9.3",
- "pin-project",
- "pin-project-lite",
- "rand 0.8.5",
- "slab",
- "tokio",
- "tokio-util",
- "tower-layer",
- "tower-service",
- "tracing",
+ "bytes",
+ "prost",
+ "tonic",
 ]
 
 [[package]]
@@ -8439,9 +8403,12 @@ checksum = "d039ad9159c98b70ecfd540b2573b97f7f52c3e8d9f8ad57a24b916a536975f9"
 dependencies = [
  "futures-core",
  "futures-util",
+ "indexmap 2.14.1",
  "pin-project-lite",
+ "slab",
  "sync_wrapper",
  "tokio",
+ "tokio-util",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -8449,13 +8416,14 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.6.2"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "403fa3b783d4b626a8ad51d766ab03cb6d2dbfc46b1c5d4448395e6628dc9697"
+checksum = "08a05a66a4fdd61cbbe0a1d755ffe0ca6aba159dd4820936a0ff8a8278245b9c"
 dependencies = [
  "bitflags 2.13.1",
  "bytes",
  "http",
+ "percent-encoding",
  "pin-project-lite",
  "tower-layer",
  "tower-service",
@@ -8560,9 +8528,9 @@ dependencies = [
 
 [[package]]
 name = "try-lock"
-version = "0.2.3"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59547bce71d9c38b83d9c0e92b6066c4253371f15005def0c30d9657f50c7642"
+checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "ttf-parser"
@@ -8603,20 +8571,18 @@ dependencies = [
 
 [[package]]
 name = "tungstenite"
-version = "0.24.0"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18e5b8366ee7a95b16d32197d0b2604b43a0be89dc5fac9f8e96ccafbaedda8a"
+checksum = "6c01152af293afb9c7c2a57e4b559c5620b421f6d133261c60dd2d0cdb38e6b8"
 dependencies = [
- "byteorder",
  "bytes",
  "data-encoding",
  "http",
  "httparse",
  "log",
- "rand 0.8.5",
+ "rand 0.9.5",
  "sha1",
- "thiserror 1.0.56",
- "utf-8",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -8830,12 +8796,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "utf-8"
-version = "0.7.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
-
-[[package]]
 name = "uuid"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9002,11 +8962,10 @@ dependencies = [
 
 [[package]]
 name = "want"
-version = "0.3.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ce8a968cb1cd110d136ff8b819a556d6fb6d919363c61534f6860c7eb172ba0"
+checksum = "ec4cdd0dd910afe868b7ef477227d8d538b46b3075031afee8a9f2acb0a2ed0b"
 dependencies = [
- "log",
  "try-lock",
 ]
 
