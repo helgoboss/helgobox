@@ -51,7 +51,9 @@ sudo apt-get install -y libxdo-dev
 sudo zypper install xdotool
 ----
 * Other dependencies that you might need to install manually, depending on your Linux distribution: `libx11`, `libstdc++`, `libudev`
-* If {plugin-name} isn't available after installation, REAPER failed to scan it. And that is most likely due to a missing dependency. In that case, please link:https://github.com/helgoboss/helgobox/issues/503#issuecomment-1320964181[try this to analyze the issue] and send the result to info@helgoboss.org.
+* If {plugin-name} isn't available after installation, REAPER failed to scan it.
+And that is most likely due to a missing dependency.
+In that case, please link:https://github.com/helgoboss/helgobox/issues/503#issuecomment-1320964181[try this to analyze the issue] and send the result to info@helgoboss.org.
 
 IMPORTANT: If you want to use a _Stream Deck_ controller with ReaLearn on Linux, xref:realearn::sources/stream-deck.adoc#linux[more setup] is necessary.
 
@@ -113,9 +115,6 @@ You know that Helgobox is installed successfully if you see the menu menu:Extens
 
 In addition, you should see a plug-in entry {plugin-name} after right-clicking the empty area of REAPER's track panel and choosing menu:Insert virtual instrument on new track...[].
 
-NOTE: On Helgobox for Linux, the extension menu entry doesn't exist yet.
-But the plug-in should be there.
-
 == Troubleshooting
 
 === Helgobox plug-in doesn't appear in the list of plug-ins
@@ -154,7 +153,9 @@ Downgrading is easily possible via ReaPack as well.
 .Be careful when saving projects after updates or downgrades!
 [CAUTION]
 ====
-It is not guaranteed that projects saved with newer versions can still be opened with older versions of Helgobox! Even if it works, saving a project with that older version might overwrite changes that you made in the newer version. That's why Helgobox will warn you in this case.
+It is not guaranteed that projects saved with newer versions can still be opened with older versions of Helgobox!
+Even if it works, saving a project with that older version might overwrite changes that you made in the newer version.
+That's why Helgobox will warn you in this case.
 
 If your project is crucial, it is recommended to make a backup before re-saving it with another version.
 ====
@@ -164,7 +165,6 @@ If your project is crucial, it is recommended to make a backup before re-saving 
 . Select the desired old version
 . Press btn:[OK] or btn:[Apply]
 . Restart REAPER
-
 
 [[pre-releases]]
 == Testing new features and improvements
