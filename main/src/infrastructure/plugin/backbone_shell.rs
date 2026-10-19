@@ -768,15 +768,6 @@ impl BackboneShell {
             RealearnDeallocator::with_metrics("helgobox.allocator.async_deallocation"),
             sleeping_state.async_deallocation_receiver,
         );
-        // Activate server
-        if self.config.borrow().server_is_enabled() {
-            let _ = self.with_async_runtime(|runtime| {
-                self.server()
-                    .borrow_mut()
-                    .start(runtime, self.create_services())
-                    .unwrap_or_else(warn_about_failed_server_start);
-            });
-        }
         let mut session = Reaper::get().medium_session();
         // Action hooks
         session
@@ -819,6 +810,16 @@ impl BackboneShell {
                 AcceleratorPosition::Front,
             )
             .expect("couldn't register ReaLearn accelerator");
+        // Activate server (important to do after waking up REAPER control surface because the
+        // server start schedules a "server started" notification on the main thread)
+        if self.config.borrow().server_is_enabled() {
+            let _ = self.with_async_runtime(|runtime| {
+                self.server()
+                    .borrow_mut()
+                    .start(runtime, self.create_services())
+                    .unwrap_or_else(warn_about_failed_server_start);
+            });
+        }
         // Awake state
         let awake_state = AwakeState {
             control_surface_handle,
