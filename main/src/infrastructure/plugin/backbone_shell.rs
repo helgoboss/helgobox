@@ -456,7 +456,7 @@ impl BackboneShell {
         // than a second and is only done after reinstalling or updating Helgobox, after that less than a millisecond
         // because it detects that the app is already decompressed. Loading the app library is maybe 50ms.
         // So all in all, no problem to this on REAPER start.
-        let app_library = decompress_app_and_load_app_library();
+        let app_library = decompress_app_and_maybe_load_app_library();
         let _ = APP_LIBRARY.set(app_library);
         // We want actions and menu entries to be available even in sleeping state because there are some convenience
         // actions among them that boot up an instance when none is found yet.
@@ -3085,8 +3085,13 @@ fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
     lib
 }
 
-fn decompress_app_and_load_app_library() -> anyhow::Result<AppLibrary> {
+fn decompress_app_and_maybe_load_app_library() -> anyhow::Result<AppLibrary> {
     measure_time("decompressing app", decompress_app)?;
+    if cfg!(target_os = "linux") {
+        bail!(
+            "On Linux, the app library doesn't need to be loaded because the app is started as a separate process."
+        );
+    }
     let library = measure_time("loading app library", load_app_library)?;
     Ok(library)
 }
