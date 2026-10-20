@@ -60,13 +60,16 @@ impl AppLibrary {
             (
                 "Contents/MacOS/helgobox",
                 [
-                    // Important: This must be the first. Because below plug-in libraries
-                    // depend on it.
+                    // # Important: This must be the first. Because below plug-in libraries
+                    // # depend on it.
                     "Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS",
-                    // The rest can have an arbitrary order.
+                    // # The rest can have an arbitrary order.
                     "Contents/Frameworks/irondash_engine_context.framework/irondash_engine_context",
                     "Contents/Frameworks/super_native_extensions.framework/super_native_extensions",
-                    "Contents/Frameworks/objective_c.framework/objective_c",
+                    // # These don't need to be preloaded because they will be loaded on demand
+                    // # by the Dart FFI Native Assets mechanism.
+                    // "Contents/Frameworks/objective_c.framework/objective_c",
+                    // # This is only necessary when loading an app compiled in debug mode.
                     // "Contents/MacOS/helgobox.debug.dylib",
                 ]
                 .as_slice(),
