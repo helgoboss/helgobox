@@ -21,7 +21,7 @@ impl DynamicWinApi {
     }
 
     /// Should be available from Windows 10 onwards.
-    pub fn get_dpi_for_window(&self) -> Option<Symbol<GetDpiForWindow>> {
+    pub fn get_dpi_for_window(&self) -> Option<Symbol<'_, GetDpiForWindow>> {
         unsafe { self.user32_library.get(b"GetDpiForWindow\0").ok() }
     }
 }
