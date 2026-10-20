@@ -235,7 +235,7 @@ impl ColumnKind {
 }
 
 impl TimeSignature {
-    pub fn to_engine(&self) -> Result<reaper_medium::TimeSignature, &'static str> {
+    pub fn to_engine(self) -> Result<reaper_medium::TimeSignature, &'static str> {
         let sig = reaper_medium::TimeSignature {
             numerator: NonZeroU32::new(self.numerator).ok_or("numerator is zero")?,
             denominator: NonZeroU32::new(self.denominator).ok_or("denominator is zero")?,
@@ -466,7 +466,7 @@ impl ClipAddress {
         }
     }
 
-    pub fn to_engine(&self) -> Result<base::ClipAddress, &'static str> {
+    pub fn to_engine(self) -> Result<base::ClipAddress, &'static str> {
         let addr = base::ClipAddress {
             slot_address: self
                 .slot_address
@@ -518,7 +518,7 @@ impl TrackInput {
         Self { input }
     }
 
-    pub fn to_engine(&self) -> base::TrackInput {
+    pub fn to_engine(self) -> base::TrackInput {
         let (rec_input, map_to_midi_channel) = match self.input.as_ref() {
             None => (None, None),
             Some(Input::Mono(ch)) => (Some(RecordingInput::Mono(*ch)), None),

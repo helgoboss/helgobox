@@ -89,7 +89,7 @@ impl RgbColor {
         }
     }
 
-    pub fn to_engine(&self) -> Option<reaper_medium::RgbColor> {
+    pub fn to_engine(self) -> Option<reaper_medium::RgbColor> {
         let c = self.color?;
         let dest = reaper_medium::RgbColor {
             r: ((c >> 16) & 0xFF) as u8,
@@ -445,7 +445,7 @@ impl SlotAddress {
         }
     }
 
-    pub fn to_engine(&self) -> playtime_api::persistence::SlotAddress {
+    pub fn to_engine(self) -> playtime_api::persistence::SlotAddress {
         playtime_api::persistence::SlotAddress::new(self.column_index as _, self.row_index as _)
     }
 }
@@ -458,7 +458,7 @@ impl CellAddress {
         }
     }
 
-    pub fn to_engine(&self) -> playtime_api::runtime::CellAddress {
+    pub fn to_engine(self) -> playtime_api::runtime::CellAddress {
         playtime_api::runtime::CellAddress::new(
             self.column_index.map(|i| i as _),
             self.row_index.map(|i| i as _),
