@@ -119,9 +119,9 @@ pub async fn handle_websocket_upgrade(socket: WebSocket, topics: Topics, clients
             Err(e) => {
                 eprintln!("websocket error: {e}");
                 break;
-        }
-    };
-        }
+            }
+        };
+    }
     // Stream closed up, so remove from the client list
     clients.write().unwrap().remove(&client_id);
 }
