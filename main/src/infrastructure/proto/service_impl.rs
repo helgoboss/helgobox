@@ -33,6 +33,7 @@ use crate::infrastructure::proto::{
     create_initial_instance_updates, create_initial_unit_updates, helgobox_service_server,
 };
 use base::future_util;
+use bytesize::ByteSize;
 use futures::{FutureExt, Stream, StreamExt};
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::base::Matrix;
@@ -41,6 +42,7 @@ use std::{future, iter};
 use tokio::sync::broadcast::Receiver;
 use tokio_stream::wrappers::BroadcastStream;
 use tonic::{Request, Response, Status};
+use tracing::info;
 
 #[derive(Debug)]
 pub struct HelgoboxServiceImpl {
@@ -817,7 +819,7 @@ fn stream_by_session_id<T, R, F, I>(
 ) -> Result<Response<SyncBoxStream<'static, Result<R, Status>>>, Status>
 where
     T: Clone + Send + 'static,
-    R: Send + Sync + 'static,
+    R: prost::Message + Send + Sync + 'static,
     F: Fn(T) -> R + Send + Sync + 'static,
     I: Iterator<Item = R> + Send + Sync + 'static,
 {
@@ -837,7 +839,7 @@ fn stream<T, R, F, I, Include>(
 ) -> Result<Response<SyncBoxStream<'static, Result<R, Status>>>, Status>
 where
     T: Clone + Send + 'static,
-    R: Send + Sync + 'static,
+    R: prost::Message + Send + Sync + 'static,
     F: Fn(T) -> R + Send + Sync + 'static,
     I: Iterator<Item = R> + Send + Sync + 'static,
     Include: Fn(&T) -> bool + Send + Sync + 'static,
@@ -851,7 +853,22 @@ where
         .into_stream()
         .skip(1);
     // Stream for sending the initial state
-    let initial_stream = futures::stream::iter(initial.map(|r| Ok(r)));
+    let initial_stream = futures::stream::iter(initial.map(|r| {
+        let encoded_len = r.encoded_len();
+        if encoded_len > 65_535 - 5 {
+            // Large initial messages have shown to trigger a (Dart gRPC/HTTP2?) bug that causes
+            // a clogged gRPC channel when subscribing and immediately unsubscribing
+            // on the Dart side. I have fixed this in Dart by preventing immediate
+            // unsubscribing from the backbone events stream (which didn't make sense anyway).
+            // But it's still good to know about large messages in case a similar bug
+            // appears again.
+            info!(
+                "Single initial message is quite large: {}",
+                ByteSize::b(encoded_len as u64)
+            );
+        }
+        Ok(r)
+    }));
     // Stream for sending occasional updates
     let receiver_stream = BroadcastStream::new(receiver).filter_map(move |value| {
         let res = match value {

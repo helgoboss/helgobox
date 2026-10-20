@@ -24,6 +24,7 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
         // TODO-high-playtime-after-release Update when changed
         Update::audio_input_channels(),
         Update::resample_modes(),
+        // TODO-high This contains insanely many pitch shift modes! Around 800kb of info. Most of them are ReaRea submodes.
         Update::pitch_shift_modes(),
         Update::controller_presets(&BackboneShell::get().controller_preset_manager().borrow()),
         Update::main_presets(&BackboneShell::get().main_preset_manager().borrow()),
