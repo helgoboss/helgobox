@@ -3310,7 +3310,7 @@ dependencies = [
 
 [[package]]
 name = "helgobox"
-version = "2.19.0-pre.4"
+version = "2.19.0-pre.5"
 dependencies = [
  "ab_glyph",
  "anyhow",
