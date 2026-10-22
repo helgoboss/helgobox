@@ -1,10 +1,4 @@
-use crate::domain::{
-    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, CompartmentKind, ControlContext, DEFAULT_TARGET,
-    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    TrackRouteDescriptor, UnresolvedReaperTargetDef, format_value_as_on_off, get_track_routes,
-    mute_unit_value,
-};
+use crate::domain::{format_value_as_on_off, get_track_routes, mute_unit_value, CompartmentKind, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef, AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track, TrackRoute};
 use std::borrow::Cow;
@@ -20,15 +14,16 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteMuteTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let routes = get_track_routes(context, &self.descriptor, compartment)?;
         let targets = routes
             .into_iter()
             .map(|route| {
-                ReaperTarget::RouteMute(RouteMuteTarget {
+                let target = RouteMuteTarget {
                     route,
                     poll_for_feedback: self.poll_for_feedback,
-                })
+                };
+                ReaperTarget::RouteMute(target)
             })
             .collect();
         Ok(targets)

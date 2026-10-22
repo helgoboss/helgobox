@@ -1,6 +1,6 @@
 use crate::domain::{
-    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetSection,
-    TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeColumn,
+    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetResolveResult,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeColumn,
 };
 
 use helgobox_api::persistence::PlaytimeColumnAction;
@@ -24,7 +24,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeColumnActionTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let target = PlaytimeColumnActionTarget {
             column_index: self.column.resolve(context, compartment)?,
             action: self.action,

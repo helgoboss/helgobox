@@ -2,8 +2,8 @@ use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, ControlLogContext, DEFAULT_TARGET,
     ExtendedProcessorContext, HitInstruction, HitInstructionContext, HitInstructionResponse,
     HitResponse, MainMapping, MappingControlContext, MappingControlResult, MappingSnapshotId,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection,
-    TargetTypeDef, Unit, UnitEvent, UnresolvedReaperTargetDef,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetResolveResult,
+    TargetSection, TargetTypeDef, Unit, UnitEvent, UnresolvedReaperTargetDef,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use helgobox_api::persistence::MappingSnapshotDescForLoad;
@@ -75,20 +75,15 @@ impl From<VirtualMappingSnapshotIdForLoad> for MappingSnapshotDescForLoad {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedLoadMappingSnapshotTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::LoadMappingSnapshot(
-            LoadMappingSnapshotTarget {
-                compartment: self.compartment,
-                scope: self.scope.clone(),
-                active_mappings_only: self.active_mappings_only,
-                snapshot_id: self.snapshot_id.clone(),
-                default_value: self.default_value,
-            },
-        )])
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
+        let target = LoadMappingSnapshotTarget {
+            compartment: self.compartment,
+            scope: self.scope.clone(),
+            active_mappings_only: self.active_mappings_only,
+            snapshot_id: self.snapshot_id.clone(),
+            default_value: self.default_value,
+        };
+        Ok(vec![ReaperTarget::LoadMappingSnapshot(target)])
     }
 }
 

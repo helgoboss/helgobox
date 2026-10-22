@@ -2,7 +2,8 @@ use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
     CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, FeedbackOutput,
     HitResponse, MappingControlContext, OscDeviceId, OscFeedbackTask, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef,
 };
 use base::NamedChannelSender;
 use helgoboss_learn::{
@@ -19,16 +20,13 @@ pub struct UnresolvedOscSendTarget {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedOscSendTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::SendOsc(OscSendTarget::new(
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
+        let target = OscSendTarget::new(
             self.address_pattern.clone(),
             self.arg_descriptor,
             self.device_id,
-        ))])
+        );
+        Ok(vec![ReaperTarget::SendOsc(target)])
     }
 
     fn can_be_affected_by_change_events(&self) -> bool {

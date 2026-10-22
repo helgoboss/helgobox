@@ -22,9 +22,9 @@ use crate::domain::{
     FxDisplayType, FxParameterDescriptor, GroupId, MappingId, MappingKey, MappingRef,
     MappingSnapshotId, MouseActionType, OscDeviceId, PotFilterItemsTargetSettings,
     ProcessorContext, QualifiedMappingId, RealearnTarget, ReaperTarget, ReaperTargetType,
-    SeekOptions, SendMidiDestinationType, SoloBehavior, Tag, TagScope, TouchedRouteParameterType,
-    TouchedTrackParameterType, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
-    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    ResolveError, SeekOptions, SendMidiDestinationType, SoloBehavior, Tag, TagScope,
+    TouchedRouteParameterType, TouchedTrackParameterType, TrackDescriptor, TrackExclusivity,
+    TrackGangBehavior, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
     UnresolvedBrowsePotFilterItemsTarget, UnresolvedBrowsePotPresetsTarget,
@@ -59,6 +59,7 @@ use std::borrow::Cow;
 use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
+use anyhow::{Context, bail, ensure};
 use base::hash_util::NonCryptoHashSet;
 use helgobox_api::persistence::{
     ActionScope, AnyOnParameter, Axis, BrowseTracksMode, ClipColumnTrackContext, FxChainDescriptor,
@@ -68,7 +69,7 @@ use helgobox_api::persistence::{
     MouseAction, MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeMatrixAction,
     PlaytimeRowAction, PlaytimeRowDescriptor, PlaytimeSlotDescriptor, PlaytimeSlotManagementAction,
     PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior, SendMidiDestination,
-    SetTargetToLastTouchedMappingModification, TargetTouchCause, TrackDescriptorCommons,
+    SetTargetToLastTouchedMappingModification, TargetTouchCause, TimeUnit, TrackDescriptorCommons,
     TrackFxChain, TrackScope, TrackToolAction, VirtualControlElementCharacter,
 };
 use playtime_api::persistence::ColumnAddress;
@@ -180,6 +181,9 @@ pub enum TargetCommand {
     SetMappingRef(MappingRefModel),
     SetLearnableTargetKinds(NonCryptoHashSet<LearnableTargetKind>),
     SetTouchCause(TargetTouchCause),
+    SetTimeUnit(TimeUnit),
+    SetMaxValueExpression(String),
+    SetStepSizeExpression(String),
 }
 
 #[derive(Eq, PartialEq)]
@@ -284,6 +288,9 @@ pub enum TargetProp {
     MappingRef,
     IncludedTargets,
     TouchCause,
+    TimeUnit,
+    MaxValueExpression,
+    StepSizeExpression,
 }
 
 impl GetProcessingRelevance for TargetProp {
@@ -686,6 +693,18 @@ impl Change<'_> for TargetModel {
                 self.touch_cause = touch_cause;
                 One(P::TouchCause)
             }
+            C::SetTimeUnit(v) => {
+                self.time_unit = v;
+                One(P::TimeUnit)
+            }
+            C::SetMaxValueExpression(v) => {
+                self.max_value_expression = v;
+                One(P::MaxValueExpression)
+            }
+            C::SetStepSizeExpression(v) => {
+                self.step_size_expression = v;
+                One(P::StepSizeExpression)
+            }
         };
         Some(affected)
     }
@@ -828,6 +847,9 @@ pub struct TargetModel {
     // # For targets that deal with target learning/touching
     included_targets: NonCryptoHashSet<LearnableTargetKind>,
     touch_cause: TargetTouchCause,
+    time_unit: TimeUnit,
+    max_value_expression: String,
+    step_size_expression: String,
 }
 
 #[derive(Clone, Debug)]
@@ -858,17 +880,17 @@ impl Default for MappingRefModel {
 }
 
 impl MappingRefModel {
-    fn create_mapping_ref(&self) -> Result<MappingRef, &'static str> {
+    fn create_mapping_ref(&self) -> anyhow::Result<MappingRef> {
         let mapping_ref = match self {
             MappingRefModel::OwnMapping { mapping_id } => MappingRef::OwnMapping {
-                mapping_id: (*mapping_id).ok_or("mapping not specified")?,
+                mapping_id: (*mapping_id).context("mapping not specified")?,
             },
             MappingRefModel::ForeignMapping {
                 session_id,
                 mapping_key,
             } => MappingRef::ForeignMapping {
                 session_id: session_id.clone(),
-                mapping_key: mapping_key.clone().ok_or("mapping_not_specified")?,
+                mapping_key: mapping_key.clone().context("mapping_not_specified")?,
             },
         };
         Ok(mapping_ref)
@@ -979,6 +1001,9 @@ impl Default for TargetModel {
             mapping_ref: Default::default(),
             included_targets: LearnableTargetKind::iter().collect(),
             touch_cause: Default::default(),
+            time_unit: Default::default(),
+            max_value_expression: Default::default(),
+            step_size_expression: Default::default(),
         }
     }
 }
@@ -1946,14 +1971,14 @@ impl TargetModel {
 
     pub fn virtual_mapping_snapshot_id_for_load(
         &self,
-    ) -> Result<VirtualMappingSnapshotIdForLoad, &'static str> {
+    ) -> anyhow::Result<VirtualMappingSnapshotIdForLoad> {
         match self.mapping_snapshot_type_for_load {
             MappingSnapshotTypeForLoad::Initial => Ok(VirtualMappingSnapshotIdForLoad::Initial),
             MappingSnapshotTypeForLoad::ById => {
                 let id = self
                     .mapping_snapshot_id
                     .as_ref()
-                    .ok_or("no mapping snapshot ID")?
+                    .context("no mapping snapshot ID")?
                     .clone();
                 Ok(VirtualMappingSnapshotIdForLoad::ById(id))
             }
@@ -1962,7 +1987,7 @@ impl TargetModel {
 
     pub fn virtual_mapping_snapshot_id_for_take(
         &self,
-    ) -> Result<VirtualMappingSnapshotIdForTake, &'static str> {
+    ) -> anyhow::Result<VirtualMappingSnapshotIdForTake> {
         match self.mapping_snapshot_type_for_take {
             MappingSnapshotTypeForTake::LastLoaded => {
                 Ok(VirtualMappingSnapshotIdForTake::LastLoaded)
@@ -1971,7 +1996,7 @@ impl TargetModel {
                 let id = self
                     .mapping_snapshot_id
                     .as_ref()
-                    .ok_or("no mapping snapshot ID")?
+                    .context("no mapping snapshot ID")?
                     .clone();
                 Ok(VirtualMappingSnapshotIdForTake::ById(id))
             }
@@ -2087,9 +2112,9 @@ impl TargetModel {
         }
     }
 
-    pub fn track_descriptor(&self) -> Result<TrackDescriptor, &'static str> {
+    pub fn track_descriptor(&self) -> anyhow::Result<TrackDescriptor> {
         let desc = TrackDescriptor {
-            track: self.virtual_track().ok_or("virtual track not complete")?,
+            track: self.virtual_track().context("virtual track not complete")?,
             enable_only_if_track_selected: self.enable_only_if_track_selected,
         };
         Ok(desc)
@@ -2194,7 +2219,7 @@ impl TargetModel {
         }
     }
 
-    fn virtual_clip_slot(&self) -> Result<VirtualPlaytimeSlot, &'static str> {
+    fn virtual_clip_slot(&self) -> anyhow::Result<VirtualPlaytimeSlot> {
         use PlaytimeSlotDescriptor::*;
         let slot = match &self.playtime_slot {
             Active => VirtualPlaytimeSlot::Active,
@@ -2204,9 +2229,9 @@ impl TargetModel {
                 row_expression,
             } => {
                 let column_evaluator = ExpressionEvaluator::compile(column_expression)
-                    .map_err(|_| "couldn't evaluate row")?;
+                    .context("couldn't evaluate row")?;
                 let row_evaluator = ExpressionEvaluator::compile(row_expression)
-                    .map_err(|_| "couldn't evaluate row")?;
+                    .context("couldn't evaluate row")?;
                 VirtualPlaytimeSlot::Dynamic {
                     column_evaluator: Box::new(column_evaluator),
                     row_evaluator: Box::new(row_evaluator),
@@ -2216,11 +2241,11 @@ impl TargetModel {
         Ok(slot)
     }
 
-    fn virtual_clip_column(&self) -> Result<VirtualPlaytimeColumn, &'static str> {
+    fn virtual_clip_column(&self) -> anyhow::Result<VirtualPlaytimeColumn> {
         VirtualPlaytimeColumn::from_descriptor(&self.playtime_column)
     }
 
-    fn virtual_clip_row(&self) -> Result<VirtualPlaytimeRow, &'static str> {
+    fn virtual_clip_row(&self) -> anyhow::Result<VirtualPlaytimeRow> {
         use PlaytimeRowDescriptor::*;
         let row = match &self.playtime_row {
             Active => VirtualPlaytimeRow::Active,
@@ -2229,29 +2254,29 @@ impl TargetModel {
                 expression: index_expression,
             } => {
                 let index_evaluator = ExpressionEvaluator::compile(index_expression)
-                    .map_err(|_| "couldn't evaluate row index")?;
+                    .context("couldn't evaluate row index")?;
                 VirtualPlaytimeRow::Dynamic(Box::new(index_evaluator))
             }
         };
         Ok(row)
     }
 
-    pub fn fx_descriptor(&self) -> Result<FxDescriptor, &'static str> {
+    pub fn fx_descriptor(&self) -> anyhow::Result<FxDescriptor> {
         let desc = FxDescriptor {
             track_descriptor: if let Ok(desc) = self.track_descriptor() {
                 desc
             } else if self.fx_type.requires_fx_chain() {
-                return Err("couldn't resolve track but track required");
+                bail!("couldn't resolve track but track required");
             } else {
                 TrackDescriptor::default()
             },
             enable_only_if_fx_has_focus: self.enable_only_if_fx_has_focus,
-            fx: self.virtual_fx().ok_or("FX not set")?,
+            fx: self.virtual_fx().context("FX not set")?,
         };
         Ok(desc)
     }
 
-    pub fn route_descriptor(&self) -> Result<TrackRouteDescriptor, &'static str> {
+    pub fn route_descriptor(&self) -> anyhow::Result<TrackRouteDescriptor> {
         let desc = TrackRouteDescriptor {
             track_descriptor: self.track_descriptor()?,
             route: self.virtual_track_route()?,
@@ -2259,10 +2284,10 @@ impl TargetModel {
         Ok(desc)
     }
 
-    pub fn virtual_track_route(&self) -> Result<VirtualTrackRoute, &'static str> {
+    pub fn virtual_track_route(&self) -> anyhow::Result<VirtualTrackRoute> {
         let route = VirtualTrackRoute {
             r#type: self.route_type,
-            selector: self.track_route_selector().ok_or("track route not set")?,
+            selector: self.track_route_selector().context("track route not set")?,
         };
         Ok(route)
     }
@@ -2281,10 +2306,12 @@ impl TargetModel {
         Some(param)
     }
 
-    fn fx_parameter_descriptor(&self) -> Result<FxParameterDescriptor, &'static str> {
+    fn fx_parameter_descriptor(&self) -> anyhow::Result<FxParameterDescriptor> {
         let desc = FxParameterDescriptor {
             fx_descriptor: self.fx_descriptor()?,
-            fx_parameter: self.virtual_fx_parameter().ok_or("FX parameter not set")?,
+            fx_parameter: self
+                .virtual_fx_parameter()
+                .context("FX parameter not set")?,
         };
         Ok(desc)
     }
@@ -2292,7 +2319,7 @@ impl TargetModel {
     pub fn create_target(
         &self,
         compartment: CompartmentKind,
-    ) -> Result<UnresolvedCompoundMappingTarget, &'static str> {
+    ) -> anyhow::Result<UnresolvedCompoundMappingTarget> {
         use TargetCategory::*;
         match self.category {
             Reaper => {
@@ -2509,7 +2536,7 @@ impl TargetModel {
                             chunk: self
                                 .fx_snapshot
                                 .as_ref()
-                                .ok_or("FX chunk not set")?
+                                .context("FX chunk not set")?
                                 .chunk
                                 .clone(),
                         })
@@ -2596,6 +2623,18 @@ impl TargetModel {
                     PlaytimeSlotVolume => UnresolvedReaperTarget::PlaytimeSlotVolume(
                         crate::domain::UnresolvedPlaytimeSlotVolumeTarget {
                             slot: self.virtual_clip_slot()?,
+                        },
+                    ),
+                    PlaytimeSlotStartPosition => UnresolvedReaperTarget::PlaytimeSlotStartPosition(
+                        crate::domain::UnresolvedPlaytimeSlotStartPositionTarget {
+                            slot: self.virtual_clip_slot()?,
+                            time_unit: self.time_unit,
+                            max_value_expression_evaluator: ExpressionEvaluator::compile(
+                                &self.max_value_expression,
+                            )?,
+                            step_size_expression_evaluator: ExpressionEvaluator::compile(
+                                &self.step_size_expression,
+                            )?,
                         },
                     ),
                     PlaytimeSlotManagementAction => {
@@ -2832,6 +2871,18 @@ impl TargetModel {
         crate::domain::ClipTransportOptions {
             stop_column_if_slot_empty: self.stop_column_if_slot_empty,
         }
+    }
+
+    pub fn time_unit(&self) -> TimeUnit {
+        self.time_unit
+    }
+
+    pub fn max_value_expression(&self) -> &str {
+        &self.max_value_expression
+    }
+
+    pub fn step_size_expression(&self) -> &str {
+        &self.step_size_expression
     }
 
     fn osc_arg_descriptor(&self) -> Option<OscArgDescriptor> {
@@ -3083,11 +3134,9 @@ impl TargetModel {
         )
     }
 
-    pub fn resolved_available_action(&self) -> Result<Action, &'static str> {
-        let action = self.resolve_action().ok_or("action not set")?;
-        if !action.is_available() {
-            return Err("action not available");
-        }
+    pub fn resolved_available_action(&self) -> anyhow::Result<Action> {
+        let action = self.resolve_action().context("action not set")?;
+        ensure!(action.is_available(), "action is not available");
         Ok(action.clone())
     }
 
@@ -3302,23 +3351,23 @@ impl<'a> TargetModelFormatMultiLine<'a> {
     }
 
     // Returns an error if that send (or track) doesn't exist.
-    pub fn resolve_first_track_route(&self) -> Result<TrackRoute, &'static str> {
+    pub fn resolve_first_track_route(&self) -> Result<TrackRoute, ResolveError> {
         let routes = get_track_routes(
             self.context,
             &self.target.route_descriptor()?,
             self.compartment,
         )?;
-        routes.into_iter().next().ok_or("empty list of routes")
+        routes.into_iter().next().context("empty list of routes")
     }
 
     // Returns an error if that param (or FX) doesn't exist.
-    fn resolve_first_fx_param(&self) -> Result<FxParameter, &'static str> {
+    fn resolve_first_fx_param(&self) -> Result<FxParameter, ResolveError> {
         let params = get_fx_params(
             self.context,
             &self.target.fx_parameter_descriptor()?,
             self.compartment,
         )?;
-        params.into_iter().next().ok_or("empty FX param list")
+        params.into_iter().next().context("empty FX param list")
     }
 }
 
@@ -3606,14 +3655,14 @@ impl TargetModelWithContext<'_> {
     ///
     /// Returns an error if not enough information is provided by the model or if something (e.g.
     /// track/FX/parameter) is not available.
-    pub fn resolve(&self) -> Result<Vec<CompoundMappingTarget>, &'static str> {
+    pub fn resolve(&self) -> Result<Vec<CompoundMappingTarget>, ResolveError> {
         let unresolved = self.target.create_target(self.compartment)?;
         unresolved.resolve(self.context, self.compartment)
     }
 
-    pub fn resolve_first(&self) -> Result<CompoundMappingTarget, &'static str> {
+    pub fn resolve_first(&self) -> Result<CompoundMappingTarget, ResolveError> {
         let targets = self.resolve()?;
-        targets.into_iter().next().ok_or("resolved to empty list")
+        targets.into_iter().next().context("resolved to empty list")
     }
 
     pub fn is_known_to_be_roundable(&self) -> bool {
@@ -3628,7 +3677,7 @@ impl TargetModelWithContext<'_> {
             .unwrap_or(false)
     }
     // Returns an error if the FX doesn't exist.
-    pub fn first_fx(&self) -> Result<Fx, &'static str> {
+    pub fn first_fx(&self) -> Result<Fx, ResolveError> {
         first_effective_fx(
             &self.target.fx_descriptor()?,
             self.compartment,
@@ -3676,12 +3725,12 @@ pub fn first_effective_fx(
     fx_descriptor: &FxDescriptor,
     compartment: CompartmentKind,
     context: ExtendedProcessorContext,
-) -> Result<Fx, &'static str> {
+) -> Result<Fx, ResolveError> {
     fx_descriptor
         .resolve(context, compartment)?
         .into_iter()
         .next()
-        .ok_or("resolves to empty FX list")
+        .context("resolves to empty FX list")
 }
 
 pub fn get_bookmark_label_by_id(bookmark_type: BookmarkType, id: BookmarkId, name: &str) -> String {

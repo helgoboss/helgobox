@@ -1,9 +1,4 @@
-use crate::domain::{
-    CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
-    format_value_as_on_off, get_track_routes,
-};
+use crate::domain::{format_value_as_on_off, get_track_routes, CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track, TrackRoute};
 use reaper_medium::EditMode;
@@ -20,15 +15,16 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteTouchStateTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let routes = get_track_routes(context, &self.descriptor, compartment)?;
         let targets = routes
             .into_iter()
             .map(|route| {
-                ReaperTarget::RouteTouchState(RouteTouchStateTarget {
+                let target = RouteTouchStateTarget {
                     route,
                     parameter_type: self.parameter_type,
-                })
+                };
+                ReaperTarget::RouteTouchState(target)
             })
             .collect();
         Ok(targets)

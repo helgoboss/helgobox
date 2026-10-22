@@ -426,7 +426,10 @@ impl MappingModel {
         context: ExtendedProcessorContext,
     ) -> Option<Affected<MappingProp>> {
         let with_context = self.with_context(context);
-        if with_context.absolute_mode_makes_sense() == Ok(false) {
+        if with_context
+            .absolute_mode_makes_sense()
+            .is_ok_and(|v| v == false)
+        {
             if let Ok(preferred_mode_type) = with_context.preferred_mode_type() {
                 self.mode_model
                     .change(ModeCommand::SetAbsoluteMode(preferred_mode_type));
@@ -646,7 +649,7 @@ impl MappingModelWithContext<'_> {
     ///
     /// - Source character
     /// - Target character and control type
-    pub fn absolute_mode_makes_sense(&self) -> Result<bool, &'static str> {
+    pub fn absolute_mode_makes_sense(&self) -> anyhow::Result<bool> {
         use ExtendedSourceCharacter::*;
         use SourceCharacter::*;
         let source_character = self.mapping.source_model.character();
@@ -708,7 +711,7 @@ impl MappingModelWithContext<'_> {
             })
     }
 
-    pub fn preferred_mode_type(&self) -> Result<AbsoluteMode, &'static str> {
+    pub fn preferred_mode_type(&self) -> anyhow::Result<AbsoluteMode> {
         use ExtendedSourceCharacter::*;
         use SourceCharacter::*;
         let result = match self.mapping.source_model.character() {

@@ -2,8 +2,9 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     ActionInvocationType, AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent,
     ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    TrackDescriptor, UnresolvedReaperTargetDef, format_bool_as_on_off, get_effective_tracks,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult,
+    TargetSection, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef,
+    format_bool_as_on_off, get_effective_tracks,
 };
 use camino::Utf8Path;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
@@ -29,29 +30,31 @@ impl UnresolvedReaperTargetDef for UnresolvedActionTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let project = context.context().project_or_current_project();
         let resolved_targets = if let Some(td) = &self.track_descriptor {
             get_effective_tracks(context, &td.track, compartment)?
                 .into_iter()
                 .map(|track| {
-                    ReaperTarget::Action(ActionTarget {
+                    let action_target = ActionTarget {
                         action: self.action.clone(),
                         scope: self.scope,
                         invocation_type: self.invocation_type,
                         project,
                         track: Some(track),
-                    })
+                    };
+                    ReaperTarget::Action(action_target)
                 })
                 .collect()
         } else {
-            vec![ReaperTarget::Action(ActionTarget {
+            let target = ActionTarget {
                 action: self.action.clone(),
                 scope: self.scope,
                 invocation_type: self.invocation_type,
                 project,
                 track: None,
-            })]
+            };
+            vec![ReaperTarget::Action(target)]
         };
         Ok(resolved_targets)
     }

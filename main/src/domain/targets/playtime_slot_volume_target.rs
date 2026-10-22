@@ -1,7 +1,4 @@
-use crate::domain::{
-    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetSection,
-    TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot,
-};
+use crate::domain::{CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET};
 
 use playtime_api::persistence::SlotAddress;
 
@@ -15,7 +12,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotVolumeTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let target = PlaytimeSlotVolumeTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,
         };

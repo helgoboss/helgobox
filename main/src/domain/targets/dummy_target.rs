@@ -1,19 +1,11 @@
-use crate::domain::{
-    CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-};
+use crate::domain::{CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
 #[derive(Debug)]
 pub struct UnresolvedDummyTarget;
 
 impl UnresolvedReaperTargetDef for UnresolvedDummyTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
         Ok(vec![ReaperTarget::Dummy(DummyTarget::new())])
     }
 

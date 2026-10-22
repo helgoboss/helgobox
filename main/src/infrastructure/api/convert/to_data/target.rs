@@ -796,6 +796,15 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             clip_slot: Some(d.slot),
             ..init(d.commons)
         },
+        Target::PlaytimeSlotStartPosition(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::PlaytimeSlotStartPosition,
+            clip_slot: Some(d.slot),
+            time_unit: d.time_unit,
+            max_value_expression: d.max_value_expression,
+            step_size_expression: d.step_size_expression,
+            ..init(d.commons)
+        },
         Target::PlaytimeSlotManagementAction(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::PlaytimeSlotManagementAction,

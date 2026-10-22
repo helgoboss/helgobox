@@ -1,9 +1,6 @@
 use playtime_api::persistence::SlotAddress;
 
-use crate::domain::{
-    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, FeedbackResolution, ReaperTarget,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot,
-};
+use crate::domain::{CompartmentKind, ExtendedProcessorContext, FeedbackResolution, ReaperTarget, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET};
 
 #[derive(Debug)]
 pub struct UnresolvedPlaytimeSlotSeekTarget {
@@ -16,7 +13,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotSeekTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let target = PlaytimeSlotSeekTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,
             feedback_resolution: self.feedback_resolution,

@@ -1,8 +1,9 @@
 use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    SoloBehavior, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity,
-    TrackGangBehavior, UnresolvedReaperTargetDef, change_track_prop, format_value_as_on_off,
+    SoloBehavior, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef,
+    TrackDescriptor, TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef,
+    change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
     track_solo_unit_value, with_gang_behavior, with_solo_behavior,
 };
@@ -23,17 +24,18 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackSoloTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
                 .into_iter()
                 .map(|track| {
-                    ReaperTarget::TrackSolo(TrackSoloTarget {
+                    let target = TrackSoloTarget {
                         track,
                         exclusivity: self.exclusivity,
                         behavior: self.behavior,
                         gang_behavior: self.gang_behavior,
-                    })
+                    };
+                    ReaperTarget::TrackSolo(target)
                 })
                 .collect(),
         )

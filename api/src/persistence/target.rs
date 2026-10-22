@@ -1,7 +1,4 @@
-use crate::persistence::{
-    HelgoboxApiError, HelgoboxApiResult, OscArgument, VirtualControlElementCharacter,
-    VirtualControlElementId,
-};
+use crate::persistence::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
 use derive_more::Display;
 use enumset::EnumSet;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -155,6 +152,7 @@ pub enum Target {
     PlaytimeSlotSeek(PlaytimeSlotSeekTarget),
     #[serde(alias = "ClipVolume")]
     PlaytimeSlotVolume(PlaytimeSlotVolumeTarget),
+    PlaytimeSlotStartPosition(PlaytimeSlotStartPositionTarget),
     #[serde(alias = "ClipManagement")]
     PlaytimeSlotManagementAction(PlaytimeSlotManagementActionTarget),
     SendMidi(SendMidiTarget),
@@ -948,6 +946,16 @@ pub struct PlaytimeSlotVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub slot: PlaytimeSlotDescriptor,
+}
+
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
+pub struct PlaytimeSlotStartPositionTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub slot: PlaytimeSlotDescriptor,
+    pub time_unit: TimeUnit,
+    pub max_value_expression: String,
+    pub step_size_expression: String,
 }
 
 #[derive(PartialEq, Serialize, Deserialize)]
@@ -2398,80 +2406,27 @@ pub enum TargetValue {
     },
 }
 
-/// A musical duration expressed as a fraction of a whole note.
-///
-/// For example:
-///
-/// - `1/1` represents a whole note.
-/// - `1/2` represents a half note.
-/// - `1/4` represents a quarter note.
-/// - `1/8` represents an eighth note.
-/// - `1/12` represents an eighth-note triplet.
-/// - `3/8` represents a dotted quarter note.
-/// - `2/1` represents two whole notes.
-///
-/// This duration is independent of the time signature.
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-#[serde(try_from = "RawMusicalDuration")]
-pub struct MusicalDuration {
-    numerator: u32,
-    denominator: u32,
-}
-
-impl Default for MusicalDuration {
-    fn default() -> Self {
-        Self {
-            numerator: 1,
-            denominator: 4,
-        }
-    }
-}
-
-#[derive(Deserialize)]
-struct RawMusicalDuration {
-    numerator: u32,
-    denominator: u32,
-}
-
-impl TryFrom<RawMusicalDuration> for MusicalDuration {
-    type Error = HelgoboxApiError;
-
-    fn try_from(value: RawMusicalDuration) -> HelgoboxApiResult<Self> {
-        MusicalDuration::new(value.numerator, value.denominator)
-    }
-}
-
-impl MusicalDuration {
-    pub const ONE_WHOLE_NOTE: Self = MusicalDuration {
-        numerator: 1,
-        denominator: 1,
-    };
-
-    pub fn new(numerator: u32, denominator: u32) -> HelgoboxApiResult<Self> {
-        if numerator == 0 {
-            return Err("numerator must be > 0".into());
-        }
-        if denominator == 0 {
-            return Err("denominator must be > 0".into());
-        }
-        let q = Self {
-            numerator,
-            denominator,
-        };
-        Ok(q)
-    }
-
-    /// The numerator of the duration fraction.
-    ///
-    /// Must not be zero.
-    pub fn numerator(&self) -> u32 {
-        self.numerator
-    }
-
-    /// The denominator of the duration fraction.
-    ///
-    /// Must not be zero.
-    pub fn denominator(&self) -> u32 {
-        self.denominator
-    }
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    strum::EnumIter,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum TimeUnit {
+    #[default]
+    #[display(fmt = "Seconds")]
+    Seconds,
+    #[display(fmt = "Whole notes")]
+    WholeNotes,
+    #[display(fmt = "Bars")]
+    Bars,
 }

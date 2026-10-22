@@ -1,11 +1,4 @@
-use crate::domain::{
-    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
-    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-    convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
-    convert_unit_to_discrete_value_with_none, get_reaper_track_area_of_scope,
-    get_track_by_scoped_index, get_track_name, scoped_track_index,
-};
+use crate::domain::{convert_count_to_step_size, convert_discrete_to_unit_value_with_none, convert_unit_to_discrete_value_with_none, get_reaper_track_area_of_scope, get_track_by_scoped_index, get_track_name, scoped_track_index, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
@@ -26,13 +19,14 @@ impl UnresolvedReaperTargetDef for UnresolvedBrowseTracksTarget {
         &self,
         context: ExtendedProcessorContext,
         _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::BrowseTracks(BrowseTracksTarget {
+    ) -> TargetResolveResult {
+        let target = BrowseTracksTarget {
             project: context.context().project_or_current_project(),
             scroll_arrange_view: self.scroll_arrange_view,
             scroll_mixer: self.scroll_mixer,
             mode: self.mode,
-        })])
+        };
+        Ok(vec![ReaperTarget::BrowseTracks(target)])
     }
 }
 

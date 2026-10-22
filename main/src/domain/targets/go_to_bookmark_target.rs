@@ -1,11 +1,5 @@
 use crate::application::BookmarkAnchorType;
-use crate::domain::{
-    AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET,
-    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, current_value_of_bookmark, find_bookmark, format_value_as_on_off,
-    with_seek_behavior,
-};
+use crate::domain::{current_value_of_bookmark, find_bookmark, format_value_as_on_off, with_seek_behavior, AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RgbColor, Target, UnitValue,
 };
@@ -30,7 +24,7 @@ impl UnresolvedReaperTargetDef for UnresolvedGoToBookmarkTarget {
         &self,
         context: ExtendedProcessorContext,
         _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let project = context.context().project_or_current_project();
         let res = find_bookmark(
             project,
@@ -38,7 +32,7 @@ impl UnresolvedReaperTargetDef for UnresolvedGoToBookmarkTarget {
             self.bookmark_anchor_type,
             self.bookmark_ref,
         )?;
-        Ok(vec![ReaperTarget::GoToBookmark(GoToBookmarkTarget {
+        let target = GoToBookmarkTarget {
             project,
             bookmark_type: self.bookmark_type,
             index: res.index,
@@ -46,7 +40,8 @@ impl UnresolvedReaperTargetDef for UnresolvedGoToBookmarkTarget {
             set_time_selection: self.set_time_selection,
             set_loop_points: self.set_loop_points,
             seek_behavior: self.seek_behavior,
-        })])
+        };
+        Ok(vec![ReaperTarget::GoToBookmark(target)])
     }
 
     fn feedback_resolution(&self) -> Option<FeedbackResolution> {

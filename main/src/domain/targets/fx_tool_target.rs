@@ -1,13 +1,9 @@
-use crate::domain::{
-    ChangeInstanceFxArgs, CompartmentKind, ControlContext, DEFAULT_TARGET,
-    ExtendedProcessorContext, FxDescriptor, HitResponse, InstanceFxChangeRequest,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, get_fx_name,
-};
+use crate::domain::{get_fx_name, ChangeInstanceFxArgs, CompartmentKind, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse, InstanceFxChangeRequest, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target};
 use helgobox_api::persistence::FxToolAction;
 use reaper_high::{Fx, FxChain, Project, Track};
 use std::borrow::Cow;
+use anyhow::anyhow;
 
 #[derive(Debug)]
 pub struct UnresolvedFxToolTarget {
@@ -21,13 +17,13 @@ impl UnresolvedReaperTargetDef for UnresolvedFxToolTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let fxs = self
             .fx_descriptor
             .resolve(context, compartment)
             .and_then(|fxs| {
                 if fxs.is_empty() {
-                    Err("resolved to zero FXs")
+                    Err(anyhow!("resolved to zero FXs"))
                 } else {
                     Ok(fxs)
                 }
@@ -36,23 +32,24 @@ impl UnresolvedReaperTargetDef for UnresolvedFxToolTarget {
             Ok(fxs) => fxs
                 .into_iter()
                 .map(|fx| {
-                    ReaperTarget::FxTool(FxToolTarget {
+                    let target = FxToolTarget {
                         fx: Some(fx),
                         action: self.action,
                         scope: self.scope.clone(),
-                    })
+                    };
+                    ReaperTarget::FxTool(target)
                 })
                 .collect(),
             Err(e) => {
                 if self.action == FxToolAction::SetAsUnitFx {
                     // If we just want to *set* the (unresolved) FX as instance FX, we
                     // don't need a resolved target.
-                    let target = ReaperTarget::FxTool(FxToolTarget {
+                    let target = FxToolTarget {
                         fx: None,
                         action: self.action,
                         scope: self.scope.clone(),
-                    });
-                    vec![target]
+                    };
+                    vec![ReaperTarget::FxTool(target)]
                 } else {
                     // Otherwise we should classify the target as inactive.
                     return Err(e);

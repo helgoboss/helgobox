@@ -1,7 +1,4 @@
-use crate::domain::{
-    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetSection,
-    TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeRow,
-};
+use crate::domain::{CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeRow, DEFAULT_TARGET};
 
 use helgobox_api::persistence::PlaytimeRowAction;
 
@@ -16,7 +13,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeRowActionTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let target = PlaytimeRowActionTarget {
             basics: ClipRowTargetBasics {
                 row_index: self.row.resolve(context, compartment)?,

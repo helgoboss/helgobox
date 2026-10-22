@@ -1,8 +1,8 @@
 use crate::domain::{
     AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-    format_value_as_on_off,
+    ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, format_value_as_on_off,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use helgobox_api::persistence::AnyOnParameter;
@@ -22,11 +22,12 @@ impl UnresolvedReaperTargetDef for UnresolvedAnyOnTarget {
         &self,
         context: ExtendedProcessorContext,
         _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::AnyOn(AnyOnTarget {
+    ) -> TargetResolveResult {
+        let target = AnyOnTarget {
             project: context.context().project_or_current_project(),
             parameter: self.parameter,
-        })])
+        };
+        Ok(vec![ReaperTarget::AnyOn(target)])
     }
 }
 

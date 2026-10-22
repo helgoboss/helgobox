@@ -3,8 +3,8 @@ use crate::domain::{
     ExtendedProcessorContext, GroupId, HitInstruction, HitInstructionContext,
     HitInstructionResponse, HitResponse, MappingControlContext, MappingId, QualifiedMappingId,
     RealearnTarget, ReaperTarget, ReaperTargetType, SimpleExclusivity, TargetCharacter,
-    TargetSection, TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, convert_count_to_step_size,
-    convert_discrete_to_unit_value, convert_unit_to_discrete_value,
+    TargetResolveResult, TargetSection, TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef,
+    convert_count_to_step_size, convert_discrete_to_unit_value, convert_unit_to_discrete_value,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -19,18 +19,13 @@ pub struct UnresolvedBrowseGroupTarget {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedBrowseGroupTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::BrowseGroupMappings(
-            BrowseGroupMappingsTarget {
-                compartment: self.compartment,
-                group_id: self.group_id,
-                exclusivity: self.exclusivity,
-            },
-        )])
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
+        let target = BrowseGroupMappingsTarget {
+            compartment: self.compartment,
+            group_id: self.group_id,
+            exclusivity: self.exclusivity,
+        };
+        Ok(vec![ReaperTarget::BrowseGroupMappings(target)])
     }
 }
 

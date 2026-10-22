@@ -1,7 +1,4 @@
-use crate::domain::{
-    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetSection,
-    TargetTypeDef, UnresolvedReaperTargetDef,
-};
+use crate::domain::{CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgobox_api::persistence::PlaytimeMatrixAction;
 
 #[derive(Debug)]
@@ -10,11 +7,7 @@ pub struct UnresolvedPlaytimeMatrixActionTarget {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedPlaytimeMatrixActionTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
         let target = PlaytimeMatrixActionTarget {
             action: self.action,
         };

@@ -1,10 +1,4 @@
-use crate::domain::{
-    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, CompartmentKind, ControlContext, DEFAULT_TARGET,
-    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    TrackRouteDescriptor, UnresolvedReaperTargetDef, automation_mode_unit_value,
-    format_value_as_on_off, get_track_routes,
-};
+use crate::domain::{automation_mode_unit_value, format_value_as_on_off, get_track_routes, CompartmentKind, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef, AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track, TrackRoute};
 use reaper_medium::AutomationMode;
@@ -22,16 +16,17 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteAutomationModeTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let routes = get_track_routes(context, &self.descriptor, compartment)?;
         let targets = routes
             .into_iter()
             .map(|route| {
-                ReaperTarget::RouteAutomationMode(RouteAutomationModeTarget {
+                let target = RouteAutomationModeTarget {
                     route,
                     poll_for_feedback: self.poll_for_feedback,
                     mode: self.mode,
-                })
+                };
+                ReaperTarget::RouteAutomationMode(target)
             })
             .collect();
         Ok(targets)

@@ -1,9 +1,4 @@
-use crate::domain::{
-    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
-    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
-    format_value_as_pan, get_track_routes, pan_unit_value, parse_value_from_pan,
-};
+use crate::domain::{format_value_as_pan, get_track_routes, pan_unit_value, parse_value_from_pan, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Pan, Project, ReaperError, Track, TrackRoute};
 use reaper_medium::EditMode;
@@ -19,7 +14,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRoutePanTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let routes = get_track_routes(context, &self.descriptor, compartment)?;
         let targets = routes
             .into_iter()

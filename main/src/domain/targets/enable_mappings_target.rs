@@ -2,8 +2,8 @@ use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, DomainEvent, Exclusivity,
     ExtendedProcessorContext, HitInstruction, HitInstructionContext, HitInstructionResponse,
     HitResponse, MappingControlContext, MappingData, MappingEnabledChangeRequestedEvent,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection,
-    TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, format_value_as_on_off,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetResolveResult,
+    TargetSection, TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, format_value_as_on_off,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::borrow::Cow;
@@ -17,16 +17,13 @@ pub struct UnresolvedEnableMappingsTarget {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedEnableMappingsTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::EnableMappings(EnableMappingsTarget {
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
+        let target = EnableMappingsTarget {
             compartment: self.compartment,
             scope: self.scope.clone(),
             exclusivity: self.exclusivity,
-        })])
+        };
+        Ok(vec![ReaperTarget::EnableMappings(target)])
     }
 }
 

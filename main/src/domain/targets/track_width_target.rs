@@ -5,8 +5,9 @@ use crate::domain::ui_util::{
 use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackGangBehavior,
-    UnresolvedReaperTargetDef, get_effective_tracks, width_unit_value, with_gang_behavior,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor,
+    TrackGangBehavior, UnresolvedReaperTargetDef, get_effective_tracks, width_unit_value,
+    with_gang_behavior,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
@@ -27,15 +28,16 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackWidthTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
                 .into_iter()
                 .map(|track| {
-                    ReaperTarget::TrackWidth(TrackWidthTarget {
+                    let target = TrackWidthTarget {
                         track,
                         gang_behavior: self.gang_behavior,
-                    })
+                    };
+                    ReaperTarget::TrackWidth(target)
                 })
                 .collect(),
         )

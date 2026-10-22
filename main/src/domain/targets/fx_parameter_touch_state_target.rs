@@ -1,8 +1,8 @@
 use crate::domain::{
     CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
     FxParameterDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-    format_value_as_on_off, get_fx_params,
+    ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, format_value_as_on_off, get_fx_params,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, FxParameter, Project, Track};
@@ -17,7 +17,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTouchStateTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let params = get_fx_params(context, &self.fx_parameter_descriptor, compartment)?;
         let targets = params
             .into_iter()

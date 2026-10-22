@@ -1,9 +1,4 @@
-use crate::domain::{
-    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
-    FxDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-    convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
-};
+use crate::domain::{convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
@@ -21,13 +16,14 @@ impl UnresolvedReaperTargetDef for UnresolvedFxPresetTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(self
+    ) -> TargetResolveResult {
+        let targets = self
             .fx_descriptor
             .resolve(context, compartment)?
             .into_iter()
             .map(|fx| ReaperTarget::FxPreset(FxPresetTarget { fx }))
-            .collect())
+            .collect();
+        Ok(targets)
     }
 
     fn fx_descriptor(&self) -> Option<&FxDescriptor> {

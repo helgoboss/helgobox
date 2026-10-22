@@ -1,8 +1,8 @@
 use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, EnableUnitsArgs,
     Exclusivity, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection, TargetTypeDef,
-    UnitEvent, UnresolvedReaperTargetDef, format_value_as_on_off,
+    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetResolveResult, TargetSection,
+    TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, format_value_as_on_off,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::borrow::Cow;
@@ -14,11 +14,7 @@ pub struct UnresolvedEnableUnitsTarget {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedEnableUnitsTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
         let target = EnableUnitsTarget {
             scope: self.scope.clone(),
             exclusivity: self.exclusivity,

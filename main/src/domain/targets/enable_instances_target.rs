@@ -1,8 +1,8 @@
 use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, EnableInstancesArgs,
     Exclusivity, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection, TargetTypeDef,
-    UnitEvent, UnresolvedReaperTargetDef, format_value_as_on_off,
+    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetResolveResult, TargetSection,
+    TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, format_value_as_on_off,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use helgobox_api::persistence::InstanceTagKind;
@@ -16,16 +16,13 @@ pub struct UnresolvedEnableInstancesTarget {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedEnableInstancesTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::EnableInstances(EnableInstancesTarget {
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
+        let target = EnableInstancesTarget {
             scope: self.scope.clone(),
             tag_kind: self.tag_kind,
             exclusivity: self.exclusivity,
-        })])
+        };
+        Ok(vec![ReaperTarget::EnableInstances(target)])
     }
 }
 

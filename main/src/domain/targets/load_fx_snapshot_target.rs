@@ -1,10 +1,5 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
-use crate::domain::{
-    AdditionalFeedbackEvent, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext,
-    DEFAULT_TARGET, ExtendedProcessorContext, FxDescriptor, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, format_value_as_on_off,
-};
+use crate::domain::{format_value_as_on_off, AdditionalFeedbackEvent, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use base::hash_util;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use reaper_high::{Fx, Project, Track};
@@ -22,19 +17,20 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadFxSnapshotTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let targets = self
             .fx_descriptor
             .resolve(context, compartment)?
             .into_iter()
             .map(|fx| {
-                ReaperTarget::LoadFxSnapshot(LoadFxSnapshotTarget {
+                let target = LoadFxSnapshotTarget {
                     fx,
                     chunk: self.chunk.clone(),
                     chunk_hash: hash_util::calculate_non_crypto_hash_one_shot(
                         self.chunk.as_bytes(),
                     ),
-                })
+                };
+                ReaperTarget::LoadFxSnapshot(target)
             })
             .collect();
         Ok(targets)

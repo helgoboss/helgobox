@@ -1,7 +1,7 @@
 use crate::domain::{
     Backbone, CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use std::fmt::Debug;
@@ -10,11 +10,7 @@ use std::fmt::Debug;
 pub struct UnresolvedStreamDeckBrightnessTarget {}
 
 impl UnresolvedReaperTargetDef for UnresolvedStreamDeckBrightnessTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
         let target = StreamDeckBrightnessTarget {};
         Ok(vec![ReaperTarget::StreamDeckBrightness(target)])
     }

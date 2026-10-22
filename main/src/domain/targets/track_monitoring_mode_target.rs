@@ -2,9 +2,9 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity,
-    TrackGangBehavior, UnresolvedReaperTargetDef, change_track_prop, format_value_as_on_off,
-    get_effective_tracks, with_gang_behavior,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor,
+    TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef, change_track_prop,
+    format_value_as_on_off, get_effective_tracks, with_gang_behavior,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -24,17 +24,18 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackMonitoringModeTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
                 .into_iter()
                 .map(|track| {
-                    ReaperTarget::TrackMonitoringMode(TrackMonitoringModeTarget {
+                    let target = TrackMonitoringModeTarget {
                         track,
                         exclusivity: self.exclusivity,
                         mode: self.mode,
                         gang_behavior: self.gang_behavior,
-                    })
+                    };
+                    ReaperTarget::TrackMonitoringMode(target)
                 })
                 .collect(),
         )

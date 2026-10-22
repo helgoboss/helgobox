@@ -1,9 +1,4 @@
-use crate::domain::{
-    AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET,
-    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions, TargetCharacter, TargetSection,
-    TargetTypeDef, UnresolvedReaperTargetDef, with_seek_behavior,
-};
+use crate::domain::{with_seek_behavior, AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
@@ -25,13 +20,14 @@ impl UnresolvedReaperTargetDef for UnresolvedSeekTarget {
         &self,
         context: ExtendedProcessorContext,
         _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let project = context.context().project_or_current_project();
-        Ok(vec![ReaperTarget::Seek(SeekTarget {
+        let target = SeekTarget {
             project,
             options: self.options,
             behavior: self.behavior,
-        })])
+        };
+        Ok(vec![ReaperTarget::Seek(target)])
     }
 
     fn feedback_resolution(&self) -> Option<FeedbackResolution> {

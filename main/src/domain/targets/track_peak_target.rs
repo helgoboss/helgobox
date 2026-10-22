@@ -1,11 +1,7 @@
 use crate::domain::ui_util::{
     format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
-use crate::domain::{
-    CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, FeedbackResolution,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    TrackDescriptor, UnresolvedReaperTargetDef, get_effective_tracks,
-};
+use crate::domain::{get_effective_tracks, CompartmentKind, ControlContext, ExtendedProcessorContext, FeedbackResolution, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use base::peak_util;
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target, UnitValue};
 use reaper_high::{Project, SliderVolume, Track};
@@ -22,7 +18,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackPeakTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
                 .into_iter()

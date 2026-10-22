@@ -3376,6 +3376,7 @@ dependencies = [
  "num_enum 0.7.6",
  "once_cell",
  "open",
+ "ordered-float 5.5.0",
  "palette",
  "pathdiff",
  "playtime-api",

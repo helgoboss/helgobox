@@ -216,6 +216,8 @@ reqwest = { workspace = true, default-features = false, features = ["rustls-tls-
 simple_moving_average.workspace = true
 # For advertising the server
 mdns-sd.workspace = true
+# For dealing with NaN values early on
+ordered-float.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

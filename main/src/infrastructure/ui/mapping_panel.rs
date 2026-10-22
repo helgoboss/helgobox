@@ -652,6 +652,15 @@ impl MappingPanel {
                                                 // Not shown in mapping panel at the moment, only
                                                 // in egui view (in a non-reactive way).
                                             }
+                                            P::TimeUnit => {
+                                                todo!()
+                                            }
+                                            P::MaxValueExpression => {
+                                                todo!()
+                                            }
+                                            P::StepSizeExpression => {
+                                                todo!()
+                                            }
                                         }
                                     }
                                 }

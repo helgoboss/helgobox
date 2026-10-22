@@ -1,14 +1,9 @@
-use crate::domain::{
-    ChangeInstanceTrackArgs, CompartmentKind, ControlContext, DEFAULT_TARGET,
-    ExtendedProcessorContext, HitResponse, InstanceTrackChangeRequest, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection,
-    TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, get_effective_tracks,
-    get_track_name, percentage_for_scoped_track_within_project,
-};
+use crate::domain::{get_effective_tracks, get_track_name, percentage_for_scoped_track_within_project, ChangeInstanceTrackArgs, CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse, InstanceTrackChangeRequest, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target};
 use helgobox_api::persistence::{TrackScope, TrackToolAction};
 use reaper_high::{Project, Track};
 use std::borrow::Cow;
+use anyhow::anyhow;
 
 #[derive(Debug)]
 pub struct UnresolvedTrackToolTarget {
@@ -22,11 +17,11 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let tracks = get_effective_tracks(context, &self.track_descriptor.track, compartment)
             .and_then(|tracks| {
                 if tracks.is_empty() {
-                    Err("resolved to zero tracks")
+                    Err(anyhow!("resolved to zero tracks"))
                 } else {
                     Ok(tracks)
                 }
@@ -35,23 +30,24 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
             Ok(tracks) => tracks
                 .into_iter()
                 .map(|track| {
-                    ReaperTarget::TrackTool(TrackToolTarget {
+                    let target = TrackToolTarget {
                         track: Some(track),
                         action: self.action,
                         scope: self.scope.clone(),
-                    })
+                    };
+                    ReaperTarget::TrackTool(target)
                 })
                 .collect(),
             Err(e) => {
                 if self.action == TrackToolAction::SetAsUnitTrack {
                     // If we just want to *set* the (unresolved) track as instance track, we
                     // don't need a resolved target.
-                    let target = ReaperTarget::TrackTool(TrackToolTarget {
+                    let target = TrackToolTarget {
                         track: None,
                         action: self.action,
                         scope: self.scope.clone(),
-                    });
-                    vec![target]
+                    };
+                    vec![ReaperTarget::TrackTool(target)]
                 } else {
                     // Otherwise we should classify the target as inactive.
                     return Err(e);

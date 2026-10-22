@@ -8,7 +8,7 @@ use crate::domain::{
     PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget, RealTimeTargetUpdate,
     RealearnParameterChangePayload, RealearnParameterSource, RealearnSourceContext, RealearnTarget,
     ReaperMessage, ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType,
-    StreamDeckDeviceId, StreamDeckMessage, StreamDeckScanResult, StreamDeckSource,
+    ResolveError, StreamDeckDeviceId, StreamDeckMessage, StreamDeckScanResult, StreamDeckSource,
     StreamDeckSourceAddress, StreamDeckSourceFeedbackValue, Tag, TargetCharacter, TrackExclusivity,
     UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue, VirtualSource,
     VirtualSourceAddress, VirtualSourceValue, VirtualTarget, prop_feedback_resolution,
@@ -2082,7 +2082,7 @@ impl UnresolvedCompoundMappingTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<CompoundMappingTarget>, &'static str> {
+    ) -> Result<Vec<CompoundMappingTarget>, ResolveError> {
         use UnresolvedCompoundMappingTarget::*;
         let resolved_targets = match self {
             Reaper(t) => {

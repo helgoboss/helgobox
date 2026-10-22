@@ -201,3 +201,6 @@ pub use compartment_parameter_value_target::*;
 
 mod stream_deck_brightness_target;
 pub use stream_deck_brightness_target::*;
+
+mod playtime_slot_start_position_target;
+pub use playtime_slot_start_position_target::*;

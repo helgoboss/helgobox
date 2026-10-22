@@ -2,7 +2,7 @@ use crate::domain::{
     Backbone, CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET,
     ExtendedProcessorContext, FxDescriptor, HitResponse, InstanceStateChanged,
     MappingControlContext, PotStateChangedEvent, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
 };
 use base::blocking_lock_arc;
 use derivative::Derivative;
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadPotPresetTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let fxs = self
             .fx_descriptor
             .resolve(context, compartment)?

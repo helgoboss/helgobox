@@ -29,7 +29,8 @@ use helgobox_api::persistence::{
     ActionScope, AnyOnParameter, Axis, BrowseTracksMode, FxToolAction, InstanceTagKind,
     LearnableTargetKind, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
     MatrixScrollBehavior, MonitoringMode, MouseAction, PotFilterKind, SeekBehavior,
-    TargetTouchCause, TargetValue, TrackScope, TrackToolAction, VirtualControlElementCharacter,
+    TargetTouchCause, TargetValue, TimeUnit, TrackScope, TrackToolAction,
+    VirtualControlElementCharacter,
 };
 use helgobox_api::persistence::{
     ClipColumnTrackContext, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeMatrixAction,
@@ -540,6 +541,25 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub touch_cause: TargetTouchCause,
+    /// New since ReaLearn v2.19.0-pre.6
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub time_unit: TimeUnit,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub max_value_expression: String,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub step_size_expression: String,
 }
 
 impl TargetModelData {
@@ -668,6 +688,9 @@ impl TargetModelData {
                 None
             },
             touch_cause: model.touch_cause(),
+            time_unit: model.time_unit(),
+            max_value_expression: model.max_value_expression().to_string(),
+            step_size_expression: model.step_size_expression().to_string(),
         }
     }
 
@@ -1022,6 +1045,13 @@ impl TargetModelData {
         });
         model.change(C::SetLearnableTargetKinds(target_kinds));
         model.change(C::SetTouchCause(self.touch_cause));
+        model.change(C::SetTimeUnit(self.time_unit));
+        model.change(C::SetMaxValueExpression(
+            self.max_value_expression.to_string(),
+        ));
+        model.change(C::SetStepSizeExpression(
+            self.step_size_expression.to_string(),
+        ));
         Ok(())
     }
 }
@@ -1876,10 +1906,12 @@ pub fn get_first_guid_based_fx_at_index(
     is_input_fx: bool,
     fx_index: u32,
     compartment: CompartmentKind,
-) -> Result<Fx, &'static str> {
+) -> anyhow::Result<Fx> {
     let fx_chains = get_fx_chains(context, track, is_input_fx, compartment)?;
-    let fx_chain = fx_chains.first().ok_or("empty list of FX chains")?;
-    fx_chain.fx_by_index(fx_index).ok_or("no FX at that index")
+    let fx_chain = fx_chains.first().context("empty list of FX chains")?;
+    fx_chain
+        .fx_by_index(fx_index)
+        .context("no FX at that index")
 }
 
 pub fn convert_target_value_to_api(value: AbsoluteValue) -> TargetValue {

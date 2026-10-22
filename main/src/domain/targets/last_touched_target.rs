@@ -1,8 +1,9 @@
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
     Backbone, CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, LastTouchedTargetFilter,
-    ReaperTarget, ReaperTargetType, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    ReaperTargetType, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
 };
+use anyhow::{Context, bail};
 use base::hash_util::NonCryptoHashSet;
 use helgobox_api::persistence::TargetTouchCause;
 
@@ -17,16 +18,16 @@ impl UnresolvedReaperTargetDef for UnresolvedLastTouchedTarget {
         &self,
         context: ExtendedProcessorContext,
         _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let filter = LastTouchedTargetFilter {
             included_target_types: &self.included_targets,
             touch_cause: self.touch_cause,
         };
         let last_touched_target = Backbone::get()
             .find_last_touched_target(filter)
-            .ok_or("no last touched target")?;
+            .context("no last touched target")?;
         if !last_touched_target.is_available(context.control_context()) {
-            return Err("last touched target gone");
+            bail!("last touched target gone");
         }
         Ok(vec![last_touched_target])
     }

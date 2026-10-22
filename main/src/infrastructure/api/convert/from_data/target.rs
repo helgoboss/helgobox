@@ -360,6 +360,15 @@ fn convert_real_target(
                 slot: data.clip_slot.unwrap_or_default(),
             })
         }
+        PlaytimeSlotStartPosition => T::PlaytimeSlotStartPosition(
+            helgobox_api::persistence::PlaytimeSlotStartPositionTarget {
+                commons,
+                slot: data.clip_slot.unwrap_or_default(),
+                time_unit: data.time_unit,
+                max_value_expression: data.max_value_expression,
+                step_size_expression: data.step_size_expression,
+            },
+        ),
         PlaytimeSlotManagementAction => T::PlaytimeSlotManagementAction(
             helgobox_api::persistence::PlaytimeSlotManagementActionTarget {
                 commons,

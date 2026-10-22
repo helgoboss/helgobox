@@ -31,9 +31,11 @@ use enum_dispatch::enum_dispatch;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use anyhow::{Context, bail, ensure};
 use helgobox_api::persistence::{
     FxChainDescriptor, FxDescriptorCommons, TrackDescriptorCommons, TrackScope,
 };
+use ordered_float::NotNan;
 use playtime_api::persistence::SlotAddress;
 use playtime_api::runtime::CellAddress;
 use reaper_high::{
@@ -104,6 +106,7 @@ pub enum UnresolvedReaperTarget {
     PlaytimeRowAction(crate::domain::UnresolvedPlaytimeRowActionTarget),
     PlaytimeSlotSeek(crate::domain::UnresolvedPlaytimeSlotSeekTarget),
     PlaytimeSlotVolume(crate::domain::UnresolvedPlaytimeSlotVolumeTarget),
+    PlaytimeSlotStartPosition(crate::domain::UnresolvedPlaytimeSlotStartPositionTarget),
     PlaytimeSlotManagementAction(crate::domain::UnresolvedPlaytimeSlotManagementActionTarget),
     PlaytimeMatrixAction(crate::domain::UnresolvedPlaytimeMatrixActionTarget),
     PlaytimeControlUnitScroll(crate::domain::UnresolvedPlaytimeControlUnitScrollTarget),
@@ -249,10 +252,10 @@ pub fn get_effective_tracks(
     context: ExtendedProcessorContext,
     virtual_track: &VirtualTrack,
     compartment: CompartmentKind,
-) -> Result<Vec<Track>, &'static str> {
+) -> Result<Vec<Track>, ResolveError> {
     virtual_track
         .resolve(context, compartment)
-        .map_err(|_| "track couldn't be resolved")
+        .context("track couldn't be resolved")
 }
 
 // Returns an error if that send (or track) doesn't exist.
@@ -260,7 +263,7 @@ pub fn get_track_routes(
     context: ExtendedProcessorContext,
     descriptor: &TrackRouteDescriptor,
     compartment: CompartmentKind,
-) -> Result<Vec<TrackRoute>, &'static str> {
+) -> Result<Vec<TrackRoute>, ResolveError> {
     let tracks = get_effective_tracks(context, &descriptor.track_descriptor.track, compartment)?;
     let routes = tracks
         .into_iter()
@@ -464,15 +467,12 @@ impl FxDescriptor {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<Fx>, &'static str> {
+    ) -> Result<Vec<Fx>, ResolveError> {
         match &self.fx {
             VirtualFx::This => {
                 let fx = context.context().containing_fx();
-                if fx.is_available() {
-                    Ok(vec![fx.clone()])
-                } else {
-                    Err("this FX not available anymore")
-                }
+                ensure!(fx.is_available(), "this FX not available anymore");
+                Ok(vec![fx.clone()])
             }
             VirtualFx::LastFocused => {
                 let this_realearn_fx = context.control_context.processor_context.containing_fx();
@@ -481,14 +481,14 @@ impl FxDescriptor {
                 {
                     Ok(vec![fx])
                 } else {
-                    Err("No relevant FX focused yet")
+                    bail!("No relevant FX focused yet")
                 }
             }
             VirtualFx::Unit => {
                 let instance_state = context.control_context.unit.borrow();
                 let instance_fx = instance_state.instance_fx_descriptor();
                 if matches!(instance_fx.fx, VirtualFx::Unit) {
-                    return Err("circular reference");
+                    bail!("circular reference");
                 }
                 instance_fx.resolve(context, compartment)
             }
@@ -532,7 +532,7 @@ impl FxDescriptor {
                 chain_fx
                     .get()
                     .resolve(&fx_chains, context, compartment)
-                    .map_err(|_| "couldn't resolve particular FX")
+                    .context("couldn't resolve particular FX")
             }
         }
     }
@@ -757,7 +757,7 @@ impl VirtualPlaytimeSlot {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<SlotAddress, &'static str> {
+    ) -> Result<SlotAddress, ResolveError> {
         use VirtualPlaytimeSlot::*;
         let coordinates = match self {
             Active => {
@@ -770,12 +770,12 @@ impl VirtualPlaytimeSlot {
                     let instance = context.control_context.instance.borrow();
                     let matrix = instance
                         .get_playtime_matrix()
-                        .map_err(|_| "couldn't get matrix")?;
+                        .context("couldn't get matrix")?;
                     matrix
                         .borrow()
                         .active_cell()
                         .to_slot_address()
-                        .ok_or("no slot active")?
+                        .context("no slot active")?
                 }
             }
             ByIndex(address) => *address,
@@ -784,16 +784,16 @@ impl VirtualPlaytimeSlot {
                 row_evaluator,
             } => {
                 let compartment_params = context.params().compartment_params(compartment);
-                let column_index =
-                    to_slot_coordinate(column_evaluator.evaluate_with_params_and_additional_vars(
-                        compartment_params,
-                        additional_playtime_vars(context.control_context),
-                    ))?;
-                let row_index =
-                    to_slot_coordinate(row_evaluator.evaluate_with_params_and_additional_vars(
-                        compartment_params,
-                        additional_playtime_vars(context.control_context),
-                    ))?;
+                let column_eval_result = column_evaluator.evaluate_with_params_and_additional_vars(
+                    compartment_params,
+                    additional_playtime_vars(context.control_context),
+                );
+                let column_index = to_slot_coordinate(column_eval_result)?;
+                let row_eval_result = row_evaluator.evaluate_with_params_and_additional_vars(
+                    compartment_params,
+                    additional_playtime_vars(context.control_context),
+                );
+                let row_index = to_slot_coordinate(row_eval_result)?;
                 SlotAddress::new(column_index, row_index)
             }
         };
@@ -823,7 +823,7 @@ pub enum VirtualPlaytimeColumn {
 impl VirtualPlaytimeColumn {
     pub fn from_descriptor(
         descriptor: &helgobox_api::persistence::PlaytimeColumnDescriptor,
-    ) -> Result<VirtualPlaytimeColumn, &'static str> {
+    ) -> anyhow::Result<VirtualPlaytimeColumn> {
         use helgobox_api::persistence::PlaytimeColumnDescriptor::*;
         let column = match descriptor {
             Active => VirtualPlaytimeColumn::Active,
@@ -832,7 +832,7 @@ impl VirtualPlaytimeColumn {
                 expression: index_expression,
             } => {
                 let index_evaluator = ExpressionEvaluator::compile(index_expression)
-                    .map_err(|_| "couldn't evaluate column index")?;
+                    .context("couldn't evaluate column index")?;
                 VirtualPlaytimeColumn::Dynamic(Box::new(index_evaluator))
             }
         };
@@ -843,7 +843,7 @@ impl VirtualPlaytimeColumn {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<usize, &'static str> {
+    ) -> Result<usize, ResolveError> {
         use VirtualPlaytimeColumn::*;
         let index = match self {
             Active => {
@@ -856,12 +856,12 @@ impl VirtualPlaytimeColumn {
                     let instance = context.control_context.instance.borrow();
                     let matrix = instance
                         .get_playtime_matrix()
-                        .map_err(|_| "couldn't get matrix")?;
+                        .context("couldn't get matrix")?;
                     matrix
                         .borrow()
                         .active_cell()
                         .column_index
-                        .ok_or("no column selected")?
+                        .context("no column selected")?
                 }
             }
             ByIndex(index) => *index,
@@ -901,7 +901,7 @@ impl VirtualPlaytimeRow {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<usize, &'static str> {
+    ) -> Result<usize, ResolveError> {
         use VirtualPlaytimeRow::*;
         let index = match self {
             Active => {
@@ -914,12 +914,12 @@ impl VirtualPlaytimeRow {
                     let instance = context.control_context.instance.borrow();
                     let matrix = instance
                         .get_playtime_matrix()
-                        .map_err(|_| "couldn't get matrix")?;
+                        .context("couldn't get matrix")?;
                     matrix
                         .borrow()
                         .active_cell()
                         .row_index
-                        .ok_or("no row selected")?
+                        .context("no row selected")?
                 }
             }
             ByIndex(index) => *index,
@@ -939,11 +939,11 @@ impl VirtualPlaytimeRow {
     }
 }
 
-fn to_slot_coordinate(eval_result: Result<f64, fasteval::Error>) -> Result<usize, &'static str> {
-    let res = eval_result.map_err(|_| "couldn't evaluate clip slot coordinate")?;
-    if res < 0.0 {
-        return Err("negative clip slot coordinate");
-    }
+fn to_slot_coordinate(
+    eval_result: Result<NotNan<f64>, ResolveError>,
+) -> Result<usize, ResolveError> {
+    let res = eval_result.context("couldn't evaluate clip slot coordinate")?;
+    ensure!(res.into_inner() >= 0.0, "negative clip slot coordinate");
     Ok(res.round() as usize)
 }
 
@@ -1122,7 +1122,7 @@ pub struct ExpressionEvaluator {
 }
 
 impl ExpressionEvaluator {
-    pub fn compile(expression: &str) -> Result<ExpressionEvaluator, Box<dyn std::error::Error>> {
+    pub fn compile(expression: &str) -> anyhow::Result<ExpressionEvaluator> {
         let parser = fasteval::Parser::new();
         let mut slab = fasteval::Slab::new();
         let instruction = parser
@@ -1133,14 +1133,21 @@ impl ExpressionEvaluator {
         Ok(evaluator)
     }
 
-    pub fn evaluate_with_params(&self, params: &CompartmentParams) -> Result<f64, fasteval::Error> {
+    pub fn evaluate(&self) -> Result<NotNan<f64>, ResolveError> {
+        self.evaluate_internal(None, |_, _| None)
+    }
+
+    pub fn evaluate_with_params(
+        &self,
+        params: &CompartmentParams,
+    ) -> Result<NotNan<f64>, ResolveError> {
         self.evaluate_internal(Some(params), |_, _| None)
     }
 
     pub fn evaluate_with_additional_vars(
         &self,
         vars: impl Fn(&str, &[f64]) -> Option<f64>,
-    ) -> Result<f64, fasteval::Error> {
+    ) -> Result<NotNan<f64>, ResolveError> {
         self.evaluate_internal(None, vars)
     }
 
@@ -1148,7 +1155,7 @@ impl ExpressionEvaluator {
         &self,
         parameters: &CompartmentParams,
         additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
-    ) -> Result<f64, fasteval::Error> {
+    ) -> Result<NotNan<f64>, ResolveError> {
         self.evaluate_internal(Some(parameters), additional_vars)
     }
 
@@ -1156,7 +1163,7 @@ impl ExpressionEvaluator {
         &self,
         params: Option<&CompartmentParams>,
         additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
-    ) -> Result<f64, fasteval::Error> {
+    ) -> Result<NotNan<f64>, ResolveError> {
         use fasteval::eval_compiled_ref;
         let mut cb = |name: &str, args: Vec<f64>| -> Option<f64> {
             // Use-case specific variables
@@ -1197,7 +1204,7 @@ impl ExpressionEvaluator {
         };
         #[allow(unexpected_cfgs)]
         let val = eval_compiled_ref!(&self.instruction, &self.slab, &mut cb);
-        Ok(val)
+        Ok(NotNan::new(val)?)
     }
 }
 
@@ -1963,7 +1970,7 @@ pub fn get_fx_params(
     context: ExtendedProcessorContext,
     fx_parameter_descriptor: &FxParameterDescriptor,
     compartment: CompartmentKind,
-) -> Result<Vec<FxParameter>, &'static str> {
+) -> Result<Vec<FxParameter>, ResolveError> {
     let fxs = fx_parameter_descriptor
         .fx_descriptor
         .resolve(context, compartment)?;
@@ -2045,7 +2052,7 @@ pub fn get_fx_chains(
     track: &VirtualTrack,
     is_input_fx: bool,
     compartment: CompartmentKind,
-) -> Result<Vec<FxChain>, &'static str> {
+) -> Result<Vec<FxChain>, ResolveError> {
     let fx_chains = get_effective_tracks(context, track, compartment)?
         .into_iter()
         .map(|track| get_fx_chain(track, is_input_fx))
@@ -2095,17 +2102,15 @@ pub fn find_bookmark(
     bookmark_type: BookmarkType,
     anchor_type: BookmarkAnchorType,
     bookmark_ref: u32,
-) -> Result<FindBookmarkResult, &'static str> {
-    if !project.is_available() {
-        return Err("project not available");
-    }
+) -> Result<FindBookmarkResult, ResolveError> {
+    ensure!(project.is_available(), "project not available");
     match anchor_type {
         BookmarkAnchorType::Index => project
             .find_bookmark_by_type_and_index(bookmark_type, bookmark_ref)
-            .ok_or("bookmark with that type and index not found"),
+            .context("bookmark with that type and index not found"),
         BookmarkAnchorType::Id => project
             .find_bookmark_by_type_and_id(bookmark_type, BookmarkId::new(bookmark_ref))
-            .ok_or("bookmark with that type and ID not found"),
+            .context("bookmark with that type and ID not found"),
     }
 }
 
@@ -2150,13 +2155,16 @@ struct Descriptors<'a> {
     clip_row: Option<&'a VirtualPlaytimeRow>,
 }
 
+pub type ResolveError = anyhow::Error;
+pub type TargetResolveResult = Result<Vec<ReaperTarget>, ResolveError>;
+
 #[enum_dispatch(UnresolvedReaperTarget)]
 pub trait UnresolvedReaperTargetDef {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str>;
+    ) -> TargetResolveResult;
 
     /// `None` means that no polling is necessary for feedback because we are notified via events.
     fn feedback_resolution(&self) -> Option<FeedbackResolution> {

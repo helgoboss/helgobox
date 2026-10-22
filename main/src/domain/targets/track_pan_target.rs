@@ -1,9 +1,9 @@
 use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackGangBehavior,
-    UnresolvedReaperTargetDef, format_value_as_pan, get_effective_tracks, pan_unit_value,
-    parse_value_from_pan, with_gang_behavior,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor,
+    TrackGangBehavior, UnresolvedReaperTargetDef, format_value_as_pan, get_effective_tracks,
+    pan_unit_value, parse_value_from_pan, with_gang_behavior,
 };
 use helgoboss_learn::{
     AbsoluteValue, BASE_EPSILON, ControlType, ControlValue, NumericValue, PropValue, Target,
@@ -23,18 +23,18 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackPanTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(
-            get_effective_tracks(context, &self.track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::TrackPan(TrackPanTarget {
-                        track,
-                        gang_behavior: self.gang_behavior,
-                    })
-                })
-                .collect(),
-        )
+    ) -> TargetResolveResult {
+        let targets = get_effective_tracks(context, &self.track_descriptor.track, compartment)?
+            .into_iter()
+            .map(|track| {
+                let target = TrackPanTarget {
+                    track,
+                    gang_behavior: self.gang_behavior,
+                };
+                ReaperTarget::TrackPan(target)
+            })
+            .collect();
+        Ok(targets)
     }
 
     fn track_descriptor(&self) -> Option<&TrackDescriptor> {

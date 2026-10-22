@@ -1,8 +1,8 @@
 use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity,
-    UnresolvedReaperTargetDef, change_track_prop, format_value_as_on_off,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor,
+    TrackExclusivity, UnresolvedReaperTargetDef, change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
     track_selected_unit_value,
 };
@@ -24,17 +24,18 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackSelectionTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
                 .into_iter()
                 .map(|track| {
-                    ReaperTarget::TrackSelection(TrackSelectionTarget {
+                    let target = TrackSelectionTarget {
                         track,
                         exclusivity: self.exclusivity,
                         scroll_arrange_view: self.scroll_arrange_view,
                         scroll_mixer: self.scroll_mixer,
-                    })
+                    };
+                    ReaperTarget::TrackSelection(target)
                 })
                 .collect(),
         )

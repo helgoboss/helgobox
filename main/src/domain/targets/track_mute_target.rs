@@ -1,10 +1,10 @@
 use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity,
-    TrackGangBehavior, UnresolvedReaperTargetDef, change_track_prop, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, get_effective_tracks, mute_unit_value,
-    with_gang_behavior,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor,
+    TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef, change_track_prop,
+    format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
+    get_effective_tracks, mute_unit_value, with_gang_behavior,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -22,16 +22,17 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackMuteTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
                 .into_iter()
                 .map(|track| {
-                    ReaperTarget::TrackMute(TrackMuteTarget {
+                    let target = TrackMuteTarget {
                         track,
                         exclusivity: self.exclusivity,
                         gang_behavior: self.gang_behavior,
-                    })
+                    };
+                    ReaperTarget::TrackMute(target)
                 })
                 .collect(),
         )

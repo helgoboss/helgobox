@@ -1,7 +1,4 @@
-use crate::domain::{
-    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetSection,
-    TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot,
-};
+use crate::domain::{CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET};
 use helgobox_api::persistence::PlaytimeSlotTransportAction;
 use playtime_api::persistence::SlotAddress;
 use reaper_high::Project;
@@ -25,7 +22,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotTransportTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         let project = context.context.project_or_current_project();
         let target = PlaytimeSlotTransportTarget {
             project,

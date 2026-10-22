@@ -1,7 +1,4 @@
-use crate::domain::{
-    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetSection,
-    TargetTypeDef, UnresolvedReaperTargetDef,
-};
+use crate::domain::{CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 
 use helgobox_api::persistence::{Axis, MatrixScrollBehavior};
 
@@ -12,11 +9,7 @@ pub struct UnresolvedPlaytimeBrowseCellsTarget {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedPlaytimeBrowseCellsTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
         let target = PlaytimeBrowseCellsTarget {
             axis: self.axis,
             scroll_behavior: self.scroll_behavior,

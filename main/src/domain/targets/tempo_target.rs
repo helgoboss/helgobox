@@ -1,10 +1,4 @@
-use crate::domain::{
-    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
-    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, bpm_span,
-    format_step_size_as_bpm_without_unit, format_value_as_bpm_without_unit,
-    parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value,
-};
+use crate::domain::{bpm_span, format_step_size_as_bpm_without_unit, format_value_as_bpm_without_unit, parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Tempo};
 use reaper_medium::UndoBehavior;
@@ -18,10 +12,11 @@ impl UnresolvedReaperTargetDef for UnresolvedTempoTarget {
         &self,
         context: ExtendedProcessorContext,
         _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::Tempo(TempoTarget {
+    ) -> TargetResolveResult {
+        let target = TempoTarget {
             project: context.context().project_or_current_project(),
-        })])
+        };
+        Ok(vec![ReaperTarget::Tempo(target)])
     }
 }
 

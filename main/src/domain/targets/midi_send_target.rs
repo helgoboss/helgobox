@@ -3,8 +3,8 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask,
     HitResponse, LogOptions, MappingControlContext, MidiDestination, MidiEvent,
     MidiTransformationContainer, RealTimeReaperTarget, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-    real_time_processor,
+    ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, real_time_processor,
 };
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use helgoboss_learn::{
@@ -24,15 +24,9 @@ pub struct UnresolvedMidiSendTarget {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedMidiSendTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::SendMidi(MidiSendTarget::new(
-            self.pattern.clone(),
-            self.destination,
-        ))])
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
+        let target = MidiSendTarget::new(self.pattern.clone(), self.destination);
+        Ok(vec![ReaperTarget::SendMidi(target)])
     }
 
     fn can_be_affected_by_change_events(&self) -> bool {

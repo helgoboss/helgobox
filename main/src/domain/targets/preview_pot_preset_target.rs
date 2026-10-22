@@ -1,8 +1,8 @@
 use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
     HitResponse, InstanceStateChanged, MappingControlContext, PotStateChangedEvent, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection,
+    TargetTypeDef, UnresolvedReaperTargetDef,
 };
 use base::blocking_lock_arc;
 use derivative::Derivative;
@@ -14,14 +14,9 @@ use reaper_high::Reaper;
 pub struct UnresolvedPreviewPotPresetTarget {}
 
 impl UnresolvedReaperTargetDef for UnresolvedPreviewPotPresetTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::PreviewPotPreset(
-            PreviewPotPresetTarget {},
-        )])
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
+        let target = PreviewPotPresetTarget {};
+        Ok(vec![ReaperTarget::PreviewPotPreset(target)])
     }
 }
 

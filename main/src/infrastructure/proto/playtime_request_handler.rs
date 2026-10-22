@@ -1,5 +1,4 @@
 use anyhow::Context;
-use camino::Utf8Path;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory};
 use reaper_high::{GroupingBehavior, Guid, Reaper, Track, TrackSetSmartOpts};
 use reaper_medium::{Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, SoloMode};

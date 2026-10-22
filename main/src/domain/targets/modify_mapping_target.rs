@@ -4,8 +4,8 @@ use crate::domain::{
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, HitInstruction,
     HitInstructionContext, HitInstructionResponse, HitResponse, MappingControlContext, MappingId,
     MappingKey, MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, Unit, UnitEvent,
-    UnitId, UnresolvedReaperTargetDef, format_value_as_on_off,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection,
+    TargetTypeDef, Unit, UnitEvent, UnitId, UnresolvedReaperTargetDef, format_value_as_on_off,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use helgobox_api::persistence::MappingModification;
@@ -40,16 +40,13 @@ pub enum MappingRef {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedModifyMappingTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::ModifyMapping(ModifyMappingTarget {
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
+        let target = ModifyMappingTarget {
             compartment: self.compartment,
             modification: self.modification.clone(),
             mapping_ref: self.mapping_ref.clone(),
-        })])
+        };
+        Ok(vec![ReaperTarget::ModifyMapping(target)])
     }
 }
 

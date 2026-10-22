@@ -3,7 +3,8 @@ use crate::domain::{
     CompartmentKind, CompartmentParamIndex, CompoundChangeEvent, ControlContext, DEFAULT_TARGET,
     EffectiveParamValue, ExtendedProcessorContext, HitResponse, MappingControlContext,
     PluginParamIndex, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, convert_count_to_step_size,
+    TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    convert_count_to_step_size,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use reaper_medium::ReaperNormalizedFxParamValue;
@@ -16,17 +17,12 @@ pub struct UnresolvedCompartmentParameterValueTarget {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedCompartmentParameterValueTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::CompartmentParameterValue(
-            CompartmentParameterValueTarget {
-                compartment: self.compartment,
-                index: self.index,
-            },
-        )])
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
+        let target = CompartmentParameterValueTarget {
+            compartment: self.compartment,
+            index: self.index,
+        };
+        Ok(vec![ReaperTarget::CompartmentParameterValue(target)])
     }
 }
 

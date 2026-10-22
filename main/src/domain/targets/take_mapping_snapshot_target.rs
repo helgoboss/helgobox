@@ -2,7 +2,7 @@ use crate::domain::{
     CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, HitInstruction,
     HitInstructionContext, HitInstructionResponse, HitResponse, MappingControlContext,
     MappingSnapshot, MappingSnapshotId, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use helgobox_api::persistence::MappingSnapshotDescForTake;
@@ -58,19 +58,14 @@ impl From<VirtualMappingSnapshotIdForTake> for MappingSnapshotDescForTake {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedTakeMappingSnapshotTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::TakeMappingSnapshot(
-            TakeMappingSnapshotTarget {
-                compartment: self.compartment,
-                scope: self.scope.clone(),
-                active_mappings_only: self.active_mappings_only,
-                snapshot_id: self.snapshot_id.clone(),
-            },
-        )])
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
+        let target = TakeMappingSnapshotTarget {
+            compartment: self.compartment,
+            scope: self.scope.clone(),
+            active_mappings_only: self.active_mappings_only,
+            snapshot_id: self.snapshot_id.clone(),
+        };
+        Ok(vec![ReaperTarget::TakeMappingSnapshot(target)])
     }
 }
 

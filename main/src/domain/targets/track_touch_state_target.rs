@@ -1,11 +1,4 @@
-use crate::domain::{
-    AdditionalFeedbackEvent, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext,
-    DEFAULT_TARGET, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
-    TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef, change_track_prop,
-    format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
-    get_effective_tracks, touched_unit_value,
-};
+use crate::domain::{change_track_prop, format_value_as_on_off, get_control_type_and_character_for_track_exclusivity, get_effective_tracks, touched_unit_value, AdditionalFeedbackEvent, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
 use std::borrow::Cow;
@@ -24,19 +17,21 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackTouchStateTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
+        let targets = get_effective_tracks(context, &self.track_descriptor.track, compartment)?
+            .into_iter()
+            .map(|track| {
+                let target = TrackTouchStateTarget {
+                    track,
+                    parameter_type: self.parameter_type,
+                    exclusivity: self.exclusivity,
+                    gang_behavior: self.gang_behavior,
+                };
+                ReaperTarget::TrackAutomationTouchState(target)
+            })
+            .collect();
         Ok(
-            get_effective_tracks(context, &self.track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::TrackAutomationTouchState(TrackTouchStateTarget {
-                        track,
-                        parameter_type: self.parameter_type,
-                        exclusivity: self.exclusivity,
-                        gang_behavior: self.gang_behavior,
-                    })
-                })
-                .collect(),
+            targets,
         )
     }
 

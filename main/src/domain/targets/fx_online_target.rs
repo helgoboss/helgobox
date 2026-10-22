@@ -1,9 +1,4 @@
-use crate::domain::{
-    CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, FeedbackResolution,
-    FxDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-    format_value_as_on_off, fx_online_unit_value,
-};
+use crate::domain::{format_value_as_on_off, fx_online_unit_value, CompartmentKind, ControlContext, ExtendedProcessorContext, FeedbackResolution, FxDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, Project, Track};
 use std::borrow::Cow;
@@ -18,13 +13,14 @@ impl UnresolvedReaperTargetDef for UnresolvedFxOnlineTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(self
+    ) -> TargetResolveResult {
+        let targets = self
             .fx_descriptor
             .resolve(context, compartment)?
             .into_iter()
             .map(|fx| ReaperTarget::FxOnline(FxOnlineTarget { fx }))
-            .collect())
+            .collect();
+        Ok(targets)
     }
 
     fn fx_descriptor(&self) -> Option<&FxDescriptor> {

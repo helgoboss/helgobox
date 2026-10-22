@@ -1,10 +1,4 @@
-use crate::domain::{
-    AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET,
-    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    TransportAction, UnresolvedReaperTargetDef, format_value_as_on_off,
-    transport_is_enabled_unit_value,
-};
+use crate::domain::{format_value_as_on_off, transport_is_enabled_unit_value, AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TransportAction, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper};
 use std::borrow::Cow;
@@ -19,11 +13,12 @@ impl UnresolvedReaperTargetDef for UnresolvedTransportTarget {
         &self,
         context: ExtendedProcessorContext,
         _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::Transport(TransportTarget {
+    ) -> TargetResolveResult {
+        let target = TransportTarget {
             project: context.context().project_or_current_project(),
             action: self.action,
-        })])
+        };
+        Ok(vec![ReaperTarget::Transport(target)])
     }
 
     fn feedback_resolution(&self) -> Option<FeedbackResolution> {

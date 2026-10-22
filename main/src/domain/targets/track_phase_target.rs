@@ -2,9 +2,10 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, FeedbackResolution,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity,
-    TrackGangBehavior, UnresolvedReaperTargetDef, change_track_prop, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor,
+    TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef, change_track_prop,
+    format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
+    get_effective_tracks,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -24,17 +25,18 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackPhaseTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
                 .into_iter()
                 .map(|track| {
-                    ReaperTarget::TrackPhase(TrackPhaseTarget {
+                    let target = TrackPhaseTarget {
                         track,
                         exclusivity: self.exclusivity,
                         gang_behavior: self.gang_behavior,
                         poll_for_feedback: self.poll_for_feedback,
-                    })
+                    };
+                    ReaperTarget::TrackPhase(target)
                 })
                 .collect(),
         )

@@ -1,7 +1,7 @@
 use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
     format_value_as_on_off, global_automation_mode_override_unit_value,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -15,16 +15,11 @@ pub struct UnresolvedAutomationModeOverrideTarget {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedAutomationModeOverrideTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::AutomationModeOverride(
-            AutomationModeOverrideTarget {
-                mode_override: self.mode_override,
-            },
-        )])
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
+        let target = AutomationModeOverrideTarget {
+            mode_override: self.mode_override,
+        };
+        Ok(vec![ReaperTarget::AutomationModeOverride(target)])
     }
 }
 

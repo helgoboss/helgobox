@@ -2,8 +2,8 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
     FxDescriptor, FxDisplayType, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-    format_value_as_on_off,
+    ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, format_value_as_on_off,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
@@ -21,18 +21,20 @@ impl UnresolvedReaperTargetDef for UnresolvedFxOpenTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(self
+    ) -> TargetResolveResult {
+        let targets = self
             .fx_descriptor
             .resolve(context, compartment)?
             .into_iter()
             .map(|fx| {
-                ReaperTarget::FxOpen(FxOpenTarget {
+                let target = FxOpenTarget {
                     fx,
                     display_type: self.display_type,
-                })
+                };
+                ReaperTarget::FxOpen(target)
             })
-            .collect())
+            .collect();
+        Ok(targets)
     }
 
     fn fx_descriptor(&self) -> Option<&FxDescriptor> {

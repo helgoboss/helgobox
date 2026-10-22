@@ -1,8 +1,8 @@
 use crate::domain::{
     CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
     HitResponse, InstanceStateChanged, MappingControlContext, PotStateChangedEvent, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, convert_count_to_step_size,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection,
+    TargetTypeDef, UnresolvedReaperTargetDef, convert_count_to_step_size,
     convert_discrete_to_unit_value_with_none, convert_unit_to_discrete_value_with_none,
     get_preset_property,
 };
@@ -17,14 +17,9 @@ use std::borrow::Cow;
 pub struct UnresolvedBrowsePotPresetsTarget {}
 
 impl UnresolvedReaperTargetDef for UnresolvedBrowsePotPresetsTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        Ok(vec![ReaperTarget::BrowsePotPresets(
-            BrowsePotPresetsTarget {},
-        )])
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
+        let target = BrowsePotPresetsTarget {};
+        Ok(vec![ReaperTarget::BrowsePotPresets(target)])
     }
 }
 

@@ -1,11 +1,4 @@
-use crate::domain::{
-    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, CompartmentKind, ControlContext, DEFAULT_TARGET,
-    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, all_track_fx_enable_unit_value,
-    change_track_prop, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
-};
+use crate::domain::{all_track_fx_enable_unit_value, change_track_prop, format_value_as_on_off, get_control_type_and_character_for_track_exclusivity, get_effective_tracks, CompartmentKind, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
 use std::borrow::Cow;
@@ -22,18 +15,20 @@ impl UnresolvedReaperTargetDef for UnresolvedAllTrackFxEnableTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    ) -> TargetResolveResult {
+        let targets = get_effective_tracks(context, &self.track_descriptor.track, compartment)?
+            .into_iter()
+            .map(|track| {
+                let target = AllTrackFxEnableTarget {
+                    track,
+                    exclusivity: self.exclusivity,
+                    poll_for_feedback: self.poll_for_feedback,
+                };
+                ReaperTarget::AllTrackFxEnable(target)
+            })
+            .collect();
         Ok(
-            get_effective_tracks(context, &self.track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::AllTrackFxEnable(AllTrackFxEnableTarget {
-                        track,
-                        exclusivity: self.exclusivity,
-                        poll_for_feedback: self.poll_for_feedback,
-                    })
-                })
-                .collect(),
+            targets,
         )
     }
 

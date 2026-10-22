@@ -1,7 +1,4 @@
-use crate::domain::{
-    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetSection,
-    TargetTypeDef, UnresolvedReaperTargetDef,
-};
+use crate::domain::{CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
 
 use helgobox_api::persistence::Axis;
 
@@ -11,11 +8,7 @@ pub struct UnresolvedPlaytimeControlUnitScrollTarget {
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedPlaytimeControlUnitScrollTarget {
-    fn resolve(
-        &self,
-        _: ExtendedProcessorContext,
-        _: CompartmentKind,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
+    fn resolve(&self, _: ExtendedProcessorContext, _: CompartmentKind) -> TargetResolveResult {
         let target = PlaytimeControlUnitScrollTarget { axis: self.axis };
         Ok(vec![ReaperTarget::PlaytimeControlUnitScroll(target)])
     }
