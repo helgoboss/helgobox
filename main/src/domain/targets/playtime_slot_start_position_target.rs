@@ -49,6 +49,9 @@ pub const PLAYTIME_SLOT_START_POSITION_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Slot start position",
     short_name: "Playtime start pos",
     supports_clip_slot: true,
+    supports_time_unit: true,
+    supports_max_value_expression: true,
+    supports_step_size_expression: true,
     ..DEFAULT_TARGET
 };
 

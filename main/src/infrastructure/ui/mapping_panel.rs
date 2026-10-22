@@ -33,7 +33,7 @@ use helgobox_api::persistence::{
     MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeColumnDescriptorKind,
     PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeRowDescriptor, PlaytimeRowDescriptorKind,
     PlaytimeSlotDescriptor, PlaytimeSlotDescriptorKind, PlaytimeSlotManagementAction,
-    PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior, TrackToolAction,
+    PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior, TimeUnit, TrackToolAction,
     VirtualControlElementCharacter,
 };
 use swell_ui::{
@@ -653,13 +653,13 @@ impl MappingPanel {
                                                 // in egui view (in a non-reactive way).
                                             }
                                             P::TimeUnit => {
-                                                todo!()
+                                                view.invalidate_target_line_2(initiator);
                                             }
                                             P::MaxValueExpression => {
-                                                todo!()
+                                                view.invalidate_target_line_4(initiator);
                                             }
                                             P::StepSizeExpression => {
-                                                todo!()
+                                                view.invalidate_target_line_5(initiator);
                                             }
                                         }
                                     }
@@ -3195,6 +3195,15 @@ impl<'a> MutableMappingPanel<'a> {
                             .set_track_type_from_ui(track_type, ctx.extended_context.context)
                     });
                 }
+                _ if self.mapping.target_model.target_type().supports_time_unit() => {
+                    let time_unit = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetTimeUnit(
+                        time_unit,
+                    )));
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -4056,6 +4065,13 @@ impl<'a> MutableMappingPanel<'a> {
                         Some(edit_control_id),
                     );
                 }
+                t if t.supports_max_value_expression() => {
+                    let text = control.text().unwrap_or_default();
+                    self.change_mapping_with_initiator(
+                        MappingCommand::ChangeTarget(TargetCommand::SetMaxValueExpression(text)),
+                        Some(edit_control_id),
+                    );
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -4072,6 +4088,13 @@ impl<'a> MutableMappingPanel<'a> {
                     let v = parse_osc_arg_value_range(&text);
                     self.change_mapping_with_initiator(
                         MappingCommand::ChangeTarget(TargetCommand::SetOscArgValueRange(v)),
+                        Some(edit_control_id),
+                    );
+                }
+                t if t.supports_max_value_expression() => {
+                    let text = control.text().unwrap_or_default();
+                    self.change_mapping_with_initiator(
+                        MappingCommand::ChangeTarget(TargetCommand::SetStepSizeExpression(text)),
                         Some(edit_control_id),
                     );
                 }
@@ -5071,6 +5094,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 | ReaperTargetType::PlaytimeSlotManagementAction
                 | ReaperTargetType::PlaytimeSlotTransportAction => Some("Action"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
+                t if t.supports_time_unit() => Some("Time unit"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
             },
@@ -5155,6 +5179,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.fill_combo_box_indexed(FeedbackResolution::iter());
                     combo.select_combo_box_item_by_index(
                         self.mapping.target_model.feedback_resolution().into(),
+                    );
+                }
+                t if t.supports_time_unit() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(TimeUnit::iter());
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.time_unit().into(),
                     );
                 }
                 _ => {
@@ -5577,6 +5608,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                     );
                     Some(text)
                 }
+                t if t.supports_step_size_expression() => {
+                    Some(self.target.step_size_expression().to_string())
+                }
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5631,6 +5665,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t if t.supports_tags() => {
                     let text = format_tags_as_csv(self.target.tags());
                     (Some(text), false)
+                }
+                t if t.supports_max_value_expression() => {
+                    (Some(self.target.max_value_expression().to_string()), false)
                 }
                 _ => (None, false),
             },
@@ -5829,6 +5866,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc if self.target.supports_osc_arg_value_range() => {
                     Some("Range")
                 }
+                t if t.supports_step_size_expression() => Some("Step size"),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5860,6 +5898,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     TrackRouteType::Receive => Some("Receive"),
                     TrackRouteType::HardwareOutput => Some("Output"),
                 },
+                t if t.supports_max_value_expression() => Some("Max value"),
                 _ => None,
             },
             TargetCategory::Virtual => None,

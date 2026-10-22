@@ -930,6 +930,18 @@ impl ReaperTargetType {
         self.definition().supports_send()
     }
 
+    pub fn supports_time_unit(self) -> bool {
+        self.definition().supports_time_unit()
+    }
+
+    pub fn supports_max_value_expression(self) -> bool {
+        self.definition().supports_max_value_expression()
+    }
+
+    pub fn supports_step_size_expression(self) -> bool {
+        self.definition().supports_step_size_expression()
+    }
+
     pub fn supports_track_exclusivity(self) -> bool {
         self.definition().supports_track_exclusivity()
     }
@@ -1019,6 +1031,9 @@ pub struct TargetTypeDef {
     pub supports_track_grouping_only_gang_behavior: bool,
     pub supports_real_time_control: bool,
     pub supports_included_targets: bool,
+    pub supports_time_unit: bool,
+    pub supports_max_value_expression: bool,
+    pub supports_step_size_expression: bool,
 }
 
 impl TargetTypeDef {
@@ -1083,6 +1098,15 @@ impl TargetTypeDef {
     pub const fn supports_send(&self) -> bool {
         self.supports_send
     }
+    pub const fn supports_time_unit(&self) -> bool {
+        self.supports_time_unit
+    }
+    pub const fn supports_max_value_expression(&self) -> bool {
+        self.supports_max_value_expression
+    }
+    pub const fn supports_step_size_expression(&self) -> bool {
+        self.supports_step_size_expression
+    }
     pub const fn supports_track_exclusivity(&self) -> bool {
         self.supports_track_exclusivity
     }
@@ -1139,6 +1163,9 @@ pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
     supports_track_grouping_only_gang_behavior: false,
     supports_real_time_control: false,
     supports_included_targets: false,
+    supports_time_unit: false,
+    supports_max_value_expression: false,
+    supports_step_size_expression: false,
 };
 
 pub const AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY: &str = "Automatic feedback via polling only";
