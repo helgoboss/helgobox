@@ -1,12 +1,12 @@
 use anyhow::Context;
+use base::spawn_in_main_thread;
 use helgoboss_license_api::persistence::LicenseKey;
+use helgobox_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
 use reaper_high::{OrCurrentProject, Reaper};
 use reaper_medium::CommandId;
-use tonic::{Response, Status};
-
-use base::spawn_in_main_thread;
-use helgobox_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
 use swell_ui::Window;
+use tonic::{Response, Status};
+use walkdir::WalkDir;
 
 use crate::domain::{CompartmentKind, UnitId};
 use crate::infrastructure::api::convert::from_data;
@@ -21,19 +21,20 @@ use crate::infrastructure::proto::{
     GetAppSettingsReply, GetAppSettingsRequest, GetArrangementInfoReply, GetArrangementInfoRequest,
     GetClipDetailReply, GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest,
     GetCustomInstanceDataReply, GetCustomInstanceDataRequest, GetHostInfoReply, GetHostInfoRequest,
-    GetProjectDirReply, GetProjectDirRequest, HOST_API_VERSION, ImportFilesRequest,
-    InsertColumnsRequest, OpenTrackFxRequest, PatchMidiClipContentRequest, ProveAuthenticityReply,
-    ProveAuthenticityRequest, SaveControllerRequest, SaveCustomCompartmentDataRequest,
-    SetAppSettingsRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
-    SetColumnTrackRequest, SetCustomInstanceDataRequest, SetInstanceSettingsRequest,
-    SetMatrixClickChannelRequest, SetMatrixPanRequest, SetMatrixPlayRateRequest,
-    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
-    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
-    SetSequenceInfoRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest,
-    SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest,
-    TriggerClipRequest, TriggerColumnRequest, TriggerGlobalAction, TriggerGlobalRequest,
-    TriggerInstanceAction, TriggerInstanceRequest, TriggerMatrixRequest, TriggerRowRequest,
-    TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest,
+    GetProjectDirReply, GetProjectDirRequest, GetTrackTemplatesReply, GetTrackTemplatesRequest,
+    HOST_API_VERSION, ImportFilesRequest, InsertColumnsRequest, OpenTrackFxRequest,
+    PatchMidiClipContentRequest, ProveAuthenticityReply, ProveAuthenticityRequest,
+    SaveControllerRequest, SaveCustomCompartmentDataRequest, SetAppSettingsRequest,
+    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixClickChannelRequest,
+    SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
+    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
+    SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
+    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
+    SetTrackVolumeRequest, TrackTemplate, TriggerClipRequest, TriggerColumnRequest,
+    TriggerGlobalAction, TriggerGlobalRequest, TriggerInstanceAction, TriggerInstanceRequest,
+    TriggerMatrixRequest, TriggerRowRequest, TriggerSequenceRequest, TriggerSlotRequest,
+    TriggerTrackRequest,
 };
 use crate::infrastructure::ui::defer_from_dart_callstack;
 
@@ -302,6 +303,38 @@ impl ProtoRequestHandler {
         {
             PlaytimeProtoRequestHandler.patch_midi_clip_content(req)
         }
+    }
+
+    pub fn get_track_templates(
+        &self,
+        _: GetTrackTemplatesRequest,
+    ) -> Result<Response<GetTrackTemplatesReply>, Status> {
+        let track_templates_dir = Reaper::get().resource_path().join("TrackTemplates");
+        let track_templates = WalkDir::new(&track_templates_dir)
+            .follow_links(true)
+            .into_iter()
+            .filter_map(|entry| {
+                let entry = entry.ok()?;
+                if !entry.file_type().is_file() {
+                    return None;
+                }
+                let extension = entry.path().extension()?;
+                if extension != "RTrackTemplate" {
+                    return None;
+                }
+                let relative_path = entry.path().strip_prefix(&track_templates_dir).ok()?;
+                let track_template = TrackTemplate {
+                    // Immediately exclude relative paths that can't be represented as valid UTF-8.
+                    // Otherwise, we will potentially open a can of worms.
+                    relative_path: relative_path.to_str()?.to_string(),
+                };
+                Some(track_template)
+            })
+            .collect();
+        let reply = GetTrackTemplatesReply {
+            templates: track_templates,
+        };
+        Ok(Response::new(reply))
     }
 
     pub fn insert_columns(&self, req: InsertColumnsRequest) -> Result<Response<Empty>, Status> {

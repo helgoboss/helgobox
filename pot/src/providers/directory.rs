@@ -113,11 +113,11 @@ impl Database for DirectoryDatabase {
                     return None;
                 }
                 let relative_path = entry.path().strip_prefix(&self.root_dir).ok()?;
-                // Immediately exclude relative paths that can't be represented as valid UTF-8.
                 // Otherwise we will potentially open a can of worms (regarding persistence etc.).
                 let processing_output = process_file(entry.path(), ctx.plugin_db).ok()?;
                 let preset_entry = PresetEntry {
                     preset_name: entry.path().file_stem()?.to_str()?.to_string(),
+                    // Immediately exclude relative paths that can't be represented as valid UTF-8.
                     relative_path: relative_path.to_str()?.to_string(),
                     plugin_cores: processing_output.used_plugins,
                     content_hash: processing_output.content_hash,

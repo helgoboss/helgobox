@@ -490,6 +490,12 @@ fn process_query_request(
                 Ok(query_result::Value::GetClipDetailReply(value))
             });
         }
+        GetTrackTemplates(req) => {
+            send_query_reply_to_app(instance_id, req_id, async move {
+                let value = handler.get_track_templates(req)?.into_inner();
+                Ok(query_result::Value::GetTrackTemplatesReply(value))
+            });
+        }
         GetProjectDir(req) => {
             send_query_reply_to_app(instance_id, req_id, async move {
                 let value = handler.get_project_dir(req).await?.into_inner();

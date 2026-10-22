@@ -1,6 +1,7 @@
 use anyhow::Context;
+use camino::Utf8Path;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory};
-use reaper_high::{GroupingBehavior, Guid, Track, TrackSetSmartOpts};
+use reaper_high::{GroupingBehavior, Guid, Reaper, Track, TrackSetSmartOpts};
 use reaper_medium::{Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, SoloMode};
 use tonic::{Response, Status};
 
@@ -332,10 +333,29 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn insert_columns(&self, req: InsertColumnsRequest) -> Result<Response<Empty>, Status> {
-        let kind = ColumnKind::try_from(req.kind)
-            .map_err(|_| Status::invalid_argument("unknown column kind"))?;
+        let kind = if let Some(kind) = req.kind {
+            let kind = ColumnKind::try_from(kind)
+                .map_err(|_| Status::invalid_argument("unknown column kind"))?;
+            Some(kind)
+        } else {
+            None
+        };
+        let track_template_path = if let Some(track_template_id) = &req.track_template_id {
+            let track_template_path = Reaper::get()
+                .resource_path()
+                .join("TrackTemplates")
+                .join(track_template_id);
+            Some(track_template_path)
+        } else {
+            None
+        };
         self.handle_column_command(&req.column_address, |matrix, column_index| {
-            matrix.insert_columns(column_index, req.count as usize, kind.to_engine())
+            matrix.insert_columns(
+                column_index,
+                req.count as usize,
+                kind.map(|k| k.to_engine()),
+                track_template_path.as_deref(),
+            )
         })
     }
 
@@ -508,7 +528,7 @@ impl PlaytimeProtoRequestHandler {
                     matrix.remove_column_without_track(column_index)?
                 }
                 TriggerColumnAction::Duplicate => matrix.duplicate_column(column_index)?,
-                TriggerColumnAction::Insert => matrix.insert_column(column_index)?,
+                TriggerColumnAction::Insert => matrix.insert_column(column_index, None, None)?,
                 TriggerColumnAction::Panic => matrix.panic_column(column_index),
                 TriggerColumnAction::ToggleLearnSimpleMapping => {
                     matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerColumn(

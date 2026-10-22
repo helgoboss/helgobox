@@ -18,15 +18,16 @@ use crate::infrastructure::proto::{
     GetOccasionalRowUpdatesReply, GetOccasionalRowUpdatesRequest, GetOccasionalSlotUpdatesReply,
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, GetOccasionalUnitUpdatesReply,
-    GetOccasionalUnitUpdatesRequest, GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest,
-    InsertColumnsRequest, OpenTrackFxRequest, PatchMidiClipContentRequest, ProtoRequestHandler,
-    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
-    SaveCustomCompartmentDataRequest, SetAppSettingsRequest, SetClipDataRequest,
-    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
-    SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixClickChannelRequest,
-    SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
-    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
-    SetRowDataRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
+    GetOccasionalUnitUpdatesRequest, GetProjectDirReply, GetProjectDirRequest,
+    GetTrackTemplatesReply, GetTrackTemplatesRequest, ImportFilesRequest, InsertColumnsRequest,
+    OpenTrackFxRequest, PatchMidiClipContentRequest, ProtoRequestHandler, ProveAuthenticityReply,
+    ProveAuthenticityRequest, SaveControllerRequest, SaveCustomCompartmentDataRequest,
+    SetAppSettingsRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
+    SetColumnTrackRequest, SetCustomInstanceDataRequest, SetInstanceSettingsRequest,
+    SetMatrixClickChannelRequest, SetMatrixPanRequest, SetMatrixPlayRateRequest,
+    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
+    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
+    SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
     SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
     TriggerColumnRequest, TriggerGlobalRequest, TriggerInstanceRequest, TriggerMatrixRequest,
     TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest, create_initial_global_updates,
@@ -806,6 +807,14 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Empty>, Status> {
         self.command_handler
             .patch_midi_clip_content(request.into_inner())
+    }
+
+    async fn get_track_templates(
+        &self,
+        request: Request<GetTrackTemplatesRequest>,
+    ) -> Result<Response<GetTrackTemplatesReply>, Status> {
+        self.command_handler
+            .get_track_templates(request.into_inner())
     }
 }
 
