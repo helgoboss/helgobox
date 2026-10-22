@@ -3245,10 +3245,7 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetPlaytimeRow(desc),
                     ));
                 }
-                ReaperTargetType::PlaytimeSlotManagementAction
-                | ReaperTargetType::PlaytimeSlotTransportAction
-                | ReaperTargetType::PlaytimeSlotSeek
-                | ReaperTargetType::PlaytimeSlotVolume => {
+                t if t.supports_clip_slot() => {
                     let kind = combo
                         .selected_combo_box_item_index()
                         .try_into()
@@ -3848,10 +3845,44 @@ impl<'a> MutableMappingPanel<'a> {
                         }
                     }
                 }
-                ReaperTargetType::PlaytimeSlotManagementAction
-                | ReaperTargetType::PlaytimeSlotTransportAction
-                | ReaperTargetType::PlaytimeSlotVolume
-                | ReaperTargetType::PlaytimeSlotSeek => {
+                t if t.supports_fx() => match self.mapping.target_model.fx_type() {
+                    VirtualFxType::Dynamic => {
+                        let expression = control.text().unwrap_or_default();
+                        self.change_mapping_with_initiator(
+                            MappingCommand::ChangeTarget(TargetCommand::SetFxExpression(
+                                expression,
+                            )),
+                            Some(edit_control_id),
+                        );
+                    }
+                    VirtualFxType::ByName | VirtualFxType::AllByName => {
+                        let name = control.text().unwrap_or_default();
+                        self.change_mapping_with_initiator(
+                            MappingCommand::ChangeTarget(TargetCommand::SetFxName(name)),
+                            Some(edit_control_id),
+                        );
+                    }
+                    VirtualFxType::ByIndex => {
+                        let index = parse_position_as_index(control);
+                        self.change_mapping_with_initiator(
+                            MappingCommand::ChangeTarget(TargetCommand::SetFxIndex(index)),
+                            Some(edit_control_id),
+                        );
+                    }
+                    _ => {}
+                },
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
+        }
+    }
+
+    fn handle_target_line_3_edit_control_a_change(&mut self) {
+        let edit_control_id = root::ID_TARGET_LINE_3_EDIT_CONTROL_A;
+        let control = self.view.require_control(edit_control_id);
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_clip_slot() => {
                     let text = control.text().unwrap_or_default();
                     match self.mapping.target_model.playtime_slot() {
                         PlaytimeSlotDescriptor::Active => {}
@@ -3880,32 +3911,48 @@ impl<'a> MutableMappingPanel<'a> {
                         }
                     }
                 }
-                t if t.supports_fx() => match self.mapping.target_model.fx_type() {
-                    VirtualFxType::Dynamic => {
-                        let expression = control.text().unwrap_or_default();
-                        self.change_mapping_with_initiator(
-                            MappingCommand::ChangeTarget(TargetCommand::SetFxExpression(
-                                expression,
-                            )),
-                            Some(edit_control_id),
-                        );
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
+        }
+    }
+
+    fn handle_target_line_3_edit_control_b_change(&mut self) {
+        let edit_control_id = root::ID_TARGET_LINE_3_EDIT_CONTROL_B;
+        let control = self.view.require_control(edit_control_id);
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_clip_slot() => {
+                    let text = control.text().unwrap_or_default();
+                    match self.mapping.target_model.playtime_slot() {
+                        PlaytimeSlotDescriptor::Active => {}
+                        PlaytimeSlotDescriptor::ByIndex(address) => {
+                            let position: usize = text.parse().unwrap_or_default();
+                            self.change_mapping_with_initiator(
+                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeSlot(
+                                    PlaytimeSlotDescriptor::ByIndex(SlotAddress::new(
+                                        address.column_index,
+                                        position.saturating_sub(1),
+                                    )),
+                                )),
+                                Some(edit_control_id),
+                            );
+                        }
+                        PlaytimeSlotDescriptor::Dynamic {
+                            column_expression, ..
+                        } => {
+                            self.change_mapping_with_initiator(
+                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeSlot(
+                                    PlaytimeSlotDescriptor::Dynamic {
+                                        column_expression: column_expression.clone(),
+                                        row_expression: text,
+                                    },
+                                )),
+                                Some(edit_control_id),
+                            );
+                        }
                     }
-                    VirtualFxType::ByName | VirtualFxType::AllByName => {
-                        let name = control.text().unwrap_or_default();
-                        self.change_mapping_with_initiator(
-                            MappingCommand::ChangeTarget(TargetCommand::SetFxName(name)),
-                            Some(edit_control_id),
-                        );
-                    }
-                    VirtualFxType::ByIndex => {
-                        let index = parse_position_as_index(control);
-                        self.change_mapping_with_initiator(
-                            MappingCommand::ChangeTarget(TargetCommand::SetFxIndex(index)),
-                            Some(edit_control_id),
-                        );
-                    }
-                    _ => {}
-                },
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -3974,40 +4021,6 @@ impl<'a> MutableMappingPanel<'a> {
                         MappingCommand::ChangeTarget(TargetCommand::SetRawMidiPattern(text)),
                         Some(edit_control_id),
                     );
-                }
-                ReaperTargetType::PlaytimeSlotManagementAction
-                | ReaperTargetType::PlaytimeSlotTransportAction
-                | ReaperTargetType::PlaytimeSlotVolume
-                | ReaperTargetType::PlaytimeSlotSeek => {
-                    let text = control.text().unwrap_or_default();
-                    match self.mapping.target_model.playtime_slot() {
-                        PlaytimeSlotDescriptor::Active => {}
-                        PlaytimeSlotDescriptor::ByIndex(address) => {
-                            let position: usize = text.parse().unwrap_or_default();
-                            self.change_mapping_with_initiator(
-                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeSlot(
-                                    PlaytimeSlotDescriptor::ByIndex(SlotAddress::new(
-                                        address.column_index,
-                                        position.saturating_sub(1),
-                                    )),
-                                )),
-                                Some(edit_control_id),
-                            );
-                        }
-                        PlaytimeSlotDescriptor::Dynamic {
-                            column_expression, ..
-                        } => {
-                            self.change_mapping_with_initiator(
-                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeSlot(
-                                    PlaytimeSlotDescriptor::Dynamic {
-                                        column_expression: column_expression.clone(),
-                                        row_expression: text,
-                                    },
-                                )),
-                                Some(edit_control_id),
-                            );
-                        }
-                    }
                 }
                 t if t.supports_send() => match self.mapping.target_model.route_selector_type() {
                     TrackRouteSelectorType::Dynamic => {
@@ -5478,6 +5491,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_line_3_combo_box_1();
         self.invalidate_target_line_3_combo_box_2();
         self.invalidate_target_line_3_edit_control(initiator);
+        self.invalidate_target_line_3_edit_control_a(initiator);
+        self.invalidate_target_line_3_edit_control_b(initiator);
         self.invalidate_target_line_3_button();
     }
 
@@ -5584,19 +5599,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let text = self.target.raw_midi_pattern().to_owned();
                     let read_only = text.chars().count() > 30;
                     (Some(text), read_only)
-                }
-                ReaperTargetType::PlaytimeSlotManagementAction
-                | ReaperTargetType::PlaytimeSlotTransportAction
-                | ReaperTargetType::PlaytimeSlotSeek
-                | ReaperTargetType::PlaytimeSlotVolume => {
-                    let text = match self.target.playtime_slot() {
-                        PlaytimeSlotDescriptor::Active => None,
-                        PlaytimeSlotDescriptor::ByIndex(a) => Some((a.row_index + 1).to_string()),
-                        PlaytimeSlotDescriptor::Dynamic { row_expression, .. } => {
-                            Some(row_expression.clone())
-                        }
-                    };
-                    (text, false)
                 }
                 t if t.supports_fx_parameter() => {
                     let text = match self.target.param_type() {
@@ -5709,21 +5711,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                     };
                     (text, false)
                 }
-                ReaperTargetType::PlaytimeSlotManagementAction
-                | ReaperTargetType::PlaytimeSlotTransportAction
-                | ReaperTargetType::PlaytimeSlotSeek
-                | ReaperTargetType::PlaytimeSlotVolume => {
-                    let text = match self.target.playtime_slot() {
-                        PlaytimeSlotDescriptor::Active => None,
-                        PlaytimeSlotDescriptor::ByIndex(a) => {
-                            Some((a.column_index + 1).to_string())
-                        }
-                        PlaytimeSlotDescriptor::Dynamic {
-                            column_expression, ..
-                        } => Some(column_expression.clone()),
-                    };
-                    (text, false)
-                }
                 t if t.supports_fx() => {
                     let text = match self.target.fx_type() {
                         VirtualFxType::Dynamic => Some(self.target.fx_expression().to_owned()),
@@ -5735,6 +5722,61 @@ impl<'a> ImmutableMappingPanel<'a> {
                             Some(self.target.fx_name().to_owned())
                         }
                         _ => None,
+                    };
+                    (text, false)
+                }
+                _ => (None, false),
+            },
+            TargetCategory::Virtual => (None, false),
+        };
+        c.set_text_or_hide(value_text);
+        c.set_enabled(!read_only);
+    }
+
+    fn invalidate_target_line_3_edit_control_a(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_TARGET_LINE_3_EDIT_CONTROL_A) {
+            return;
+        }
+        let c = self
+            .view
+            .require_control(root::ID_TARGET_LINE_3_EDIT_CONTROL_A);
+        let (value_text, read_only) = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_clip_slot() => {
+                    let text = match self.target.playtime_slot() {
+                        PlaytimeSlotDescriptor::Active => None,
+                        PlaytimeSlotDescriptor::ByIndex(a) => {
+                            Some((a.column_index + 1).to_string())
+                        }
+                        PlaytimeSlotDescriptor::Dynamic {
+                            column_expression, ..
+                        } => Some(column_expression.clone()),
+                    };
+                    (text, false)
+                }
+                _ => (None, false),
+            },
+            TargetCategory::Virtual => (None, false),
+        };
+        c.set_text_or_hide(value_text);
+        c.set_enabled(!read_only);
+    }
+    fn invalidate_target_line_3_edit_control_b(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_TARGET_LINE_3_EDIT_CONTROL_B) {
+            return;
+        }
+        let c = self
+            .view
+            .require_control(root::ID_TARGET_LINE_3_EDIT_CONTROL_B);
+        let (value_text, read_only) = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_clip_slot() => {
+                    let text = match self.target.playtime_slot() {
+                        PlaytimeSlotDescriptor::Active => None,
+                        PlaytimeSlotDescriptor::ByIndex(a) => Some((a.row_index + 1).to_string()),
+                        PlaytimeSlotDescriptor::Dynamic { row_expression, .. } => {
+                            Some(row_expression.clone())
+                        }
                     };
                     (text, false)
                 }
@@ -5766,10 +5808,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::PlaytimeColumnAction => Some("Column"),
                 ReaperTargetType::PlaytimeRowAction => Some("Row"),
-                ReaperTargetType::PlaytimeSlotManagementAction
-                | ReaperTargetType::PlaytimeSlotTransportAction
-                | ReaperTargetType::PlaytimeSlotSeek
-                | ReaperTargetType::PlaytimeSlotVolume => Some("Slot"),
+                t if t.supports_clip_slot() => Some("Slot"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 _ if self.mapping.target_model.supports_axis() => Some("Axis"),
                 t if t.supports_fx() => Some("FX"),
@@ -5951,10 +5990,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.fill_combo_box_indexed(PlaytimeRowDescriptorKind::iter());
                     combo.select_combo_box_item_by_index(self.target.playtime_row().kind().into());
                 }
-                ReaperTargetType::PlaytimeSlotManagementAction
-                | ReaperTargetType::PlaytimeSlotTransportAction
-                | ReaperTargetType::PlaytimeSlotSeek
-                | ReaperTargetType::PlaytimeSlotVolume => {
+                t if t.supports_clip_slot() => {
                     combo.show();
                     combo.fill_combo_box_indexed(PlaytimeSlotDescriptorKind::iter());
                     combo.select_combo_box_item_by_index(self.target.playtime_slot().kind().into());
@@ -7601,6 +7637,12 @@ impl View for MappingPanel {
             }
             root::ID_TARGET_LINE_3_EDIT_CONTROL => {
                 view.write(|p| p.handle_target_line_3_edit_control_change())
+            }
+            root::ID_TARGET_LINE_3_EDIT_CONTROL_A => {
+                view.write(|p| p.handle_target_line_3_edit_control_a_change())
+            }
+            root::ID_TARGET_LINE_3_EDIT_CONTROL_B => {
+                view.write(|p| p.handle_target_line_3_edit_control_b_change())
             }
             root::ID_TARGET_LINE_4_EDIT_CONTROL => {
                 view.write(|p| p.handle_target_line_4_edit_control_change())

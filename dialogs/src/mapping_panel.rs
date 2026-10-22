@@ -255,6 +255,14 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.named_id("ID_TARGET_LINE_3_EDIT_CONTROL"),
             context.rect(282, 135, 127, 14),
         ) + ES_AUTOHSCROLL,
+        edittext(
+            ids.named_id("ID_TARGET_LINE_3_EDIT_CONTROL_A"),
+            context.rect(282, 135, 60, 14),
+        ) + ES_AUTOHSCROLL,
+        edittext(
+            ids.named_id("ID_TARGET_LINE_3_EDIT_CONTROL_B"),
+            context.rect(347, 135, 60, 14),
+        ) + ES_AUTOHSCROLL,
         dropdown(
             ids.named_id("ID_TARGET_LINE_3_COMBO_BOX_2"),
             context.rect(283, 136, 155, 30),
