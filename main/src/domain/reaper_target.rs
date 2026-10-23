@@ -1535,3 +1535,5 @@ fn is_bypass_param(param: &FxParameter) -> bool {
     let bypass_param = param.fx().parameter_by_id(ParamId::Bypass);
     Some(param) == bypass_param.as_ref()
 }
+
+pub type RtResult<T> = Result<T, &'static str>;

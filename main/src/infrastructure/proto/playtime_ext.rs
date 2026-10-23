@@ -380,10 +380,12 @@ impl qualified_occasional_clip_update::Update {
             let timeline_tempo = timeline.next_block().tempo_entry.props.tempo;
             let tempo_factor = online_data
                 .runtime_data
+                .source_material_info
                 .calc_tempo_factor(settings, timeline_tempo);
             let effective_length_in_seconds = online_data
                 .runtime_data
-                .effective_length_in_timeline_secs(tempo_factor, settings);
+                .source_material_info
+                .effective_length_in_timeline_secs(tempo_factor, &settings.effective_section());
             let effective_length_in_quarter_notes =
                 timeline.full_qn_at_pos(effective_length_in_seconds.into());
             proto::ClipContentRuntimeInfo {

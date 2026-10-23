@@ -35,7 +35,6 @@ use anyhow::{Context, bail, ensure};
 use helgobox_api::persistence::{
     FxChainDescriptor, FxDescriptorCommons, TrackDescriptorCommons, TrackScope,
 };
-use ordered_float::NotNan;
 use playtime_api::persistence::SlotAddress;
 use playtime_api::runtime::CellAddress;
 use reaper_high::{
@@ -49,6 +48,7 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::Formatter;
 use strum::EnumIter;
+use typed_floats::NonNaN;
 use wildmatch::WildMatch;
 
 /// Maximum number of "allow multiple" resolves (e.g. affected <Selected> tracks).
@@ -636,7 +636,8 @@ impl TrackRouteSelector {
         let result = evaluator
             .evaluate_with_params(compartment_params)
             .map_err(|_| TrackRouteResolveError::ExpressionFailed)?
-            .round() as i32;
+            .round()
+            .get() as i32;
         if result < 0 {
             return Err(TrackRouteResolveError::OutOfRange);
         }
@@ -940,11 +941,11 @@ impl VirtualPlaytimeRow {
 }
 
 fn to_slot_coordinate(
-    eval_result: Result<NotNan<f64>, ResolveError>,
+    eval_result: Result<NonNaN<f64>, ResolveError>,
 ) -> Result<usize, ResolveError> {
     let res = eval_result.context("couldn't evaluate clip slot coordinate")?;
-    ensure!(res.into_inner() >= 0.0, "negative clip slot coordinate");
-    Ok(res.round() as usize)
+    ensure!(res.get() >= 0.0, "negative clip slot coordinate");
+    Ok(res.round().get() as usize)
 }
 
 #[derive(Debug, Default)]
@@ -1080,7 +1081,8 @@ impl VirtualFxParameter {
                 _ => None,
             })
             .map_err(|_| FxParameterResolveError::ExpressionFailed)?
-            .round() as i32;
+            .round()
+            .get() as i32;
         if result < 0 {
             return Err(FxParameterResolveError::OutOfRange);
         }
@@ -1133,21 +1135,29 @@ impl ExpressionEvaluator {
         Ok(evaluator)
     }
 
-    pub fn evaluate(&self) -> Result<NotNan<f64>, ResolveError> {
+    pub fn compile_optional(expression: &str) -> anyhow::Result<Option<ExpressionEvaluator>> {
+        if expression.trim().is_empty() {
+            return Ok(None);
+        }
+        let evaluator = Self::compile(expression)?;
+        Ok(Some(evaluator))
+    }
+
+    pub fn evaluate(&self) -> Result<NonNaN<f64>, ResolveError> {
         self.evaluate_internal(None, |_, _| None)
     }
 
     pub fn evaluate_with_params(
         &self,
         params: &CompartmentParams,
-    ) -> Result<NotNan<f64>, ResolveError> {
+    ) -> Result<NonNaN<f64>, ResolveError> {
         self.evaluate_internal(Some(params), |_, _| None)
     }
 
     pub fn evaluate_with_additional_vars(
         &self,
         vars: impl Fn(&str, &[f64]) -> Option<f64>,
-    ) -> Result<NotNan<f64>, ResolveError> {
+    ) -> Result<NonNaN<f64>, ResolveError> {
         self.evaluate_internal(None, vars)
     }
 
@@ -1155,7 +1165,7 @@ impl ExpressionEvaluator {
         &self,
         parameters: &CompartmentParams,
         additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
-    ) -> Result<NotNan<f64>, ResolveError> {
+    ) -> Result<NonNaN<f64>, ResolveError> {
         self.evaluate_internal(Some(parameters), additional_vars)
     }
 
@@ -1163,7 +1173,7 @@ impl ExpressionEvaluator {
         &self,
         params: Option<&CompartmentParams>,
         additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
-    ) -> Result<NotNan<f64>, ResolveError> {
+    ) -> Result<NonNaN<f64>, ResolveError> {
         use fasteval::eval_compiled_ref;
         let mut cb = |name: &str, args: Vec<f64>| -> Option<f64> {
             // Use-case specific variables
@@ -1204,7 +1214,7 @@ impl ExpressionEvaluator {
         };
         #[allow(unexpected_cfgs)]
         let val = eval_compiled_ref!(&self.instruction, &self.slab, &mut cb);
-        Ok(NotNan::new(val)?)
+        Ok(NonNaN::<f64>::new(val)?)
     }
 }
 
@@ -1572,7 +1582,8 @@ impl VirtualTrack {
                 }
             })
             .map_err(|_| TrackResolveError::ExpressionFailed)?
-            .round() as i32;
+            .round()
+            .get() as i32;
         if result < -1 {
             return Err(TrackResolveError::OutOfRange);
         }
@@ -1883,7 +1894,8 @@ impl VirtualChainFx {
                 _ => None,
             })
             .map_err(|_| FxResolveError::ExpressionFailed)?
-            .round() as i32;
+            .round()
+            .get() as i32;
         if result < 0 {
             return Err(FxResolveError::OutOfRange);
         }

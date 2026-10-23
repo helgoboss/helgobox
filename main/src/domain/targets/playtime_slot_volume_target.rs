@@ -1,4 +1,7 @@
-use crate::domain::{CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET};
+use crate::domain::{
+    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetResolveResult,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot,
+};
 
 use playtime_api::persistence::SlotAddress;
 
@@ -128,6 +131,12 @@ mod playtime_impl {
             _: ControlContext,
         ) -> (bool, Option<AbsoluteValue>) {
             match evt {
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
+                    QualifiedClipChangeEvent {
+                        clip_address,
+                        event: ClipChangeEvent::Everything,
+                    },
+                )) if clip_address.slot_address == self.slot_coordinates => (true, None),
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
                     QualifiedClipChangeEvent {
                         clip_address,

@@ -2430,3 +2430,13 @@ pub enum TimeUnit {
     #[display(fmt = "Bars")]
     Bars,
 }
+
+impl TimeUnit {
+    pub fn suffix(&self) -> &'static str {
+        match self {
+            Self::Seconds => "s",
+            Self::WholeNotes => "wn",
+            Self::Bars => "bar",
+        }
+    }
+}

@@ -2629,10 +2629,10 @@ impl TargetModel {
                         crate::domain::UnresolvedPlaytimeSlotStartPositionTarget {
                             slot: self.virtual_clip_slot()?,
                             time_unit: self.time_unit,
-                            max_value_expression_evaluator: ExpressionEvaluator::compile(
+                            max_value_expression_evaluator: ExpressionEvaluator::compile_optional(
                                 &self.max_value_expression,
                             )?,
-                            step_size_expression_evaluator: ExpressionEvaluator::compile(
+                            step_size_expression_evaluator: ExpressionEvaluator::compile_optional(
                                 &self.step_size_expression,
                             )?,
                         },

@@ -90,7 +90,7 @@ impl ActivationCondition {
                     "y" => Some(y),
                     _ => None,
                 });
-                result.ok().map(|v| v.into_inner() > 0.0)
+                result.ok().map(|v| v.get() > 0.0)
             }
             _ => None,
         }
@@ -229,7 +229,7 @@ impl ExpressionCondition {
 
     pub fn is_fulfilled(&self, params: &CompartmentParams) -> bool {
         let result = self.evaluator.evaluate_with_params(params);
-        result.map(|v| v.into_inner() > 0.0).unwrap_or(false)
+        result.map(|v| v.get() > 0.0).unwrap_or(false)
     }
 }
 

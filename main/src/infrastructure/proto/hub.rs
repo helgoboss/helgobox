@@ -614,7 +614,7 @@ mod playtime_impl {
                         use ClipChangeEvent::*;
                         let employment = matrix.find_clip_employment(*clip_address)?;
                         let update = match event {
-                            Everything | Volume(_) | Looped(_) => {
+                            Everything | Volume(_) | Looped(_) | DynamicSection(_) => {
                                 qualified_occasional_clip_update::Update::complete_persistent_data(
                                     matrix,
                                     &employment.clip,

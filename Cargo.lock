@@ -1367,6 +1367,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "const_fn"
+version = "0.4.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413d67b29ef1021b4d60f4aa1e925ca031751e213832b4b1d588fae623c05c60"
+
+[[package]]
 name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3376,7 +3382,6 @@ dependencies = [
  "num_enum 0.7.6",
  "once_cell",
  "open",
- "ordered-float 5.5.0",
  "palette",
  "pathdiff",
  "playtime-api",
@@ -3429,6 +3434,7 @@ dependencies = [
  "tracing-core",
  "tracing-subscriber",
  "tts",
+ "typed_floats",
  "url",
  "uuid 1.26.0",
  "vst",
@@ -5484,15 +5490,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ordered-float"
-version = "5.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c7c9e0d9b23589f26070720bac724174bfec1083e82f7854cdd0267518343c0"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
 name = "ordered-multimap"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5843,7 +5840,6 @@ dependencies = [
  "num",
  "num_enum 0.7.6",
  "once_cell",
- "ordered-float 5.5.0",
  "path-slash",
  "pathdiff",
  "playtime-api",
@@ -5863,6 +5859,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-test",
+ "typed_floats",
  "winapi",
 ]
 
@@ -7068,9 +7065,9 @@ dependencies = [
 
 [[package]]
 name = "rustversion"
-version = "1.0.11"
+version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5583e89e108996506031660fe09baa5011b9dd0341b89029313006d1fb508d70"
+checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "rustybuzz"
@@ -7315,7 +7312,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3a1a3341211875ef120e117ea7fd5228530ae7e7036a779fdc9117be6b3282c"
 dependencies = [
- "ordered-float 2.10.1",
+ "ordered-float",
  "serde",
 ]
 
@@ -8584,6 +8581,29 @@ dependencies = [
  "rand 0.9.5",
  "sha1",
  "thiserror 2.0.20",
+]
+
+[[package]]
+name = "typed_floats"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "436de2fdc42c0f07890f4b51dcc90a468b0b12280f49caff1cf57ce2e646817c"
+dependencies = [
+ "const_fn",
+ "rustversion",
+ "typed_floats_macros",
+]
+
+[[package]]
+name = "typed_floats_macros"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da27e33675dd7bfc62c7ead8c36779f961815ababe717191d67b75c2356edc4f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.58",
 ]
 
 [[package]]
