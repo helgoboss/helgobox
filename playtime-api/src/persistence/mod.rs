@@ -31,7 +31,9 @@ use camino::Utf8PathBuf;
 use chrono::NaiveDateTime;
 use derive_more::Display;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use reaper_common_types::{Bpm, Db, DurationInBeats, DurationInSeconds, Semitones};
+use reaper_common_types::{
+    Bpm, Db, DurationInBeats, DurationInSeconds, PositionInSeconds, Semitones,
+};
 use serde::{Deserialize, Deserializer, Serialize};
 use strum::EnumIter;
 
@@ -1527,13 +1529,14 @@ impl MidiResetMessages {
 pub struct Section {
     /// Position in the source from which to start.
     ///
-    /// If this is greater than zero, a fade-in will be used to avoid clicks.
+    /// - If this is greater than zero, a fade-in will be used to avoid clicks.
+    /// - May be negative. In this case, it will insert silence.
     #[serde(default)]
-    pub start_pos: DurationInSeconds,
+    pub start_pos: PositionInSeconds,
     /// Length of the material to be played, starting from `start_pos`.
     ///
     /// - `None` means until original source end.
-    /// - May exceed the end of the source.
+    /// - May exceed the end of the source. In this case, it will insert silence.
     /// - If this makes the section end be located before the original source end, a fade-out will
     ///   be used to avoid clicks.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1545,7 +1548,10 @@ impl Section {
         Section {
             start_pos: self.start_pos + inner.start_pos,
             length: match (self.length, inner.length) {
-                (Some(l), None) => Some(l.saturating_sub(inner.start_pos)),
+                (Some(l), None) => Some(
+                    DurationInSeconds::new(l.into_inner() - inner.start_pos.into_inner())
+                        .unwrap_or_default(),
+                ),
                 (_, l) => l,
             },
         }
@@ -1555,7 +1561,8 @@ impl Section {
         if let Some(length) = self.length {
             length
         } else {
-            source_length.saturating_sub(self.start_pos)
+            DurationInSeconds::new(source_length.into_inner() - self.start_pos.into_inner())
+                .unwrap_or_default()
         }
     }
 }

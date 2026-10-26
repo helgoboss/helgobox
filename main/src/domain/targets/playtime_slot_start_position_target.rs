@@ -226,7 +226,7 @@ mod playtime_impl {
                             return Ok(HitResponse::ignored());
                         }
                         let new_section = Section {
-                            start_pos: second_value,
+                            start_pos: second_value.into(),
                             length: clip_timing_info.dynamic_section.length,
                         };
                         let clip_address = ClipAddress::new(self.slot_coordinates, 0);
@@ -388,7 +388,9 @@ impl ClipTimingInfo {
         project_time_signature: TimeSignature,
     ) -> Positive<f64> {
         self.seconds_to_time_unit(
-            self.dynamic_section.start_pos,
+            // TODO-high CONTINUE
+            // self.dynamic_section.start_pos,
+            DurationInSeconds::ZERO,
             time_unit,
             project_time_signature,
         )
