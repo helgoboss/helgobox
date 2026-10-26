@@ -8,10 +8,10 @@ use helgobox_api::persistence::TimeUnit;
 use playtime_api::persistence::{Section, SlotAddress};
 use playtime_clip_engine::base::Matrix;
 use playtime_clip_engine::{Timeline, clip_timeline};
-use reaper_common_types::{Bpm, DurationInSeconds, DurationInSecondsError};
+use reaper_common_types::{Bpm, DurationInSeconds, DurationInSecondsError, PositionInSeconds};
 use reaper_medium::TimeSignature;
 use std::fmt::{Display, Formatter};
-use typed_floats::Positive;
+use typed_floats::{NonNaN, Positive};
 
 #[derive(Debug)]
 pub struct UnresolvedPlaytimeSlotStartPositionTarget {
@@ -123,7 +123,7 @@ mod playtime_impl {
                 && let Ok(clip_timing_info) = self.get_clip_timing_info(context)
             {
                 let max_value = self.get_effective_max_value(context, &clip_timing_info);
-                let raw_step_size = step_size / max_value;
+                let raw_step_size = step_size.get() / (max_value.get() * 2.0);
                 let control_type = ControlType::AbsoluteDiscrete {
                     atomic_step_size: UnitValue::new_clamped(raw_step_size),
                     is_retriggerable: false,
@@ -319,9 +319,11 @@ mod playtime_impl {
             clip_timing_info: &ClipTimingInfo,
         ) -> TimeUnitValue {
             let max_value = self.get_effective_max_value(context, &clip_timing_info);
-            let raw_time_unit_value = unit_value.get() * max_value.get();
+            let raw_time_unit_value = unit_value.get() * max_value.get() * 2.0 - max_value.get();
             TimeUnitValue::new(
-                raw_time_unit_value.try_into().expect("must be positive"),
+                raw_time_unit_value
+                    .try_into()
+                    .expect("convert_unit_value_to_time_unit_value"),
                 self.time_unit,
             )
         }
@@ -333,7 +335,7 @@ mod playtime_impl {
             clip_timing_info: &ClipTimingInfo,
         ) -> UnitValue {
             let max_value = self.get_effective_max_value(context, &clip_timing_info);
-            UnitValue::new_clamped(time_unit_value / max_value.get())
+            UnitValue::new_clamped((time_unit_value + max_value.get()) / (2.0 * max_value.get()))
         }
     }
 
@@ -386,11 +388,9 @@ impl ClipTimingInfo {
         &self,
         time_unit: TimeUnit,
         project_time_signature: TimeSignature,
-    ) -> Positive<f64> {
+    ) -> NonNaN<f64> {
         self.seconds_to_time_unit(
-            // TODO-high CONTINUE
-            // self.dynamic_section.start_pos,
-            DurationInSeconds::ZERO,
+            self.dynamic_section.start_pos,
             time_unit,
             project_time_signature,
         )
@@ -401,59 +401,62 @@ impl ClipTimingInfo {
         time_unit: TimeUnit,
         project_time_signature: TimeSignature,
     ) -> Positive<f64> {
-        self.seconds_to_time_unit(self.fixed_source_length, time_unit, project_time_signature)
+        self.seconds_to_time_unit(
+            self.fixed_source_length.into(),
+            time_unit,
+            project_time_signature,
+        )
+        .try_into()
+        .expect("get_fixed_source_length")
     }
 
     fn seconds_to_time_unit(
         &self,
-        seconds: DurationInSeconds,
+        seconds: PositionInSeconds,
         time_unit: TimeUnit,
         project_time_signature: TimeSignature,
-    ) -> Positive<f64> {
+    ) -> NonNaN<f64> {
         match time_unit {
-            TimeUnit::Seconds => seconds_to_positive(seconds),
+            TimeUnit::Seconds => seconds_to_non_nan(seconds),
             TimeUnit::WholeNotes => seconds_to_whole_notes(seconds, self.source_tempo),
             TimeUnit::Bars => seconds_to_bars(seconds, self.source_tempo, project_time_signature),
         }
     }
 }
 
-fn seconds_to_positive(seconds: DurationInSeconds) -> Positive<f64> {
-    seconds
-        .get()
-        .try_into()
-        .expect("DurationInSeconds is positive")
+fn seconds_to_non_nan(seconds: PositionInSeconds) -> NonNaN<f64> {
+    seconds.get().try_into().expect("seconds_to_non_nan")
 }
 
-fn positive_to_seconds(positive: Positive) -> DurationInSeconds {
-    positive.get().try_into().expect("Positive is positive")
+fn non_nan_to_seconds(v: NonNaN<f64>) -> PositionInSeconds {
+    v.get().try_into().expect("non_nan_to_seconds")
 }
 
-fn seconds_to_whole_notes(seconds: DurationInSeconds, bpm: Bpm) -> Positive<f64> {
-    Positive::<f64>::new(seconds.get() * whole_notes_per_second(bpm).get())
+fn seconds_to_whole_notes(seconds: PositionInSeconds, bpm: Bpm) -> NonNaN<f64> {
+    NonNaN::<f64>::new(seconds.get() * whole_notes_per_second(bpm).get())
         .expect("seconds_to_whole_notes")
 }
 
-fn whole_notes_to_seconds(whole_notes: Positive<f64>, bpm: Bpm) -> DurationInSeconds {
-    DurationInSeconds::new(whole_notes.get() / whole_notes_per_second(bpm).get())
+fn whole_notes_to_seconds(whole_notes: NonNaN<f64>, bpm: Bpm) -> PositionInSeconds {
+    PositionInSeconds::new(whole_notes.get() / whole_notes_per_second(bpm).get())
         .expect("whole_notes_to_seconds")
 }
 
 fn seconds_to_bars(
-    seconds: DurationInSeconds,
+    seconds: PositionInSeconds,
     bpm: Bpm,
     time_signature: TimeSignature,
-) -> Positive<f64> {
-    Positive::<f64>::new(seconds.get() * bars_per_second(bpm, time_signature).get())
+) -> NonNaN<f64> {
+    NonNaN::<f64>::new(seconds.get() * bars_per_second(bpm, time_signature).get())
         .expect("seconds_to_bars")
 }
 
 fn bars_to_seconds(
-    bars: Positive<f64>,
+    bars: NonNaN<f64>,
     bpm: Bpm,
     time_signature: TimeSignature,
-) -> DurationInSeconds {
-    DurationInSeconds::new(bars.get() / bars_per_second(bpm, time_signature).get())
+) -> PositionInSeconds {
+    PositionInSeconds::new(bars.get() / bars_per_second(bpm, time_signature).get())
         .expect("bars_to_seconds")
 }
 
@@ -476,18 +479,18 @@ fn get_project_time_signature(context: ControlContext) -> TimeSignature {
 }
 
 struct TimeUnitValue {
-    value: Positive<f64>,
+    value: NonNaN<f64>,
     time_unit: TimeUnit,
 }
 
 impl TimeUnitValue {
-    pub fn new(value: Positive, time_unit: TimeUnit) -> Self {
+    pub fn new(value: NonNaN<f64>, time_unit: TimeUnit) -> Self {
         Self { value, time_unit }
     }
 
-    pub fn to_seconds(&self, bpm: Bpm, time_signature: TimeSignature) -> DurationInSeconds {
+    pub fn to_seconds(&self, bpm: Bpm, time_signature: TimeSignature) -> PositionInSeconds {
         match self.time_unit {
-            TimeUnit::Seconds => positive_to_seconds(self.value),
+            TimeUnit::Seconds => non_nan_to_seconds(self.value),
             TimeUnit::WholeNotes => whole_notes_to_seconds(self.value, bpm),
             TimeUnit::Bars => bars_to_seconds(self.value, bpm, time_signature),
         }
