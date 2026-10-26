@@ -132,7 +132,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
             return vec![];
         };
         instance_shell
-            .additional_unit_models()
+            .all_unit_models()
             .into_iter()
             .map(|unit_model| {
                 let unit_model = unit_model.borrow();
