@@ -1279,6 +1279,10 @@ pub struct Clip {
     #[serde(default)]
     pub pitch_shift: Semitones,
     #[serde(default)]
+    pub tempo_factor: PositiveFactor,
+    #[serde(default)]
+    pub speed_factor: PositiveFactor,
+    #[serde(default)]
     pub audio_settings: ClipAudioSettings,
     #[serde(default)]
     pub midi_settings: ClipMidiSettings,
@@ -1312,6 +1316,8 @@ impl Default for Clip {
             dynamic_section: Default::default(),
             fixed_section: Default::default(),
             pitch_shift: Default::default(),
+            tempo_factor: Default::default(),
+            speed_factor: Default::default(),
             audio_settings: Default::default(),
             midi_settings: Default::default(),
         }
@@ -1850,5 +1856,31 @@ impl SlotAddress {
 impl Display for SlotAddress {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "Slot {}/{}", self.column_index + 1, self.row_index + 1)
+    }
+}
+
+/// A factor that can never be negative.
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct PositiveFactor(f64);
+
+impl Default for PositiveFactor {
+    fn default() -> Self {
+        Self::NEUTRAL
+    }
+}
+
+impl PositiveFactor {
+    pub const NEUTRAL: Self = Self(1.0);
+
+    pub fn new(value: f64) -> Option<Self> {
+        if value.is_finite() && value > 0.0 {
+            Some(Self(value))
+        } else {
+            None
+        }
+    }
+
+    pub fn get(self) -> f64 {
+        self.0
     }
 }
