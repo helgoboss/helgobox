@@ -369,6 +369,15 @@ fn convert_real_target(
                 step_size_expression: data.step_size_expression,
             },
         ),
+        PlaytimeSlotLength => {
+            T::PlaytimeSlotLength(helgobox_api::persistence::PlaytimeSlotLengthTarget {
+                commons,
+                slot: data.clip_slot.unwrap_or_default(),
+                time_unit: data.time_unit,
+                max_value_expression: data.max_value_expression,
+                step_size_expression: data.step_size_expression,
+            })
+        }
         PlaytimeSlotManagementAction => T::PlaytimeSlotManagementAction(
             helgobox_api::persistence::PlaytimeSlotManagementActionTarget {
                 commons,

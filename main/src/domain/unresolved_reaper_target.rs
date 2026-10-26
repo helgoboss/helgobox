@@ -33,7 +33,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use anyhow::{Context, bail, ensure};
 use helgobox_api::persistence::{
-    FxChainDescriptor, FxDescriptorCommons, TrackDescriptorCommons, TrackScope,
+    FxChainDescriptor, FxDescriptorCommons, TimeUnit, TrackDescriptorCommons, TrackScope,
 };
 use playtime_api::persistence::SlotAddress;
 use playtime_api::runtime::CellAddress;
@@ -107,6 +107,7 @@ pub enum UnresolvedReaperTarget {
     PlaytimeSlotSeek(crate::domain::UnresolvedPlaytimeSlotSeekTarget),
     PlaytimeSlotVolume(crate::domain::UnresolvedPlaytimeSlotVolumeTarget),
     PlaytimeSlotStartPosition(crate::domain::UnresolvedPlaytimeSlotStartPositionTarget),
+    PlaytimeSlotLength(crate::domain::UnresolvedPlaytimeSlotLengthTarget),
     PlaytimeSlotManagementAction(crate::domain::UnresolvedPlaytimeSlotManagementActionTarget),
     PlaytimeMatrixAction(crate::domain::UnresolvedPlaytimeMatrixActionTarget),
     PlaytimeControlUnitScroll(crate::domain::UnresolvedPlaytimeControlUnitScrollTarget),
@@ -2340,4 +2341,12 @@ fn get_playtime_matrix_active_cell_index(
         let output = index.map(|i| i as f64).unwrap_or(EXPRESSION_NONE_VALUE);
         Some(output)
     }
+}
+
+#[derive(Debug)]
+pub struct UnresolvedPlaytimeSlotSectionTargetBase {
+    pub slot: VirtualPlaytimeSlot,
+    pub time_unit: TimeUnit,
+    pub max_value_expression_evaluator: Option<ExpressionEvaluator>,
+    pub step_size_expression_evaluator: Option<ExpressionEvaluator>,
 }

@@ -36,10 +36,11 @@ use crate::domain::{
     UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
     UnresolvedLoadMappingSnapshotTarget, UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget,
     UnresolvedModifyMappingTarget, UnresolvedMouseTarget, UnresolvedOscSendTarget,
-    UnresolvedPlayrateTarget, UnresolvedPreviewPotPresetTarget, UnresolvedReaperTarget,
-    UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
-    UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget,
-    UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedStreamDeckBrightnessTarget,
+    UnresolvedPlayrateTarget, UnresolvedPlaytimeSlotSectionTargetBase,
+    UnresolvedPreviewPotPresetTarget, UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget,
+    UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget,
+    UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget,
+    UnresolvedSeekTarget, UnresolvedStreamDeckBrightnessTarget,
     UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
     UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
     UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackParentSendTarget,
@@ -2627,14 +2628,12 @@ impl TargetModel {
                     ),
                     PlaytimeSlotStartPosition => UnresolvedReaperTarget::PlaytimeSlotStartPosition(
                         crate::domain::UnresolvedPlaytimeSlotStartPositionTarget {
-                            slot: self.virtual_clip_slot()?,
-                            time_unit: self.time_unit,
-                            max_value_expression_evaluator: ExpressionEvaluator::compile_optional(
-                                &self.max_value_expression,
-                            )?,
-                            step_size_expression_evaluator: ExpressionEvaluator::compile_optional(
-                                &self.step_size_expression,
-                            )?,
+                            base: self.playtime_slot_section_target_base()?,
+                        },
+                    ),
+                    PlaytimeSlotLength => UnresolvedReaperTarget::PlaytimeSlotLength(
+                        crate::domain::UnresolvedPlaytimeSlotLengthTarget {
+                            base: self.playtime_slot_section_target_base()?,
                         },
                     ),
                     PlaytimeSlotManagementAction => {
@@ -2799,6 +2798,22 @@ impl TargetModel {
 
     pub fn playtime_column_action(&self) -> PlaytimeColumnAction {
         self.playtime_column_action
+    }
+
+    pub fn playtime_slot_section_target_base(
+        &self,
+    ) -> anyhow::Result<UnresolvedPlaytimeSlotSectionTargetBase> {
+        let base = UnresolvedPlaytimeSlotSectionTargetBase {
+            slot: self.virtual_clip_slot()?,
+            time_unit: self.time_unit,
+            max_value_expression_evaluator: ExpressionEvaluator::compile_optional(
+                &self.max_value_expression,
+            )?,
+            step_size_expression_evaluator: ExpressionEvaluator::compile_optional(
+                &self.step_size_expression,
+            )?,
+        };
+        Ok(base)
     }
 
     pub fn simple_target(&self) -> Option<playtime_api::runtime::SimpleMappingTarget> {

@@ -701,17 +701,45 @@ function module.ClipPlayStopTimingOverride(value: ClipPlayStopTimingOverride): C
 	return value
 end
 
---- An even quantization.
+--- An even musical quantization interval.
 ---
---- "Even" in the sense that it's not swing or dotted.
+--- "Even" means that the interval is not something like "swing".
+---
+--- A denominator of `1` expresses the interval in bars, while a denominator
+--- greater than `1` expresses it as a fraction of a whole note.
+---
+--- For example:
+---
+--- - `1/1` represents one bar.
+--- - `2/1` represents two bars.
+--- - `1/2` represents a half note.
+--- - `1/4` represents a quarter note.
+--- - `1/8` represents an eighth note.
+---
+--- Bar-based intervals depend on the time signature, whereas note-based
+--- intervals don't.
 export type EvenQuantization = {
 	numerator: number,
 	denominator: number,
 }
 --- Creates a EvenQuantization value.
---- An even quantization.
+--- An even musical quantization interval.
 ---
---- "Even" in the sense that it's not swing or dotted.
+--- "Even" means that the interval is not something like "swing".
+---
+--- A denominator of `1` expresses the interval in bars, while a denominator
+--- greater than `1` expresses it as a fraction of a whole note.
+---
+--- For example:
+---
+--- - `1/1` represents one bar.
+--- - `2/1` represents two bars.
+--- - `1/2` represents a half note.
+--- - `1/4` represents a quarter note.
+--- - `1/8` represents an eighth note.
+---
+--- Bar-based intervals depend on the time signature, whereas note-based
+--- intervals don't.
 function module.EvenQuantization(value: EvenQuantization): EvenQuantization
 	return value
 end
@@ -1087,7 +1115,7 @@ function module.MidiResetMessages(value: MidiResetMessages): MidiResetMessages
 end
 
 export type Section = {
-	start_pos: number?,
+	start_pos: PositionInSeconds?,
 	length: number?,
 }
 --- Creates a Section value.

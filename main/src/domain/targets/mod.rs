@@ -204,3 +204,9 @@ pub use stream_deck_brightness_target::*;
 
 mod playtime_slot_start_position_target;
 pub use playtime_slot_start_position_target::*;
+
+mod playtime_slot_length_target;
+pub use playtime_slot_length_target::*;
+
+#[cfg(feature = "playtime")]
+mod playtime_common;

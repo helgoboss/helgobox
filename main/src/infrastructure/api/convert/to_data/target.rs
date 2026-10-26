@@ -805,6 +805,15 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             step_size_expression: d.step_size_expression,
             ..init(d.commons)
         },
+        Target::PlaytimeSlotLength(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::PlaytimeSlotLength,
+            clip_slot: Some(d.slot),
+            time_unit: d.time_unit,
+            max_value_expression: d.max_value_expression,
+            step_size_expression: d.step_size_expression,
+            ..init(d.commons)
+        },
         Target::PlaytimeSlotManagementAction(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::PlaytimeSlotManagementAction,

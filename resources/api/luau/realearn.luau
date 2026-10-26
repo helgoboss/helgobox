@@ -1747,6 +1747,24 @@ export type Target_PlaytimeSlotSeek = {
 
 export type Target_PlaytimeSlotVolume = { kind: "PlaytimeSlotVolume", unit: TargetUnit?, slot: PlaytimeSlotDescriptor }
 
+export type Target_PlaytimeSlotStartPosition = {
+	kind: "PlaytimeSlotStartPosition",
+	unit: TargetUnit?,
+	slot: PlaytimeSlotDescriptor,
+	time_unit: TimeUnit,
+	max_value_expression: string,
+	step_size_expression: string,
+}
+
+export type Target_PlaytimeSlotLength = {
+	kind: "PlaytimeSlotLength",
+	unit: TargetUnit?,
+	slot: PlaytimeSlotDescriptor,
+	time_unit: TimeUnit,
+	max_value_expression: string,
+	step_size_expression: string,
+}
+
 export type Target_PlaytimeSlotManagementAction = {
 	kind: "PlaytimeSlotManagementAction",
 	unit: TargetUnit?,
@@ -1894,6 +1912,8 @@ export type Target =
 	| Target_PlaytimeBrowseCells
 	| Target_PlaytimeSlotSeek
 	| Target_PlaytimeSlotVolume
+	| Target_PlaytimeSlotStartPosition
+	| Target_PlaytimeSlotLength
 	| Target_PlaytimeSlotManagementAction
 	| Target_SendMidi
 	| Target_SendOsc
@@ -1966,6 +1986,8 @@ export type TargetKind =
 	| "PlaytimeBrowseCells"
 	| "PlaytimeSlotSeek"
 	| "PlaytimeSlotVolume"
+	| "PlaytimeSlotStartPosition"
+	| "PlaytimeSlotLength"
 	| "PlaytimeSlotManagementAction"
 	| "SendMidi"
 	| "SendOsc"
@@ -2350,6 +2372,22 @@ end
 function module.Target.PlaytimeSlotVolume(value: PlaytimeSlotVolumeTarget): Target_PlaytimeSlotVolume
 	local t: any = table.clone(value)
 	t.kind = "PlaytimeSlotVolume"
+	return t
+end
+
+--- Creates a Target of kind PlaytimeSlotStartPosition.
+function module.Target.PlaytimeSlotStartPosition(
+	value: PlaytimeSlotStartPositionTarget
+): Target_PlaytimeSlotStartPosition
+	local t: any = table.clone(value)
+	t.kind = "PlaytimeSlotStartPosition"
+	return t
+end
+
+--- Creates a Target of kind PlaytimeSlotLength.
+function module.Target.PlaytimeSlotLength(value: PlaytimeSlotLengthTarget): Target_PlaytimeSlotLength
+	local t: any = table.clone(value)
+	t.kind = "PlaytimeSlotLength"
 	return t
 end
 
@@ -3171,6 +3209,30 @@ export type PlaytimeSlotVolumeTarget = {
 }
 --- Creates a PlaytimeSlotVolumeTarget value.
 function module.PlaytimeSlotVolumeTarget(value: PlaytimeSlotVolumeTarget): PlaytimeSlotVolumeTarget
+	return value
+end
+
+export type PlaytimeSlotStartPositionTarget = {
+	unit: TargetUnit?,
+	slot: PlaytimeSlotDescriptor,
+	time_unit: TimeUnit,
+	max_value_expression: string,
+	step_size_expression: string,
+}
+--- Creates a PlaytimeSlotStartPositionTarget value.
+function module.PlaytimeSlotStartPositionTarget(value: PlaytimeSlotStartPositionTarget): PlaytimeSlotStartPositionTarget
+	return value
+end
+
+export type PlaytimeSlotLengthTarget = {
+	unit: TargetUnit?,
+	slot: PlaytimeSlotDescriptor,
+	time_unit: TimeUnit,
+	max_value_expression: string,
+	step_size_expression: string,
+}
+--- Creates a PlaytimeSlotLengthTarget value.
+function module.PlaytimeSlotLengthTarget(value: PlaytimeSlotLengthTarget): PlaytimeSlotLengthTarget
 	return value
 end
 
@@ -4320,5 +4382,7 @@ function module.TargetValue.Discrete(value: { value: number }): TargetValue_Disc
 	t.kind = "Discrete"
 	return t
 end
+
+export type TimeUnit = "Seconds" | "WholeNotes" | "Bars"
 
 return module
