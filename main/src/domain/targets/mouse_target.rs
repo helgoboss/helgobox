@@ -1,5 +1,10 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
-use crate::domain::{convert_count_to_step_size, CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    convert_count_to_step_size,
+};
 use anyhow::bail;
 use base::enigo::EnigoMouse;
 use base::{Mouse, MouseCursorPosition};
@@ -70,6 +75,7 @@ impl<M: Mouse> RealearnTarget for MouseTarget<M> {
                 let control_type = ControlType::AbsoluteDiscrete {
                     atomic_step_size: convert_count_to_step_size(self.axis_size()),
                     is_retriggerable: false,
+                    absolute_snap_to_grid: true,
                 };
                 (control_type, TargetCharacter::Discrete)
             }

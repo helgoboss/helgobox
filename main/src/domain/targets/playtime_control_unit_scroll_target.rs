@@ -1,4 +1,7 @@
-use crate::domain::{CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetResolveResult,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+};
 
 use helgobox_api::persistence::Axis;
 
@@ -105,6 +108,7 @@ mod playtime_impl {
                 ControlType::AbsoluteDiscrete {
                     atomic_step_size: convert_count_to_step_size(self.value_count(context)),
                     is_retriggerable: false,
+                    absolute_snap_to_grid: true,
                 },
                 TargetCharacter::Discrete,
             )

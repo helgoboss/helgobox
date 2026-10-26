@@ -127,6 +127,7 @@ mod playtime_impl {
                 let control_type = ControlType::AbsoluteDiscrete {
                     atomic_step_size: UnitValue::new_clamped(raw_step_size),
                     is_retriggerable: false,
+                    absolute_snap_to_grid: true,
                 };
                 return (control_type, TargetCharacter::Discrete);
             }
@@ -191,40 +192,23 @@ mod playtime_impl {
                             context.control_context,
                             &clip_timing_info,
                         );
-                        let effective_time_unit_value = if let Some(step_size) = self.step_size {
-                            // Quantize according to step size
-                            let raw_quantized_time_unit_value =
-                                (time_unit_value.value.get() / step_size.get()).round()
-                                    * step_size.get();
-                            TimeUnitValue::new(
-                                raw_quantized_time_unit_value.try_into()?,
-                                time_unit_value.time_unit,
-                            )
-                        } else {
-                            time_unit_value
-                        };
+                        // let effective_time_unit_value = time_unit_value;
+                        // let effective_time_unit_value = if let Some(step_size) = self.step_size {
+                        //     // Quantize according to step size
+                        //     let raw_quantized_time_unit_value =
+                        //         (time_unit_value.value.get() / step_size.get()).round()
+                        //             * step_size.get();
+                        //     TimeUnitValue::new(
+                        //         raw_quantized_time_unit_value.try_into()?,
+                        //         time_unit_value.time_unit,
+                        //     )
+                        // } else {
+                        //     time_unit_value
+                        // };
+                        let effective_time_unit_value = time_unit_value;
                         let time_signature = get_project_time_signature(context.control_context);
                         let second_value = effective_time_unit_value
                             .to_seconds(clip_timing_info.source_tempo, time_signature);
-                        // TODO-high CONTINUE: Should we quantize and filter (if same value) here in
-                        //  the target? Or in the mode? In all discrete targets before, we didn't didn't deal with this
-                        //  because the end target itself was quantized.
-                        //  Pros for doing it here:
-                        //  - No danger of accidentally influencing behavior of existing ReaLearn mappings with other targets,
-                        //    e.g. some FX could report step size but actually accept continuous values (now they are accepted).
-                        //    In any case, if we leave it here, we should also adjust other discrete targets that they return "ignored"
-                        //    when they already have the desired value (also good for "beep on success"!)
-                        //  Pros for doing it in the mode:
-                        //  - The mode already has snap logic for this, which it uses to hit targets when controlled relatively
-                        //    (hit_target_absolutely_with_unit_increment). It also takes care of snapping the target interval bounds.
-                        //    Test example: Setting target min to 0.8wn => without naive logic, the result can still become 0.75wn!!!
-                        //  - It already has "Left target untouched" logic.
-                        //
-                        //  In any case, when moving the logic to the mode, we should introduce a flag in ControlType::AbsoluteDiscrete
-                        //  that allows this new behavior. We should NOT allow it for FX parameters!
-                        if clip_timing_info.dynamic_section.start_pos == second_value {
-                            return Ok(HitResponse::ignored());
-                        }
                         let new_section = Section {
                             start_pos: second_value.into(),
                             length: clip_timing_info.dynamic_section.length,

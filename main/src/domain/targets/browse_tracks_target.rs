@@ -1,4 +1,11 @@
-use crate::domain::{convert_count_to_step_size, convert_discrete_to_unit_value_with_none, convert_unit_to_discrete_value_with_none, get_reaper_track_area_of_scope, get_track_by_scoped_index, get_track_name, scoped_track_index, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
+    convert_unit_to_discrete_value_with_none, get_reaper_track_area_of_scope,
+    get_track_by_scoped_index, get_track_name, scoped_track_index,
+};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
@@ -44,6 +51,7 @@ impl RealearnTarget for BrowseTracksTarget {
             ControlType::AbsoluteDiscrete {
                 atomic_step_size: self.step_size(),
                 is_retriggerable: false,
+                absolute_snap_to_grid: true,
             },
             TargetCharacter::Discrete,
         )

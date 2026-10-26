@@ -61,6 +61,7 @@ impl RealearnTarget for CompartmentParameterValueTarget {
                 ControlType::AbsoluteDiscrete {
                     atomic_step_size: convert_count_to_step_size(c.get()),
                     is_retriggerable: false,
+                    absolute_snap_to_grid: true,
                 },
                 TargetCharacter::Discrete,
             )

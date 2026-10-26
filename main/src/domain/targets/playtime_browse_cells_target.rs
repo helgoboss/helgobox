@@ -1,4 +1,7 @@
-use crate::domain::{CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetResolveResult,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+};
 
 use helgobox_api::persistence::{Axis, MatrixScrollBehavior};
 
@@ -98,6 +101,7 @@ mod playtime_impl {
                         self.column_or_row_count(context) + 1,
                     ),
                     is_retriggerable: false,
+                    absolute_snap_to_grid: true,
                 },
                 TargetCharacter::Discrete,
             )

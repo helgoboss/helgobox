@@ -1,4 +1,10 @@
-use crate::domain::{convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    FxDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, convert_count_to_step_size, convert_unit_value_to_preset_index,
+    fx_preset_unit_value,
+};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
@@ -44,6 +50,7 @@ impl RealearnTarget for FxPresetTarget {
             ControlType::AbsoluteDiscrete {
                 atomic_step_size: convert_count_to_step_size(preset_count + 1),
                 is_retriggerable: false,
+                absolute_snap_to_grid: true,
             },
             TargetCharacter::Discrete,
         )

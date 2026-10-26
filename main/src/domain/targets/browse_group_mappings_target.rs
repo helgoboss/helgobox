@@ -60,6 +60,7 @@ impl RealearnTarget for BrowseGroupMappingsTarget {
                     convert_count_to_step_size(count)
                 },
                 is_retriggerable: false,
+                absolute_snap_to_grid: true,
             },
             TargetCharacter::Discrete,
         )

@@ -182,6 +182,7 @@ impl MidiSendTarget {
                         ControlType::AbsoluteDiscrete {
                             atomic_step_size: step_size,
                             is_retriggerable: true,
+                            absolute_snap_to_grid: true,
                         },
                         TargetCharacter::Discrete,
                     )

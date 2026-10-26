@@ -44,6 +44,7 @@ impl RealearnTarget for BrowsePotPresetsTarget {
             ControlType::AbsoluteDiscrete {
                 atomic_step_size,
                 is_retriggerable: false,
+                absolute_snap_to_grid: true,
             },
             TargetCharacter::Discrete,
         )

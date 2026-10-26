@@ -1,5 +1,11 @@
 use crate::domain::ui_util::parse_unit_value_from_percentage;
-use crate::domain::{get_fx_params, AdditionalFeedbackEvent, Backbone, Caller, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, FxParameterDescriptor, HitResponse, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    AdditionalFeedbackEvent, Backbone, Caller, CompartmentKind, CompoundChangeEvent,
+    ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, FeedbackResolution,
+    FxParameterDescriptor, HitResponse, MappingControlContext, RealTimeControlContext,
+    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, get_fx_params,
+};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use pot::{MacroParam, MacroParamBank};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Reaper, Track};
@@ -423,6 +429,10 @@ fn determine_param_control_type_and_character(
                 ControlType::AbsoluteDiscrete {
                     atomic_step_size: step_size,
                     is_retriggerable: retrigger,
+                    // It's entirely possible that the FX in question actually supports continuous
+                    // control even it reports a step size. So for backward compatibility, we
+                    // must leave this at `false`.
+                    absolute_snap_to_grid: false,
                 },
                 TargetCharacter::Discrete,
             )
