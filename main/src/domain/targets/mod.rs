@@ -28,6 +28,9 @@ pub use playtime_slot_seek_target::*;
 mod playtime_slot_volume_target;
 pub use playtime_slot_volume_target::*;
 
+mod playtime_slot_pitch_shift_target;
+pub use playtime_slot_pitch_shift_target::*;
+
 mod playtime_slot_management_action_target;
 pub use playtime_slot_management_action_target::*;
 

@@ -154,6 +154,7 @@ pub enum Target {
     PlaytimeSlotVolume(PlaytimeSlotVolumeTarget),
     PlaytimeSlotStartPosition(PlaytimeSlotStartPositionTarget),
     PlaytimeSlotLength(PlaytimeSlotLengthTarget),
+    PlaytimeSlotPitchShift(PlaytimeSlotPitchShiftTarget),
     #[serde(alias = "ClipManagement")]
     PlaytimeSlotManagementAction(PlaytimeSlotManagementActionTarget),
     SendMidi(SendMidiTarget),
@@ -967,6 +968,14 @@ pub struct PlaytimeSlotLengthTarget {
     pub time_unit: TimeUnit,
     pub max_value_expression: String,
     pub step_size_expression: String,
+}
+
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
+pub struct PlaytimeSlotPitchShiftTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub slot: PlaytimeSlotDescriptor,
+    pub max_value_expression: String,
 }
 
 #[derive(PartialEq, Serialize, Deserialize)]

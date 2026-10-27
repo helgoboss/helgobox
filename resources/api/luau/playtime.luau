@@ -1054,6 +1054,8 @@ export type Clip = {
 	dynamic_section: Section?,
 	fixed_section: Section?,
 	pitch_shift: Semitones?,
+	tempo_factor: PositiveFactor?,
+	speed_factor: PositiveFactor?,
 	audio_settings: ClipAudioSettings?,
 	midi_settings: ClipMidiSettings?,
 }
@@ -1353,5 +1355,7 @@ export type SlotAddress = {
 function module.SlotAddress(value: SlotAddress): SlotAddress
 	return value
 end
+
+export type PositiveFactor = number
 
 return module

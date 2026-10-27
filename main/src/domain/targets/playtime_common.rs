@@ -222,7 +222,6 @@ impl PlaytimeSlotSectionTargetBase {
         clip_timing_info: &ClipTimingInfo,
     ) -> Positive<f64> {
         self.max_value
-            .map(|v| v)
             .unwrap_or_else(|| self.get_fixed_source_length(context, &clip_timing_info))
     }
 
@@ -367,15 +366,6 @@ impl RealearnTarget for PlaytimeSlotSectionTargetBase {
 
     fn value_unit(&self, _: ControlContext) -> &'static str {
         self.time_unit.suffix()
-    }
-
-    fn format_value(&self, value: UnitValue, context: ControlContext) -> String {
-        let Ok(clip_timing_info) = self.get_clip_timing_info(context) else {
-            return "-".to_string();
-        };
-        let time_unit_value =
-            self.convert_unit_value_to_time_unit_value(value, context, &clip_timing_info);
-        time_unit_value.to_string()
     }
 
     fn hit(

@@ -1765,6 +1765,13 @@ export type Target_PlaytimeSlotLength = {
 	step_size_expression: string,
 }
 
+export type Target_PlaytimeSlotPitchShift = {
+	kind: "PlaytimeSlotPitchShift",
+	unit: TargetUnit?,
+	slot: PlaytimeSlotDescriptor,
+	max_value_expression: string,
+}
+
 export type Target_PlaytimeSlotManagementAction = {
 	kind: "PlaytimeSlotManagementAction",
 	unit: TargetUnit?,
@@ -1914,6 +1921,7 @@ export type Target =
 	| Target_PlaytimeSlotVolume
 	| Target_PlaytimeSlotStartPosition
 	| Target_PlaytimeSlotLength
+	| Target_PlaytimeSlotPitchShift
 	| Target_PlaytimeSlotManagementAction
 	| Target_SendMidi
 	| Target_SendOsc
@@ -1988,6 +1996,7 @@ export type TargetKind =
 	| "PlaytimeSlotVolume"
 	| "PlaytimeSlotStartPosition"
 	| "PlaytimeSlotLength"
+	| "PlaytimeSlotPitchShift"
 	| "PlaytimeSlotManagementAction"
 	| "SendMidi"
 	| "SendOsc"
@@ -2388,6 +2397,13 @@ end
 function module.Target.PlaytimeSlotLength(value: PlaytimeSlotLengthTarget): Target_PlaytimeSlotLength
 	local t: any = table.clone(value)
 	t.kind = "PlaytimeSlotLength"
+	return t
+end
+
+--- Creates a Target of kind PlaytimeSlotPitchShift.
+function module.Target.PlaytimeSlotPitchShift(value: PlaytimeSlotPitchShiftTarget): Target_PlaytimeSlotPitchShift
+	local t: any = table.clone(value)
+	t.kind = "PlaytimeSlotPitchShift"
 	return t
 end
 
@@ -3233,6 +3249,16 @@ export type PlaytimeSlotLengthTarget = {
 }
 --- Creates a PlaytimeSlotLengthTarget value.
 function module.PlaytimeSlotLengthTarget(value: PlaytimeSlotLengthTarget): PlaytimeSlotLengthTarget
+	return value
+end
+
+export type PlaytimeSlotPitchShiftTarget = {
+	unit: TargetUnit?,
+	slot: PlaytimeSlotDescriptor,
+	max_value_expression: string,
+}
+--- Creates a PlaytimeSlotPitchShiftTarget value.
+function module.PlaytimeSlotPitchShiftTarget(value: PlaytimeSlotPitchShiftTarget): PlaytimeSlotPitchShiftTarget
 	return value
 end
 

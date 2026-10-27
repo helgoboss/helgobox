@@ -378,6 +378,13 @@ fn convert_real_target(
                 step_size_expression: data.step_size_expression,
             })
         }
+        PlaytimeSlotPitchShift => {
+            T::PlaytimeSlotPitchShift(helgobox_api::persistence::PlaytimeSlotPitchShiftTarget {
+                commons,
+                slot: data.clip_slot.unwrap_or_default(),
+                max_value_expression: data.max_value_expression,
+            })
+        }
         PlaytimeSlotManagementAction => T::PlaytimeSlotManagementAction(
             helgobox_api::persistence::PlaytimeSlotManagementActionTarget {
                 commons,

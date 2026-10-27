@@ -727,6 +727,7 @@ pub enum ReaperTargetType {
     PlaytimeSlotVolume = 33,
     PlaytimeSlotStartPosition = 68,
     PlaytimeSlotLength = 69,
+    PlaytimeSlotPitchShift = 70,
 
     // Clip column targets
     PlaytimeColumnAction = 50,
@@ -869,6 +870,7 @@ impl ReaperTargetType {
             PlaytimeSlotVolume => &crate::domain::PLAYTIME_SLOT_VOLUME_TARGET,
             PlaytimeSlotStartPosition => &crate::domain::PLAYTIME_SLOT_START_POSITION_TARGET,
             PlaytimeSlotLength => &crate::domain::PLAYTIME_SLOT_LENGTH_TARGET,
+            PlaytimeSlotPitchShift => &crate::domain::PLAYTIME_SLOT_PITCH_SHIFT_TARGET,
             PlaytimeSlotManagementAction => &crate::domain::PLAYTIME_SLOT_MANAGEMENT_TARGET,
             PlaytimeMatrixAction => &crate::domain::PLAYTIME_MATRIX_TARGET,
             PlaytimeControlUnitScroll => &crate::domain::PLAYTIME_CONTROL_UNIT_SCROLL_TARGET,

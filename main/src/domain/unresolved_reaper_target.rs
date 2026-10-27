@@ -106,6 +106,7 @@ pub enum UnresolvedReaperTarget {
     PlaytimeRowAction(crate::domain::UnresolvedPlaytimeRowActionTarget),
     PlaytimeSlotSeek(crate::domain::UnresolvedPlaytimeSlotSeekTarget),
     PlaytimeSlotVolume(crate::domain::UnresolvedPlaytimeSlotVolumeTarget),
+    PlaytimeSlotPitchShift(crate::domain::UnresolvedPlaytimeSlotPitchShiftTarget),
     PlaytimeSlotStartPosition(crate::domain::UnresolvedPlaytimeSlotStartPositionTarget),
     PlaytimeSlotLength(crate::domain::UnresolvedPlaytimeSlotLengthTarget),
     PlaytimeSlotManagementAction(crate::domain::UnresolvedPlaytimeSlotManagementActionTarget),

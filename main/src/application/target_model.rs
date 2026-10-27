@@ -2626,6 +2626,14 @@ impl TargetModel {
                             slot: self.virtual_clip_slot()?,
                         },
                     ),
+                    PlaytimeSlotPitchShift => UnresolvedReaperTarget::PlaytimeSlotPitchShift(
+                        crate::domain::UnresolvedPlaytimeSlotPitchShiftTarget {
+                            slot: self.virtual_clip_slot()?,
+                            max_value_expression_evaluator: ExpressionEvaluator::compile_optional(
+                                &self.max_value_expression,
+                            )?,
+                        },
+                    ),
                     PlaytimeSlotStartPosition => UnresolvedReaperTarget::PlaytimeSlotStartPosition(
                         crate::domain::UnresolvedPlaytimeSlotStartPositionTarget {
                             base: self.playtime_slot_section_target_base()?,
