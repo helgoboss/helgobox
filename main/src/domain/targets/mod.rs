@@ -34,6 +34,9 @@ pub use playtime_slot_pitch_shift_target::*;
 mod playtime_slot_tempo_factor_target;
 pub use playtime_slot_tempo_factor_target::*;
 
+mod playtime_slot_speed_factor_target;
+pub use playtime_slot_speed_factor_target::*;
+
 mod playtime_slot_management_action_target;
 pub use playtime_slot_management_action_target::*;
 

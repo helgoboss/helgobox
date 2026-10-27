@@ -2639,6 +2639,11 @@ impl TargetModel {
                             base: self.playtime_slot_factor_target_base()?,
                         },
                     ),
+                    PlaytimeSlotSpeedFactor => UnresolvedReaperTarget::PlaytimeSlotSpeedFactor(
+                        crate::domain::UnresolvedPlaytimeSlotSpeedFactorTarget {
+                            base: self.playtime_slot_factor_target_base()?,
+                        },
+                    ),
                     PlaytimeSlotStartPosition => UnresolvedReaperTarget::PlaytimeSlotStartPosition(
                         crate::domain::UnresolvedPlaytimeSlotStartPositionTarget {
                             base: self.playtime_slot_section_target_base()?,

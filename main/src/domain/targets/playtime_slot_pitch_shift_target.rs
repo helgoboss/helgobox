@@ -120,6 +120,7 @@ mod playtime_impl {
         fn value_unit(&self, _: ControlContext) -> &'static str {
             "st"
         }
+
         fn parse_as_step_size(
             &self,
             text: &str,
@@ -141,14 +142,6 @@ mod playtime_impl {
             format!("{semitones:.2}")
         }
 
-        // fn hide_formatted_value(&self, _: ControlContext) -> bool {
-        //     true
-        // }
-        //
-        // fn hide_formatted_step_size(&self, _: ControlContext) -> bool {
-        //     true
-        // }
-        //
         fn step_size_unit(&self, _: ControlContext) -> &'static str {
             "st"
         }

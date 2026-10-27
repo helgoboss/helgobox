@@ -30,6 +30,7 @@ pub struct PlaytimeSlotFactorTargetBase {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum FactorVariable {
     TempoFactor,
+    SpeedFactor,
 }
 
 impl PlaytimeSlotFactorTargetBase {
@@ -51,7 +52,7 @@ impl PlaytimeSlotFactorTargetBase {
         Ok(base)
     }
 
-    fn get_effective_max_value(&self, context: ControlContext) -> Positive<f64> {
+    fn get_effective_max_value(&self) -> Positive<f64> {
         self.max_value
             .unwrap_or_else(|| Positive::<f64>::new(4.0).unwrap())
     }
@@ -71,21 +72,22 @@ impl PlaytimeSlotFactorTargetBase {
     fn get_factor(&self, time_pitch_transform: &TimePitchTransform) -> PositiveFactor {
         match self.factor_variable {
             FactorVariable::TempoFactor => time_pitch_transform.tempo_factor,
+            FactorVariable::SpeedFactor => time_pitch_transform.speed_factor,
         }
     }
 
     fn convert_unit_value_to_factor(
         &self,
         unit_value: UnitValue,
-        context: ControlContext,
+        _: ControlContext,
     ) -> PositiveFactor {
-        let max_value = self.get_effective_max_value(context);
+        let max_value = self.get_effective_max_value();
         let raw_factor = max_value.get().powf(2.0 * unit_value.get() - 1.0);
         PositiveFactor::new(raw_factor).unwrap_or_default()
     }
 
-    fn convert_factor_to_unit_value(&self, factor: f64, context: ControlContext) -> UnitValue {
-        let max_value = self.get_effective_max_value(context);
+    fn convert_factor_to_unit_value(&self, factor: f64, _: ControlContext) -> UnitValue {
+        let max_value = self.get_effective_max_value();
         let raw_unit_value = (factor.log(max_value.get()) + 1.0) / 2.0;
         UnitValue::new_clamped(raw_unit_value)
     }
@@ -135,6 +137,23 @@ impl RealearnTarget for PlaytimeSlotFactorTargetBase {
         "x"
     }
 
+    fn parse_as_step_size(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {
+        let step_size: f64 = text.parse().map_err(|_| "not a valid decimal value")?;
+        let max_value = self.get_effective_max_value();
+        let raw_unit_value = step_size.log(max_value.get()) / 2.0;
+        Ok(UnitValue::new_clamped(raw_unit_value))
+    }
+
+    fn format_step_size_without_unit(&self, unit_value: UnitValue, _: ControlContext) -> String {
+        let max_value = self.get_effective_max_value();
+        let step_size = max_value.get().powf(2.0 * unit_value.get());
+        format!("{step_size:.2}")
+    }
+
+    fn step_size_unit(&self, _: ControlContext) -> &'static str {
+        "x"
+    }
+
     fn hit(
         &mut self,
         value: ControlValue,
@@ -149,6 +168,9 @@ impl RealearnTarget for PlaytimeSlotFactorTargetBase {
                     match self.factor_variable {
                         FactorVariable::TempoFactor => {
                             matrix.set_slot_tempo_factor(self.slot_coordinates, factor)?
+                        }
+                        FactorVariable::SpeedFactor => {
+                            matrix.set_slot_speed_factor(self.slot_coordinates, factor)?
                         }
                     };
                     Ok(HitResponse::processed_with_effect())

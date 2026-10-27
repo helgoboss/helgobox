@@ -392,6 +392,13 @@ fn convert_real_target(
                 max_value_expression: data.max_value_expression,
             })
         }
+        PlaytimeSlotSpeedFactor => {
+            T::PlaytimeSlotSpeedFactor(helgobox_api::persistence::PlaytimeSlotSpeedFactorTarget {
+                commons,
+                slot: data.clip_slot.unwrap_or_default(),
+                max_value_expression: data.max_value_expression,
+            })
+        }
         PlaytimeSlotManagementAction => T::PlaytimeSlotManagementAction(
             helgobox_api::persistence::PlaytimeSlotManagementActionTarget {
                 commons,

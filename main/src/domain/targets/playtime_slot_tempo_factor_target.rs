@@ -131,6 +131,26 @@ mod playtime_impl {
             self.base.numeric_value(context)
         }
 
+        fn parse_as_step_size(
+            &self,
+            text: &str,
+            context: ControlContext,
+        ) -> Result<UnitValue, &'static str> {
+            self.base.parse_as_step_size(text, context)
+        }
+
+        fn format_step_size_without_unit(
+            &self,
+            unit_value: UnitValue,
+            context: ControlContext,
+        ) -> String {
+            self.base.format_step_size_without_unit(unit_value, context)
+        }
+
+        fn step_size_unit(&self, context: ControlContext) -> &'static str {
+            self.base.step_size_unit(context)
+        }
+
         fn reaper_target_type(&self) -> Option<ReaperTargetType> {
             Some(ReaperTargetType::PlaytimeSlotTempoFactor)
         }
