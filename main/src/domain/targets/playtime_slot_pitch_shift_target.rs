@@ -65,7 +65,10 @@ mod no_playtime_impl {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::domain::playtime_util::interpret_current_clip_slot_value;
-    use crate::domain::targets::playtime_common::{ClipTimingInfo, SectionVariable, TimeUnitValue};
+    use crate::domain::targets::playtime_factor_commons::FactorVariable;
+    use crate::domain::targets::playtime_timing_commons::{
+        ClipTimingInfo, SectionVariable, TimeUnitValue,
+    };
     use crate::domain::ui_util::{
         db_unit_value, format_value_as_db, format_value_as_db_without_unit, parse_value_from_db,
     };
@@ -79,6 +82,7 @@ mod playtime_impl {
         AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue,
     };
     use playtime_api::persistence::SlotAddress;
+    use playtime_clip_engine::rt::supplier::TimePitchTransform;
     use playtime_clip_engine::{
         base::ClipMatrixEvent,
         rt::{ClipChangeEvent, QualifiedClipChangeEvent},
@@ -183,7 +187,7 @@ mod playtime_impl {
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
                     QualifiedClipChangeEvent {
                         clip_address,
-                        event: ClipChangeEvent::Everything | ClipChangeEvent::PitchShift(_),
+                        event: ClipChangeEvent::Everything | ClipChangeEvent::TimePitchTransform(_),
                     },
                 )) if clip_address.slot_address == self.slot_coordinates => (true, None),
                 _ => (false, None),

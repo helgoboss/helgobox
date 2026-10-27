@@ -816,7 +816,14 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
         },
         Target::PlaytimeSlotPitchShift(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::PlaytimeSlotLength,
+            r#type: ReaperTargetType::PlaytimeSlotPitchShift,
+            clip_slot: Some(d.slot),
+            max_value_expression: d.max_value_expression,
+            ..init(d.commons)
+        },
+        Target::PlaytimeSlotTempoFactor(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::PlaytimeSlotTempoFactor,
             clip_slot: Some(d.slot),
             max_value_expression: d.max_value_expression,
             ..init(d.commons)

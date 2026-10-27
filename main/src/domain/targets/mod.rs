@@ -31,6 +31,9 @@ pub use playtime_slot_volume_target::*;
 mod playtime_slot_pitch_shift_target;
 pub use playtime_slot_pitch_shift_target::*;
 
+mod playtime_slot_tempo_factor_target;
+pub use playtime_slot_tempo_factor_target::*;
+
 mod playtime_slot_management_action_target;
 pub use playtime_slot_management_action_target::*;
 
@@ -212,4 +215,7 @@ mod playtime_slot_length_target;
 pub use playtime_slot_length_target::*;
 
 #[cfg(feature = "playtime")]
-mod playtime_common;
+mod playtime_timing_commons;
+
+#[cfg(feature = "playtime")]
+mod playtime_factor_commons;

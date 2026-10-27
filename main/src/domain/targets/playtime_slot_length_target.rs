@@ -1,4 +1,6 @@
-use crate::domain::targets::playtime_common::{PlaytimeSlotSectionTargetBase, SectionVariable};
+use crate::domain::targets::playtime_timing_commons::{
+    PlaytimeSlotSectionTargetBase, SectionVariable,
+};
 use crate::domain::{
     CompartmentKind, DEFAULT_TARGET, ExtendedProcessorContext, ReaperTarget, TargetResolveResult,
     TargetSection, TargetTypeDef, UnresolvedPlaytimeSlotSectionTargetBase,
@@ -132,7 +134,7 @@ mod playtime_impl {
         }
 
         fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-            self.base.reaper_target_type()
+            Some(ReaperTargetType::PlaytimeSlotLength)
         }
     }
 

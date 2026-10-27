@@ -107,6 +107,7 @@ pub enum UnresolvedReaperTarget {
     PlaytimeSlotSeek(crate::domain::UnresolvedPlaytimeSlotSeekTarget),
     PlaytimeSlotVolume(crate::domain::UnresolvedPlaytimeSlotVolumeTarget),
     PlaytimeSlotPitchShift(crate::domain::UnresolvedPlaytimeSlotPitchShiftTarget),
+    PlaytimeSlotTempoFactor(crate::domain::UnresolvedPlaytimeSlotTempoFactorTarget),
     PlaytimeSlotStartPosition(crate::domain::UnresolvedPlaytimeSlotStartPositionTarget),
     PlaytimeSlotLength(crate::domain::UnresolvedPlaytimeSlotLengthTarget),
     PlaytimeSlotManagementAction(crate::domain::UnresolvedPlaytimeSlotManagementActionTarget),
@@ -2350,4 +2351,10 @@ pub struct UnresolvedPlaytimeSlotSectionTargetBase {
     pub time_unit: TimeUnit,
     pub max_value_expression_evaluator: Option<ExpressionEvaluator>,
     pub step_size_expression_evaluator: Option<ExpressionEvaluator>,
+}
+
+#[derive(Debug)]
+pub struct UnresolvedPlaytimeSlotFactorTargetBase {
+    pub slot: VirtualPlaytimeSlot,
+    pub max_value_expression_evaluator: Option<ExpressionEvaluator>,
 }

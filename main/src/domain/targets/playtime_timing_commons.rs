@@ -398,8 +398,7 @@ impl RealearnTarget for PlaytimeSlotSectionTargetBase {
                             length: Some(second_value.try_into()?),
                         },
                     };
-                    let clip_address = ClipAddress::new(self.slot_coordinates, 0);
-                    matrix.set_clip_dynamic_section(clip_address, new_section)?;
+                    matrix.set_slot_dynamic_section(self.slot_coordinates, new_section)?;
                     Ok(HitResponse::processed_with_effect())
                 },
             )
@@ -444,6 +443,6 @@ impl RealearnTarget for PlaytimeSlotSectionTargetBase {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::PlaytimeSlotStartPosition)
+        unimplemented!()
     }
 }

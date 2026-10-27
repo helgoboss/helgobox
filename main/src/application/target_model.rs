@@ -36,19 +36,19 @@ use crate::domain::{
     UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
     UnresolvedLoadMappingSnapshotTarget, UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget,
     UnresolvedModifyMappingTarget, UnresolvedMouseTarget, UnresolvedOscSendTarget,
-    UnresolvedPlayrateTarget, UnresolvedPlaytimeSlotSectionTargetBase,
-    UnresolvedPreviewPotPresetTarget, UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget,
-    UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget,
-    UnresolvedRoutePhaseTarget, UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget,
-    UnresolvedSeekTarget, UnresolvedStreamDeckBrightnessTarget,
-    UnresolvedTakeMappingSnapshotTarget, UnresolvedTempoTarget, UnresolvedTrackArmTarget,
-    UnresolvedTrackAutomationModeTarget, UnresolvedTrackMonitoringModeTarget,
-    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackParentSendTarget,
-    UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget,
-    UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget,
-    UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
-    UnresolvedTransportTarget, VirtualChainFx, VirtualControlElement, VirtualControlElementId,
-    VirtualFx, VirtualFxParameter, VirtualMappingSnapshotIdForLoad,
+    UnresolvedPlayrateTarget, UnresolvedPlaytimeSlotFactorTargetBase,
+    UnresolvedPlaytimeSlotSectionTargetBase, UnresolvedPreviewPotPresetTarget,
+    UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
+    UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
+    UnresolvedRouteTouchStateTarget, UnresolvedRouteVolumeTarget, UnresolvedSeekTarget,
+    UnresolvedStreamDeckBrightnessTarget, UnresolvedTakeMappingSnapshotTarget,
+    UnresolvedTempoTarget, UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
+    UnresolvedTrackMonitoringModeTarget, UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget,
+    UnresolvedTrackParentSendTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
+    UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
+    UnresolvedTrackToolTarget, UnresolvedTrackTouchStateTarget, UnresolvedTrackVolumeTarget,
+    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualControlElement,
+    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualMappingSnapshotIdForLoad,
     VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack, VirtualTrackRoute, find_bookmark,
     get_fx_name, get_fx_params, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_routes,
@@ -2634,6 +2634,11 @@ impl TargetModel {
                             )?,
                         },
                     ),
+                    PlaytimeSlotTempoFactor => UnresolvedReaperTarget::PlaytimeSlotTempoFactor(
+                        crate::domain::UnresolvedPlaytimeSlotTempoFactorTarget {
+                            base: self.playtime_slot_factor_target_base()?,
+                        },
+                    ),
                     PlaytimeSlotStartPosition => UnresolvedReaperTarget::PlaytimeSlotStartPosition(
                         crate::domain::UnresolvedPlaytimeSlotStartPositionTarget {
                             base: self.playtime_slot_section_target_base()?,
@@ -2819,6 +2824,18 @@ impl TargetModel {
             )?,
             step_size_expression_evaluator: ExpressionEvaluator::compile_optional(
                 &self.step_size_expression,
+            )?,
+        };
+        Ok(base)
+    }
+
+    pub fn playtime_slot_factor_target_base(
+        &self,
+    ) -> anyhow::Result<UnresolvedPlaytimeSlotFactorTargetBase> {
+        let base = UnresolvedPlaytimeSlotFactorTargetBase {
+            slot: self.virtual_clip_slot()?,
+            max_value_expression_evaluator: ExpressionEvaluator::compile_optional(
+                &self.max_value_expression,
             )?,
         };
         Ok(base)

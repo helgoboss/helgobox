@@ -604,18 +604,19 @@ mod playtime_impl {
             if sender.receiver_count() == 0 {
                 return;
             }
-            let updates: Vec<_> = events
-                .iter()
-                .filter_map(|event| match event {
-                    ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
-                        clip_address,
-                        event,
-                    }) => {
-                        use ClipChangeEvent::*;
-                        let employment = matrix.find_clip_employment(*clip_address)?;
-                        let update = match event {
+            let updates: Vec<_> =
+                events
+                    .iter()
+                    .filter_map(|event| match event {
+                        ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
+                            clip_address,
+                            event,
+                        }) => {
+                            use ClipChangeEvent::*;
+                            let employment = matrix.find_clip_employment(*clip_address)?;
+                            let update = match event {
                             Everything | Volume(_) | Looped(_) | DynamicSection(_)
-                            | PitchShift(_) => {
+                            | TimePitchTransform(_) => {
                                 qualified_occasional_clip_update::Update::complete_persistent_data(
                                     matrix,
                                     &employment.clip,
@@ -626,14 +627,14 @@ mod playtime_impl {
                                 matrix, employment,
                             ),
                         };
-                        Some(QualifiedOccasionalClipUpdate {
-                            clip_address: Some(proto::ClipAddress::from_engine(*clip_address)),
-                            update: Some(update),
-                        })
-                    }
-                    _ => None,
-                })
-                .collect();
+                            Some(QualifiedOccasionalClipUpdate {
+                                clip_address: Some(proto::ClipAddress::from_engine(*clip_address)),
+                                update: Some(update),
+                            })
+                        }
+                        _ => None,
+                    })
+                    .collect();
             if !updates.is_empty() {
                 let batch_event = OccasionalClipUpdateBatch {
                     instance_id: matrix_id,
