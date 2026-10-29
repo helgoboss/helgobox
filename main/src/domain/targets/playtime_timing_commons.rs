@@ -7,12 +7,11 @@ use crate::domain::{
 use anyhow::Context;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use helgobox_api::persistence::TimeUnit;
-use playtime_api::persistence::{Section, SlotAddress};
-use playtime_clip_engine::base::{ClipAddress, ClipMatrixEvent, Matrix};
+use playtime_api::persistence::{ClipTimeBase, Section, SlotAddress, TimeSignature};
+use playtime_clip_engine::base::{ClipAddress, ClipMatrixEvent, ClipSource, Matrix};
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use playtime_clip_engine::{Timeline, clip_timeline};
 use reaper_common_types::{Bpm, DurationInSeconds, PositionInSeconds};
-use reaper_medium::TimeSignature;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use typed_floats::{NonNaN, Positive};
@@ -21,6 +20,7 @@ pub struct ClipTimingInfo {
     pub dynamic_section: Section,
     pub fixed_source_length: DurationInSeconds,
     pub source_tempo: Bpm,
+    pub time_signature: TimeSignature,
 }
 
 impl ClipTimingInfo {
@@ -36,46 +36,41 @@ impl ClipTimingInfo {
                 .source_material_info
                 .neutral_playback_tempo()
                 .context("missing clip tempo")?,
+            time_signature: match clip_employment.clip.source() {
+                ClipSource::File(_) => match clip_employment.clip.time_base() {
+                    ClipTimeBase::Time => TimeSignature::default(),
+                    ClipTimeBase::Beat(b) => b.time_signature,
+                },
+                ClipSource::Midi(s) => s.sequence().time_info().time_signature,
+            },
         };
         Ok(timing_info)
     }
 
-    pub fn get_start_position(
-        &self,
-        time_unit: TimeUnit,
-        project_time_signature: TimeSignature,
-    ) -> NonNaN<f64> {
+    pub fn get_start_position(&self, time_unit: TimeUnit) -> NonNaN<f64> {
         self.seconds_to_time_unit(
             self.dynamic_section.start_pos,
             time_unit,
-            project_time_signature,
+            self.time_signature,
         )
     }
 
-    pub fn get_length(
-        &self,
-        time_unit: TimeUnit,
-        project_time_signature: TimeSignature,
-    ) -> NonNaN<f64> {
+    pub fn get_length(&self, time_unit: TimeUnit) -> NonNaN<f64> {
         self.seconds_to_time_unit(
             self.dynamic_section
                 .length
                 .map(PositionInSeconds::from)
                 .unwrap_or_default(),
             time_unit,
-            project_time_signature,
+            self.time_signature,
         )
     }
 
-    pub fn get_fixed_source_length(
-        &self,
-        time_unit: TimeUnit,
-        project_time_signature: TimeSignature,
-    ) -> Positive<f64> {
+    pub fn get_fixed_source_length(&self, time_unit: TimeUnit) -> Positive<f64> {
         self.seconds_to_time_unit(
             self.fixed_source_length.into(),
             time_unit,
-            project_time_signature,
+            self.time_signature,
         )
         .try_into()
         .expect("get_fixed_source_length")
@@ -136,17 +131,11 @@ fn whole_notes_per_second(bpm: Bpm) -> Positive<f64> {
 }
 
 pub fn bars_per_second(bpm: Bpm, time_signature: TimeSignature) -> Positive<f64> {
-    let num = time_signature.numerator.get() as f64;
-    let denom = time_signature.denominator.get() as f64;
+    let num = time_signature.numerator as f64;
+    let denom = time_signature.denominator as f64;
     let qn_per_bar = num * 4.0 / denom;
     let qn_per_second = bpm.get() / 60.0;
     Positive::<f64>::new(qn_per_second / qn_per_bar).expect("bars_per_second")
-}
-
-pub fn get_project_time_signature(context: ControlContext) -> TimeSignature {
-    let project = context.processor_context.project_or_current_project();
-    let timeline = clip_timeline(project, false);
-    timeline.time_signature_at(timeline.cursor_pos().get())
 }
 
 pub struct TimeUnitValue {
@@ -233,7 +222,7 @@ impl PlaytimeSlotSectionTargetBase {
         let project = context.processor_context.project_or_current_project();
         let timeline = clip_timeline(project, false);
         let time_signature = timeline.time_signature_at(timeline.cursor_pos().get());
-        clip_timing_info.get_fixed_source_length(self.time_unit, time_signature)
+        clip_timing_info.get_fixed_source_length(self.time_unit)
     }
 
     pub fn get_clip_timing_info(&self, context: ControlContext) -> anyhow::Result<ClipTimingInfo> {
@@ -281,16 +270,10 @@ impl PlaytimeSlotSectionTargetBase {
         UnitValue::new_clamped(raw_unit_value)
     }
 
-    fn get_time_unit_value(
-        &self,
-        clip_timing_info: &ClipTimingInfo,
-        time_signature: TimeSignature,
-    ) -> NonNaN<f64> {
+    fn get_time_unit_value(&self, clip_timing_info: &ClipTimingInfo) -> NonNaN<f64> {
         match self.section_variable {
-            SectionVariable::StartPosition => {
-                clip_timing_info.get_start_position(self.time_unit, time_signature)
-            }
-            SectionVariable::Length => clip_timing_info.get_length(self.time_unit, time_signature),
+            SectionVariable::StartPosition => clip_timing_info.get_start_position(self.time_unit),
+            SectionVariable::Length => clip_timing_info.get_length(self.time_unit),
         }
     }
 }
@@ -300,8 +283,7 @@ impl<'a> Target<'a> for PlaytimeSlotSectionTargetBase {
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let clip_timing_info = self.get_clip_timing_info(context).ok()?;
-        let time_signature = get_project_time_signature(context);
-        let time_unit_value = self.get_time_unit_value(&clip_timing_info, time_signature);
+        let time_unit_value = self.get_time_unit_value(&clip_timing_info);
         let unit_value = self.convert_time_unit_value_to_unit_value(
             time_unit_value.get(),
             context,
@@ -385,9 +367,10 @@ impl RealearnTarget for PlaytimeSlotSectionTargetBase {
                         context.control_context,
                         &clip_timing_info,
                     );
-                    let time_signature = get_project_time_signature(context.control_context);
-                    let second_value =
-                        time_unit_value.to_seconds(clip_timing_info.source_tempo, time_signature);
+                    let second_value = time_unit_value.to_seconds(
+                        clip_timing_info.source_tempo,
+                        clip_timing_info.time_signature,
+                    );
                     let new_section = match self.section_variable {
                         SectionVariable::StartPosition => Section {
                             start_pos: second_value.into(),
@@ -430,15 +413,13 @@ impl RealearnTarget for PlaytimeSlotSectionTargetBase {
 
     fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
         let clip_timing_info = self.get_clip_timing_info(context).ok()?;
-        let time_signature = get_project_time_signature(context);
-        let time_unit_value = self.get_time_unit_value(&clip_timing_info, time_signature);
+        let time_unit_value = self.get_time_unit_value(&clip_timing_info);
         Some(time_unit_value.to_string().into())
     }
 
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
         let clip_timing_info = self.get_clip_timing_info(context).ok()?;
-        let time_signature = get_project_time_signature(context);
-        let time_unit_value = self.get_time_unit_value(&clip_timing_info, time_signature);
+        let time_unit_value = self.get_time_unit_value(&clip_timing_info);
         Some(NumericValue::Decimal(time_unit_value.get()))
     }
 
