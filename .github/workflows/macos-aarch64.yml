@@ -15,7 +15,7 @@ name: macOS aarch64
 jobs:
   test:
     name: Build
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       # The first aarch64 target
       MACOSX_DEPLOYMENT_TARGET: 11.0

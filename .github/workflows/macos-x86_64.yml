@@ -15,7 +15,7 @@ name: macOS x86_64
 jobs:
   check:
     name: Check
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       MACOSX_DEPLOYMENT_TARGET: 10.9
     steps:
