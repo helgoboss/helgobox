@@ -1062,7 +1062,7 @@ pub struct ColumnClipPlaySettings {
 pub struct ColumnClipRecordSettings {
     #[serde(default)]
     pub origin: RecordOrigin,
-    /// By default, Playtime records from the play track but this settings allows to override that.
+    /// By default, Playtime records from the play track but this setting allows to override that.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<TrackId>,
 }
