@@ -2265,6 +2265,7 @@ pub enum TriggerColumnAction {
     Activate = 7,
     ExportToClipboard = 8,
     ExportToArrangement = 9,
+    SetupInstrumentOutputRecording = 12,
 }
 impl TriggerColumnAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2289,6 +2290,9 @@ impl TriggerColumnAction {
             Self::Activate => "TRIGGER_COLUMN_ACTION_ACTIVATE",
             Self::ExportToClipboard => "TRIGGER_COLUMN_ACTION_EXPORT_TO_CLIPBOARD",
             Self::ExportToArrangement => "TRIGGER_COLUMN_ACTION_EXPORT_TO_ARRANGEMENT",
+            Self::SetupInstrumentOutputRecording => {
+                "TRIGGER_COLUMN_ACTION_SETUP_INSTRUMENT_OUTPUT_RECORDING"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2315,6 +2319,9 @@ impl TriggerColumnAction {
             "TRIGGER_COLUMN_ACTION_EXPORT_TO_CLIPBOARD" => Some(Self::ExportToClipboard),
             "TRIGGER_COLUMN_ACTION_EXPORT_TO_ARRANGEMENT" => {
                 Some(Self::ExportToArrangement)
+            }
+            "TRIGGER_COLUMN_ACTION_SETUP_INSTRUMENT_OUTPUT_RECORDING" => {
+                Some(Self::SetupInstrumentOutputRecording)
             }
             _ => None,
         }

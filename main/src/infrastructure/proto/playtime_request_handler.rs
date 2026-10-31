@@ -555,6 +555,9 @@ impl PlaytimeProtoRequestHandler {
                 TriggerColumnAction::InsertForEachSelectedTrack => {
                     matrix.insert_column_for_each_selected_track(column_index)?
                 }
+                TriggerColumnAction::SetupInstrumentOutputRecording => {
+                    matrix.setup_instrument_output_recording(column_index)?
+                }
             }
             Ok(())
         })
