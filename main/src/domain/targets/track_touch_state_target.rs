@@ -1,4 +1,11 @@
-use crate::domain::{change_track_prop, format_value_as_on_off, get_control_type_and_character_for_track_exclusivity, get_effective_tracks, touched_unit_value, AdditionalFeedbackEvent, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    AdditionalFeedbackEvent, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext,
+    DEFAULT_TARGET, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection,
+    TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef,
+    change_track_prop, format_value_as_on_off,
+    get_control_type_and_character_for_track_exclusivity, get_effective_tracks, touched_unit_value,
+};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
 use std::borrow::Cow;
@@ -30,9 +37,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackTouchStateTarget {
                 ReaperTarget::TrackAutomationTouchState(target)
             })
             .collect();
-        Ok(
-            targets,
-        )
+        Ok(targets)
     }
 
     fn track_descriptor(&self) -> Option<&TrackDescriptor> {

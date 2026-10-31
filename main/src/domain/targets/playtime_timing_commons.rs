@@ -8,9 +8,8 @@ use anyhow::Context;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use helgobox_api::persistence::TimeUnit;
 use playtime_api::persistence::{ClipTimeBase, Section, SlotAddress, TimeSignature};
-use playtime_clip_engine::base::{ClipAddress, ClipMatrixEvent, ClipSource, Matrix};
+use playtime_clip_engine::base::{ClipMatrixEvent, ClipSource, Matrix};
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
-use playtime_clip_engine::{Timeline, clip_timeline};
 use reaper_common_types::{Bpm, DurationInSeconds, PositionInSeconds};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -31,7 +30,7 @@ impl ClipTimingInfo {
             dynamic_section: clip_employment.clip.dynamic_section(),
             fixed_source_length: runtime_data
                 .source_material_info
-                .fixed_source_length(&clip_employment.clip.rt_settings()),
+                .fixed_source_length(clip_employment.clip.rt_settings()),
             source_tempo: runtime_data
                 .source_material_info
                 .neutral_playback_tempo()
@@ -205,24 +204,9 @@ impl PlaytimeSlotSectionTargetBase {
         Ok(base)
     }
 
-    fn get_effective_max_value(
-        &self,
-        context: ControlContext,
-        clip_timing_info: &ClipTimingInfo,
-    ) -> Positive<f64> {
+    fn get_effective_max_value(&self, clip_timing_info: &ClipTimingInfo) -> Positive<f64> {
         self.max_value
-            .unwrap_or_else(|| self.get_fixed_source_length(context, &clip_timing_info))
-    }
-
-    fn get_fixed_source_length(
-        &self,
-        context: ControlContext,
-        clip_timing_info: &ClipTimingInfo,
-    ) -> Positive<f64> {
-        let project = context.processor_context.project_or_current_project();
-        let timeline = clip_timeline(project, false);
-        let time_signature = timeline.time_signature_at(timeline.cursor_pos().get());
-        clip_timing_info.get_fixed_source_length(self.time_unit)
+            .unwrap_or_else(|| clip_timing_info.get_fixed_source_length(self.time_unit))
     }
 
     pub fn get_clip_timing_info(&self, context: ControlContext) -> anyhow::Result<ClipTimingInfo> {
@@ -236,10 +220,9 @@ impl PlaytimeSlotSectionTargetBase {
     fn convert_unit_value_to_time_unit_value(
         &self,
         unit_value: UnitValue,
-        context: ControlContext,
         clip_timing_info: &ClipTimingInfo,
     ) -> TimeUnitValue {
-        let max_value = self.get_effective_max_value(context, &clip_timing_info);
+        let max_value = self.get_effective_max_value(clip_timing_info);
         let raw_time_unit_value = match self.section_variable {
             SectionVariable::StartPosition => {
                 unit_value.get() * max_value.get() * 2.0 - max_value.get()
@@ -257,10 +240,9 @@ impl PlaytimeSlotSectionTargetBase {
     fn convert_time_unit_value_to_unit_value(
         &self,
         time_unit_value: f64,
-        context: ControlContext,
         clip_timing_info: &ClipTimingInfo,
     ) -> UnitValue {
-        let max_value = self.get_effective_max_value(context, &clip_timing_info);
+        let max_value = self.get_effective_max_value(clip_timing_info);
         let raw_unit_value = match self.section_variable {
             SectionVariable::StartPosition => {
                 (time_unit_value + max_value.get()) / (2.0 * max_value.get())
@@ -284,11 +266,8 @@ impl<'a> Target<'a> for PlaytimeSlotSectionTargetBase {
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let clip_timing_info = self.get_clip_timing_info(context).ok()?;
         let time_unit_value = self.get_time_unit_value(&clip_timing_info);
-        let unit_value = self.convert_time_unit_value_to_unit_value(
-            time_unit_value.get(),
-            context,
-            &clip_timing_info,
-        );
+        let unit_value =
+            self.convert_time_unit_value_to_unit_value(time_unit_value.get(), &clip_timing_info);
         let val = AbsoluteValue::Continuous(unit_value);
         interpret_current_clip_slot_value(Some(val))
     }
@@ -306,7 +285,7 @@ impl RealearnTarget for PlaytimeSlotSectionTargetBase {
         if let Some(step_size) = self.step_size
             && let Ok(clip_timing_info) = self.get_clip_timing_info(context)
         {
-            let max_value = self.get_effective_max_value(context, &clip_timing_info);
+            let max_value = self.get_effective_max_value(&clip_timing_info);
             let raw_step_size = match self.section_variable {
                 SectionVariable::StartPosition => step_size.get() / (max_value.get() * 2.0),
                 SectionVariable::Length => step_size.get() / max_value.get(),
@@ -333,7 +312,7 @@ impl RealearnTarget for PlaytimeSlotSectionTargetBase {
         let clip_timing_info = self.get_clip_timing_info(context).map_err(|_| "no clip")?;
         let time_unit_value: f64 = text.parse().map_err(|_| "not a valid decimal value")?;
         let unit_value =
-            self.convert_time_unit_value_to_unit_value(time_unit_value, context, &clip_timing_info);
+            self.convert_time_unit_value_to_unit_value(time_unit_value, &clip_timing_info);
         Ok(unit_value)
     }
 
@@ -341,8 +320,7 @@ impl RealearnTarget for PlaytimeSlotSectionTargetBase {
         let Ok(clip_timing_info) = self.get_clip_timing_info(context) else {
             return "-".to_string();
         };
-        let time_unit_value =
-            self.convert_unit_value_to_time_unit_value(value, context, &clip_timing_info);
+        let time_unit_value = self.convert_unit_value_to_time_unit_value(value, &clip_timing_info);
         format!("{:.2}", time_unit_value.value)
     }
 
@@ -362,18 +340,15 @@ impl RealearnTarget for PlaytimeSlotSectionTargetBase {
                 |matrix| -> anyhow::Result<HitResponse> {
                     let clip_timing_info =
                         ClipTimingInfo::from_slot(matrix, self.slot_coordinates)?;
-                    let time_unit_value = self.convert_unit_value_to_time_unit_value(
-                        value,
-                        context.control_context,
-                        &clip_timing_info,
-                    );
+                    let time_unit_value =
+                        self.convert_unit_value_to_time_unit_value(value, &clip_timing_info);
                     let second_value = time_unit_value.to_seconds(
                         clip_timing_info.source_tempo,
                         clip_timing_info.time_signature,
                     );
                     let new_section = match self.section_variable {
                         SectionVariable::StartPosition => Section {
-                            start_pos: second_value.into(),
+                            start_pos: second_value,
                             length: clip_timing_info.dynamic_section.length,
                         },
                         SectionVariable::Length => Section {

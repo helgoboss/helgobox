@@ -1,9 +1,15 @@
-use crate::domain::{get_fx_name, ChangeInstanceFxArgs, CompartmentKind, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse, InstanceFxChangeRequest, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    ChangeInstanceFxArgs, CompartmentKind, ControlContext, DEFAULT_TARGET,
+    ExtendedProcessorContext, FxDescriptor, HitResponse, InstanceFxChangeRequest,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    get_fx_name,
+};
+use anyhow::anyhow;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target};
 use helgobox_api::persistence::FxToolAction;
 use reaper_high::{Fx, FxChain, Project, Track};
 use std::borrow::Cow;
-use anyhow::anyhow;
 
 #[derive(Debug)]
 pub struct UnresolvedFxToolTarget {

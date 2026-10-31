@@ -70,7 +70,7 @@ impl ApiObject {
     }
 }
 
-type HelgoboxApiResult<T> = Result<T, HelgoboxApiError>;
+// type HelgoboxApiResult<T> = Result<T, HelgoboxApiError>;
 
 /// Important: Since some of these types are going to be used in real-time contexts, we don't
 /// want heap-allocated types in here!

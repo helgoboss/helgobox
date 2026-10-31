@@ -1,5 +1,11 @@
 use crate::application::BookmarkAnchorType;
-use crate::domain::{current_value_of_bookmark, find_bookmark, format_value_as_on_off, with_seek_behavior, AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET,
+    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, current_value_of_bookmark,
+    find_bookmark, format_value_as_on_off, with_seek_behavior,
+};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RgbColor, Target, UnitValue,
 };

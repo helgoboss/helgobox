@@ -426,10 +426,7 @@ impl MappingModel {
         context: ExtendedProcessorContext,
     ) -> Option<Affected<MappingProp>> {
         let with_context = self.with_context(context);
-        if with_context
-            .absolute_mode_makes_sense()
-            .is_ok_and(|v| v == false)
-        {
+        if with_context.absolute_mode_makes_sense().is_ok_and(|v| !v) {
             if let Ok(preferred_mode_type) = with_context.preferred_mode_type() {
                 self.mode_model
                     .change(ModeCommand::SetAbsoluteMode(preferred_mode_type));

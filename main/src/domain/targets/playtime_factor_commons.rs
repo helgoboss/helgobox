@@ -1,24 +1,15 @@
 use crate::domain::playtime_util::interpret_current_clip_slot_value;
-use crate::domain::targets::playtime_timing_commons::{ClipTimingInfo, SectionVariable};
 use crate::domain::{
     Backbone, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTargetType, ResolveError,
     TargetCharacter, UnresolvedPlaytimeSlotFactorTargetBase,
-    UnresolvedPlaytimeSlotSectionTargetBase,
 };
-use anyhow::Context;
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use helgobox_api::persistence::TimeUnit;
-use playtime_api::persistence::{PositiveFactor, Section, SlotAddress};
-use playtime_clip_engine::base::{ClipAddress, ClipMatrixEvent, Matrix};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use playtime_api::persistence::{PositiveFactor, SlotAddress};
+use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::supplier::TimePitchTransform;
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
-use playtime_clip_engine::{Timeline, clip_timeline};
-use reaper_common_types::{Bpm, DurationInSeconds, PositionInSeconds};
-use reaper_medium::TimeSignature;
-use std::borrow::Cow;
-use std::fmt::{Display, Formatter};
-use typed_floats::{NonNaN, Positive};
+use typed_floats::Positive;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlaytimeSlotFactorTargetBase {

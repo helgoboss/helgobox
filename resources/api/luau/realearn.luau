@@ -1772,6 +1772,20 @@ export type Target_PlaytimeSlotPitchShift = {
 	max_value_expression: string,
 }
 
+export type Target_PlaytimeSlotTempoFactor = {
+	kind: "PlaytimeSlotTempoFactor",
+	unit: TargetUnit?,
+	slot: PlaytimeSlotDescriptor,
+	max_value_expression: string,
+}
+
+export type Target_PlaytimeSlotSpeedFactor = {
+	kind: "PlaytimeSlotSpeedFactor",
+	unit: TargetUnit?,
+	slot: PlaytimeSlotDescriptor,
+	max_value_expression: string,
+}
+
 export type Target_PlaytimeSlotManagementAction = {
 	kind: "PlaytimeSlotManagementAction",
 	unit: TargetUnit?,
@@ -1922,6 +1936,8 @@ export type Target =
 	| Target_PlaytimeSlotStartPosition
 	| Target_PlaytimeSlotLength
 	| Target_PlaytimeSlotPitchShift
+	| Target_PlaytimeSlotTempoFactor
+	| Target_PlaytimeSlotSpeedFactor
 	| Target_PlaytimeSlotManagementAction
 	| Target_SendMidi
 	| Target_SendOsc
@@ -1997,6 +2013,8 @@ export type TargetKind =
 	| "PlaytimeSlotStartPosition"
 	| "PlaytimeSlotLength"
 	| "PlaytimeSlotPitchShift"
+	| "PlaytimeSlotTempoFactor"
+	| "PlaytimeSlotSpeedFactor"
 	| "PlaytimeSlotManagementAction"
 	| "SendMidi"
 	| "SendOsc"
@@ -2404,6 +2422,20 @@ end
 function module.Target.PlaytimeSlotPitchShift(value: PlaytimeSlotPitchShiftTarget): Target_PlaytimeSlotPitchShift
 	local t: any = table.clone(value)
 	t.kind = "PlaytimeSlotPitchShift"
+	return t
+end
+
+--- Creates a Target of kind PlaytimeSlotTempoFactor.
+function module.Target.PlaytimeSlotTempoFactor(value: PlaytimeSlotTempoFactorTarget): Target_PlaytimeSlotTempoFactor
+	local t: any = table.clone(value)
+	t.kind = "PlaytimeSlotTempoFactor"
+	return t
+end
+
+--- Creates a Target of kind PlaytimeSlotSpeedFactor.
+function module.Target.PlaytimeSlotSpeedFactor(value: PlaytimeSlotSpeedFactorTarget): Target_PlaytimeSlotSpeedFactor
+	local t: any = table.clone(value)
+	t.kind = "PlaytimeSlotSpeedFactor"
 	return t
 end
 
@@ -3259,6 +3291,26 @@ export type PlaytimeSlotPitchShiftTarget = {
 }
 --- Creates a PlaytimeSlotPitchShiftTarget value.
 function module.PlaytimeSlotPitchShiftTarget(value: PlaytimeSlotPitchShiftTarget): PlaytimeSlotPitchShiftTarget
+	return value
+end
+
+export type PlaytimeSlotTempoFactorTarget = {
+	unit: TargetUnit?,
+	slot: PlaytimeSlotDescriptor,
+	max_value_expression: string,
+}
+--- Creates a PlaytimeSlotTempoFactorTarget value.
+function module.PlaytimeSlotTempoFactorTarget(value: PlaytimeSlotTempoFactorTarget): PlaytimeSlotTempoFactorTarget
+	return value
+end
+
+export type PlaytimeSlotSpeedFactorTarget = {
+	unit: TargetUnit?,
+	slot: PlaytimeSlotDescriptor,
+	max_value_expression: string,
+}
+--- Creates a PlaytimeSlotSpeedFactorTarget value.
+function module.PlaytimeSlotSpeedFactorTarget(value: PlaytimeSlotSpeedFactorTarget): PlaytimeSlotSpeedFactorTarget
 	return value
 end
 

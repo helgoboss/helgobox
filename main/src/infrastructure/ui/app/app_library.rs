@@ -875,7 +875,9 @@ fn to_status(err: anyhow::Error) -> Status {
 }
 
 /// The minimum version of the app API that the host (Helgobox) requires to properly
-/// communicate with it. Keep this up to date!
+/// communicate with it when embedded (ignored when running externally via gRPC).
+///
+/// Keep this up to date!
 ///
 /// This doesn't necessarily need to match the `HOST_API_VERSION`, it's too different things.
 /// In practice, it might be equal or similar because host (plug-in) and app are developed tightly together.

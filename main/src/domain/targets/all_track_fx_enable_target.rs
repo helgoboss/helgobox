@@ -1,4 +1,11 @@
-use crate::domain::{all_track_fx_enable_unit_value, change_track_prop, format_value_as_on_off, get_control_type_and_character_for_track_exclusivity, get_effective_tracks, CompartmentKind, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET};
+use crate::domain::{
+    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, CompartmentKind, ControlContext, DEFAULT_TARGET,
+    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult,
+    TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
+    all_track_fx_enable_unit_value, change_track_prop, format_value_as_on_off,
+    get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
+};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
 use std::borrow::Cow;
@@ -27,9 +34,7 @@ impl UnresolvedReaperTargetDef for UnresolvedAllTrackFxEnableTarget {
                 ReaperTarget::AllTrackFxEnable(target)
             })
             .collect();
-        Ok(
-            targets,
-        )
+        Ok(targets)
     }
 
     fn feedback_resolution(&self) -> Option<FeedbackResolution> {

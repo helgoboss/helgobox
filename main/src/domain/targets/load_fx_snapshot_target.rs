@@ -1,5 +1,10 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
-use crate::domain::{format_value_as_on_off, AdditionalFeedbackEvent, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    AdditionalFeedbackEvent, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext,
+    DEFAULT_TARGET, ExtendedProcessorContext, FxDescriptor, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, format_value_as_on_off,
+};
 use base::hash_util;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use reaper_high::{Fx, Project, Track};

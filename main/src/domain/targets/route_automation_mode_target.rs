@@ -1,4 +1,10 @@
-use crate::domain::{automation_mode_unit_value, format_value_as_on_off, get_track_routes, CompartmentKind, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef, AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET};
+use crate::domain::{
+    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, CompartmentKind, ControlContext, DEFAULT_TARGET,
+    ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult,
+    TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
+    automation_mode_unit_value, format_value_as_on_off, get_track_routes,
+};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track, TrackRoute};
 use reaper_medium::AutomationMode;

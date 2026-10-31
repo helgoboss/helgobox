@@ -1,4 +1,9 @@
-use crate::domain::{format_value_as_on_off, fx_online_unit_value, CompartmentKind, ControlContext, ExtendedProcessorContext, FeedbackResolution, FxDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    CompartmentKind, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext, FeedbackResolution,
+    FxDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, format_value_as_on_off, fx_online_unit_value,
+};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, Project, Track};
 use std::borrow::Cow;

@@ -1,7 +1,12 @@
 use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
-use crate::domain::{get_effective_tracks, with_gang_behavior, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor, TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    CompartmentKind, CompoundChangeEvent, ControlContext, DEFAULT_TARGET, ExtendedProcessorContext,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor,
+    TrackGangBehavior, UnresolvedReaperTargetDef, get_effective_tracks, with_gang_behavior,
+};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, SliderVolume, Track, TrackSetSmartOpts};
 use std::borrow::Cow;
@@ -28,9 +33,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackVolumeTarget {
                 ReaperTarget::TrackVolume(target)
             })
             .collect();
-        Ok(
-            targets,
-        )
+        Ok(targets)
     }
 
     fn track_descriptor(&self) -> Option<&TrackDescriptor> {

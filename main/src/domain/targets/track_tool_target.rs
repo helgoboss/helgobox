@@ -1,9 +1,15 @@
-use crate::domain::{get_effective_tracks, get_track_name, percentage_for_scoped_track_within_project, ChangeInstanceTrackArgs, CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse, InstanceTrackChangeRequest, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetResolveResult, TargetSection, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET};
+use crate::domain::{
+    ChangeInstanceTrackArgs, CompartmentKind, ControlContext, DEFAULT_TARGET,
+    ExtendedProcessorContext, HitResponse, InstanceTrackChangeRequest, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetResolveResult,
+    TargetSection, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, get_effective_tracks,
+    get_track_name, percentage_for_scoped_track_within_project,
+};
+use anyhow::anyhow;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target};
 use helgobox_api::persistence::{TrackScope, TrackToolAction};
 use reaper_high::{Project, Track};
 use std::borrow::Cow;
-use anyhow::anyhow;
 
 #[derive(Debug)]
 pub struct UnresolvedTrackToolTarget {
