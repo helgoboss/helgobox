@@ -1,2 +1,3 @@
 A complement to the xref:plug-in.adoc[] which provides a modern user interface.
-It runs embedded in REAPER or as a separate program that connects to REAPER. Mobile versions for iOS and Android are available, too.
+It runs embedded in REAPER or as a separate program that connects to REAPER.
+Mobile versions for link:https://apps.apple.com/us/app/id6824506709[iOS] and link:https://play.google.com/store/apps/details?id=org.helgoboss.helgobox[Android] are available, too.

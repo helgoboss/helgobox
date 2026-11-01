@@ -40,6 +40,14 @@ Considers only mappings that are currently visible in the mapping rows panel.
 Allows you to jump to the next mapping.
 Considers only mappings that are currently visible in the mapping rows panel.
 
+== Copy button
+
+Copies all mapping settings to the clipboard.
+
+== Paste button
+
+Pastes all mapping settings from the clipboard, overwriting the current settings.
+
 [#enabled]
 == Enabled checkbox
 

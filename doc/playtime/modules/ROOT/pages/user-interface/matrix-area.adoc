@@ -120,9 +120,19 @@ Copy slot contents::
 Drag this area onto another slot while holding kbd:[Cmd/Ctrl] in order to copy all clips within this slot to the other slot.
 
 Import content::
-Drag a MIDI or audio file from outside onto this area in order to import it as a clip. This should work from the REAPER media explorer, from other plug-ins that offer dragging out content as files and from most file managers.
+Drag a MIDI or audio file from outside onto this area in order to import it as a clip.
+This should work from the REAPER media explorer, from other plug-ins that offer dragging out content as files, and from most file managers.
 +
-NOTE: Dragging REAPER items onto the slot won't work, because REAPER items are not real files. Use {term_slot_import_selected_item} instead!
+NOTE: Dragging REAPER items onto the slot won't work, because REAPER items are not real files.
+Use {term_slot_import_selected_item} instead!
+
+Export to arrangement::
+Drag a clip from this area to the REAPER arrangement.
+This works just like {term_slot_export_primary_clip_to_arrangement} but is more convenient, because you can use your mouse to position the item wherever you want.
++
+NOTE: Dragging clips to other applications or file managers is currently not supported.
+Just like REAPER items, Playtime clips are not simply references to audio or MIDI files.
+They also contain various adjustments, such as start position, length, fades, and pitch, which would be lost when dragging the underlying file.
 ****
 
 include::partial$generated/elements/slot-cell/clip-count.adoc[]

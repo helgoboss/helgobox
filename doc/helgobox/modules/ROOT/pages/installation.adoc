@@ -2,8 +2,14 @@
 :plugin-name: "VSTi: Helgobox - ReaLearn & Playtime (Helgoboss)"
 :package-name: "Helgobox: ReaLearn & Playtime"
 
-Helgobox is provided as https://reapack.com/[ReaPack] package.
+The xref:plug-in.adoc[] is provided as https://reapack.com/[ReaPack] package.
 ReaPack is a popular 3rd-party package manager for REAPER that makes installing add-ons easy and keeps your installation up to date effortlessly.
+
+The xref:app.adoc[] is included in the plug-in installation.
+But it's also available for mobile devices:
+
+* **iOS:** Get it on link:https://apps.apple.com/us/app/id6824506709[Apple App Store] (soon)
+* **Android:** Get it on link:https://play.google.com/store/apps/details?id=org.helgoboss.helgobox[Google Play] (soon)
 
 == System requirements
 

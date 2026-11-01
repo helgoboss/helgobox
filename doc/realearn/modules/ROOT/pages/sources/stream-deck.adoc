@@ -3,18 +3,27 @@
 With this source, you can leverage your Stream Deck with ReaLearn, for example the link:https://www.elgato.com/en/en/p/stream-deck-mk2-black[Elgato Stream Deck MK.2].
 This includes reacting to buttons and sending {term_feedback} to the button displays.
 
-CAUTION: This source is experimental. Behavioral changes are still possible!
-
 == Supported devices
 
-The following StreamDeck devices are currently supported:
+The following Stream Deck devices should currently be supported:
 
-* Original
-* Original v2
-* Mini
-* Revised Mini
-* XL
-* MK.2
+* Stream Deck Original
+* Stream Deck Original V2
+* Stream Deck XL
+* Stream Deck XL V2
+* Stream Deck Mini
+* Stream Deck Mini Mk2
+* Stream Deck Mini Discord Edition
+* Stream Deck Mk2
+* Stream Deck Mk2 with Scissor Keys
+* Stream Deck Pedal
+* Stream Deck Plus
+* Stream Deck Plus XL
+* Stream Deck Neo
+* Stream Deck Mini Mk2 Module
+* Stream Deck Mk2 Module
+* Stream Deck Mk2 with Scissor Keys Module
+* Stream Deck XL V2 Module
 
 == Setup
 

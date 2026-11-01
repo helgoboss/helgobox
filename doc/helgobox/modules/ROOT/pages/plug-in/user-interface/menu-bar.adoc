@@ -21,7 +21,8 @@ Closes the xref:helgobox::app.adoc[] associated with this {term_instance}.
 
 [[server]] Server::
 Helgobox features a built-in server which allows the xref:app.adoc[] (and the old ReaLearn Companion App) to connect to Helgobox.
-The server runs globally, not per instance!
+The server runs globally, not per instance.
+The server is advertised within your Wi-Fi or LAN network via mDNS, so that the app can discover it.
 
 [[enable-and-start-server]] Enable and start!::: This starts the server and makes sure it will automatically be started next time you use Helgobox.
 
@@ -37,7 +38,8 @@ Open app folder::: Opens the folder which contains the xref:app.adoc[] (in case 
 Pressing the export button allows you to copy Helgobox settings to the clipboard so you can import them in another instance or edit them in a link:https://en.wikipedia.org/wiki/Text_editor[text editor].
 
 --
-The following list only describes the general-purpose menu entries. For the rest, see:
+The following list only describes the general-purpose menu entries.
+For the rest, see:
 
 * xref:realearn::user-interface/main-panel/menu-bar.adoc#export-to-clipboard-button[ReaLearn entries]
 * xref:playtime::user-interface/menus/export-to-clipboard-menu.adoc[Playtime entries]

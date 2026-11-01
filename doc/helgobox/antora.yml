@@ -23,6 +23,7 @@ asciidoc:
     term_realearn_auto_units: 'xref:realearn:ROOT:further-concepts/instance.adoc#auto-units[Auto units,role=term]'
     term_realearn_unit_key: 'xref:realearn:ROOT:further-concepts/unit.adoc#unit-key[Unit key,role=term]'
     term_settings_dim_opacity: 'xref:helgobox:ROOT:app/user-interface/settings-dialog.adoc#settings-dim-opacity[Dim opacity,role=term]'
+    term_settings_use_host_colors: 'xref:helgobox:ROOT:app/user-interface/settings-dialog.adoc#settings-use-host-colors[Use host colors,role=term]'
     term_show_welcome_screen: 'xref:helgobox:ROOT:reaper-actions.adoc#show-welcome-screen[Helgobox/General: Show welcome screen,role=term]'
     term_title_bar_about: 'xref:helgobox:ROOT:app/user-interface/help-menu.adoc#title-bar-about[About...,role=term]'
     term_title_bar_help: 'xref:helgobox:ROOT:app/user-interface/title-bar.adoc#title-bar-help[Help,role=term]'

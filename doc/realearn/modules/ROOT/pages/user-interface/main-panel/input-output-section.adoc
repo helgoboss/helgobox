@@ -67,12 +67,10 @@ Stream Deck: <None>::
 Disables Stream Deck control.
 
 Stream Deck: _Some device_::
-When selected, this ReaLearn instance will _additionally_ listen to button presses of the chosen Stream Deck device. See xref:sources/stream-deck.adoc[] for details.
+When selected, this ReaLearn instance will _additionally_ listen to button presses of the chosen Stream Deck device.
+See xref:sources/stream-deck.adoc[] for details.
 +
 Unlike MIDI or OSC, choosing a Stream Deck device automatically enables feedback to the Stream Deck buttons, so you won't find a Stream Deck entry in the <<output>>.
-
-_Unavailable Stream Deck devices_::
-This submenu contains supported Stream Deck devices that are currently not connected.
 
 [[computer-keyboard]] Computer keyboard::
 
@@ -90,7 +88,8 @@ This is the default.
 [[fx-output]] MIDI: <FX output>::
 This makes feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
 +
-CAUTION: Under normal circumstances, it is better to use <<midi-some-output-device, select a specific output device>> instead. See {term_best_practices_input_output}.
+CAUTION: Under normal circumstances, it is better to use <<midi-some-output-device, select a specific output device>> instead.
+See {term_best_practices_input_output}.
 
 [[midi-some-output-device]] MIDI: _Some output device_::
 If selected, ReaLearn will send feedback to the given MIDI output device.

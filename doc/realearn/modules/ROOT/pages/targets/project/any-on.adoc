@@ -1,10 +1,15 @@
 = Target "Project: Any on (solo/mute/...)"
 
 This target is most useful in feedback direction.
-Map it to some LED on your controller and the LED will light up if at least one of the tracks in your project is e.g. mute (depending on the track parameter in question).
 
-If the control element is also a button, pressing the button will e.g. unmute all tracks in your project.
+Map it to some LED on your controller.
+Depending on your target settings, the LED will light up, for example ...
+
+* ... when at least one of the tracks in your project is mute
+* ... when at least one MIDI editor is focused
+
+If the control element is a button, pressing the button will e.g. unmute all tracks in your project.
 
 == Parameter menu
 
-The track parameter in question.
+The parameter in question.

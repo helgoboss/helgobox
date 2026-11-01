@@ -33,8 +33,10 @@ include::partial$generated/elements/title-bar/redo.adoc[]
 
 include::partial$generated/elements/title-bar/theme-switcher.adoc[]
 
-Themes are simply pre-selected combinations of various appearance settings.
-Once you’ve selected a theme, you can further customize it by adjusting the settings.
+Some themes are simply combinations of various appearance settings.
+Once you’ve selected such a theme, you can further customize it by adjusting the settings.
+
+The theme called "REAPER" is special in that it enables {term_settings_use_host_colors}, which borrows the colors from your current REAPER theme.
 
 include::partial$generated/elements/title-bar/panic-midi.adoc[]
 
