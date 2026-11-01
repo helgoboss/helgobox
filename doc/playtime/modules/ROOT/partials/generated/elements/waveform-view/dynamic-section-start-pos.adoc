@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[waveform-view-dynamic-section-start-pos,Section start position]]]
+ifndef::pdf-theme[[[waveform-view-dynamic-section-start-pos,Section start position image:playtime::generated/screenshots/elements/waveform-view/dynamic-section-start-pos.png[width=50, pdfwidth=8mm]]]]
+== Section start position
+
+image::playtime::generated/screenshots/elements/waveform-view/dynamic-section-start-pos.png[Section start position, role="related thumb right", float=right]
+
+Drag left or right to adjust.
+

@@ -1,0 +1,14 @@
+ifdef::pdf-theme[[[inspector-column-origin-track-audio-output,Track audio output]]]
+ifndef::pdf-theme[[[inspector-column-origin-track-audio-output,Track audio output image:playtime::generated/screenshots/elements/inspector/column/origin/track-audio-output.png[width=50, pdfwidth=8mm]]]]
+==== Track audio output
+
+image::playtime::generated/screenshots/elements/inspector/column/origin/track-audio-output.png[Track audio output, role="related thumb right", float=right]
+
+Records the audio *output* of a track, post-FX. This is great for recording the output of virtual instruments.
+
+This feature uses REAPER loopback audio hardware channels under the hood. That means it only works if you have at least 2 loopback channels enabled. You can enable them
+in "REAPER Preferences → Audio → Virtual loopback audio hardware channels".
+
+You should choose a recording track that's different from the playback track. Otherwise, other clips playing on the playback track will be recorded as well. Probably not what you want ;)
+
+

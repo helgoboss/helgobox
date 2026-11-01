@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[waveform-view-source-length,Total]]]
+ifndef::pdf-theme[[[waveform-view-source-length,Total image:playtime::generated/screenshots/elements/waveform-view/source-length.png[width=50, pdfwidth=8mm]]]]
+==== Total
+
+image::playtime::generated/screenshots/elements/waveform-view/source-length.png[Total, role="related thumb right", float=right]
+
+Total length of the underlying audio source file.
+

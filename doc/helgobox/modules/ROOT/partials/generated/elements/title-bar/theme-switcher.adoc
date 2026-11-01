@@ -1,8 +1,8 @@
-ifdef::pdf-theme[[[title-bar-theme-switcher,Quick theme switcher]]]
-ifndef::pdf-theme[[[title-bar-theme-switcher,Quick theme switcher image:helgobox::generated/screenshots/elements/title-bar/theme-switcher.png[width=50, pdfwidth=8mm]]]]
-== Quick theme switcher
+ifdef::pdf-theme[[[title-bar-theme-switcher,Theme switcher]]]
+ifndef::pdf-theme[[[title-bar-theme-switcher,Theme switcher image:helgobox::generated/screenshots/elements/title-bar/theme-switcher.png[width=50, pdfwidth=8mm]]]]
+== Theme switcher
 
-image::helgobox::generated/screenshots/elements/title-bar/theme-switcher.png[Quick theme switcher, role="related thumb right", float=right]
+image::helgobox::generated/screenshots/elements/title-bar/theme-switcher.png[Theme switcher, role="related thumb right", float=right]
 
-Cycle through all available themes.
+Press to open the list of available themes. Alternatively, you can use your mouse-wheel to cycle through them.
 

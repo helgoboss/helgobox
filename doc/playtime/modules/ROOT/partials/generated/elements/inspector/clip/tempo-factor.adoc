@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-clip-tempo-factor,Tempo factor]]]
+ifndef::pdf-theme[[[inspector-clip-tempo-factor,Tempo factor]]]
+=== Tempo factor
+
+image::playtime::generated/screenshots/elements/inspector/clip/tempo-factor.png[Tempo factor]
+
+Adjusts the clip's playback tempo relative to its original tempo, without changing pitch.
+

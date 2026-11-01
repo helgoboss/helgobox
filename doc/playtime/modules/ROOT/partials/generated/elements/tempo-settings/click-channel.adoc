@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[tempo-settings-click-channel,Click channel]]]
+ifndef::pdf-theme[[[tempo-settings-click-channel,Click channel]]]
+=== Click channel
+
+image::playtime::generated/screenshots/elements/tempo-settings/click-channel.png[Click channel]
+
+Set the first hardware output channel of the metronome click.
+

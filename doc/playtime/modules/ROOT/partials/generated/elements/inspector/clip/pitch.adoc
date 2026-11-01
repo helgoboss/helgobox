@@ -1,8 +1,8 @@
-ifdef::pdf-theme[[[inspector-clip-pitch,Pitch]]]
-ifndef::pdf-theme[[[inspector-clip-pitch,Pitch]]]
-=== Pitch
+ifdef::pdf-theme[[[inspector-clip-pitch,Pitch shift]]]
+ifndef::pdf-theme[[[inspector-clip-pitch,Pitch shift]]]
+=== Pitch shift
 
-image::playtime::generated/screenshots/elements/inspector/clip/pitch.png[Pitch]
+image::playtime::generated/screenshots/elements/inspector/clip/pitch.png[Pitch shift]
 
-Adjust the pitch of this clip. In case of MIDI, only integers are supported.
+Shifts the clip's pitch up or down in semitones without affecting playback tempo. In case of MIDI, only integers are supported.
 

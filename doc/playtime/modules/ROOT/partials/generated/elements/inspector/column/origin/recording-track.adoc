@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-column-origin-recording-track,Recording track]]]
+ifndef::pdf-theme[[[inspector-column-origin-recording-track,Recording track]]]
+==== Recording track
+
+image::playtime::generated/screenshots/elements/inspector/column/origin/recording-track.png[Recording track]
+
+Choose the track whose output you want to record.
+

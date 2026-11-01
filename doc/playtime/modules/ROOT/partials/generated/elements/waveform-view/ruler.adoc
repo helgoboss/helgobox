@@ -1,0 +1,11 @@
+ifdef::pdf-theme[[[waveform-view-ruler,Ruler]]]
+ifndef::pdf-theme[[[waveform-view-ruler,Ruler image:playtime::generated/screenshots/elements/waveform-view/ruler.png[width=50, pdfwidth=8mm]]]]
+== Ruler
+
+image::playtime::generated/screenshots/elements/waveform-view/ruler.png[Ruler, role="related thumb right", float=right]
+
+Shows the bars and beats if the clip is synchronized to the project tempo.
+
+Drag up or down to quickly zoom into a specific portion of the waveform.
+
+

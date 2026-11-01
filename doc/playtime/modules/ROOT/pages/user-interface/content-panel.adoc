@@ -5,8 +5,18 @@ include::partial$user-interface/content-panel-desc.adoc[]
 You can close the content panel by pressing the icon:close[] button on the left side, which appears as soon as your mouse hovers over the area.
 
 include::partial$generated/elements/waveform-view.adoc[]
-
-The waveform view shows only the relevant section of the actual audio file.
-Which part is relevant, is dictated by the clip properties {term_inspector_clip_source_cut_start} and {term_inspector_clip_source_cut_length}.
-
-If you set the clip properties {term_inspector_clip_start_position} or {term_inspector_clip_length}, you will see start and end markers.
+include::partial$generated/elements/waveform-view/start-stop-playback.adoc[]
+include::partial$generated/elements/waveform-view/clip-name.adoc[]
+include::partial$generated/elements/waveform-view/source-length.adoc[]
+include::partial$generated/elements/waveform-view/fixed-section-length.adoc[]
+include::partial$generated/elements/waveform-view/dynamic-section-length.adoc[]
+include::partial$generated/elements/waveform-view/show-fixed-section.adoc[]
+include::partial$generated/elements/waveform-view/show-dynamic-section.adoc[]
+include::partial$generated/elements/waveform-view/toggle-snap.adoc[]
+include::partial$generated/elements/waveform-view/grid.adoc[]
+include::partial$generated/elements/waveform-view/ruler.adoc[]
+include::partial$generated/elements/waveform-view/fixed-section-start-pos.adoc[]
+include::partial$generated/elements/waveform-view/fixed-section-end-pos.adoc[]
+include::partial$generated/elements/waveform-view/dynamic-section.adoc[]
+include::partial$generated/elements/waveform-view/dynamic-section-start-pos.adoc[]
+include::partial$generated/elements/waveform-view/dynamic-section-end-pos.adoc[]

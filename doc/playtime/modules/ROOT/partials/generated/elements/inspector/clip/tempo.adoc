@@ -1,8 +1,8 @@
-ifdef::pdf-theme[[[inspector-clip-tempo,Tempo]]]
-ifndef::pdf-theme[[[inspector-clip-tempo,Tempo]]]
-=== Tempo
+ifdef::pdf-theme[[[inspector-clip-tempo,Original tempo]]]
+ifndef::pdf-theme[[[inspector-clip-tempo,Original tempo]]]
+=== Original tempo
 
-image::playtime::generated/screenshots/elements/inspector/clip/tempo.png[Tempo]
+image::playtime::generated/screenshots/elements/inspector/clip/tempo.png[Original tempo]
 
 The original tempo in which the audio material has been recorded.
 

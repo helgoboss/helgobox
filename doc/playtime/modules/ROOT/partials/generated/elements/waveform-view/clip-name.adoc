@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[waveform-view-clip-name,Clip name]]]
+ifndef::pdf-theme[[[waveform-view-clip-name,Clip name image:playtime::generated/screenshots/elements/waveform-view/clip-name.png[width=50, pdfwidth=8mm]]]]
+==== Clip name
+
+image::playtime::generated/screenshots/elements/waveform-view/clip-name.png[Clip name, role="related thumb right", float=right]
+
+The name of the clip displayed in the viewer.
+

@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[waveform-view-show-fixed-section,Zoom to content]]]
+ifndef::pdf-theme[[[waveform-view-show-fixed-section,Zoom to content image:playtime::generated/screenshots/elements/waveform-view/show-fixed-section.png[width=50, pdfwidth=8mm]]]]
+== Zoom to content
+
+image::playtime::generated/screenshots/elements/waveform-view/show-fixed-section.png[Zoom to content, role="related thumb right", float=right]
+
+Shows the complete audio content as defined by the original length of the audio source and the source cut setting.
+

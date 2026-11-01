@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[waveform-view-fixed-section-start-pos,Source cut start position]]]
+ifndef::pdf-theme[[[waveform-view-fixed-section-start-pos,Source cut start position image:playtime::generated/screenshots/elements/waveform-view/fixed-section-start-pos.png[width=50, pdfwidth=8mm]]]]
+== Source cut start position
+
+image::playtime::generated/screenshots/elements/waveform-view/fixed-section-start-pos.png[Source cut start position, role="related thumb right", float=right]
+
+You can adjust the source cut and learn more about it in the inspector under expert settings.
+

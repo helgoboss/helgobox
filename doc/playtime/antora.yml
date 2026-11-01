@@ -66,6 +66,7 @@ asciidoc:
     term_inspector_matrix_activate_slot_on_trigger: 'xref:playtime:ROOT:user-interface/inspector/matrix/playback.adoc#inspector-matrix-activate-slot-on-trigger[Activate slot on trigger,role=term]'
     term_inspector_matrix_limit_recording_length: 'xref:playtime:ROOT:user-interface/inspector/matrix/recording.adoc#inspector-matrix-limit-recording-length[Limit recording length,role=term]'
     term_inspector_matrix_midi_quantization_grid: 'xref:playtime:ROOT:user-interface/inspector/matrix/playback.adoc#inspector-matrix-midi-quantization-grid[MIDI quantization grid,role=term]'
+    term_inspector_matrix_recording_allow_tempo_detection_recording: 'xref:playtime:ROOT:user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-allow-tempo-detection-recording[Allow tempo detection recording,role=term]'
     term_inspector_matrix_recording_detect_downbeat: 'xref:playtime:ROOT:user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-detect-downbeat[Detect downbeat,role=term]'
     term_inspector_matrix_recording_length: 'xref:playtime:ROOT:user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-length[Length,role=term]'
     term_inspector_matrix_recording_looped: 'xref:playtime:ROOT:user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-looped[Looped,role=term]'

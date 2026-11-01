@@ -6,3 +6,6 @@ image::playtime::generated/screenshots/elements/track-panel/arm.png[Arm track, r
 
 Arms this track for recording
 
+If the recording origin of this column is set to **Track audio output**, this will arm the recording track.
+
+

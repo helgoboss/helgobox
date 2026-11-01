@@ -117,6 +117,7 @@ Let's say you want to use a foot switch to start recording  an initial loop and 
 
 Here's how you do that:
 
+. Make sure that {term_inspector_matrix_recording_allow_tempo_detection_recording} is enabled in the matrix settings.
 . Make sure that playback is stopped. If Playtime is playing, press the kbd:[Space] key.
 . Make sure Playtime's metronome is turned *off*. If it's on, press the kbd:[M] key. should reveal a text in the title bar, saying:
 +

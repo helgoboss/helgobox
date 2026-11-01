@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-column-origin-track-input,Track input]]]
+ifndef::pdf-theme[[[inspector-column-origin-track-input,Track input image:playtime::generated/screenshots/elements/inspector/column/origin/track-input.png[width=50, pdfwidth=8mm]]]]
+==== Track input
+
+image::playtime::generated/screenshots/elements/inspector/column/origin/track-input.png[Track input, role="related thumb right", float=right]
+
+Records audio from the hardware input that you've set for this column's playback track.
+

@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[waveform-view-show-dynamic-section,Zoom to section]]]
+ifndef::pdf-theme[[[waveform-view-show-dynamic-section,Zoom to section image:playtime::generated/screenshots/elements/waveform-view/show-dynamic-section.png[width=50, pdfwidth=8mm]]]]
+== Zoom to section
+
+image::playtime::generated/screenshots/elements/waveform-view/show-dynamic-section.png[Zoom to section, role="related thumb right", float=right]
+
+Shows the configured section.
+

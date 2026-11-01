@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[waveform-view-fixed-section-length,Cut]]]
+ifndef::pdf-theme[[[waveform-view-fixed-section-length,Cut image:playtime::generated/screenshots/elements/waveform-view/fixed-section-length.png[width=50, pdfwidth=8mm]]]]
+==== Cut
+
+image::playtime::generated/screenshots/elements/waveform-view/fixed-section-length.png[Cut, role="related thumb right", float=right]
+
+Length of the source cut. You can adjust it and learn more about it in the inspector under expert settings.
+

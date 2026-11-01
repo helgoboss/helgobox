@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[waveform-view-grid,Grid]]]
+ifndef::pdf-theme[[[waveform-view-grid,Grid image:playtime::generated/screenshots/elements/waveform-view/grid.png[width=50, pdfwidth=8mm]]]]
+== Grid
+
+image::playtime::generated/screenshots/elements/waveform-view/grid.png[Grid, role="related thumb right", float=right]
+
+Lets you adjust the grid. This also affects snapping.
+

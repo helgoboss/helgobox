@@ -4,5 +4,5 @@ ifndef::pdf-theme[[[track-panel-fx-chain,FX chain image:playtime::generated/scre
 
 image::playtime::generated/screenshots/elements/track-panel/fx-chain.png[FX chain, role="related thumb right", float=right]
 
-Shows the REAPER FX chain of this track
+Shows the REAPER FX chain of the track
 

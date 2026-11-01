@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[waveform-view-toggle-snap,Toggle snap]]]
+ifndef::pdf-theme[[[waveform-view-toggle-snap,Toggle snap image:playtime::generated/screenshots/elements/waveform-view/toggle-snap.png[width=50, pdfwidth=8mm]]]]
+== Toggle snap
+
+image::playtime::generated/screenshots/elements/waveform-view/toggle-snap.png[Toggle snap, role="related thumb right", float=right]
+
+Enables or disables snap-to-grid when adjusting the section.
+

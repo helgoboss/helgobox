@@ -4,7 +4,10 @@ ifndef::pdf-theme[[[track-panel-input-type-indicator,Track input type indicator 
 
 image::playtime::generated/screenshots/elements/track-panel/input-type-indicator.png[Track input type indicator, role="related thumb right", float=right]
 
-This icon indicates whether the track reacts to MIDI or audio input.
-
+This icon indicates whether the track associated with this column reacts to MIDI or audio input.
+                                                    
 This should **not** be confused with a track type! Tracks in REAPER/Playtime don't have any type. A track can always **play** both audio and MIDI clips, no matter what's displayed here. The icon only refers to the current recording input!
+
+If the column's record origin is set to **Track audio output** with a separate recording track, the first icon shows the type of the recording track and the second one the type of the playback track.
+
 

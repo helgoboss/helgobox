@@ -4,5 +4,5 @@ ifndef::pdf-theme[[[track-panel-instrument-fx,Instrument FX image:playtime::gene
 
 image::playtime::generated/screenshots/elements/track-panel/instrument-fx.png[Instrument FX, role="related thumb right", float=right]
 
-Shows the first instrument FX on this track.
+Shows the first instrument FX on the track.
 

@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[waveform-view-dynamic-section,Section]]]
+ifndef::pdf-theme[[[waveform-view-dynamic-section,Section image:playtime::generated/screenshots/elements/waveform-view/dynamic-section.png[width=50, pdfwidth=8mm]]]]
+== Section
+
+image::playtime::generated/screenshots/elements/waveform-view/dynamic-section.png[Section, role="related thumb right", float=right]
+
+The section is the part of the audio clip that should play. Drag left or right to move it.
+

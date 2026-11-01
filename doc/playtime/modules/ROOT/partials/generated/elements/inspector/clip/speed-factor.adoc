@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-clip-speed-factor,Speed factor]]]
+ifndef::pdf-theme[[[inspector-clip-speed-factor,Speed factor]]]
+=== Speed factor
+
+image::playtime::generated/screenshots/elements/inspector/clip/speed-factor.png[Speed factor]
+
+Multiplies the clip's playback speed, affecting both tempo and pitch (like changing tape speed).
+

@@ -30,11 +30,17 @@ See {term_loop} and {term_one_shot}.
 
 include::partial$generated/elements/inspector/clip/volume.adoc[]
 
+include::partial$generated/elements/inspector/clip/tempo-factor.adoc[]
+
+For audio, the tempo is adjusted using REAPER's pitch-shifting/time-stretching engine with the clip's {term_inspector_clip_time_stretch_mode}.
+
 include::partial$generated/elements/inspector/clip/pitch.adoc[]
 
-For audio, pitch shifting is done using REAPER's pitch-shifting/time-stretching engine with the clip's {term_inspector_clip_time_stretch_mode}.
+For audio, the pitch is shifted using REAPER's pitch-shifting/time-stretching engine with the clip's {term_inspector_clip_time_stretch_mode}.
 
-include::partial$clip-prop-applied-quantized.adoc[]
+include::partial$generated/elements/inspector/clip/speed-factor.adoc[]
+
+For audio, the speed is changed using REAPER's resample engine with the clip's {term_inspector_clip_resample_mode}.
 
 include::partial$generated/elements/inspector/clip/velocity-sensitivity.adoc[]
 

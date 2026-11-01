@@ -6,3 +6,6 @@ image::playtime::generated/screenshots/elements/matrix/add-column.png[Add column
 
 Adds a new column to the matrix and associates it with a newly created REAPER track.
 
+You can create either an empty track or a track based on a REAPER track template.  
+
+

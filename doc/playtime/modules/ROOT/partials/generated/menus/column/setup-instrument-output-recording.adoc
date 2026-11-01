@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[column-setup-instrument-output-recording,Set up instrument output recording]]]
+ifndef::pdf-theme[[[column-setup-instrument-output-recording,Set up instrument output recording]]]
+== Set up instrument output recording
+
+
+
+Makes the necessary changes to the REAPER track structure to allow recording the audio output of instruments.
+
