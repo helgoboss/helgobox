@@ -16,7 +16,8 @@ At position::
 Here you can refer to a fixed column by entering the column number, e.g. 2.
 
 Dynamic::
-Allows you to dynamically refer to a certain column. See <<dynamic-selector-variables>>.
+Allows you to dynamically refer to a certain column.
+See <<dynamic-selector-variables>>.
 
 [[row-selector]]
 == Row selector
@@ -32,7 +33,8 @@ At position::
 Here you can refer to a fixed column by entering the row number, e.g. 2.
 
 Dynamic::
-Allows you to dynamically refer to a certain row. See <<dynamic-selector-variables>>.
+Allows you to dynamically refer to a certain row.
+See <<dynamic-selector-variables>>.
 
 [[slot-selector]]
 == Slot selector
@@ -48,7 +50,38 @@ At coordinates::
 Here you can refer to a fixed slot by entering the slot address, e.g. 2 and 4. The first number is the number of the {term_playtime_column}, the second one the number of the {term_playtime_row}.
 
 Dynamic::
-Allows you to dynamically refer to a certain slot. There are two expressions, the first one should evaluate to the column index and the second one to the row index. As always, expressions must evaluate to zero-based indexes! See <<dynamic-selector-variables>>.
+Allows you to dynamically refer to a certain slot.
+There are two expressions, the first one should evaluate to the column index and the second one to the row index.
+As always, expressions must evaluate to zero-based indexes!
+See <<dynamic-selector-variables>>.
+
+[[time-unit]]
+== Time unit
+
+Some timing-related targets offer the possibility to define a time unit in which entered values will be interpreted. This allows for great flexibility, especially because most targets allow entering simple expressions instead of just numbers.
+
+The following time units are available:
+
+Seconds::
+A value of 1.0 stands for one second.
++
+====
+An expression of `1/4` means 0.25 seconds.
+====
+
+Whole notes::
+A value of 1.0 stands for one whole notes (= 4 quarter notes), according to a specific tempo.
++
+====
+An expression of `1/4` means 1 quarter note. An expression of `6/4` means 1 whole note and 2 quarter notes.
+====
+
+Bars::
+A value of 1.0 stands for one bar, according to a specific time signature.
++
+====
+An expression of `5` means 5 bars.
+====
 
 [[dynamic-selector-variables]]
 == Dynamic selector variables
@@ -66,4 +99,12 @@ In addition to the general variables described in {term_dynamic_selector}, the d
 | control_unit_row_index
 | Integer >= 0
 | Row index of the current top-left scroll position within the xref:playtime::further-concepts/matrix.adoc#control-unit[Playtime control unit] represented by this xref:key-concepts.adoc#unit[ReaLearn unit].
+
+| active_cell_column_index
+| Integer >= 0
+| Column index of the {term_playtime_active_cell}. If a row cell is selected, this resolves to `none`.
+
+| active_cell_row_index
+| Integer >= 0
+| Row index of the {term_playtime_active_cell}. If a column cell is selected, this resolves to `none`.
 |===

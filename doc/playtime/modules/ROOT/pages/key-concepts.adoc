@@ -156,17 +156,38 @@ We distinguish between _quantized_ start timings and _immediate_ start timing.
 
 Quantized start timing::
 By default, the start timing is *1 bar*, which means that the clip will start playing at the beginning of the next bar.
-This is what makes everything in-sync. You can change that to arbitrary <<quantization, quantizations>>, such as *2 quarter notes* or *3 bars*.
+This is what makes everything in-sync.
+You can change that to arbitrary <<quantization, quantizations>>, such as *2 quarter notes* or *3 bars*.
 
 Immediate start timing::
-Alternatively, you can use the start timing *Immediately*, which makes the clip start playing instantly when you trigger it. Of course, that means *you* are now in charge to get the timing right.
+Alternatively, you can use the start timing *Immediately*, which makes the clip start playing instantly when you trigger it.
+Of course, that means *you* are now in charge to get the timing right.
 
 You can set the start timing for xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-start-timing[the complete matrix] and override it on xref:user-interface/inspector/column/playback.adoc#inspector-column-start-timing[column] or xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing[clip] level.
 
 [[clip-stop-timing]]
 == Clip stop timing
 
-The clip _stop timing_ is  very similar to the <<clip-start-timing>> but determines when the clip actually stops after you have triggered its stop. In most cases, it makes sense to leave it at its default settings {term_inspector_clip_stop_timing_like_start_timing}.
+The clip _stop timing_ is very similar to the <<clip-start-timing>> but determines when the clip actually stops after you have triggered its stop.
+In most cases, it makes sense to leave it at its default settings {term_inspector_clip_stop_timing_like_start_timing}.
+
+[[clip-fixed-section]]
+== Clip source cut
+
+The clip _source cut_ setting crops the source material to a specific portion, defined by a start position and length.
+If the specified length extends beyond the end of the source, Playtime inserts silence.
+
+Playtime normally sets this automatically after recording an audio clip to create a perfectly trimmed loop, independent of the actual length of the audio file.
+
+You can adjust this setting manually, but be careful: Changing it can easily disrupt the clip's timing.
+Using it with MIDI clips is not recommended.
+
+[[clip-dynamic-section]]
+== Clip section
+
+The clip section setting defines which portion of an audio or MIDI clip is played.
+
+It's applied on top of the <<clip-fixed-section>>.
 
 == Loop vs. one-shot
 
@@ -208,12 +229,13 @@ It helps musicians understand the rhythm and feel of the music.
 The top number of a time signature (the *3* in 3/4) is called _nominator_ and shows the number of beats per measure.
 
 [[time-signature-denominator]]
-The bottom number (the *4* in 3/4)  is called _denominator_ and shows the type of note that counts as one <<beat>>.
+The bottom number (the *4* in 3/4) is called _denominator_ and shows the type of note that counts as one <<beat>>.
 
 [[in-sync]]
 == In sync
 
-In the context of rhythmical music, _in sync_ means that everything is synchronized and the timing aligns correctly. When you play <<loop, loops>> in Playtime, you typically want them to be _in sync_ with each other and with all other rhythmical material on the <<timeline, reference timeline>>.
+In the context of rhythmical music, _in sync_ means that everything is synchronized and the timing aligns correctly.
+When you play <<loop, loops>> in Playtime, you typically want them to be _in sync_ with each other and with all other rhythmical material on the <<timeline, reference timeline>>.
 
 To achieve this synchronization, the following conditions must be met:
 
@@ -282,6 +304,8 @@ When the REAPER project is stopped, Playtime uses its own timeline as reference,
 [[grid-controller]]
 == Grid controller
 
-A _grid controller_ is a unique class of hardware controller designed specifically for clip launching. A well-known example is the Novation Launchpad. A grid controller feature a grid of pads with LEDs arranged in rows and columns — exactly like Playtime's {term_matrix}!
+A _grid controller_ is a unique class of hardware controller designed specifically for clip launching.
+A well-known example is the Novation Launchpad.
+A grid controller feature a grid of pads with LEDs arranged in rows and columns — exactly like Playtime's {term_matrix}!
 
 Playtime includes out-of-the-box support for many popular grid controllers. xref:supported-controllers.adoc[Here] you can find the current list of supported devices.

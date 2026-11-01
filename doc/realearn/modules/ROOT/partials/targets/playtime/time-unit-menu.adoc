@@ -1,0 +1,3 @@
+== Time unit menu
+
+The {term_time_unit} to use for all entered values.

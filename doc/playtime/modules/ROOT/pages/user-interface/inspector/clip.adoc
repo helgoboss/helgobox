@@ -101,6 +101,8 @@ See {term_inspector_matrix_recording_detect_downbeat}.
 
 include::partial$generated/elements/inspector/clip/section.adoc[]
 
+See {term_clip_dynamic_section}.
+
 .Usage with MIDI clips
 CAUTION: These properties work for both audio and MIDI clips.
 When using it on MIDI clips, be aware that the REAPER MIDI editor doesn't indicate the start position or length in any way, which can be confusing.
@@ -165,9 +167,13 @@ include::partial$generated/elements/inspector/clip/expert-settings.adoc[]
 
 include::partial$generated/elements/inspector/clip/source-cut-start.adoc[]
 
+See {term_clip_fixed_section}.
+
 include::partial$clip-prop-applied-quantized.adoc[]
 
 
 include::partial$generated/elements/inspector/clip/source-cut-length.adoc[]
+
+See {term_clip_fixed_section}.
 
 include::partial$clip-prop-applied-quantized.adoc[]

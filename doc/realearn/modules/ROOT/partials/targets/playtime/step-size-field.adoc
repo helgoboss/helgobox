@@ -1,0 +1,3 @@
+== Step size field
+
+Lets you enter the step size for this target. You can enter numbers or simple expressions.

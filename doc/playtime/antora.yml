@@ -12,6 +12,8 @@ asciidoc:
     # Cross-page anchor terms.
     term_clip_start_timing: 'xref:playtime:ROOT:key-concepts.adoc#clip-start-timing[Clip start timing,role=term]'
     term_clip_stop_timing: 'xref:playtime:ROOT:key-concepts.adoc#clip-stop-timing[Clip stop timing,role=term]'
+    term_clip_fixed_section: 'xref:playtime:ROOT:key-concepts.adoc#clip-fixed-section[Clip source cut,role=term]'
+    term_clip_dynamic_section: 'xref:playtime:ROOT:key-concepts.adoc#clip-dynamic-section[Clip section,role=term]'
     term_column: 'xref:playtime:ROOT:key-concepts.adoc#column[Column,role=term]'
     term_column_cell: 'xref:playtime:ROOT:user-interface/matrix-area.adoc#column-cell[Column cell,role=term]'
     term_column_cell_exclusive_mode: 'xref:playtime:ROOT:user-interface/matrix-area.adoc#column-cell-exclusive-mode[Exclusive mode,role=term]'

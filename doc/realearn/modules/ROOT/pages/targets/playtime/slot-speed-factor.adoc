@@ -1,0 +1,13 @@
+= Target "Playtime: Slot speed factor"
+
+Sets the {term_playtime_inspector_clip_speed_factor} property of all clips in a {term_playtime_slot}.
+
+- A control value of 0% sets the speed factor to the negative of the defined maximum value.
+- A control value of 50% sets the speed factor to zero.
+- A control value of 100% sets the speed factor to the defined maximum value.
+
+include::partial$targets/playtime/slot-menu.adoc[]
+
+include::partial$targets/playtime/max-value-field.adoc[]
+
+Defines the maximum speed factor.

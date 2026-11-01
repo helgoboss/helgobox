@@ -1,0 +1,27 @@
+= Target "Playtime: Slot start position"
+
+Sets the {term_playtime_inspector_clip_start_pos} property of all clips in a {term_playtime_slot}.
+
+- A control value of 0% sets the start position to the negative of the defined maximum value.
+- A control value of 50% sets the start position to zero.
+- A control value of 100% sets the start position to the defined maximum value.
+
+include::partial$targets/playtime/time-unit-menu.adoc[]
+
+include::partial$targets/playtime/slot-menu.adoc[]
+
+include::partial$targets/playtime/max-value-field.adoc[]
+
+If you leave the field empty, the maximum and minimum start position are dictated by the length of the clip as defined by the {term_playtime_clip_fixed_section}.
+
+====
+If {term_time_unit} is set to bars, entering `8` restricts start position adjustments to the range of -8 to +8 bars.
+====
+
+include::partial$targets/playtime/step-size-field.adoc[]
+
+If you leave the field empty, the target becomes continuous.
+
+====
+If {term_time_unit} is set to whole notes, entering 1/4 snaps start position adjustments to a quarter-note grid.
+====
