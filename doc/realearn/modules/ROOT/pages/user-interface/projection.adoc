@@ -4,16 +4,15 @@ This section is about the _ReaLearn Companion_ app, which is a separate software
 
 At the moment, it comes as https://play.google.com/store/apps/details?id=org.helgoboss.realearn_companion[Android app]
 and https://realearn.helgoboss.org/[web app].
-The iOS app has not been published yet.
 The source code is available https://github.com/helgoboss/realearn-companion[here at GitHub].
 
 NOTE: The new xref:helgobox::app.adoc[] will gradually replace the companion app.
 
 == Connecting to ReaLearn
 
-The start screen lets you connect to a specific ReaLearn instance by scanning the QR code that pops up when pressing ReaLearn's <<header-panel,Projection button>>.
+The start screen lets you connect to a specific ReaLearn instance by scanning the QR code that pops up when pressing ReaLearn's {term_projection_button}.
 It's also possible to enter the connection data manually, in case your device doesn't have a camera or in case you are using the web app (in which QR code scanning often doesn't work so well).
-If you are experiencing issues, follow the instructions given by the app and the setup guide which is displayed when pressing the <<Projection>> button!
+If you are experiencing issues, follow the instructions given by the app and the setup guide which is displayed when pressing the {term_projection_button}!
 
 Please note, if all you want is to open the web app on the computer that also runs REAPER/ReaLearn, you don't need to bother with QR codes or connection data at all.
 Just follow the link that is displayed in the setup guide.
@@ -46,7 +45,7 @@ Pressing a control element opens a panel which lets you change its appearance.
 The two labels mentioned there are used in the following way:
 
 . If the control element is a composite control element (see below, e.g. push encoder), the first label represents the mapping of the first inner control element (e.g. the encoder) and the second label represents the mapping of the second inner control element (e.g. the button).
-See the _Midi Fighter Twister_ <<tested-controllers,controller preset>> for a real-world usage of this feature.
+See the link:https://github.com/helgoboss/helgobox/wiki/DJ-TechTools-Midi-Fighter-Twister[Midi Fighter Twister controller preset] for a real-world usage of this feature.
 . If the control element is just a normal control element, the second label is usually empty.
 Except this control element has more than one main mapping assigned: In that case the second label shows the second main mapping.
 
@@ -59,7 +58,6 @@ This gives you a preview of your current changes.
 *Attention:* If you leave the controller projection view (e.g. by pressing the upper left arrow) or if you change your controller preset from within ReaLearn, all non-saved controller layout changes will be lost!
 So it's a good idea to save often.
 Once saved, there's no undo though.
-You can back up temporary states by copying the corresponding controller preset files (on the computer running ReaLearn) to a temporary backup location (see _Save as…_ button documentation in the <<header-panel,Header panel>> section).
 
 === Composite control elements
 
