@@ -18,9 +18,9 @@ CAUTION: This ID can change after a restart of REAPER! If you are looking for so
 == Instance key
 
 A *user-defined*, *persistent* identifier that identifies a particular <<instance>>.
-The instance key gets relevant if you want to connect to an instance from an xref:app.adoc[] running in xref:app.adoc#app-remote-mode[].
+The instance key gets relevant if you want to connect to an instance from an xref:app.adoc[] running in {term_app_remote_mode}.
 
-You can change the instance key of an instance by changing the xref:realearn::further-concepts/unit.adoc#unit-key[] of the instance's xref:realearn::key-concepts.adoc#unit[main unit] -- they are the same.
+You can change the instance key of an instance by changing the {term_realearn_unit_key} of the instance's xref:realearn::key-concepts.adoc#unit[main unit] -- they are the same.
 
 
 .Make your instance keys unique!

@@ -1,6 +1,6 @@
 = Row inspector
 
-You will see this when selecting a xref:user-interface/matrix-area.adoc#row-cell[].
+You will see this when selecting a {term_row_cell}.
 
 include::partial$generated/elements/inspector/row/basics.adoc[]
 

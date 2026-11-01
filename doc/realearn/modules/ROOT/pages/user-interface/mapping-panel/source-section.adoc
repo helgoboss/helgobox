@@ -7,7 +7,7 @@ All xref:sources.adoc[] share the following UI elements.
 [#learn]
 == Learn button
 
-Starts or stops learning the xref:key-concepts.adoc#source[] of this mapping.
+Starts or stops learning the {term_source} of this mapping.
 
 [#category]
 == Category menu

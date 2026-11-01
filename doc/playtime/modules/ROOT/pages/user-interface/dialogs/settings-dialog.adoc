@@ -1,6 +1,6 @@
 = Settings dialog
 
-This dialog opens when pressing the xref:helgobox:ROOT:app/user-interface/title-bar.adoc#title-bar-settings[] button in the title bar and navigating to the Playtime section.
+This dialog opens when pressing the {term_helgobox_title_bar_settings} button in the title bar and navigating to the Playtime section.
 
 image::generated/screenshots/main/settings.png[]
 
@@ -8,11 +8,11 @@ image::generated/screenshots/main/settings.png[]
 
 include::partial$generated/elements/settings/show-control-unit-frames.adoc[]
 
-See xref:further-concepts/matrix.adoc#control-unit-frame[].
+See {term_control_unit_frame}.
 
 include::partial$generated/elements/settings/show-column-numbers.adoc[]
 
-Disabling this will give you more vertical space, but also hides the shortcut buttons such as xref:user-interface/matrix-area.adoc#column-cell-exclusive-mode[]. In that case, you can still change those things in the xref:user-interface/inspector/column.adoc[].
+Disabling this will give you more vertical space, but also hides the shortcut buttons such as {term_column_cell_exclusive_mode}. In that case, you can still change those things in the xref:user-interface/inspector/column.adoc[].
 
 include::partial$generated/elements/settings/show-clip-activity.adoc[]
 include::partial$generated/elements/settings/show-cell-selection-as-crosshair.adoc[]
@@ -24,7 +24,7 @@ include::partial$generated/elements/settings/cell-width.adoc[]
 
 include::partial$generated/elements/settings/cell-height.adoc[]
 
-In addition, you might be interested in the xref:helgobox::app/user-interface/settings-dialog.adoc#settings-overall-size[] setting, located in the general appearance section.
+In addition, you might be interested in the {term_helgobox_settings_overall_size} setting, located in the general appearance section.
 
 == Engine
 

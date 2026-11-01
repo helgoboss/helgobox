@@ -12,7 +12,7 @@
 
 image:realearn/screenshots/mapping-panel-glue.png[Screenshot]
 
-The xref:key-concepts.adoc#glue[] section is divided into several subsections some of which make sense for all kinds of sources and others only for some.
+The {term_glue} section is divided into several subsections some of which make sense for all kinds of sources and others only for some.
 Having so many settings available at the same time can be a bit daunting.
 ReaLearn helps you by hiding settings that don't make sense in the current context.
 
@@ -78,7 +78,7 @@ If you set this to "-6 dB to 0 dB" for a _Track volume_ target, the volume will 
 However, it wouldn't prevent the volume from exceeding that range if changed e.g. in REAPER itself.
 ====
 
-This setting can be used with all targets that work with xref:further-concepts/mapping.adoc#absolute-control-value[absolute control values] (all targets except xref:targets/project/invoke-reaper-action.adoc[] with relative xref:targets/project/invoke-reaper-action.adoc#invocation-type[]).
+This setting can be used with all targets that work with xref:further-concepts/mapping.adoc#absolute-control-value[absolute control values] (all targets except xref:targets/project/invoke-reaper-action.adoc[] with relative {term_invocation_type}).
 
 [#value-sequence]
 == Value sequence field
@@ -86,8 +86,8 @@ This setting can be used with all targets that work with xref:further-concepts/m
 {control}::
 include::partial$glue/value-sequence/control.txt[]
 
-Allows you to define a xref:further-concepts/glue.adoc#target-value-sequence[].
-All values are entered comma-separated using the target unit specified with the xref:user-interface/mapping-panel/target-section.adoc#display-unit[].
+Allows you to define a {term_target_value_sequence}.
+All values are entered comma-separated using the target unit specified with the {term_display_unit}.
 
 You can provide only one of <<target-min-max>> or <<value-sequence>>.
 
@@ -97,7 +97,7 @@ You can provide only one of <<target-min-max>> or <<value-sequence>>.
 {control}::
 include::partial$glue/group-interaction/control.txt[]
 
-See xref:further-concepts/mapping.adoc#group[].
+See {term_group}.
 
 TIP: If you want to control _other_ mappings only and not _this_ mapping, just pick a target that doesn't have any effect, for example the xref:targets/realearn/dummy.adoc[].
 
@@ -127,7 +127,7 @@ This is like <<same-control>> but broadcasts the _inverse_ of the incoming contr
 This is like <<same-target-value>> but sets the target values of the other mappings to the
 _inverse_ value.
 This is very useful in practice with buttons because it essentially gives you exclusivity within one group.
-It's a great alternative to the xref:user-interface/mapping-panel/target-section.adoc#exclusive[] which is available for some targets.
+It's a great alternative to the {term_exclusive} which is available for some targets.
 Unlike the latter, <<inverse-target-value>> allows for exclusivity between completely different target types and completely custom groupings - independent of e.g. organization of tracks into folders.
 
 Inverse target value (on only)::
@@ -142,7 +142,7 @@ Variation of <<inverse-target-value>> that applies the inverse only when the tar
 {feedback}::
 include::partial$glue/feedback-type/feedback.txt[]
 
-See xref:further-concepts/glue.adoc#feedback-type[].
+See {term_feedback_type}.
 
 [#feedback-style]
 == Feedback style menu (...)
@@ -150,7 +150,7 @@ See xref:further-concepts/glue.adoc#feedback-type[].
 The ... button provides options to change the _feedback style_.
 At the moment, it's all about setting colors.
 
-TIP: If you use xref:further-concepts/glue.adoc#dynamic-feedback[], changes made here don't have any effect because you are supposed to provide style properties as part of the Luau script result (which is much more flexible).
+TIP: If you use {term_dynamic_feedback}, changes made here don't have any effect because you are supposed to provide style properties as part of the Luau script result (which is much more flexible).
 
 Color / Background color::
 With this you can define the color and background color of the displayed text.
@@ -205,7 +205,7 @@ For example to react only to the upper half of a fader.
 
 By restricting that range, you basically tell ReaLearn to  or only the lower velocity layer of a key press.
 
-This range also determines the minimum and maximum xref:key-concepts.adoc#feedback[] value.
+This range also determines the minimum and maximum {term_feedback} value.
 
 [#out-of-range-behavior]
 == Out-of-range behavior menu
@@ -428,7 +428,7 @@ Good for transitions that are not continuous, especially if other mappings want 
 `realearn_last_feedback_value`::
 Contains the last numeric feedback value sent through this mapping.
 Before that, it's zero.
-This can come in handy for mappings with xref:further-concepts/target.adoc#virtual-target[], for which the variable `y` is always zero because virtual targets don't know the concept of a current value.
+This can come in handy for mappings with {term_virtual_target}, for which the variable `y` is always zero because virtual targets don't know the concept of a current value.
 +
 WARNING: This variable is experimental, better don't rely on it!
 
@@ -492,7 +492,7 @@ include::partial$glue/usage-dependent-effect.adoc[]
 {control}::
 include::partial$glue/speed-min-max/control.txt[]
 
-When you choose a target with a xref:further-concepts/target.adoc#discrete-value-range[], the <<step-size-min-max>> label will change into
+When you choose a target with a {term_discrete_value_range}, the <<step-size-min-max>> label will change into
 _Speed_.
 If a target is discrete, it cannot have arbitrarily small step sizes.
 It rather has one predefined atomic step size.

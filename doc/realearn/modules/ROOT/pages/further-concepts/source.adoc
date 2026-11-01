@@ -7,14 +7,14 @@ We distinguish between _virtual_ and _real_ sources.
 [[virtual-source]]
 === Virtual source
 
-A _virtual_ source refers to a xref:further-concepts/compartment.adoc#virtual-control-element[] and can only be used in the xref:key-concepts.adoc#main-compartment[].
+A _virtual_ source refers to a {term_virtual_control_element} and can only be used in the {term_main_compartment}.
 
 Examples: `ch1/fader`
 
 [[real-source]]
 === Real source
 
-A _real_ source refers to a xref:further-concepts/compartment.adoc#real-control-element[].
+A _real_ source refers to a {term_real_control_element}.
 
 [[midi-source-character]]
 == MIDI source character
@@ -80,9 +80,9 @@ It can't make a toggle hardware button act like a momentary button.
 ====
 +
 [CAUTION]
-.Combination with xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[]
+.Combination with {term_incremental_button}
 ====
-If you use the toggle-only source character in combination with mode xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[], you must leave source max at the (default) theoretical maximum value for that source (e.g. 127 for MIDI CC).
+If you use the toggle-only source character in combination with mode {term_incremental_button}, you must leave source max at the (default) theoretical maximum value for that source (e.g. 127 for MIDI CC).
 Even if your controller device only sends 0 and 1 and in all other mappings you would enter the controller's concrete (instead of theoretically possible) maximum value.
 Otherwise, for this special case, a fixed out-of-range-behavior will set in that will just ignore all button presses.
 ====
@@ -208,7 +208,7 @@ You can use the `feedback_value_table` xref:user-interface/mapping-panel/glue-se
 Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
 ====
 
-You can share code between multiple MIDI scripts by using xref:further-concepts/compartment.adoc#compartment-wide-lua-code[], with the following limitations (which hopefully will be lifted over time):
+You can share code between multiple MIDI scripts by using {term_compartment_wide_lua_code}, with the following limitations (which hopefully will be lifted over time):
 
 * The shared code is not yet available to the Lua code editor window.
 That means writing `require("compartment")` will evaluate to `nil` in the editor.
@@ -220,14 +220,14 @@ You might see a corresponding error message when the editor tries to compile you
 This expression is used to enable for more flexible feedback for the xref:sources/osc.adoc[].
 
 It allows you to define exactly which feedback value is sent at which argument position.
-If this field is non-empty, the argument type will be ignored for the xref:key-concepts.adoc#feedback[] direction.
+If this field is non-empty, the argument type will be ignored for the {term_feedback} direction.
 
 The format of this field is very simple: You enter feedback value property keys separated by spaces.
 Each entered property key corresponds to one argument position.
 
 .Custom feedback with 2 arguments
 ====
-If you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[]) as RRGGBB string at argument 2, you would enter:
+If you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see {term_feedback_style}) as RRGGBB string at argument 2, you would enter:
 
 ----
 value.string style.color.rrggbb

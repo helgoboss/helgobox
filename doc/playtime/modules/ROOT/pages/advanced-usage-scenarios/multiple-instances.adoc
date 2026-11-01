@@ -13,7 +13,7 @@ Assuming you have one Playtime instance already, here's how you add another one:
 . In the xref:helgobox::app/user-interface.adoc[Helgobox app window], press the image:screenshots/playtime-toolbar-icon.png[Playtime,width=30] button in the xref:helgobox::app/user-interface/navigation-bar.adoc[] on the left.
 . Press the button btn:[Create a Playtime Matrix]
 
-That's it! You now have a second xref:key-concepts.adoc#matrix[] in the project, that runs independently of the first one.
+That's it! You now have a second {term_matrix} in the project, that runs independently of the first one.
 
 TIP: Currently, the only way to open that second matrix is to open the xref:helgobox::plug-in/user-interface.adoc[plug-in window] of that second xref:helgobox::key-concepts.adoc#instance[Helgobox instance] and press menu:Menu[Show app]. In the future, a separate REAPER action is planned, to make that step easier.
 

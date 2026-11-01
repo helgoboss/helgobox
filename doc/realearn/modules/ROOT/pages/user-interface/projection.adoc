@@ -1,6 +1,6 @@
 = Projection
 
-This section is about the _ReaLearn Companion_ app, which is a separate software that powers ReaLearn's xref:further-concepts/unit.adoc#projection[] feature.
+This section is about the _ReaLearn Companion_ app, which is a separate software that powers ReaLearn's {term_projection} feature.
 
 At the moment, it comes as https://play.google.com/store/apps/details?id=org.helgoboss.realearn_companion[Android app]
 and https://realearn.helgoboss.org/[web app].

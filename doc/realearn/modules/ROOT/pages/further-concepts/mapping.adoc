@@ -2,7 +2,7 @@
 
 == Absolute vs. relative control
 
-We can distinguish between two fundamentally different ways of xref:key-concepts.adoc#control[]: _Absolute_ and _relative_ control.
+We can distinguish between two fundamentally different ways of {term_control}: _Absolute_ and _relative_ control.
 
 [[absolute-control]]
 === Absolute control
@@ -16,7 +16,7 @@ Absolute control uses <<absolute-control-value, absolute control values>>.
 ====
 Often, absolute control involves an <<absolute-control-element>>, but it doesn't have to!
 
-ReaLearn can simulate absolute control even with a <<relative-control-element>> (see xref:user-interface/mapping-panel/glue-section.adoc#make-absolute[]).
+ReaLearn can simulate absolute control even with a <<relative-control-element>> (see {term_make_absolute}).
 ====
 
 [[relative-control]]
@@ -34,9 +34,9 @@ Often, relative control involves a <<relative-control-element>>, but it doesn't 
 ReaLearn masters multiple ways of turning absolute control into relative one:
 
 * Buttons or keys naturally emit absolute control values.
-But using xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[], they can be used for relative control (previous/next style buttons).
+But using {term_incremental_button}, they can be used for relative control (previous/next style buttons).
 * Knobs naturally emit absolute control values.
-But using xref:user-interface/mapping-panel/glue-section.adoc#make-relative[] or xref:user-interface/mapping-panel/glue-section.adoc#performance-control[], they can be used for relative control.
+But using {term_make_relative} or {term_performance_control}, they can be used for relative control.
 ====
 
 == Absolute vs. relative control elements
@@ -46,7 +46,7 @@ We can distinguish between control elements with regard to what sort of <<contro
 [[absolute-control-element]]
 === Absolute control element
 
-A xref:key-concepts.adoc#control-element[] is _absolute_ if it emits absolute values.
+A {term_control_element} is _absolute_ if it emits absolute values.
 You can think of an absolute value as a percentage: The value is something between 0% and 100%, where 0% represents the minimum possible value and 100% the maximum.
 
 .Typical absolute control elements
@@ -61,7 +61,7 @@ When moving a knob clockwise, it will continuously emit values from 0% (at the l
 [[momentary-button]] Momentary button::
 A momentary button is a button that emits 100% when pressed and 0% when released.
 ReaLearn can easily use momentary buttons to toggle a target.
-See xref:user-interface/mapping-panel/glue-section.adoc#toggle-button-mode[].
+See {term_toggle_button_mode}.
 
 [[toggle-button]] Toggle button::
 A toggle button is a button that emits 100% when pressed and 0% when pressed again.
@@ -69,7 +69,7 @@ A toggle button is a button that emits 100% when pressed and 0% when pressed aga
 IMPORTANT: You don't want toggle buttons on the hardware side!
 They are much less flexible than momentary buttons!
 Momentary buttons can be turned into toggle buttons by ReaLearn, but not vice versa!
-If you have to put up with a hardware toggle button, use xref:further-concepts/source.adoc#midi-source-character[] xref:further-concepts/source.adoc#toggle-only-button[].
+If you have to put up with a hardware toggle button, use {term_midi_source_character} {term_toggle_only_button}.
 
 [[velocity-sensitive-key]] Velocity-sensitive key:: A key emits a value between 0% and 100% when pressed, depending on the velocity with which the key was hit.
 When released, it will emit 0%.
@@ -87,7 +87,7 @@ When dragging upward, it will continuously emit increasing values starting from 
 [[relative-control-element]]
 === Relative control element
 
-A xref:key-concepts.adoc#control-element[] is _relative_ if it emits relative values.
+A {term_control_element} is _relative_ if it emits relative values.
 You can think of a relative value as an _instruction_.
 It can be one of the following two instructions:
 
@@ -107,13 +107,13 @@ That is a great waste, and you should change that setting as soon as possible on
 [[control-value]]
 == Control value
 
-A _control value_ is the signal that travels through a ReaLearn xref:key-concepts.adoc#mapping[] from xref:key-concepts.adoc#source[] to xref:key-concepts.adoc#target[] when it receives an event from an xref:key-concepts.adoc#input-port[].
+A _control value_ is the signal that travels through a ReaLearn {term_mapping} from {term_source} to {term_target} when it receives an event from an {term_input_port}.
 A control value can be absolute or relative.
 
 [[feedback-value]]
 == Feedback value
 
-A _feedback value_ is the signal that travels through a ReaLearn xref:key-concepts.adoc#mapping[] back from xref:key-concepts.adoc#target[] to xref:key-concepts.adoc#source[] when the target changes its value.
+A _feedback value_ is the signal that travels through a ReaLearn {term_mapping} back from {term_target} to {term_source} when the target changes its value.
 A feedback value is always absolute.
 
 == Absolute vs. relative control values
@@ -153,7 +153,7 @@ Groups can be useful …
 * To enable/disable control/feedback for multiple mappings at once.
 * To keep track of mappings if there are many of them.
 
-You can decide which group is displays using xref:user-interface/main-panel/mapping-group-section.adoc#mapping-group[].
+You can decide which group is displays using {term_mapping_group}.
 
 You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows and Linux, control-click on macOS) of the corresponding mapping row and choosing "Move to group".
 
@@ -168,26 +168,26 @@ A mapping is considered as *on* or *active* (terms are used interchangeably) onl
 . The mapping is enabled as a whole
 . The mapping has control and/or feedback enabled
 . The <<mapping-activation-condition>> is fulfilled
-. The xref:further-concepts/target.adoc#target-activation-condition[] is fulfilled
+. The {term_target_activation_condition} is fulfilled
 . The target is valid
 +
 ====
-Example: A track target can be invalid when it's using xref:further-concepts/target.adoc#selected-selector[] but no track is currently selected).
+Example: A track target can be invalid when it's using {term_selected_selector} but no track is currently selected).
 ====
 
 In all other cases, mapping is *off* or *inactive*.
 In that case, it doesn't have any effect!
 
-(Controller) mappings with xref:further-concepts/target.adoc#virtual-target[] are always considered active as long as the feedback checkbox is ticked.
+(Controller) mappings with {term_virtual_target} are always considered active as long as the feedback checkbox is ticked.
 
 [[mapping-signal-flow]]
 == Mapping signal flow
 
 Here's how ReaLearn processes an incoming control event that matches a mapping source.
 
-1. ReaLearn converts the event coming from the xref:key-concepts.adoc#input-port[] to a <<control-value>>.
-2. ReaLearn feeds the <<control-value>> to the mapping's xref:key-concepts.adoc#glue[].
-The glue section is responsible for transforming control values before they reach the xref:key-concepts.adoc#target[].
+1. ReaLearn converts the event coming from the {term_input_port} to a <<control-value>>.
+2. ReaLearn feeds the <<control-value>> to the mapping's {term_glue}.
+The glue section is responsible for transforming control values before they reach the {term_target}.
 This transformation can change the type of the control value, e.g. from relative to absolute - it depends on the settings in the glue section and the mapping's target.
 The glue section can even "eat" control values so that they don't arrive at the target at all.
 3. Finally, ReaLearn converts the transformed <<control-value>> into some target instruction (e.g. "set volume to -6.0 dB") and executes it.
@@ -226,7 +226,7 @@ Please activate this mapping only if ReaLearn Parameter 1 is *on*!"
 [[mapping-activation-condition]]
 == Mapping activation condition
 
-The activation condition of a mapping determines under which circumstances a mapping is active or inactive, based on the value of a xref:further-concepts/compartment.adoc#compartment-parameter[] or based on the state of arbitrary xref:key-concepts.adoc#target[targets].
+The activation condition of a mapping determines under which circumstances a mapping is active or inactive, based on the value of a {term_compartment_parameter} or based on the state of arbitrary xref:key-concepts.adoc#target[targets].
 It is especially practical if your controller has a limited amount of control elements and you want to give control elements several responsibilities.
 It lets you easily implement use cases such as:
 
@@ -321,7 +321,7 @@ However, that method is pretty limited and hard to maintain because presets are 
 
 With _Conditional activation_ you can do the same (and more) within just one ReaLearn unit.
 
-TIP: If you want to adjust the number of banks and improve bank handling in general, set a discrete value count for the corresponding bank parameter (see xref:further-concepts/compartment.adoc#compartment-parameter[]).
+TIP: If you want to adjust the number of banks and improve bank handling in general, set a discrete value count for the corresponding bank parameter (see {term_compartment_parameter}).
 
 === When EEL met
 
@@ -393,7 +393,7 @@ If feedback is set up correctly, this message will be sent to the device wheneve
 
 Remarks:
 
-* You can check if the correct feedback messages are sent to the device by enabling xref:further-concepts/unit.adoc#logging-of-real-feedback-messages[].
+* You can check if the correct feedback messages are sent to the device by enabling {term_logging_of_real_feedback_messages}.
 * Each byte is written using 2 hexadecimal digits.
 * Spaces between the bytes can be omitted.
 * You can express all types of MIDI messages using this raw notation (e.g. pitch wheel), not just system-exclusive ones.
@@ -423,10 +423,10 @@ The left bit is the most significant one.
 
 === Variable patterns (extracting and encoding a value)
 
-For the xref:key-concepts.adoc#feedback[] direction, the examples I've shown you so far aren't real-world examples, because there's no point in sending the same MIDI message to the device over and over again!
+For the {term_feedback} direction, the examples I've shown you so far aren't real-world examples, because there's no point in sending the same MIDI message to the device over and over again!
 If you really would want to send a constant MIDI message to the device, you would be much better off using a xref:user-interface/mapping-panel/advanced-settings-dialog.adoc#mapping-lifecycle-actions[Mapping lifecycle action], which allow you to send raw MIDI messages once when a mapping is initialized, not on every target value change.
 
-But even for the xref:key-concepts.adoc#control[] direction, you might want to react to a whole _range_ of system-exclusive messages, not just a fixed one.
+But even for the {term_control} direction, you might want to react to a whole _range_ of system-exclusive messages, not just a fixed one.
 One part of your message might represent a variable value.
 You might want to extract it and control the target with it.
 

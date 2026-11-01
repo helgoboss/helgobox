@@ -7,4 +7,4 @@ It supports both control and feedback direction!
 == Pattern field
 
 Pattern describing the raw MIDI message.
-See xref:further-concepts/mapping.adoc#raw-midi-pattern[].
+See {term_raw_midi_pattern}.

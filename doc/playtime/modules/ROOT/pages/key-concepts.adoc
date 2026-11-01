@@ -166,7 +166,7 @@ You can set the start timing for xref:user-interface/inspector/matrix/playback.a
 [[clip-stop-timing]]
 == Clip stop timing
 
-The clip _stop timing_ is  very similar to the <<clip-start-timing>> but determines when the clip actually stops after you have triggered its stop. In most cases, it makes sense to leave it at its default settings xref:user-interface/inspector/clip.adoc#inspector-clip-stop-timing-like-start-timing[].
+The clip _stop timing_ is  very similar to the <<clip-start-timing>> but determines when the clip actually stops after you have triggered its stop. In most cases, it makes sense to leave it at its default settings {term_inspector_clip_stop_timing_like_start_timing}.
 
 == Loop vs. one-shot
 
@@ -230,7 +230,7 @@ When using Playtime's default settings, all conditions are automatically met:
 
 * <<in-sync-playback-with-same-tempo>> is met because by default, Playtime starts and stops a clip _recording_ quantized to a 1-bar grid (see xref:clip-start-timing[]).
 * <<in-sync-beat-aligned-playback>> is met because by default, Playtime starts and stops clip _playback_ quantized to a 1-bar grid (see xref:clip-start-timing[]).
-* <<in-sync-playback-with-same-tempo>> is met because by default, Playtime adjusts the tempo of a clip to the current project tempo (see xref:user-interface/inspector/clip.adoc#inspector-clip-sync-to-project-tempo[]).
+* <<in-sync-playback-with-same-tempo>> is met because by default, Playtime adjusts the tempo of a clip to the current project tempo (see {term_inspector_clip_sync_to_project_tempo}).
 
 [TIP]
 ====
@@ -282,6 +282,6 @@ When the REAPER project is stopped, Playtime uses its own timeline as reference,
 [[grid-controller]]
 == Grid controller
 
-A _grid controller_ is a unique class of hardware controller designed specifically for clip launching. A well-known example is the Novation Launchpad. A grid controller feature a grid of pads with LEDs arranged in rows and columns — exactly like Playtime's xref:key-concepts.adoc#matrix[]!
+A _grid controller_ is a unique class of hardware controller designed specifically for clip launching. A well-known example is the Novation Launchpad. A grid controller feature a grid of pads with LEDs arranged in rows and columns — exactly like Playtime's {term_matrix}!
 
 Playtime includes out-of-the-box support for many popular grid controllers. xref:supported-controllers.adoc[Here] you can find the current list of supported devices.

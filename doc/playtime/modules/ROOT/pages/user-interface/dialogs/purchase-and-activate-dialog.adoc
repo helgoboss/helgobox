@@ -1,6 +1,6 @@
 = Purchase & Activate dialog
 
-This dialog opens when clicking the button xref:user-interface/title-bar.adoc#title-bar-purchase-playtime[].
+This dialog opens when clicking the button {term_title_bar_purchase_playtime}.
 
 image::generated/screenshots/main/purchase.png[]
 

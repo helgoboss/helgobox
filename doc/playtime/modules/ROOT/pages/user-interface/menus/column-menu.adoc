@@ -1,6 +1,6 @@
 = Column context menu
 
-Right-clicking xref:user-interface/matrix-area.adoc#column-cell-label[] opens this context menu.
+Right-clicking {term_column_cell_label} opens this context menu.
 
 include::partial$generated/menus/column/rename-column-or-track.adoc[]
 include::partial$generated/menus/column/duplicate.adoc[]

@@ -24,7 +24,7 @@ include::partial$generated/elements/matrix/mixed-template-button.adoc[]
 include::partial$generated/elements/matrix/add-column.adoc[]
 
 Adding a new column automatically creates a corresponding REAPER track, on which clips in this column will be played back.
-See xref:key-concepts.adoc#column-track[].
+See {term_column_track}.
 
 include::partial$generated/elements/matrix/add-row.adoc[]
 
@@ -46,7 +46,7 @@ TIP: Right-clicking this area opens the xref:user-interface/menus/matrix-menu.ad
 
 include::partial$generated/elements/column-cell.adoc[]
 
-If you don't see the upper part, check xref:user-interface/dialogs/settings-dialog.adoc#settings-show-column-numbers[].
+If you don't see the upper part, check {term_settings_show_column_numbers}.
 
 [[column-drag-and-drop]]
 .Column drag-and-drop support
@@ -57,11 +57,11 @@ Drag the cell left or right to change the position of the column.
 
 include::partial$generated/elements/column-cell/exclusive-mode.adoc[]
 
-This is a shortcut for xref:user-interface/inspector/column/playback.adoc#inspector-column-exclusive-mode[].
+This is a shortcut for {term_inspector_column_exclusive_mode}.
 
 include::partial$generated/elements/column-cell/follow-scenes.adoc[]
 
-This is a shortcut for xref:user-interface/inspector/column/playback.adoc#inspector-column-follow-scenes[].
+This is a shortcut for {term_inspector_column_follow_scenes}.
 
 include::partial$generated/elements/column-cell/has-overrides.adoc[]
 
@@ -86,7 +86,7 @@ Drag the cell up or down to change the position of the row.
 
 include::partial$generated/elements/row-cell/play-scene.adoc[]
 
-See xref:key-concepts.adoc#scene[].
+See {term_scene}.
 
 include::partial$generated/elements/row-cell/label.adoc[]
 
@@ -102,7 +102,7 @@ include::partial$generated/elements/slot-cell/trigger.adoc[]
 
 include::partial$generated/elements/slot-cell/record.adoc[]
 
-This is only available if the corresponding xref:key-concepts.adoc#column-track[] is armed.
+This is only available if the corresponding {term_column_track} is armed.
 
 include::partial$generated/elements/slot-cell/content.adoc[]
 
@@ -122,7 +122,7 @@ Drag this area onto another slot while holding kbd:[Cmd/Ctrl] in order to copy a
 Import content::
 Drag a MIDI or audio file from outside onto this area in order to import it as a clip. This should work from the REAPER media explorer, from other plug-ins that offer dragging out content as files and from most file managers.
 +
-NOTE: Dragging REAPER items onto the slot won't work, because REAPER items are not real files. Use xref:user-interface/menus/slot-menu.adoc#slot-import-selected-item[] instead!
+NOTE: Dragging REAPER items onto the slot won't work, because REAPER items are not real files. Use {term_slot_import_selected_item} instead!
 ****
 
 include::partial$generated/elements/slot-cell/clip-count.adoc[]

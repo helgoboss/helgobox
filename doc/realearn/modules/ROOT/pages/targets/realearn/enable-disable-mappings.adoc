@@ -21,4 +21,4 @@ A mapping matches when it is tagged with any of the xref:further-concepts/mappin
 * This affects other mappings only, not _this_ mapping.
 * Mappings without tags won't be affected at all.
 
-TIP: This target is a straightforward alternative to xref:further-concepts/mapping.adoc#conditional-activation[] when it comes to bank switching!
+TIP: This target is a straightforward alternative to {term_conditional_activation} when it comes to bank switching!

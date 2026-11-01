@@ -4,11 +4,11 @@
 == Target value sequence
 
 A target value sequence represents a list of possible target values.
-It can be entered using into the xref:user-interface/mapping-panel/glue-section.adoc#value-sequence[].
+It can be entered using into the {term_value_sequence}.
 
 The mapping will set the target only to values contained in that sequence.
 Such a sequence doesn't just support single values but also ranges with customizable step sizes.
-All values are entered comma-separated using the target unit specified with the xref:user-interface/mapping-panel/target-section.adoc#display-unit[].
+All values are entered comma-separated using the target unit specified with the {term_display_unit}.
 
 .Single values
 ====
@@ -16,7 +16,7 @@ Enter this sequence for a volume target with target unit switched to *dB*:
 
 `-20, -14, -12, -6, -3.5, 0`
 
-When you move your knob or rotary encoder or press a button using xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[], ReaLearn will step through the entered dB values for you.
+When you move your knob or rotary encoder or press a button using {term_incremental_button}, ReaLearn will step through the entered dB values for you.
 ====
 
 .Value ranges
@@ -39,19 +39,19 @@ Let's look at this sequence:
 It's non-monotonic: It decreases, and then increases again.
 Even if it would just decrease, it would be non-strict monotonic because it contains duplicates (value 10).
 
-When using xref:further-concepts/mapping.adoc#absolute-control[], it's no problem stepping through such sequences.
+When using {term_absolute_control}, it's no problem stepping through such sequences.
 
-However, xref:further-concepts/mapping.adoc#relative-control[] only supports strictly increasing or strictly decreasing sequences.
-So if you control this sequence e.g. via xref:further-concepts/mapping.adoc#rotary-endless-encoder[] or via xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[], the sequence will be stepped through like this: -5, 8, 10, 20.
+However, {term_relative_control} only supports strictly increasing or strictly decreasing sequences.
+So if you control this sequence e.g. via {term_rotary_endless_encoder} or via {term_incremental_button}, the sequence will be stepped through like this: -5, 8, 10, 20.
 
-Alternative: Use xref:user-interface/mapping-panel/glue-section.adoc#make-absolute[]!
+Alternative: Use {term_make_absolute}!
 ====
 
 [#feedback-type]
 == Feedback type
 
 The _feedback type_ determines whether to send numeric, text or dynamic feedback to the source.
-It can be set using the xref:user-interface/mapping-panel/glue-section.adoc#feedback-type-controls[].
+It can be set using the {term_feedback_type_controls}.
 
 [[numeric-feedback-type]]
 === Numeric feedback: EEL transformation
@@ -60,7 +60,7 @@ Sends numeric feedback to the source.
 This is the default.
 
 Numeric feedback can be combined with an EEL feedback transformation formula.
-This is similar to xref:user-interface/mapping-panel/glue-section.adoc#control-transformation[] but used for translating a target value back to a source value for feedback purposes.
+This is similar to {term_control_transformation} but used for translating a target value back to a source value for feedback purposes.
 
 Be aware: Here `x` is the desired source value (= output value) and `y` is the current target value (= input value), so you must assign the desired source value to `x`.
 
@@ -94,7 +94,7 @@ You can do that by using placeholders, delimited by double braces.
 `{{target.text_value}}`
 ====
 
-See xref:further-concepts/target.adoc#target-property[] for a list of properties that you can use in placeholders.
+See {term_target_property} for a list of properties that you can use in placeholders.
 
 [#dynamic-feedback]
 === Dynamic feedback: Lua script
@@ -146,8 +146,8 @@ return {
 ----
 
 <1> In this example it's a text value, but it can be anything!
-<2> Has the same effect as color in xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[]
-<3> Has the same effect as background color in xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[]
+<2> Has the same effect as color in {term_feedback_style}
+<3> Has the same effect as background color in {term_feedback_style}
 ====
 +
 * The most important thing here is `value`.
@@ -248,7 +248,7 @@ return {
 This example is not realistic, it just shows how you can access the value table returned by the glue section feedback script.
 ====
 
-You can share code between multiple feedback scripts by using xref:further-concepts/compartment.adoc#compartment-wide-lua-code[], with the following limitations (which hopefully will be lifted over time):
+You can share code between multiple feedback scripts by using {term_compartment_wide_lua_code}, with the following limitations (which hopefully will be lifted over time):
 
 * The shared code is not yet available to the Lua code editor window.
 That means writing `require("compartment")` will evaluate to `nil` in the editor.

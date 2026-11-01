@@ -16,7 +16,7 @@ Meta clips open up a whole new world of possibilities. Here are just some of the
 
 . Prepare the matrix and set up MIDI triggers as explained in  xref:advanced-usage-scenarios/control-with-items.adoc[]. This should make it possible to play clips using your MIDI keyboard. Make sure that part works.
 . Select the track "Playtime" in your REAPER project (this is the track which contains the xref:helgobox::key-concepts.adoc#instance[Helgobox instance], by default the first track in the project)
-. Right-click the xref:user-interface/matrix-area.adoc#column-cell-label[] of some column, for example the last column. Choose xref:user-interface/menus/matrix-menu.adoc#matrix-insert-column-for-each-selected-track[].
+. Right-click the {term_column_cell_label} of some column, for example the last column. Choose {term_matrix_insert_column_for_each_selected_track}.
 +
 This should add a new column named "Playtime" that plays back its MIDI clips on the "Playtime" track, and can therefore be used to _play other clips_.
 .
@@ -31,8 +31,8 @@ This was just an example setup. You can adjust it to your needs. Here are some i
 
 * Introduce more leader columns
 * Move the leader column to the very left to make it obvious that it is a very important column
-* Set the xref:user-interface/inspector/column/playback.adoc#inspector-column-start-timing[] for the *Playtime* column to *1 bar*
-* Set the xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode[] to xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode-toggle[]
+* Set the {term_inspector_column_start_timing} for the *Playtime* column to *1 bar*
+* Set the {term_inspector_column_trigger_mode} to {term_inspector_column_trigger_mode_toggle}
 
 
 IMPORTANT: Using MIDI clips to control Playtime is subject to the same considerations about _rendering_ as when using MIDI items. Read xref:usage/arrangement.adoc[] for more information.

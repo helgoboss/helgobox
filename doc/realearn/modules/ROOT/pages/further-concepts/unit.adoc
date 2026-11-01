@@ -8,9 +8,9 @@ In other words, it doesn't forward MIDI events which are used to control a targe
 However, unmatched MIDI events are forwarded!
 You can change this using xref:user-interface/main-panel/let-through-section.adoc[].
 
-The exact behavior differs depending on what you choose as xref:user-interface/main-panel/input-output-section.adoc#input[]:
+The exact behavior differs depending on what you choose as {term_input}:
 
-* If input is set to xref:user-interface/main-panel/input-output-section.adoc#fx-input[]
+* If input is set to {term_fx_input}
 ** MIDI events arrive from ReaLearn's FX input.
 If they get forwarded, they get forwarded to the FX output, usually to the plug-in which is located right below ReaLearn FX.
 The default setting often makes much sense here, especially if you put ReaLearn right above another instrument plug-in.
@@ -30,7 +30,7 @@ Keys are always passed through when doing text entry and never passed through if
 [[auto-load]]
 == Auto-load
 
-If you activate xref:user-interface/main-panel/preset-section.adoc#auto-load-based-on-unit-fx[], ReaLearn will start to observe the <<unit-fx>> of this ReaLearn unit and keep loading xref:further-concepts/compartment.adoc#main-preset[main presets] according to which <<fx-to-preset-link, FX-to-preset links>> you have defined.
+If you activate {term_auto_load_based_on_unit_fx}, ReaLearn will start to observe the <<unit-fx>> of this ReaLearn unit and keep loading xref:further-concepts/compartment.adoc#main-preset[main presets] according to which <<fx-to-preset-link, FX-to-preset links>> you have defined.
 By default, the unit FX is set to `<Focused>`, which means, it will reflect whatever FX is currently focused.
 Whenever the unit FX changes, it will check if you have linked a compartment preset to it and will automatically load it.
 Whenever the unit FX switches to an unlinked FX or the FX loses focus, ReaLearn falls back to the mapping list or preset that was active before activating auto-load.
@@ -41,13 +41,13 @@ Section <<unit-fx-to-preset-link>> describes how to do that.
 [[fx-to-preset-link]]
 == FX-to-preset link
 
-A link between a FX and a xref:further-concepts/compartment.adoc#main-preset[].
+A link between a FX and a {term_main_preset}.
 Used in <<auto-load>>.
 
 [[unit-fx-to-preset-link]]
 === Unit FX-to-preset link
 
-A link saved as part of a xref:key-concepts.adoc#unit[].
+A link saved as part of a {term_unit}.
 
 [[global-fx-to-preset-link]]
 === Global FX-to-preset link
@@ -71,7 +71,7 @@ But a side effect is that with every new ReaLearn unit that you create, you firs
 Let's assume you have in many of your projects exactly one ReaLearn unit that lets your favorite MIDI controller control track volumes.
 By customizing the unit key, you can tell your mobile device that it should always show the <<projection>> of this very ReaLearn unit - no matter in which REAPER project you are and even if they control the volumes of totally different tracks.
 
-You can achieve this by setting the unit key of each volume-controlling ReaLearn unit to exactly the same value, in each project, using xref:user-interface/main-panel/bottom-section.adoc#set-unit-data[].
+You can achieve this by setting the unit key of each volume-controlling ReaLearn unit to exactly the same value, in each project, using {term_set_unit_data}.
 Ideally it's a descriptive name without spaces, such as "track-volumes".
 You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control ReaLearn units in each project.
 
@@ -89,7 +89,7 @@ This might change in future in favor of a more nuanced approach!
 
 The second line of the bottom panel shows the current track chosen as **Unit track** for this unit of ReaLearn.
 This can be something like "Track 3" or "The currently selected track".
-Mappings in this ReaLearn unit can refer to this track by choosing the track selector xref:further-concepts/target.adoc#unit-selector[].
+Mappings in this ReaLearn unit can refer to this track by choosing the track selector {term_unit_selector}.
 
 The unit track can be changed via xref:targets/track/track.adoc[].
 
@@ -98,7 +98,7 @@ The unit track can be changed via xref:targets/track/track.adoc[].
 
 The second line of the bottom panel also shows the current FX chosen as **Unit FX** for this unit of ReaLearn.
 This can be something like "FX 5 on track 3" or "The currently focused track".
-Mappings in this ReaLearn unit can refer to this FX by choosing the FX selector xref:further-concepts/target.adoc#unit-selector[].
+Mappings in this ReaLearn unit can refer to this FX by choosing the FX selector {term_unit_selector}.
 
 The unit FX can be changed via xref:targets/fx/fx.adoc[].
 
@@ -120,7 +120,7 @@ See xref:user-interface/projection.adoc[].
 
 == Logging
 
-Logging can be enabled or disabled via xref:user-interface/main-panel/menu-bar.adoc#logging[].
+Logging can be enabled or disabled via {term_logging}.
 
 [[logging-of-real-control-messages]]
 === Logging of real control messages
@@ -128,7 +128,7 @@ Logging can be enabled or disabled via xref:user-interface/main-panel/menu-bar.a
 Each log entry contains the following information:
 
 * Timestamp in seconds
-* Helgobox xref:helgobox:ROOT:key-concepts.adoc#instance-id[]
+* Helgobox {term_helgobox_instance_id}
 * Message purpose
 ** *Real control:* A message used for controlling targets.
 ** *Real learn:* A message used for learning a source.
@@ -154,7 +154,7 @@ The log entries look similar to the ones described above, with the following not
 [[superior-units]]
 == Superior units
 
-When a unit is made superior via menu entry xref:user-interface/main-panel/menu-bar.adoc#make-unit-superior[], this unit is allowed to suspend other units which share the same input and/or output device (hardware devices only, not FX input or output!).
+When a unit is made superior via menu entry {term_make_unit_superior}, this unit is allowed to suspend other units which share the same input and/or output device (hardware devices only, not FX input or output!).
 
 [TIP]
 ====

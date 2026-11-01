@@ -46,7 +46,7 @@ If the target can't be resolved at the moment, it will show "Target currently in
 == Display unit button
 
 On the right side of the current value you will see a button with a label such as `1. dB (%)`.
-This button displays the currently selected target unit (unrelated to the xref:key-concepts.adoc#unit[] concept) which is used for displaying and entering target values.
+This button displays the currently selected target unit (unrelated to the {term_unit} concept) which is used for displaying and entering target values.
 
 The number in the parentheses denotes the unit which is used for displaying and entering target step sizes.
 
@@ -68,7 +68,7 @@ When choosing a track, the following additional elements are available.
 === Track must be selected checkbox
 
 If checked, this mapping will be active only if the track set in _Track_ is currently selected.
-See xref:further-concepts/target.adoc#target-activation-condition[].
+See {term_target_activation_condition}.
 
 === Selection ganging checkbox
 
@@ -128,7 +128,7 @@ If checked, this mapping will be active only if the selected FX instance is curr
 If the FX instance is displayed in a floating window, _focused_ means that the floating window is active.
 If it's displayed within the FX chain window, _focused_ means that the FX chain window is currently open and the FX instance is the currently selected FX in that FX chain.
 
-Of course, this flag doesn't have any effect if you chose the xref:further-concepts/target.adoc#fx-focused-selector[].
+Of course, this flag doesn't have any effect if you chose the {term_fx_focused_selector}.
 
 == Common elements for pollable targets
 
@@ -136,5 +136,5 @@ The following elements are available only for the few targets that might need po
 
 === Poll for feedback checkbox
 
-Enables or disables xref:further-concepts/target.adoc#target-value-polling[].
+Enables or disables {term_target_value_polling}.
 In the probably rare case that the polling causes performance issues, you can untick this checkbox.

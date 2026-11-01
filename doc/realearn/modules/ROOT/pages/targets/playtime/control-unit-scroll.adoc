@@ -1,6 +1,6 @@
 = Target "Playtime: Control unit scroll"
 
-Controls the current xref:playtime::further-concepts/matrix.adoc#control-unit-scroll-position[] of the xref:playtime::further-concepts/matrix.adoc#control-unit[] represented by this xref:key-concepts.adoc#unit[ReaLearn unit].
+Controls the current {term_playtime_control_unit_scroll_position} of the {term_playtime_control_unit} represented by this xref:key-concepts.adoc#unit[ReaLearn unit].
 
 == Axis
 

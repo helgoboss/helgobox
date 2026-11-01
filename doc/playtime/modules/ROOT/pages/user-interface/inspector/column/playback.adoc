@@ -1,12 +1,12 @@
 = Column playback settings
 
-You will see this when selecting a xref:user-interface/matrix-area.adoc#column-cell[].
+You will see this when selecting a {term_column_cell}.
 
 include::partial$generated/elements/inspector/column/basics.adoc[]
 
 include::partial$generated/elements/inspector/column/playback-track.adoc[]
 
-See xref:key-concepts.adoc#column-track[].
+See {term_column_track}.
 
 include::partial$generated/elements/inspector/column/custom-name.adoc[]
 
@@ -18,11 +18,11 @@ include::partial$generated/elements/inspector/column/more.adoc[]
 
 include::partial$generated/elements/inspector/column/start-timing.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing[].
+See {term_inspector_clip_start_timing}.
 
 include::partial$generated/elements/inspector/column/stop-timing.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-stop-timing[].
+See {term_inspector_clip_stop_timing}.
 
 include::partial$generated/elements/inspector/column/trigger-mode.adoc[]
 include::partial$generated/elements/inspector/column/trigger-mode/toggle.adoc[]
@@ -32,12 +32,12 @@ include::partial$generated/elements/inspector/column/trigger-mode/retrigger.adoc
 
 include::partial$generated/elements/inspector/column/velocity-sensitivity.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-velocity-sensitivity[].
+See {term_inspector_clip_velocity_sensitivity}.
 
 include::partial$generated/elements/inspector/column/time-stretch-mode.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-time-stretch-mode[].
+See {term_inspector_clip_time_stretch_mode}.
 
 include::partial$generated/elements/inspector/column/resample-mode.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-resample-mode[].
+See {term_inspector_clip_resample_mode}.

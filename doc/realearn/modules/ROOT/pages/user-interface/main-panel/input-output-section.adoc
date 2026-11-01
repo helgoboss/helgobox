@@ -4,12 +4,12 @@ image:realearn/screenshots/main-panel-input-output.png[Screenshot]
 
 Use this section to connect ReaLearn to a specific controller.
 
-Also see xref:best-practices.adoc#best-practices-input-output[].
+Also see {term_best_practices_input_output}.
 
 [#input]
 == Input menu
 
-Allows you to select the xref:key-concepts.adoc#input-port[] to which this ReaLearn unit listens.
+Allows you to select the {term_input_port} to which this ReaLearn unit listens.
 ReaLearn works with MIDI or OSC input.
 In addition, it can listen to keyboard input.
 
@@ -81,7 +81,7 @@ If enabled, this ReaLearn instance will _additionally_ listen to key press and r
 [#output]
 == Output menu
 
-Here you can choose to which xref:key-concepts.adoc#output-port[] ReaLearn should send MIDI/OSC xref:key-concepts.adoc#feedback[].
+Here you can choose to which {term_output_port} ReaLearn should send MIDI/OSC {term_feedback}.
 
 <None>::
 This means, ReaLearn won't send any feedback to MIDI or OSC devices.
@@ -90,7 +90,7 @@ This is the default.
 [[fx-output]] MIDI: <FX output>::
 This makes feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
 +
-CAUTION: Under normal circumstances, it is better to use <<midi-some-output-device, select a specific output device>> instead. See xref:best-practices.adoc#best-practices-input-output[].
+CAUTION: Under normal circumstances, it is better to use <<midi-some-output-device, select a specific output device>> instead. See {term_best_practices_input_output}.
 
 [[midi-some-output-device]] MIDI: _Some output device_::
 If selected, ReaLearn will send feedback to the given MIDI output device.
@@ -126,7 +126,7 @@ When targeting an OSC software that runs on the same computer as REAPER and ReaL
 +
 When you configure your OSC connection on the device side, you must provide a _host_ as well.
 There you should enter the IP address of the computer which runs REAPER and ReaLearn.
-You can easily find it by pressing the xref:further-concepts/unit.adoc#projection[] button in ReaLearn, choosing the old browser-based projection and scrolling down a bit.
+You can easily find it by pressing the {term_projection} button in ReaLearn, choosing the old browser-based projection and scrolling down a bit.
 It's the value next to *Host* and should start with `192.168.`.
 
 Device port:: Required for feedback only.

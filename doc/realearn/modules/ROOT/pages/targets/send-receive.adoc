@@ -17,26 +17,26 @@ The kind of send/receive that you want to control.
 
 This lets you choose the actual send/receive/output.
 
-The meaning of xref:further-concepts/target.adoc#particular-selector[] and xref:further-concepts/target.adoc#named-selector[] depends on which kind you have selected:
+The meaning of {term_particular_selector} and {term_named_selector} depends on which kind you have selected:
 
 For kinds <<send>> (or <<receive>>)::
 
-xref:further-concepts/target.adoc#particular-selector[]:::
+{term_particular_selector}:::
 ReaLearn will memorize the _ID_ of the destination track (or source track).
 That way you will still control the correct send (or receive) even if you delete another send (receive) in that track.
 +
 WARNING: If you have multiple sends to (or receives from) the same destination (or source) track, you will only be able to address the first one.
-In that case, use selector xref:further-concepts/target.adoc#at-position-selector[] instead.
+In that case, use selector {term_at_position_selector} instead.
 
-xref:further-concepts/target.adoc#named-selector[]:::
+{term_named_selector}:::
 ReaLearn will memorize the _name_ of the destination (or source) track.
 That way you will still control the correct send (receive) even if you delete another send (receive) in that track.
 +
 WARNING: If you have multiple sends to (or receives from) the same destination (or source) track, you will only be able to address the first one.
-In that case, use selector xref:further-concepts/target.adoc#at-position-selector[] instead.
+In that case, use selector {term_at_position_selector} instead.
 
 For kind <<output>>::
 
-xref:further-concepts/target.adoc#particular-selector[]:::
+{term_particular_selector}:::
 ReaLearn will memorize the _position_ of the hardware output because hardware outputs don't have unique IDs.
-In other words, this works just like xref:further-concepts/target.adoc#at-position-selector[] internally!
+In other words, this works just like {term_at_position_selector} internally!

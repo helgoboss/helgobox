@@ -1,7 +1,7 @@
 = Settings dialog
 
 The dialog allows you to adjust the majority of global settings for Helgobox and its contained products.
-You can open it by pressing the xref:app/user-interface/title-bar.adoc#title-bar-settings[] button in the xref:app/user-interface/title-bar.adoc[].
+You can open it by pressing the {term_title_bar_settings} button in the xref:app/user-interface/title-bar.adoc[].
 
 image::generated/screenshots/main/settings.png[]
 
@@ -17,7 +17,7 @@ include::partial$generated/elements/settings/overall-size.adoc[]
 include::partial$generated/elements/settings/roundness.adoc[]
 
 .For Playtime users
-TIP: If you want slot cells with rounded corners, play with the xref:playtime:ROOT:user-interface/dialogs/settings-dialog.adoc#settings-cell-color-position[] setting!
+TIP: If you want slot cells with rounded corners, play with the {term_playtime_settings_cell_color_position} setting!
 
 include::partial$generated/elements/settings/prefer-tidy-appearance.adoc[]
 

@@ -1,24 +1,24 @@
 = Matrix playback settings
 
-You will see this when selecting the xref:user-interface/matrix-area.adoc#matrix-cell[].
+You will see this when selecting the {term_matrix_cell}.
 
 include::partial$generated/elements/inspector/matrix/playback-basics.adoc[]
 
 include::partial$generated/elements/inspector/matrix/start-timing.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing[].
+See {term_inspector_clip_start_timing}.
 
 include::partial$generated/elements/inspector/matrix/stop-timing.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-stop-timing[].
+See {term_inspector_clip_stop_timing}.
 
 include::partial$generated/elements/inspector/matrix/trigger-mode.adoc[]
 
-See xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode[].
+See {term_inspector_column_trigger_mode}.
 
 include::partial$generated/elements/inspector/matrix/velocity-sensitivity.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-velocity-sensitivity[].
+See {term_inspector_clip_velocity_sensitivity}.
 
 include::partial$generated/elements/inspector/matrix/activate-slot-on-trigger.adoc[]
 
@@ -26,7 +26,7 @@ include::partial$generated/elements/inspector/matrix/transport-sync.adoc[]
 
 include::partial$generated/elements/inspector/matrix/midi-quantization-grid.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-quantize[].
+See {term_inspector_clip_quantize}.
 
 TIP: If you want more advanced quantization options, do quantization in REAPER's MIDI editor instead.
 
@@ -34,8 +34,8 @@ include::partial$generated/elements/inspector/matrix/playback-more.adoc[]
 
 include::partial$generated/elements/inspector/matrix/time-stretch-mode.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-time-stretch-mode[].
+See {term_inspector_clip_time_stretch_mode}.
 
 include::partial$generated/elements/inspector/matrix/resample-mode.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-resample-mode[].
+See {term_inspector_clip_resample_mode}.

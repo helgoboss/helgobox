@@ -15,7 +15,7 @@ However, this approach has a drawback: You need to adjust settings for every new
 
 You can solve this issue by leveraging a feature that you probably already know: *REAPER track templates*!
 
-. Create a Playtime instance as usual as explained in xref:usage/prepare.adoc#fire-up-playtime[].
+. Create a Playtime instance as usual as explained in {term_fire_up_playtime}.
 
 . Modify the instance-specific settings to suit your needs. For example:
 * Change settings in the xref:user-interface/inspector/matrix.adoc[].
@@ -32,7 +32,7 @@ Done! You immediately get a fresh Playtime instance with your favorite settings,
 
 The downside of this approach is that you can't use the beloved image:screenshots/playtime-toolbar-icon.png[Playtime,width=50, pdfwidth=8mm] button to add Playtime, because this one still creates the Playtime default instance, not your custom one.
 
-This is where the action xref:reaper-actions.adoc#show-hide-custom-playtime[] comes into play. You can add a toolbar button for this action:
+This is where the action {term_show_hide_custom_playtime} comes into play. You can add a toolbar button for this action:
 
 . Right-click an empty area of the desired toolbar and choose menu:Customize toolbar...[]
 . Press btn:[Add...]
@@ -41,4 +41,4 @@ This is where the action xref:reaper-actions.adoc#show-hide-custom-playtime[] co
 
 The default icon for this button is image:screenshots/playtime-custom-toolbar-icon.png[Playtime,width=50, pdfwidth=8mm]. When you press it, it looks for a track template called "Playtime" and loads it.
 
-No default shortcut is assigned to this action, but you can assign your own in REAPER menu menu:Actions[Show action list...]. For example, you could remove the kbd:[Shift+Cmd/Ctrl+P] shortcut from the xref:reaper-actions.adoc#show-hide-playtime[] action and instead assign it to this action.
+No default shortcut is assigned to this action, but you can assign your own in REAPER menu menu:Actions[Show action list...]. For example, you could remove the kbd:[Shift+Cmd/Ctrl+P] shortcut from the {term_show_hide_playtime} action and instead assign it to this action.

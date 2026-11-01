@@ -1,6 +1,6 @@
 = Welcome dialog
 
-This dialog appears once after installing Helgobox and whenever you start the action xref:reaper-actions.adoc#show-welcome-screen[].
+This dialog appears once after installing Helgobox and whenever you start the action {term_show_welcome_screen}.
 
 image::helgobox::screenshots/welcome-dialog.png[width=500]
 

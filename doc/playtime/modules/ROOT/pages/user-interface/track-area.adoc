@@ -54,7 +54,7 @@ include::partial$generated/elements/track-panel/input-monitoring-auto.adoc[]
 
 include::partial$generated/elements/track-panel/input-monitoring-on.adoc[]
 
-NOTE: Which input monitoring mode you choose also has an effect on how Playtime does latency compensation during recording. Read more about that in xref:further-concepts/general.adoc#latency-compensation[].
+NOTE: Which input monitoring mode you choose also has an effect on how Playtime does latency compensation during recording. Read more about that in {term_latency_compensation}.
 
 [[input-monitoring-explained, Playtime input monitoring explained]]
 [NOTE]
@@ -109,7 +109,7 @@ Each input monitoring option mode translates to a certain combination of REAPER 
 
 === PDC info
 
-If the track is affected by xref:further-concepts/general.adoc#pdc[], a small icon will light up.
+If the track is affected by {term_pdc}, a small icon will light up.
 
 include::partial$generated/elements/track-panel/pdc-tiny.adoc[]
 include::partial$generated/elements/track-panel/pdc-significant.adoc[]

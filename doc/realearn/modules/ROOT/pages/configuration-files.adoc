@@ -2,10 +2,10 @@
 
 In addition to the xref:helgobox::configuration-files.adoc[general configuration files], ReaLearn maintains the following ones:
 
-`Data/helgoboss/auto-load-configs/fx.json`:: Contains global FX-to-preset links, see xref:further-concepts/unit.adoc#auto-load[]
+`Data/helgoboss/auto-load-configs/fx.json`:: Contains global FX-to-preset links, see {term_auto_load}
 
 `Data/helgoboss/presets/controller`:: Contains preset for the controller compartment
 
 `Data/helgoboss/presets/main`:: Contains preset for the main compartment
 
-`Helgoboss/ReaLearn/osc.json`:: Global OSC device configurations, see xref:user-interface/main-panel/input-output-section.adoc#manage-osc-devices[]
+`Helgoboss/ReaLearn/osc.json`:: Global OSC device configurations, see {term_manage_osc_devices}

@@ -2,16 +2,16 @@
 
 [[feature-grid]]
 .Grid controllers are optional!
-TIP: You don't need a xref:key-concepts.adoc#grid-controller[] to use Playtime! However, using one adds a tactile dimension to the clip-launching experience, making Playtime feel more like a distinct musical instrument. It’s a fun way to enhance interaction and creativity.
+TIP: You don't need a {term_grid_controller} to use Playtime! However, using one adds a tactile dimension to the clip-launching experience, making Playtime feel more like a distinct musical instrument. It’s a fun way to enhance interaction and creativity.
 
-If your xref:key-concepts.adoc#grid-controller[] is on the xref:supported-controllers.adoc[list of supported devices], here's how you set it up:
+If your {term_grid_controller} is on the xref:supported-controllers.adoc[list of supported devices], here's how you set it up:
 
 . Ensure that Playtime is running and you see its xref:user-interface.adoc[].
 . If the device is already connected to the USB port, **disconnect it** and wait a few seconds!
 . **Connect** the device to the USB port.
 . After waiting for a few seconds, Playtime should show a green success notice at the bottom of the screen.
 
-After that, the device should visually reflect the contents of the Playtime xref:key-concepts.adoc#matrix[] and you should be able to control the matrix with it.
+After that, the device should visually reflect the contents of the Playtime {term_matrix} and you should be able to control the matrix with it.
 
 In addition, the device should now appear in the xref:realearn:ROOT:user-interface/settings-dialog.adoc#controllers[ReaLearn controllers] section of the xref:helgobox::app/user-interface/settings-dialog.adoc[]. This is also the place where you can manually set up the device in case it was not auto-detected.
 
@@ -19,7 +19,7 @@ In addition, the device should now appear in the xref:realearn:ROOT:user-interfa
 
 If the device is not detected, please proceed as follows:
 
-* Execute REAPER action xref:realearn::reaper-actions.adoc#auto-detect-controllers-with-logging[] and copy the output to the clipboard.
+* Execute REAPER action {term_realearn_auto_detect_controllers_with_logging} and copy the output to the clipboard.
 * If the controller is not in the xref:supported-controllers.adoc[list of supported devices], create a https://github.com/helgoboss/helgobox/discussions/categories/ideas[feature request], naming your controller and including the copied info.
 * If the controller is in the list, write an email to info@helgoboss.org, naming your controller and including the copied info.
 

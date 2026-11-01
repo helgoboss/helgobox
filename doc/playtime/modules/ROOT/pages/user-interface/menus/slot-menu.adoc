@@ -1,6 +1,6 @@
 = Slot context menu
 
-Right-clicking xref:user-interface/matrix-area.adoc#slot-cell-content[] opens this context menu.
+Right-clicking {term_slot_cell_content} opens this context menu.
 
 include::partial$generated/menus/slot/rename-primary-clip.adoc[]
 include::partial$generated/menus/slot/copy.adoc[]

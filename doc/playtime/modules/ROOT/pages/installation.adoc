@@ -22,7 +22,7 @@ In order to remove the button permanently, open above-mentioned welcome screen a
 
 === Start directly via action
 
-Playtime provides the action xref:reaper-actions.adoc#show-hide-playtime[], which you can invoke from the REAPER action list or via menu:Extensions[Helgobox > Playtime > Show/hide Playtime].
+Playtime provides the action {term_show_hide_playtime}, which you can invoke from the REAPER action list or via menu:Extensions[Helgobox > Playtime > Show/hide Playtime].
 In the action list, you can also assign your preferred keyboard shortcut.
 The default is kbd:[Shift+Cmd/Ctrl+P].
 
@@ -32,6 +32,6 @@ You can add the image:screenshots/playtime-toolbar-icon.png[Playtime,width=50, p
 
 . Right-click the toolbar and choose menu:Customize toolbar...[]
 . Click btn:[Add...] (should open the REAPER action list)
-. Search for the action xref:reaper-actions.adoc#show-hide-playtime[] and double-click it.
+. Search for the action {term_show_hide_playtime} and double-click it.
 
 That's it! you should now see the button in your custom toolbar.

@@ -1,6 +1,6 @@
 = Matrix recording settings
 
-You will see this when selecting the xref:user-interface/matrix-area.adoc#matrix-cell[].
+You will see this when selecting the {term_matrix_cell}.
 
 include::partial$generated/elements/inspector/matrix/recording-basics.adoc[]
 
@@ -16,17 +16,17 @@ include::partial$generated/elements/inspector/matrix/recording-midi.adoc[]
 
 include::partial$generated/elements/inspector/matrix/recording-detect-downbeat.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-downbeat[].
+See {term_inspector_clip_downbeat}.
 
 include::partial$generated/elements/inspector/matrix/recording-auto-quantize.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-quantize[] and xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-midi-quantization-grid[].
+See {term_inspector_clip_quantize} and {term_inspector_matrix_midi_quantization_grid}.
 
 include::partial$generated/elements/inspector/matrix/recording-settings-for-new-clips.adoc[]
 
 include::partial$generated/elements/inspector/matrix/recording-sync-to-project-tempo.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-sync-to-project-tempo[].
+See {term_inspector_clip_sync_to_project_tempo}.
 
 include::partial$generated/elements/inspector/matrix/recording-sync-to-project-tempo/auto.adoc[]
 include::partial$generated/elements/inspector/matrix/recording-sync-to-project-tempo/no.adoc[]
@@ -34,7 +34,7 @@ include::partial$generated/elements/inspector/matrix/recording-sync-to-project-t
 
 include::partial$generated/elements/inspector/matrix/recording-midi-reset-behavior.adoc[]
 
-See xref:user-interface/inspector/clip.adoc#inspector-clip-midi-reset-behavior[].
+See {term_inspector_clip_midi_reset_behavior}.
 
 include::partial$generated/elements/inspector/matrix/tempo-detection-range.adoc[]
 

@@ -23,7 +23,7 @@ Each one represents a different preset namespace/workspace.
 The namespace named after you (macOS/Linux/Windows username) is your personal user namespace.
 +
 For more information about preset workspaces/namespaces, see
-xref:further-concepts/compartment.adoc#writing-presets-with-luau[].
+{term_writing_presets_with_luau}.
 
 User (Unsorted)::
 This submenu contains top-level presets which are not part of a particular preset namespace/workspace.
@@ -44,10 +44,10 @@ This permanently deletes the currently chosen user preset.
 
 == Auto-load button
 
-Activates or deactivates xref:further-concepts/unit.adoc#auto-load[] mode for this ReaLearn unit.
-This button is only available for the xref:key-concepts.adoc#main-compartment[] because auto-load is only about loading xref:further-concepts/compartment.adoc#main-preset[main presets].
+Activates or deactivates {term_auto_load} mode for this ReaLearn unit.
+This button is only available for the {term_main_compartment} because auto-load is only about loading xref:further-concepts/compartment.adoc#main-preset[main presets].
 
 Off:: Disables auto-load mode (the default).
 
 [[auto-load-based-on-unit-fx,Auto-load based on unit FX]] Based on unit FX::
-Switches auto-load mode on, letting ReaLearn decide about which main preset to load depending on the currently active xref:further-concepts/unit.adoc#unit-fx[].
+Switches auto-load mode on, letting ReaLearn decide about which main preset to load depending on the currently active {term_unit_fx}.

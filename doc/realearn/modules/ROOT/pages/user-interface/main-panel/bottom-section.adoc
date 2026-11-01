@@ -23,12 +23,12 @@ In the center you can see the info area, made up of 3 rows:
 
 Row 1::
 * The current scroll position.
-* The xref:helgobox:ROOT:key-concepts.adoc#instance-id[] of this Helgobox xref:helgobox:ROOT:key-concepts.adoc#instance[].
-* The xref:further-concepts/unit.adoc#unit-key[] of the currently visible ReaLearn xref:key-concepts.adoc#unit[].
-* xref:further-concepts/unit.adoc#unit-tag[] assigned to this ReaLearn xref:key-concepts.adoc#unit[].
+* The {term_helgobox_instance_id} of this Helgobox {term_helgobox_instance}.
+* The {term_unit_key} of the currently visible ReaLearn {term_unit}.
+* {term_unit_tag} assigned to this ReaLearn {term_unit}.
 
 Row 2::
-* Information about the current xref:further-concepts/unit.adoc#unit-track[] and xref:further-concepts/unit.adoc#unit-fx[].
+* Information about the current {term_unit_track} and {term_unit_fx}.
 * Information whether control and/or feedback is currently inactive unit-wide.
 
 Row 3::
@@ -39,6 +39,6 @@ Row 3::
 
 Press this button to change various key-value data of this ReaLearn unit as a whole.
 
-Unit key…:: Allows you to change the xref:further-concepts/unit.adoc#unit-key[] of this xref:key-concepts.adoc#unit[].
-Unit name:: The display name of this xref:key-concepts.adoc#unit[].
-Tags:: Lets you assign xref:further-concepts/unit.adoc#unit-tag[] to this xref:key-concepts.adoc#unit[] as a comma-separated list.
+Unit key…:: Allows you to change the {term_unit_key} of this {term_unit}.
+Unit name:: The display name of this {term_unit}.
+Tags:: Lets you assign {term_unit_tag} to this {term_unit} as a comma-separated list.

@@ -1,6 +1,6 @@
 = Target "Playtime: Slot seek"
 
-This target exists mainly to provide xref:key-concepts.adoc#feedback[] about the current playback position of the xref:playtime::key-concepts.adoc#slot[].
+This target exists mainly to provide {term_feedback} about the current playback position of the {term_playtime_slot}.
 
 For example, you can use it to make an LED ring, motor fader or text display indicate the current playback position.
 

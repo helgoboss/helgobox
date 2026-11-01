@@ -10,17 +10,17 @@ Tags are important if you want to dynamically enable or disable instances using 
 [[auto-units]]
 == Auto units
 
-Each xref:key-concepts.adoc#instance[] optionally supports the automatic addition and configuration of a xref:key-concepts.adoc#unit[] with a user-defined xref:further-concepts/compartment.adoc#main-preset[] if a certain type of controller is connected, and automatic removal if it is disconnected.
+Each {term_instance} optionally supports the automatic addition and configuration of a {term_unit} with a user-defined {term_main_preset} if a certain type of controller is connected, and automatic removal if it is disconnected.
 
 The general procedure is:
 
 . Globally define once what controllers you have at your disposal and choose which main preset you want to use for which controller (in the xref:user-interface/settings-dialog.adoc[] of the xref:helgobox::app.adoc[])
-. Enable global control for one xref:key-concepts.adoc#instance[] using xref:user-interface/main-panel/menu-bar.adoc#enable-global-control[].
+. Enable global control for one {term_instance} using {term_enable_global_control}.
 
 === Global control
 
 If global control is enabled for an instance, all connected controllers that are configured in the xref:realearn::user-interface/settings-dialog.adoc[ReaLearn settings dialog] will load their corresponding main preset.
-You can configure controllers using the xref:helgobox::app/user-interface/title-bar.adoc#title-bar-settings[] button in the window title bar of the xref:helgobox::app.adoc[].
+You can configure controllers using the {term_helgobox_title_bar_settings} button in the window title bar of the xref:helgobox::app.adoc[].
 
 If global control is disabled for an instance, global controllers will be ignored in this instance.
 This gives you the freedom to create a custom control experience using ReaLearn.

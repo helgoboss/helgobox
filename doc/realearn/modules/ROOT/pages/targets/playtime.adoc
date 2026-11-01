@@ -5,7 +5,7 @@ The targets in this section are made for controlling xref:playtime::introduction
 [[column-selector]]
 == Column selector
 
-Column-related targets use a _column selector_ to define what xref:playtime::key-concepts.adoc#column[] the target should be applied to.
+Column-related targets use a _column selector_ to define what {term_playtime_column} the target should be applied to.
 
 The following kinds of column selectors are available:
 
@@ -21,7 +21,7 @@ Allows you to dynamically refer to a certain column. See <<dynamic-selector-vari
 [[row-selector]]
 == Row selector
 
-Row-related targets use a _row selector_ to define what xref:playtime::key-concepts.adoc#row[] the target should be applied to.
+Row-related targets use a _row selector_ to define what {term_playtime_row} the target should be applied to.
 
 The following kinds of row selectors are available:
 
@@ -37,7 +37,7 @@ Allows you to dynamically refer to a certain row. See <<dynamic-selector-variabl
 [[slot-selector]]
 == Slot selector
 
-Slot-related targets use a _slot selector_ to define what xref:playtime::key-concepts.adoc#slot[] the target should be applied to.
+Slot-related targets use a _slot selector_ to define what {term_playtime_slot} the target should be applied to.
 
 The following kinds of slot selectors are available:
 
@@ -45,7 +45,7 @@ Active::
 The xref:playtime::further-concepts/matrix.adoc#active-cell[currently active] slot.
 
 At coordinates::
-Here you can refer to a fixed slot by entering the slot address, e.g. 2 and 4. The first number is the number of the xref:playtime::key-concepts.adoc#column[], the second one the number of the xref:playtime::key-concepts.adoc#row[].
+Here you can refer to a fixed slot by entering the slot address, e.g. 2 and 4. The first number is the number of the {term_playtime_column}, the second one the number of the {term_playtime_row}.
 
 Dynamic::
 Allows you to dynamically refer to a certain slot. There are two expressions, the first one should evaluate to the column index and the second one to the row index. As always, expressions must evaluate to zero-based indexes! See <<dynamic-selector-variables>>.
@@ -53,7 +53,7 @@ Allows you to dynamically refer to a certain slot. There are two expressions, th
 [[dynamic-selector-variables]]
 == Dynamic selector variables
 
-In addition to the general variables described in xref:further-concepts/target.adoc#dynamic-selector[], the dynamic selectors mentioned above grants access to the following variables:
+In addition to the general variables described in {term_dynamic_selector}, the dynamic selectors mentioned above grants access to the following variables:
 
 [cols="m,1,3"]
 |===

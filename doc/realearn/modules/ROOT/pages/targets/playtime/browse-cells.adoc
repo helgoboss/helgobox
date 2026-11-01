@@ -1,6 +1,6 @@
 = Target "Playtime: Browse cells"
 
-Changes the currently xref:playtime::further-concepts/matrix.adoc#active-cell[].
+Changes the currently {term_playtime_active_cell}.
 
 Best uses with xref:further-concepts/mapping.adoc#rotary-endless-encoder[encoders] or previous/next-style buttons.
 

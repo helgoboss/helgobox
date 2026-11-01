@@ -1,6 +1,6 @@
 = Control direction
 
-The diagrams in this section illustrate how control values travel through the xref:key-concepts.adoc#glue[] section of a mapping, from source to target.
+The diagrams in this section illustrate how control values travel through the {term_glue} section of a mapping, from source to target.
 
 == Absolute control values
 
@@ -8,19 +8,19 @@ The following diagrams apply whenever the source emits xref:further-concepts/map
 
 === Absolute mode "Normal"
 
-See xref:user-interface/mapping-panel/glue-section.adoc#absolute-mode-normal[].
+See {term_absolute_mode_normal}.
 
 image::realearn/diagrams/control-flow/target/control-flow-absolute-normal.svg[]
 
 === Absolute mode "Toggle button"
 
-See xref:user-interface/mapping-panel/glue-section.adoc#toggle-button-mode[].
+See {term_toggle_button_mode}.
 
 image::realearn/diagrams/control-flow/target/control-flow-absolute-toggle.svg[]
 
 === Absolute mode "Incremental button"
 
-See xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[].
+See {term_incremental_button}.
 
 include::partial$under-construction.adoc[]
 
@@ -28,7 +28,7 @@ image::realearn/diagrams/control-flow/target/control-flow-absolute-incremental.s
 
 === Absolute mode "Performance control"
 
-See xref:user-interface/mapping-panel/glue-section.adoc#performance-control[].
+See {term_performance_control}.
 
 include::partial$under-construction.adoc[]
 
@@ -36,7 +36,7 @@ image::realearn/diagrams/control-flow/target/control-flow-absolute-performance.s
 
 === Absolute mode "Make relative"
 
-See xref:user-interface/mapping-panel/glue-section.adoc#make-relative[].
+See {term_make_relative}.
 
 include::partial$under-construction.adoc[]
 
@@ -52,7 +52,7 @@ image::realearn/diagrams/control-flow/target/control-flow-relative-normal.svg[]
 
 === "Make absolute" enabled
 
-See xref:user-interface/mapping-panel/glue-section.adoc#make-absolute[].
+See {term_make_absolute}.
 
 include::partial$under-construction.adoc[]
 

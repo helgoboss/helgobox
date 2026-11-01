@@ -1,6 +1,6 @@
 = Target "Playtime: Slot transport action"
 
-Invokes a xref:playtime::key-concepts.adoc#slot[]-related action that has something to do with transport.
+Invokes a {term_playtime_slot}-related action that has something to do with transport.
 
 All actions that are about starting and stopping slots are real-time capable, which means they can be executed in real-time when controlled via xref:sources/midi.adoc[].
 
@@ -41,7 +41,7 @@ Overdub/play::
 When hit with an _on_ value, starts MIDI-overdubbing the slot, otherwise stops it.
 
 Looped::
-Controls the xref:playtime::user-interface/inspector/clip.adoc#inspector-clip-looped[] setting of the clip.
+Controls the {term_playtime_inspector_clip_looped} setting of the clip.
 
 include::partial$targets/playtime/slot-menu.adoc[]
 

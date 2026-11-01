@@ -1,19 +1,19 @@
 = Source "Virtual"
 
-See xref:further-concepts/source.adoc#virtual-source[].
+See {term_virtual_source}.
 
 == Type menu
 
-See xref:further-concepts/compartment.adoc#virtual-control-element-type[].
+See {term_virtual_control_element_type}.
 
 == ID section
 
-See xref:further-concepts/compartment.adoc#virtual-control-element-id[].
+See {term_virtual_control_element_id}.
 
 === Pick menu
 
 The convenient picker provides IDs from standardized xref:further-concepts/compartment.adoc#virtual-control-scheme[virtual control schemes].
-It also contains a category for accessing the virtual control elements that are currently exposed by the xref:key-concepts.adoc#controller-compartment[].
+It also contains a category for accessing the virtual control elements that are currently exposed by the {term_controller_compartment}.
 
 === ID field
 

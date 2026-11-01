@@ -6,7 +6,7 @@ include::partial$generated/elements/inspector/clip/overdub.adoc[]
 
 include::partial$generated/elements/inspector/clip/quantize.adoc[]
 
-See xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-midi-quantization-grid[].
+See {term_inspector_matrix_midi_quantization_grid}.
 
 [NOTE]
 ====
@@ -26,13 +26,13 @@ TIP: Another way to change the sanem is to press kbd:[F2] when the slot is selec
 
 include::partial$generated/elements/inspector/clip/looped.adoc[]
 
-See xref:key-concepts.adoc#loop[] and xref:key-concepts.adoc#one-shot[].
+See {term_loop} and {term_one_shot}.
 
 include::partial$generated/elements/inspector/clip/volume.adoc[]
 
 include::partial$generated/elements/inspector/clip/pitch.adoc[]
 
-For audio, pitch shifting is done using REAPER's pitch-shifting/time-stretching engine with the clip's xref:user-interface/inspector/clip.adoc#inspector-clip-time-stretch-mode[].
+For audio, pitch shifting is done using REAPER's pitch-shifting/time-stretching engine with the clip's {term_inspector_clip_time_stretch_mode}.
 
 include::partial$clip-prop-applied-quantized.adoc[]
 
@@ -40,7 +40,7 @@ include::partial$generated/elements/inspector/clip/velocity-sensitivity.adoc[]
 
 include::partial$generated/elements/inspector/clip/source-info.adoc[]
 
-See xref:key-concepts.adoc#source[].
+See {term_source}.
 
 TIP: Right-clicking this area opens the xref:user-interface/menus/source-menu.adoc[].
 
@@ -50,7 +50,7 @@ include::partial$generated/elements/inspector/clip/triggering.adoc[]
 
 include::partial$generated/elements/inspector/clip/start-timing.adoc[]
 
-See xref:key-concepts.adoc#clip-start-timing[].
+See {term_clip_start_timing}.
 
 include::partial$generated/elements/inspector/clip/start-timing/immediately.adoc[]
 
@@ -62,7 +62,7 @@ include::partial$generated/elements/inspector/clip/stop-timing.adoc[]
 include::partial$generated/elements/inspector/clip/stop-timing/like-start-timing.adoc[]
 include::partial$generated/elements/inspector/clip/stop-timing/until-end-of-clip.adoc[]
 
-CAUTION: This can easily lead to unintentional concurrent playback of clips when using xref:user-interface/inspector/column/playback.adoc#inspector-column-exclusive-mode[].
+CAUTION: This can easily lead to unintentional concurrent playback of clips when using {term_inspector_column_exclusive_mode}.
 
 include::partial$generated/elements/inspector/clip/stop-timing/immediately.adoc[]
 include::partial$generated/elements/inspector/clip/stop-timing/custom.adoc[]
@@ -74,7 +74,7 @@ include::partial$generated/elements/inspector/clip/sync-to-project-tempo.adoc[]
 
 TIP: This alone doesn't guarantee yet that your clip will be played in time.
 It's just one of multiple ingredients for in-sync playback.
-See xref:key-concepts.adoc#in-sync[].
+See {term_in_sync}.
 
 NOTE: This is comparable to REAPER's item time base setting.
 In fact, this will be translated to different item time base settings when xref:user-interface/toolbar.adoc#toolbar-write-to-arrangement[writing to the arrangement].
@@ -91,7 +91,7 @@ include::partial$generated/elements/inspector/clip/time-signature.adoc[]
 include::partial$generated/elements/inspector/clip/downbeat.adoc[]
 
 TIP: This can be used to realize an link:https://en.wikipedia.org/wiki/Anacrusis[Anacrusis] (or pick-up beat).
-See xref:user-interface/inspector/matrix/recording.adoc#inspector-matrix-recording-detect-downbeat[].
+See {term_inspector_matrix_recording_detect_downbeat}.
 
 include::partial$generated/elements/inspector/clip/section.adoc[]
 

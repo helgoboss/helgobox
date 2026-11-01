@@ -19,7 +19,7 @@ Enables a unique feature called "Global MIDI transformation", as shown in link:h
 
 When choosing output <<midi-send-output-input-device>>, you can choose into which MIDI input device buffer the message will be injected.
 
-<Same as input device>:: Injects the message into the same buffer of the MIDI input device chosen as xref:user-interface/main-panel/input-output-section.adoc#input[].
+<Same as input device>:: Injects the message into the same buffer of the MIDI input device chosen as {term_input}.
 
 _Specific input device_:: Injects the message into another specific MIDI input device.
 This can be useful for doing global MIDI transformation with controllers that expose multiple MIDI input ports.
@@ -27,8 +27,8 @@ A practical example is shown in link:https://www.youtube.com/watch?v=WJiwmlJSsi8
 
 == Pattern field
 
-Defines the MIDI message to be sent as xref:further-concepts/mapping.adoc#raw-midi-pattern[].
-It allows you to encode the incoming _absolute_ control value as part of the message (after it has been processed by xref:key-concepts.adoc#glue[]).
+Defines the MIDI message to be sent as {term_raw_midi_pattern}.
+It allows you to encode the incoming _absolute_ control value as part of the message (after it has been processed by {term_glue}).
 
 == Pre-defined patterns menu (...)
 
@@ -42,9 +42,9 @@ This has the big advantage that receiving and producing MIDI messages happens in
 
 However, this also means that the following things won't work when controlling this target using MIDI:
 
-* It can't take the lead in xref:user-interface/mapping-panel/glue-section.adoc#group-interaction[].
+* It can't take the lead in {term_group_interaction}.
 * It won't work with timed xref:user-interface/mapping-panel/glue-section.adoc#fire-mode[fire modes].
-* If _output_ is set to xref:user-interface/main-panel/input-output-section.adoc#fx-output[], additional limitations apply:
-** It can't act as a follower in xref:user-interface/mapping-panel/glue-section.adoc#group-interaction[], either.
+* If _output_ is set to {term_fx_output}, additional limitations apply:
+** It can't act as a follower in {term_group_interaction}, either.
 ** It can't participate in xref:targets/realearn/load-mapping-snapshot.adoc[].
 ====

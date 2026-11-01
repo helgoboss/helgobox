@@ -1,6 +1,6 @@
 = Clip context menu
 
-Right-clicking one of the clips in the xref:user-interface/inspector/slot.adoc#inspector-slot-clip-picker[] opens this context menu.
+Right-clicking one of the clips in the {term_inspector_slot_clip_picker} opens this context menu.
 
 include::partial$generated/menus/clip/remove-from-slot.adoc[]
 include::partial$generated/menus/clip/promote-to-top.adoc[]

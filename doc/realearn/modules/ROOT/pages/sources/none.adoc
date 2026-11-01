@@ -1,6 +1,6 @@
 = Source "None"
 
 A special kind of source that will never emit any events.
-It's intended to be used on mappings which are not supposed to be controlled directly but only via xref:user-interface/mapping-panel/glue-section.adoc#group-interaction[].
+It's intended to be used on mappings which are not supposed to be controlled directly but only via {term_group_interaction}.
 
 [split=1]

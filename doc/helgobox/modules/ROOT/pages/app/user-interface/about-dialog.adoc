@@ -1,9 +1,9 @@
 = About dialog
 
-This dialog appears when you click the xref:app/user-interface/help-menu.adoc#title-bar-about[] button in the help menu.
+This dialog appears when you click the {term_title_bar_about} button in the help menu.
 
 image::generated/screenshots/main/about.png[]
 
 The version number displayed here is the version of the xref:app.adoc[], not the one of the controlled xref:plug-in.adoc[]! _App_ and _plug-in_ are often updated together, but that's not always the case. They can evolve independently.
 
-The app version number is most relevant when running the app in xref:app.adoc#app-remote-mode[].
+The app version number is most relevant when running the app in {term_app_remote_mode}.

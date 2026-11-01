@@ -10,7 +10,7 @@ Although it's also possible to move the mouse cursor relatively with this action
 
 Move cursor by:: Moves the mouse cursor on the given axis in a relative manner.
 This is a good choice if you want to move the cursor e.g. up a bit, starting from its current position.
-This only works with relative control elements such as encoders or features such as xref:user-interface/mapping-panel/glue-section.adoc#make-relative[].
+This only works with relative control elements such as encoders or features such as {term_make_relative}.
 
 Press or release button:: Presses or releases a certain mouse button, depending on the incoming control value (0% = release, anything else = press).
 

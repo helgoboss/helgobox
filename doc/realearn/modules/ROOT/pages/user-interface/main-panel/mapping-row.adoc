@@ -6,7 +6,7 @@ image:realearn/screenshots/main-panel-mapping-row.png[Screenshot]
 Each mapping row represents one ReaLearn mapping.
 
 The mapping, source and target labels of a mapping row are greyed out whenever the mapping is _off_.
-See xref:key-concepts.adoc#mapping[].
+See {term_mapping}.
 
 == Mapping-enabled checkbox
 
@@ -17,7 +17,7 @@ This checkbox at the top left of the mapping row enables or disables the mapping
 This indicator at the very left of the mapping row lights up on incoming control messages whenever they match the mapping source.
 
 Attention: This doesn't necessarily mean that the message will reach the target, although it often does.
-There are certain settings in the xref:user-interface/mapping-panel/glue-section.adoc[] section which allow you to filter messages even they matched the source (e.g. xref:user-interface/mapping-panel/glue-section.adoc#source-min-max[]).
+There are certain settings in the xref:user-interface/mapping-panel/glue-section.adoc[] section which allow you to filter messages even they matched the source (e.g. {term_source_min_max}).
 
 == Up/down buttons
 
@@ -45,7 +45,7 @@ Removes this mapping from the list.
 == Learn source button
 
 Starts or stops learning the source of this mapping.
-See xref:key-concepts.adoc#learn-source[].
+See {term_learn_source}.
 
 [[learn-target]]
 == Learn target button

@@ -17,10 +17,10 @@ You can influence the start and length of the export on the timeline by creating
 
 === 2. Export the desired content
 
-* If you want to export all clips in the matrix, right-click the xref:user-interface/matrix-area.adoc#matrix-cell[] and choose xref:user-interface/menus/matrix-menu.adoc#matrix-export-to-arrangement[].
-* If you want to export all clips in a particular column, right-click the corresponding xref:user-interface/matrix-area.adoc#column-cell[] and choose xref:user-interface/menus/column-menu.adoc#column-export-to-arrangement[].
-* If you want to export all clips in a particular row, right-click the corresponding xref:user-interface/matrix-area.adoc#row-cell[] and choose xref:user-interface/menus/row-menu.adoc#row-export-to-arrangement[].
-* If you want to export the primary clip of a slot, right-click the corresponding xref:user-interface/matrix-area.adoc#slot-cell[] and choose xref:user-interface/menus/slot-menu.adoc#slot-export-primary-clip-to-arrangement[].
+* If you want to export all clips in the matrix, right-click the {term_matrix_cell} and choose {term_matrix_export_to_arrangement}.
+* If you want to export all clips in a particular column, right-click the corresponding {term_column_cell} and choose {term_column_export_to_arrangement}.
+* If you want to export all clips in a particular row, right-click the corresponding {term_row_cell} and choose {term_row_export_to_arrangement}.
+* If you want to export the primary clip of a slot, right-click the corresponding {term_slot_cell} and choose {term_slot_export_primary_clip_to_arrangement}.
 
 .Quickly export different parts of your song
 [TIP]
@@ -48,11 +48,11 @@ This works nicely because after exporting a row, Playtime automatically moves th
 [[feature-arrangement]]
 == Record and write a sequence
 
-Another way to export an arrangement is to record a Playtime performance and write the result to the arrangement. This is done using Playtime's built-in xref:user-interface/toolbar.adoc#toolbar-matrix-sequencer[]:
+Another way to export an arrangement is to record a Playtime performance and write the result to the arrangement. This is done using Playtime's built-in {term_toolbar_matrix_sequencer}:
 
 === 1. Start recording a new matrix sequence
 
-Press the xref:user-interface/toolbar.adoc#toolbar-record-matrix-sequence[] button in the xref:user-interface/toolbar.adoc#toolbar-matrix-sequencer[] of the xref:user-interface/toolbar.adoc[].
+Press the {term_toolbar_record_matrix_sequence} button in the {term_toolbar_matrix_sequencer} of the xref:user-interface/toolbar.adoc[].
 
 This will always create a new sequence and never overwrite an existing one, so you can press this anytime.
 
@@ -62,15 +62,15 @@ Playtime will record all play and stop interactions with your matrix.
 
 === 3. Stop recording the sequence
 
-Press the xref:user-interface/toolbar.adoc#toolbar-record-matrix-sequence[] button again to stop recording.
+Press the {term_toolbar_record_matrix_sequence} button again to stop recording.
 
 === 4. Play sequence (optional)
 
-If you want, you can play the sequence directly within Playtime by pressing the xref:user-interface/toolbar.adoc#toolbar-play-stop-matrix-sequence[].
+If you want, you can play the sequence directly within Playtime by pressing the {term_toolbar_play_stop_matrix_sequence}.
 
 === 5. Write the sequence to the arrangement
 
-If you are satisfied, you can write the sequence to the REAPER tracks by pressing xref:user-interface/toolbar.adoc#toolbar-write-to-arrangement[].
+If you are satisfied, you can write the sequence to the REAPER tracks by pressing {term_toolbar_write_to_arrangement}.
 
 == The translation from clips to items
 
@@ -98,8 +98,8 @@ Playtime enables free item positioning for a track as soon as it detects that so
 Time base::
 If the clip is configured to xref:user-interface/inspector/clip.adoc#inspector-clip-sync-to-project-tempo[synchronize to the project tempo], it chooses item time base *Beats (auto-stretch at tempo changes)*, because this reflects how Playtime itself would behave when changing the tempo. With this mode, REAPER may automatically create stretch markers.
 +
-If the clip is configured to *not* synchronize to the project tempo, it chooses item timebase *Time* (if start timing is xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[]) or *Beats (position only)* (the the start timing is quantized), because those settings resemble Playtime's clip playing behavior best.
+If the clip is configured to *not* synchronize to the project tempo, it chooses item timebase *Time* (if start timing is {term_inspector_clip_start_timing_immediately}) or *Beats (position only)* (the the start timing is quantized), because those settings resemble Playtime's clip playing behavior best.
 
 Play rate::
-For audio clips, the play rate is always set to the ratio between the clip's xref:user-interface/inspector/clip.adoc#inspector-clip-tempo[] and the project tempo.
+For audio clips, the play rate is always set to the ratio between the clip's {term_inspector_clip_tempo} and the project tempo.
 ****

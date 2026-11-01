@@ -1,6 +1,6 @@
 = Command line interface
 
-When running in xref:app.adoc#app-remote-mode[], the app session can optionally be configured using command line arguments.
+When running in {term_app_remote_mode}, the app session can optionally be configured using command line arguments.
 
 == Synopsis
 
@@ -40,12 +40,12 @@ This is not a file system path. It's comparable to the path of a URL that you wo
 |
 `/instance/apc/projection`
 |
-Opens the xref:realearn::user-interface/projection.adoc[projection page] for the xref:key-concepts.adoc#instance[] with xref:key-concepts.adoc#instance-key[] `apc`.
+Opens the xref:realearn::user-interface/projection.adoc[projection page] for the {term_instance} with {term_instance_key} `apc`.
 
 |
 `/instance/3/playtime`
 |
-Opens the xref:playtime::user-interface.adoc[Playtime] page for the xref:key-concepts.adoc#instance[] with xref:key-concepts.adoc#instance-id[] *3*.
+Opens the xref:playtime::user-interface.adoc[Playtime] page for the {term_instance} with {term_instance_id} *3*.
 
 Numbers are always interpreted as instance IDs and strings as instance keys. Normally, you want to use an xref:key-concepts.adoc#instance-key[instance key] to refer to the desired instance, because instance IDs are likely to change after restarting REAPER.
 

@@ -1,6 +1,6 @@
 = Row context menu
 
-Right-clicking xref:user-interface/matrix-area.adoc#row-cell-label[] opens this context menu.
+Right-clicking {term_row_cell_label} opens this context menu.
 
 include::partial$generated/menus/row/rename.adoc[]
 include::partial$generated/menus/row/build-scene-from-currently-playing-clips.adoc[]

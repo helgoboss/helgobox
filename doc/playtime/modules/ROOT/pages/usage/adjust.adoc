@@ -4,14 +4,14 @@ Now that you know how to create and play clips, you might want change them a bit
 
 == Editing the clip source
 
-If you are dealing with MIDI clips, you can easily edit the clip xref:key-concepts.adoc#source[]:
+If you are dealing with MIDI clips, you can easily edit the clip {term_source}:
 
-. Double-click the xref:user-interface/matrix-area.adoc#slot-cell-content[] area of the desired slot. This should open the clip source in REAPER's MIDI editor.
+. Double-click the {term_slot_cell_content} area of the desired slot. This should open the clip source in REAPER's MIDI editor.
 . Make changes in the MIDI editor. Any change should be applied right away if the clip is currently playing.
-. You can also use the playback controls of REAPER's MIDI editor or arrange view. As soon as you use them, the clip will stop playing in Playtime and you can play it within REAPER instead. As long as the MIDI editor is open, the clip is mirrored by a regular REAPER MIDI item positioned on the xref:key-concepts.adoc#column-track[].
+. You can also use the playback controls of REAPER's MIDI editor or arrange view. As soon as you use them, the clip will stop playing in Playtime and you can play it within REAPER instead. As long as the MIDI editor is open, the clip is mirrored by a regular REAPER MIDI item positioned on the {term_column_track}.
 . Close the MIDI editor.
 
-Any change can be undone using Playtime's xref:helgobox::app/user-interface/title-bar.adoc#title-bar-undo[] function.
+Any change can be undone using Playtime's {term_helgobox_title_bar_undo} function.
 
 [[feature-clip-settings]]
 == Adjusting clip properties
@@ -20,7 +20,7 @@ Each clip has certain properties in addition to its actual source, which you can
 
 === 1. Select the slot
 
-Select the desired slot by clicking the xref:user-interface/matrix-area.adoc#slot-cell-content[] area.
+Select the desired slot by clicking the {term_slot_cell_content} area.
 
 This will show the properties of the clip within that slot in the xref:user-interface/inspector/clip.adoc[] on the right side.
 
@@ -28,6 +28,6 @@ This will show the properties of the clip within that slot in the xref:user-inte
 
 Now go ahead and check what properties xref:user-interface/inspector/clip.adoc[are available] in the inspector.
 
-We will just take the example of the *pitch* property. Find the xref:user-interface/inspector/clip.adoc#inspector-clip-pitch[] setting, move your mouse over the number *0.00* semitones and use your mouse wheel or any other xref:helgobox::app/user-interface/general.adoc#drag-field[] interaction to change the pitch. For example, to *12.00* semitones, which corresponds to one octave.
+We will just take the example of the *pitch* property. Find the {term_inspector_clip_pitch} setting, move your mouse over the number *0.00* semitones and use your mouse wheel or any other {term_helgobox_drag_field} interaction to change the pitch. For example, to *12.00* semitones, which corresponds to one octave.
 
 The new pitch will be applied right away or according to the xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-start-timing[matrix start timing].

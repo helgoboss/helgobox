@@ -8,3 +8,24 @@ asciidoc:
   attributes:
     # For making menu and button macros work
     experimental: true
+
+    # Cross-page anchor terms.
+    term_app_remote_mode: 'xref:helgobox:ROOT:app.adoc#app-remote-mode[Remote mode,role=term]'
+    term_close_app: 'xref:helgobox:ROOT:plug-in/user-interface/menu-bar.adoc#close-app[Close App,role=term]'
+    term_instance: 'xref:helgobox:ROOT:key-concepts.adoc#instance[Instance,role=term]'
+    term_instance_id: 'xref:helgobox:ROOT:key-concepts.adoc#instance-id[Instance ID,role=term]'
+    term_instance_key: 'xref:helgobox:ROOT:key-concepts.adoc#instance-key[Instance key,role=term]'
+    term_navbar_pick_instance: 'xref:helgobox:ROOT:app/user-interface/navigation-bar.adoc#navbar-pick-instance[Pick another instance,role=term]'
+    term_open_pot_browser: 'xref:helgobox:ROOT:plug-in/user-interface/menu-bar.adoc#open-pot-browser[Open Pot Browser,role=term]'
+    term_playtime_matrix: 'xref:playtime:ROOT:key-concepts.adoc#matrix[Matrix,role=term]'
+    term_playtime_settings_cell_color_position: 'xref:playtime:ROOT:user-interface/dialogs/settings-dialog.adoc#settings-cell-color-position[Cell color position,role=term]'
+    term_pot_browser: 'xref:helgobox:ROOT:products.adoc#pot-browser[Pot Browser,role=term]'
+    term_realearn_auto_units: 'xref:realearn:ROOT:further-concepts/instance.adoc#auto-units[Auto units,role=term]'
+    term_realearn_unit_key: 'xref:realearn:ROOT:further-concepts/unit.adoc#unit-key[Unit key,role=term]'
+    term_settings_dim_opacity: 'xref:helgobox:ROOT:app/user-interface/settings-dialog.adoc#settings-dim-opacity[Dim opacity,role=term]'
+    term_show_welcome_screen: 'xref:helgobox:ROOT:reaper-actions.adoc#show-welcome-screen[Helgobox/General: Show welcome screen,role=term]'
+    term_title_bar_about: 'xref:helgobox:ROOT:app/user-interface/help-menu.adoc#title-bar-about[About...,role=term]'
+    term_title_bar_help: 'xref:helgobox:ROOT:app/user-interface/title-bar.adoc#title-bar-help[Help,role=term]'
+    term_title_bar_settings: 'xref:helgobox:ROOT:app/user-interface/title-bar.adoc#title-bar-settings[Settings,role=term]'
+    term_title_bar_toggle_nav_bar: 'xref:helgobox:ROOT:app/user-interface/title-bar.adoc#title-bar-toggle-nav-bar[Toggle navigation bar,role=term]'
+    term_toggle_app_focus: 'xref:helgobox:ROOT:reaper-actions.adoc#toggle-app-focus[Helgobox/General: Toggle app focus,role=term]'

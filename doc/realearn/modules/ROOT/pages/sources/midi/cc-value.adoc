@@ -8,7 +8,7 @@ Optionally restricts this source to messages with a certain MIDI control-change 
 
 == Character menu
 
-See xref:further-concepts/source.adoc#midi-source-character[].
+See {term_midi_source_character}.
 
 == 14-bit values checkbox
 

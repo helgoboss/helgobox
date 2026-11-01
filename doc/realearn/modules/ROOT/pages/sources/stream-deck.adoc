@@ -1,7 +1,7 @@
 = Source "Stream Deck"
 
 With this source, you can leverage your Stream Deck with ReaLearn, for example the link:https://www.elgato.com/en/en/p/stream-deck-mk2-black[Elgato Stream Deck MK.2].
-This includes reacting to buttons and sending xref:key-concepts.adoc#feedback[] to the button displays.
+This includes reacting to buttons and sending {term_feedback} to the button displays.
 
 CAUTION: This source is experimental. Behavioral changes are still possible!
 
@@ -92,7 +92,7 @@ It doesn't react to feedback value changes.
 
 Color::
 Uses a solid color as button background, by default black.
-You can change the color via xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[], that means the background color can even be dynamic, e.g. reflect the currently selected track's color.
+You can change the color via {term_feedback_style}, that means the background color can even be dynamic, e.g. reflect the currently selected track's color.
 
 Image::
 Uses a PNG image as button background.
@@ -105,7 +105,7 @@ But ReaLearn will automatically scale the image.
 If in doubt, prefer _larger_ image sizes.
 Scaling down gives you a better quality than scaling up.
 +
-If the image has transparent parts, the color defined in xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[] will shine through.
+If the image has transparent parts, the color defined in {term_feedback_style} will shine through.
 
 TIP: When picking images to be displayed on your Stream Deck, prefer images that are somewhere within your REAPER resource path (REAPER → Options → Show REAPER resource path in explorer/finder), e.g. toolbar icons.
 That makes ReaLearn save it as relative path, so your mapping becomes more portable (which is important if you want to share presets).
@@ -122,7 +122,7 @@ Choose this if all you want to display is a static background.
 Color fade::
 Paints a color over the background with an opacity that depends on the target value.
 For example, if the target value is at 10%, the color will be almost transparent.
-It will fade depending The color is defined in xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[].
+It will fade depending The color is defined in {term_feedback_style}.
 
 Image fade::
 Paints an image over the background with an opacity that depends on the target value.
@@ -153,4 +153,4 @@ You can press btn:[...] to enter multi-line text.
 ReaLearn supports up to 4 lines of text.
 
 You can also display dynamic text from the target!
-See xref:user-interface/mapping-panel/glue-section.adoc#feedback-style[].
+See {term_feedback_style}.

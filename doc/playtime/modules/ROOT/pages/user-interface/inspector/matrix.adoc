@@ -1,6 +1,6 @@
 = Matrix inspector
 
-You will see this when selecting the xref:user-interface/matrix-area.adoc#matrix-cell[].
+You will see this when selecting the {term_matrix_cell}.
 
 This inspector is divided into two areas:
 

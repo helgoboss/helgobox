@@ -1,6 +1,6 @@
 = Column inspector
 
-You will see this when selecting a xref:user-interface/matrix-area.adoc#column-cell[].
+You will see this when selecting a {term_column_cell}.
 
 This inspector is divided into two areas:
 

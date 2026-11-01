@@ -1,7 +1,7 @@
 = Target "Project: Browse tracks"
 
 Steps through tracks.
-To be used with endless rotary encoders or xref:user-interface/mapping-panel/glue-section.adoc#incremental-button[].
+To be used with endless rotary encoders or {term_incremental_button}.
 
 == Scroll TCP checkbox
 

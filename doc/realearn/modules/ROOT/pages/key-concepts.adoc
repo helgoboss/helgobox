@@ -28,7 +28,7 @@ Controllers are normally not specifically managed within ReaLearn, because you j
 [[managed-controller]]
 === Managed controller
 
-Only recently, ReaLearn introduced the concept of xref:further-concepts/instance.adoc#auto-units[], in which controllers can actually be managed in a xref:user-interface/settings-dialog.adoc#controllers[list]. ReaLearn then automatically creates <<unit,units>> depending on which of these controllers are connected. Such controllers are called _managed controllers_.
+Only recently, ReaLearn introduced the concept of {term_auto_units}, in which controllers can actually be managed in a xref:user-interface/settings-dialog.adoc#controllers[list]. ReaLearn then automatically creates <<unit,units>> depending on which of these controllers are connected. Such controllers are called _managed controllers_.
 
 [[control-element]]
 == Control element
@@ -77,14 +77,14 @@ For this reason, this reference sometimes uses <<control-element>> to refer to b
 To enable control, ReaLearn needs to respond to events from your <<controller>>.
 It achieves this by listening to events from an _input port_, which can be a MIDI device port, an OSC port or your computer keyboard.
 
-You can change the input port using the xref:user-interface/main-panel/input-output-section.adoc#input[].
+You can change the input port using the {term_input}.
 
 [[output-port]]
 == Output port
 
 To send <<feedback>> back to your <<controller>>, ReaLearn transmits instructions through an _output port_, which can be a MIDI device port or an OSC port.
 
-You can change the output port using the xref:user-interface/main-panel/input-output-section.adoc#output[].
+You can change the output port using the {term_output}.
 
 [[instance]]
 == ReaLearn Instance
@@ -97,7 +97,7 @@ The terms _ReaLearn Instance_ and xref:helgobox:ROOT:key-concepts.adoc#instance[
 Each ReaLearn <<instance>> contains at least one _unit_, known as the _main unit_, but it can also contain an arbitrary number of additional units.
 
 Units function like "mini instances" within a single ReaLearn <<instance>>, allowing that instance to manage multiple controllers simultaneously.
-Each unit has its own <<input-port>>, <<output-port>>, <<controller-compartment>>, <<main-compartment>>, xref:further-concepts/compartment.adoc#controller-preset[], xref:further-concepts/compartment.adoc#main-preset[], and more.
+Each unit has its own <<input-port>>, <<output-port>>, <<controller-compartment>>, <<main-compartment>>, {term_controller_preset}, {term_main_preset}, and more.
 
 [[compartment]]
 == Compartment
@@ -113,7 +113,7 @@ Its purpose is to define what the controller device should do, e.g., allowing a 
 We refer to the mappings in this compartment as [[main-mapping,Main mapping]] _main mappings_ and to the presets as _main presets_.
 
 [[controller-compartment]] Controller compartment::
-The controller compartment is optional and serves two main purposes: Describing all control elements of the controller, assigning them descriptive names and enabling xref:further-concepts/compartment.adoc#virtual-control[].
+The controller compartment is optional and serves two main purposes: Describing all control elements of the controller, assigning them descriptive names and enabling {term_virtual_control}.
 +
 We refer to the mappings in this compartment as [[controller-mapping,Controller mapping]] _controller mappings_ and to the presets as _controller presets_.
 
@@ -159,11 +159,11 @@ In ReaLearn, you can learn <<source, sources>> and <<target, targets>>.
 [[learn-source]]
 === Learn source
 
-Sources can be learned by pressing the xref:user-interface/main-panel/mapping-row.adoc#learn-source[] and then touching a <<control-element>> on your controller.
+Sources can be learned by pressing the {term_learn_source_mapping_row} and then touching a <<control-element>> on your controller.
 This saves you from the tedious job of setting up MIDI or OSC sources manually.
 
 [[learn-target]]
 === Learn target
 
-Targets can be learned by pressing the xref:user-interface/main-panel/mapping-row.adoc#learn-target[] and then invoking a <<target>> within REAPER.
-This saves you from choosing xref:further-concepts/target.adoc#target-object-selectors[] and other stuff manually.
+Targets can be learned by pressing the {term_learn_target} and then invoking a <<target>> within REAPER.
+This saves you from choosing {term_target_object_selectors} and other stuff manually.

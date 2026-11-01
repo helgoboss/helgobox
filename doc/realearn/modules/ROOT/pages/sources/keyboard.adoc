@@ -11,12 +11,12 @@ You can ignore portability warnings if you use just this operating system and do
 
 [TIP]
 ====
-* This only works if xref:user-interface/main-panel/input-output-section.adoc#computer-keyboard[] is enabled in the xref:user-interface/main-panel/input-output-section.adoc#input[].
+* This only works if {term_computer_keyboard} is enabled in the {term_input}.
 * If you hold a key, it will not keep firing.
 This is by design!
-Use xref:user-interface/mapping-panel/glue-section.adoc#fire-after-timeout-keep-firing[] instead.
+Use {term_fire_after_timeout_keep_firing} instead.
 * Key combinations are not supported.
 This is by design!
-Use xref:further-concepts/mapping.adoc#conditional-activation[] instead.
-* Matching keys are automatically consumed by ReaLearn, so that they will not reach the rest of REAPER (unless a text field is focused). Check out xref:user-interface/main-panel/menu-bar.adoc#match-even-inactive-mappings[] to fine-tune matching behavior.
+Use {term_conditional_activation} instead.
+* Matching keys are automatically consumed by ReaLearn, so that they will not reach the rest of REAPER (unless a text field is focused). Check out {term_match_even_inactive_mappings} to fine-tune matching behavior.
 ====

@@ -1,6 +1,6 @@
 = Target "Playtime: Column action"
 
-Invokes a xref:playtime::key-concepts.adoc#column[]-related action.
+Invokes a {term_playtime_column}-related action.
 
 == Action menu
 
@@ -10,14 +10,14 @@ Stop::
 Stops all slots in this column.
 
 Arm/disarm::
-When hit with an _on_ value, arms the associated xref:playtime::key-concepts.adoc#column-track[], otherwise disarms it.
+When hit with an _on_ value, arms the associated {term_playtime_column_track}, otherwise disarms it.
 
 Arm/disarm () exclusive::
-When hit with an _on_ value, arms the associated xref:playtime::key-concepts.adoc#column-track[] and disarms all other column tracks, otherwise disarms it.
+When hit with an _on_ value, arms the associated {term_playtime_column_track} and disarms all other column tracks, otherwise disarms it.
 
 Activate::
-Makes this column the xref:playtime::further-concepts/matrix.adoc#active-cell[] .
+Makes this column the {term_playtime_active_cell} .
 
 == Column menu
 
-The xref:playtime::key-concepts.adoc#column[] on which to carry out this action. See xref:targets/playtime.adoc#column-selector[].
+The {term_playtime_column} on which to carry out this action. See {term_column_selector}.

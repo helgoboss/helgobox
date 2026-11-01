@@ -17,7 +17,7 @@ Hiding the window doesn't completely unload the app, it really just hides the wi
 |Opens online help for the element that is currently under the mouse cursor.
 
 |kbd:[Shift+Cmd/Ctrl+H]
-|Executes the REAPER action xref:helgobox::reaper-actions.adoc#toggle-app-focus[].
+|Executes the REAPER action {term_toggle_app_focus}.
 
 |===
 

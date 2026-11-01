@@ -4,19 +4,19 @@ Because Playtime is an instrument plug-in, it can be controlled via MIDI. Not ju
 
 == 1. Set up matrix
 
-Click xref:user-interface/matrix-area.adoc#matrix-cell-settings[] to open the xref:user-interface/inspector/matrix.adoc[] and make the following settings:
+Click {term_matrix_cell_settings} to open the xref:user-interface/inspector/matrix.adoc[] and make the following settings:
 
 |===
 | Setting | Value | Reason
 
-| xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-start-timing[]
-| xref:user-interface/inspector/clip.adoc#inspector-clip-start-timing-immediately[]
+| {term_inspector_matrix_start_timing}
+| {term_inspector_clip_start_timing_immediately}
 .2+| Position and length of a note in the MIDI editor should correspond exactly to the position and length of clip playback.
 
-| xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-trigger-mode[]
-| xref:user-interface/inspector/column/playback.adoc#inspector-column-trigger-mode-momentary[]
+| {term_inspector_matrix_trigger_mode}
+| {term_inspector_column_trigger_mode_momentary}
 
-| xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-activate-slot-on-trigger[]
+| {term_inspector_matrix_activate_slot_on_trigger}
 | Off
 | We don't want the Playtime selection to jump around like crazy.
 
@@ -24,7 +24,7 @@ Click xref:user-interface/matrix-area.adoc#matrix-cell-settings[] to open the xr
 
 Also ensure that you haven't overridden the first two properties on column or clip level!
 
-Additionally, you might want to switch off xref:user-interface/inspector/column/playback.adoc#inspector-column-exclusive-mode[] for columns, in order to get more freedom of playing.
+Additionally, you might want to switch off {term_inspector_column_exclusive_mode} for columns, in order to get more freedom of playing.
 
 == 2. Create MIDI triggers
 
@@ -32,7 +32,7 @@ Before you can control Playtime with MIDI notes, you need to set up MIDI trigger
 
 === Option A: Learn MIDI triggers manually
 
-One way to do this is to learn the necessary MIDI triggers manually by using the xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[] feature. See xref:usage/play.adoc#feature-keys[].
+One way to do this is to learn the necessary MIDI triggers manually by using the {term_toolbar_show_hide_midi_triggers} feature. See {term_feature_keys}.
 
 [[assign-midi-triggers-automatically]]
 === Option B: Assign MIDI triggers automatically
@@ -42,8 +42,8 @@ Another way to do this is to automatically assign MIDI notes to each slot cell. 
 Below code snippet by default spreads MIDI notes row by row in groups of 8, starting at the note C3. You can change that by modifying the configuration section before importing it into ReaLearn.
 
 . Copy below code to the clipboard
-. Press xref:helgobox::app/user-interface/navigation-bar.adoc#navbar-show-helgobox-plugin[] in the navigation bar on the left. This should open the xref:realearn::user-interface/main-panel.adoc[ReaLearn main panel].
-. Press the xref:realearn::user-interface/main-panel/menu-bar.adoc#import-from-clipboard[]
+. Press {term_helgobox_navbar_show_helgobox_plugin} in the navigation bar on the left. This should open the xref:realearn::user-interface/main-panel.adoc[ReaLearn main panel].
+. Press the {term_realearn_import_from_clipboard}
 +
 CAUTION: This will overwrite existing MIDI mappings in the xref:realearn::key-concepts.adoc#unit[ReaLearn main unit].
 . After confirming the import, you should see a list of mappings in ReaLearn. But also in the xref:user-interface.adoc[Playtime user interface], when pressing xref:user-interface/toolbar.adoc#toolbar-show-hide-midi-triggers[showing the MIDI triggers].

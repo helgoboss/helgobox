@@ -1,6 +1,6 @@
 = Matrix context menu
 
-Right-clicking xref:user-interface/matrix-area.adoc#matrix-cell-settings[] opens this context menu.
+Right-clicking {term_matrix_cell_settings} opens this context menu.
 
 include::partial$generated/menus/matrix/insert-column-for-each-selected-track.adoc[]
 include::partial$generated/menus/matrix/insert-column-right.adoc[]

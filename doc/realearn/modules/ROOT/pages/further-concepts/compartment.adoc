@@ -49,7 +49,7 @@ User presets are made by users, for example by you.
 
 * Saving your mappings as a preset is optional.
 All controller mappings are saved together with your current ReaLearn unit anyway, no worries.
-But as soon as you want to reuse these mappings in other ReaLearn unit or for xref:further-concepts/unit.adoc#auto-load[], it makes of course sense to save them as a preset!
+But as soon as you want to reuse these mappings in other ReaLearn unit or for {term_auto_load}, it makes of course sense to save them as a preset!
 * All of your presets end up in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) at
 `Data/helgoboss/realearn/presets` followed by `main` (for main compartment presets) or `controller` (for controller compartment presets).
 They are JSON files and very similar to what you get when you press
@@ -76,7 +76,7 @@ For example, if the subdirectory name is `helgoboss` and it contains a preset fi
 * That also means that presets from different workspaces never conflict with each other.
 * Therefore, a preset "workspace" is at the same time a preset "namespace".
 Those terms are sometimes used interchangeably.
-* It's important that the ID of a preset doesn't change, especially if you want to use that preset with xref:further-concepts/unit.adoc#auto-load[].
+* It's important that the ID of a preset doesn't change, especially if you want to use that preset with {term_auto_load}.
 If you change the ID, it's another preset from ReaLearn's perspective!
 * Conversely, the name of the workspace directory and the name/path of the preset file within the workspace directory should not change!
 * The only thing that is allowed to change is the file extension.
@@ -244,28 +244,28 @@ Currently, only feature `playtime` is supported, which matches if the Helgobox i
 Each ReaLearn compartment contains 100 freely assignable parameters.
 Compartment parameters can be used in the following ways:
 
-* For xref:further-concepts/mapping.adoc#conditional-activation[] (lets the parameter value influence which mappings are active)
-* For xref:further-concepts/target.adoc#dynamic-selector[] (lets the parameter value influence which object, such as track or FX, is targeted for a specific mapping)
+* For {term_conditional_activation} (lets the parameter value influence which mappings are active)
+* For {term_dynamic_selector} (lets the parameter value influence which object, such as track or FX, is targeted for a specific mapping)
 * As xref:sources/reaper/realearn-parameter.adoc[] (lets the parameter value control any ReaLearn target)
 
-They can be customized as described in xref:user-interface/main-panel/menu-bar.adoc#compartment-parameters[].
+They can be customized as described in {term_compartment_parameters}.
 Parameter customizations are saved together with the compartment preset.
 Parameter values will be reset whenever you load a preset (just the ones in that compartment).
 
 [[continuous-vs-discrete-compartment-parameters]]
 === Continuous vs. discrete compartment parameters
 
-By default, <<compartment-parameter,compartment parameters>> have a xref:further-concepts/target.adoc#continuous-value-range[].
-Although that makes them very versatile, it's often easier to work with a xref:further-concepts/target.adoc#discrete-value-range[].
+By default, <<compartment-parameter,compartment parameters>> have a {term_continuous_value_range}.
+Although that makes them very versatile, it's often easier to work with a {term_discrete_value_range}.
 
-Entering a value count (see xref:user-interface/main-panel/menu-bar.adoc#set-compartment-parameter-value-count[]) turns this into a parameter with a xref:further-concepts/target.adoc#discrete-value-range[], with the given number of integer values.
+Entering a value count (see {term_set_compartment_parameter_value_count}) turns this into a parameter with a {term_discrete_value_range}, with the given number of integer values.
 For example, a value count of 10 means that the parameter can represent exactly 10 values (0 to 9).
 
 [CAUTION]
 ====
 *Choose the value count wisely and think twice before changing it to a different value at a later point in time!*
 
-You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in xref:user-interface/mapping-panel/glue-section.adoc#target-min-max[].
+You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in {term_target_min_max}.
 If you do that and later change the value count, these value references will not be valid anymore.
 They will point to other integers than you intended to.
 So if you are not sure, better pick a large value count and stick to it!
@@ -278,7 +278,7 @@ Each compartment may contain arbitrary Luau code to be reused by multiple mappin
 This avoids code duplication and decreases memory usage.
 It even allows the usage of shared state.
 
-You can set the compartment-wide Lua code using xref:user-interface/main-panel/menu-bar.adoc#edit-compartment-wide-lua-code[].
+You can set the compartment-wide Lua code using {term_edit_compartment_wide_lua_code}.
 
 The code that you provide here is treated as a module that xref:further-concepts/source.adoc#midi-source-script[MIDI source scripts] and xref:further-concepts/glue.adoc#dynamic-feedback[Feedback scripts] can import using `require("compartment")`.
 That means you need to export everything that you want the MIDI source and feedback scripts to see, simply by returning it.
@@ -326,19 +326,19 @@ that can be reused with many different xref:key-concepts.adoc#controller[control
 
 The idea is simple:
 
-1. You define a <<controller-preset>> for a DAW controller, mapping each <<real-control-element>> (e.g. its first fader, which emits MIDI CC7 messages) to a corresponding <<virtual-control-element>> (e.g. named `ch1/fader`) by using a xref:further-concepts/target.adoc#virtual-target[].
-2. You define a <<main-preset>>, mapping each <<virtual-control-element>> to some xref:further-concepts/target.adoc#real-target[] by using a xref:further-concepts/source.adoc#virtual-source[].
+1. You define a <<controller-preset>> for a DAW controller, mapping each <<real-control-element>> (e.g. its first fader, which emits MIDI CC7 messages) to a corresponding <<virtual-control-element>> (e.g. named `ch1/fader`) by using a {term_virtual_target}.
+2. You define a <<main-preset>>, mapping each <<virtual-control-element>> to some {term_real_target} by using a {term_virtual_source}.
 For example, you map `ch1/fader` to the xref:targets/track/set-volume.adoc[].
-3. ReaLearn creates a sort of wire between the xref:key-concepts.adoc#controller-compartment[] and the xref:key-concepts.adoc#main-compartment[].
+3. ReaLearn creates a sort of wire between the {term_controller_compartment} and the {term_main_compartment}.
 So you can now control the track volume by moving the first fader.
 4. Most importantly, the main preset is now generic because it's not built for a specific controller anymore!
 
-See xref:best-practices.adoc#using-the-controller-compartment[] for more information how to do this in detail!
+See {term_using_the_controller_compartment} for more information how to do this in detail!
 
 [[virtual-feedback]]
 == Virtual feedback
 
-_Virtual feedback_ is just like <<virtual-control>>, but in the opposite direction (from REAPER to your xref:key-concepts.adoc#controller[]).
+_Virtual feedback_ is just like <<virtual-control>>, but in the opposite direction (from REAPER to your {term_controller}).
 
 == Real vs. virtual control elements
 
@@ -350,7 +350,7 @@ We can distinguish between <<real-control-element>> and <<virtual-control-elemen
 [[real-control-element]]
 === Real control element
 
-A _real_ control element is an element that really exists on a xref:key-concepts.adoc#controller[], e.g. a fader that you can touch.
+A _real_ control element is an element that really exists on a {term_controller}, e.g. a fader that you can touch.
 
 [[virtual-control-element]]
 === Virtual control element
@@ -456,12 +456,12 @@ When you define a virtual source or virtual target, there's a convenient picker 
 [[custom-data]]
 == Custom compartment data
 
-Each xref:key-concepts.adoc#compartment[] in ReaLearn can carry _custom data_. That is arbitrary structured (JSON-like) data which can be used in certain ways.
+Each {term_compartment} in ReaLearn can carry _custom data_. That is arbitrary structured (JSON-like) data which can be used in certain ways.
 
 I know that's a quite generic description. It's best to give some examples:
 
-* ReaLearn's xref:further-concepts/unit.adoc#projection[projection feature] uses custom compartment data within the xref:key-concepts.adoc#controller-compartment[] in order to memorize the positions and shapes of all control elements.
-* Playtime's xref:playtime::further-concepts/matrix.adoc#control-unit[] feature reads custom compartment data within the xref:key-concepts.adoc#main-compartment[] in order to know the size of the connected xref:playtime::key-concepts.adoc#grid-controller[].
+* ReaLearn's xref:further-concepts/unit.adoc#projection[projection feature] uses custom compartment data within the {term_controller_compartment} in order to memorize the positions and shapes of all control elements.
+* Playtime's {term_playtime_control_unit} feature reads custom compartment data within the {term_main_compartment} in order to know the size of the connected {term_playtime_grid_controller}.
 
 Such custom data can't directly be edited in ReaLearn's xref:user-interface.adoc[]. But you can read it when dealing with JSON or Lua chunks, e.g. when <<writing-presets-with-luau>>.
 

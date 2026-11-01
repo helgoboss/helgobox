@@ -39,7 +39,7 @@ If you want to start REAPER playback together with Playtime, you have two option
 
 [loweralpha]
 . Start playback within REAPER itself (which automatically starts Playtime playback)
-. Switch xref:user-interface/inspector/matrix/playback.adoc#inspector-matrix-transport-sync[] to **Full**
+. Switch {term_inspector_matrix_transport_sync} to **Full**
 
 // Visual metronome
 
@@ -49,13 +49,13 @@ include::partial$generated/elements/toolbar/visual-metronome.adoc[]
 
 include::partial$generated/elements/toolbar/matrix-start-timing.adoc[]
 
-See xref:key-concepts.adoc#clip-start-timing[].
+See {term_clip_start_timing}.
 
 // Matrix sequencer
 
 include::partial$generated/elements/toolbar/matrix-sequencer.adoc[]
 
-See xref:key-concepts.adoc#matrix-sequence[].
+See {term_matrix_sequence}.
 
 include::partial$generated/elements/toolbar/record-matrix-sequence.adoc[]
 
@@ -75,7 +75,7 @@ include::partial$generated/elements/toolbar/write-to-arrangement.adoc[]
 
 If the Playtime column tracks already contain items, pressing this button will show the xref:user-interface/dialogs/arrangement-writing-mode-dialog.adoc[].
 
-See xref:usage/arrangement.adoc#feature-arrangement[] for details.
+See {term_feature_arrangement} for details.
 
 include::partial$generated/elements/toolbar/show-hide-midi-triggers.adoc[]
 
@@ -96,9 +96,9 @@ Here's how you assign a new MIDI trigger to a cell or toolbar button, after show
 .Powered by ReaLearn
 [TIP]
 ====
-Playtime's MIDI triggers are powered by xref:realearn::introduction.adoc[ReaLearn], Helgobox's controller integration solution. In fact, each Playtime MIDI trigger corresponds to one xref:realearn::key-concepts.adoc#mapping[] in ReaLearn's xref:realearn::key-concepts.adoc#unit[Main unit].
+Playtime's MIDI triggers are powered by xref:realearn::introduction.adoc[ReaLearn], Helgobox's controller integration solution. In fact, each Playtime MIDI trigger corresponds to one {term_realearn_mapping} in ReaLearn's xref:realearn::key-concepts.adoc#unit[Main unit].
 
-When you learn a MIDI trigger, you are actually learning the source of a ReaLearn mapping that Playtime automatically creates for you. The target is pre-configured by Playtime and is nothing more than one of the xref:realearn::targets/playtime.adoc[]. The beauty of this is that under the hood, you have the complete power of ReaLearn at your disposal, including its xref:realearn::key-concepts.adoc#feedback[] capabilities!
+When you learn a MIDI trigger, you are actually learning the source of a ReaLearn mapping that Playtime automatically creates for you. The target is pre-configured by Playtime and is nothing more than one of the xref:realearn::targets/playtime.adoc[]. The beauty of this is that under the hood, you have the complete power of ReaLearn at your disposal, including its {term_realearn_feedback} capabilities!
 ====
 
 
@@ -107,10 +107,10 @@ When you learn a MIDI trigger, you are actually learning the source of a ReaLear
 ****
 If nothing happens when you press the note or foot switch, we need to check the MIDI signal flow.
 
-. Press the xref:helgobox::app/user-interface/navigation-bar.adoc#navbar-show-helgobox-plugin[] button in the navigation bar on the left. This should open the xref:helgobox::plug-in/user-interface.adoc[plug-in window] starring ReaLearn's xref:realearn::user-interface/main-panel.adoc[].
+. Press the {term_helgobox_navbar_show_helgobox_plugin} button in the navigation bar on the left. This should open the xref:helgobox::plug-in/user-interface.adoc[plug-in window] starring ReaLearn's xref:realearn::user-interface/main-panel.adoc[].
 . Check ReaLearn's xref:realearn::user-interface/main-panel/input-output-section.adoc[input]!
 
-By default, the input should be set to xref:realearn::user-interface/main-panel/input-output-section.adoc#fx-input[]. This means that ReaLearn captures MIDI messages from the surrounding REAPER track (the one containing this xref:helgobox::key-concepts.adoc#instance[Helgobox instance]). *In this case, make sure that the track is armed and input monitoring is switched on!*
+By default, the input should be set to {term_realearn_fx_input}. This means that ReaLearn captures MIDI messages from the surrounding REAPER track (the one containing this xref:helgobox::key-concepts.adoc#instance[Helgobox instance]). *In this case, make sure that the track is armed and input monitoring is switched on!*
 
 If you want, you can also set the input to a specific device instead! In that case, the Helgobox track doesn't need to be armed.
 

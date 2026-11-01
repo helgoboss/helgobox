@@ -1,6 +1,6 @@
 = Slot inspector
 
-You will see this when selecting a xref:user-interface/matrix-area.adoc#slot-cell[].
+You will see this when selecting a {term_slot_cell}.
 
 include::partial$generated/elements/inspector/slot/clip-picker.adoc[]
 
