@@ -6,7 +6,7 @@ Now that you know how to create and play clips, you might want change them a bit
 
 If you are dealing with MIDI clips, you can easily edit the clip {term_source}:
 
-. Double-click the {term_slot_cell_content} area of the desired slot. This should open the clip source in REAPER's MIDI editor.
+. Double-click the {term_slot_cell_content} area of the desired slot. This should open the clip source in REAPER's MIDI editor (or in the Helgobox MIDI editor, according to the xref:user-interface/dialogs/settings-dialog.adoc#settings-preferred-midi-editor[settings]).
 . Make changes in the MIDI editor. Any change should be applied right away if the clip is currently playing.
 . You can also use the playback controls of REAPER's MIDI editor or arrange view. As soon as you use them, the clip will stop playing in Playtime and you can play it within REAPER instead. As long as the MIDI editor is open, the clip is mirrored by a regular REAPER MIDI item positioned on the {term_column_track}.
 . Close the MIDI editor.

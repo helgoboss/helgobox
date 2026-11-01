@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[waveform-view-fixed-section-length,Cut]]]
 ifndef::pdf-theme[[[waveform-view-fixed-section-length,Cut image:playtime::generated/screenshots/elements/waveform-view/fixed-section-length.png[width=50, pdfwidth=8mm]]]]
-==== Cut
+== Cut
 
 image::playtime::generated/screenshots/elements/waveform-view/fixed-section-length.png[Cut, role="related thumb right", float=right]
 

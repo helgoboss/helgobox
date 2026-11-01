@@ -12,7 +12,8 @@ See {term_control_unit_frame}.
 
 include::partial$generated/elements/settings/show-column-numbers.adoc[]
 
-Disabling this will give you more vertical space, but also hides the shortcut buttons such as {term_column_cell_exclusive_mode}. In that case, you can still change those things in the xref:user-interface/inspector/column.adoc[].
+Disabling this will give you more vertical space, but also hides the shortcut buttons such as {term_column_cell_exclusive_mode}.
+In that case, you can still change those things in the xref:user-interface/inspector/column.adoc[].
 
 include::partial$generated/elements/settings/show-clip-activity.adoc[]
 include::partial$generated/elements/settings/show-cell-selection-as-crosshair.adoc[]
@@ -25,6 +26,13 @@ include::partial$generated/elements/settings/cell-width.adoc[]
 include::partial$generated/elements/settings/cell-height.adoc[]
 
 In addition, you might be interested in the {term_helgobox_settings_overall_size} setting, located in the general appearance section.
+
+== Behavior
+
+include::partial$generated/elements/settings/preferred-midi-editor.adoc[]
+
+Auto:: When running inside of REAPER, the default is to use REAPER's MIDI editor.
+When running outside of REAPER, for example on mobile devices, the default is to use the Helgobox MIDI editor.
 
 == Engine
 

@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[waveform-view-dynamic-section-length,Section]]]
 ifndef::pdf-theme[[[waveform-view-dynamic-section-length,Section image:playtime::generated/screenshots/elements/waveform-view/dynamic-section-length.png[width=50, pdfwidth=8mm]]]]
-==== Section
+== Section
 
 image::playtime::generated/screenshots/elements/waveform-view/dynamic-section-length.png[Section, role="related thumb right", float=right]
 

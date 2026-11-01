@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[settings-preferred-midi-editor,Primary MIDI editor]]]
+ifndef::pdf-theme[[[settings-preferred-midi-editor,Primary MIDI editor]]]
+=== Primary MIDI editor
+
+image::playtime::generated/screenshots/elements/settings/preferred-midi-editor.png[Primary MIDI editor]
+
+Pick which MIDI editor should be used when opening MIDI clips.
+

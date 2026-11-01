@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[waveform-view-dynamic-section-end-pos,Section end position]]]
+ifndef::pdf-theme[[[waveform-view-dynamic-section-end-pos,Section end position image:playtime::generated/screenshots/elements/waveform-view/dynamic-section-end-pos.png[width=50, pdfwidth=8mm]]]]
+== Section end position
+
+image::playtime::generated/screenshots/elements/waveform-view/dynamic-section-end-pos.png[Section end position, role="related thumb right", float=right]
+
+Drag left or right to adjust.
+
