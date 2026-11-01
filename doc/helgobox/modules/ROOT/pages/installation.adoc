@@ -17,7 +17,7 @@ Please check below system requirements before attempting to install Helgobox!
 [[windows]]
 === Windows
 
-* xref:plug-in.adoc[] needs Windows 7 or later
+* xref:plug-in.adoc[] needs Windows 8 or later
 * xref:app.adoc[] needs Windows 8 or later
 
 [[macos]]
@@ -36,21 +36,7 @@ You need to install via ReaPack!**
 * On arm64 architecture: Needs at least glibc v2.35 (for example, Ubuntu 22+, Debian 12+)
 * **Installation via installer is not supported.
 You need to install via ReaPack!**
-* Needs libxdo.
-You can install it like this:
-+
-[source,shell]
-.Debian, Ubuntu
-----
-sudo apt-get install -y libxdo-dev
-----
-+
-[source,shell]
-.openSUSE
-----
-sudo zypper install xdotool
-----
-* Other dependencies that you might need to install manually, depending on your Linux distribution: `libx11`, `libstdc++`, `libudev`
+* Some dependencies that you might need to install manually, depending on your Linux distribution: `libx11`, `libstdc++`, `libudev`
 * If {plugin-name} isn't available after installation, REAPER failed to scan it.
 And that is most likely due to a missing dependency.
 In that case, please link:https://github.com/helgoboss/helgobox/issues/503#issuecomment-1320964181[try this to analyze the issue] and send the result to info@helgoboss.org.
@@ -105,9 +91,8 @@ Here's how you can install Helgobox via ReaPack:
 [[install-without-reapack]]
 === I want to install Helgobox manually, without ReaPack
 
-If you are more the download type of person, you can find the latest `dll`, `dylib` and `so` files here at GitHub on the https://github.com/helgoboss/helgobox/releases[releases page] for manual installation.
-
-You also must install Helgobox manually if you plan to use it in both REAPER for Windows 32-bit and REAPER for Windows 64-bit because then it's important to use two separate VST plug-in directories.
+If are more the download type of person or can't use ReaPack for some reason, please follow the
+https://www.helgoboss.org/projects/helgobox/installation[manual installation instructions].
 
 == Validating the installation
 

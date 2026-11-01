@@ -21,8 +21,6 @@ URL that decides how the app connects to the xref:plug-in.adoc[].
 |
 Connects to the plug-in running on the same machine, assuming a xref:configuration-files.adoc#realearn-ini[standard server configuration] (`server_grpc_port=39051`).
 
-This is the default if the connection option is omitted.
-
 |
 `grpc:://winpc:39051` +
 `grpc:://192.168.1.47:39051`

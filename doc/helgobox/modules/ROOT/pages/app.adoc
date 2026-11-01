@@ -36,7 +36,7 @@ You can start the app on the same machine, but outside of REAPER.
 If it crashes for some reason, only the app itself will crash.
 REAPER and the xref:plug-in.adoc[] will continue running.
 It's similar to running plug-ins in REAPER in bridged mode.
-This could be interesting for live scenarios.
+This can be interesting for live scenarios.
 
 Additional views::
 You can open additional app windows on the same machine and connect them to the same xref:key-concepts.adoc#instance[].
@@ -49,10 +49,6 @@ This way, you can be sure that the app doesn't take any valuable processing powe
 Touch screen operation::
 Maybe your main machine is a powerful Mac mini standing somewhere further away from you.
 You could take a Windows tablet (and in the future an iOS or Android tablet) and run the app there, connecting to your main machine.
-
-Running Playtime on Linux (temporarily)::
-Playtime's Linux support is currently limited to remote mode.
-Embedded mode is still in the works.
 
 === How to do it
 
@@ -74,10 +70,6 @@ Next time you start REAPER and Helgobox, the server will start automatically!
 Just like the plug-in, the app is part of the Helgobox installation and is located in your REAPER resource directory:
 
 . Open an arbitrary instance of the xref:plug-in.adoc[]
-+
-.Hello, Playtime for Linux testers!
-TIP: If you are here because you want to try Playtime for Linux *Stage 1*, pressing the image:playtime::screenshots/playtime-toolbar-icon.png[Playtime,width=50,pdfwidth=8mm] button should already have created a "Playtime" track for you, along with a xref:plug-in.adoc[] instance.
-Simply open that existing one!
 . Press menu:Menu[Server > Open app folder]
 . Start the app executable:
 [horizontal]
@@ -85,8 +77,7 @@ Windows:: `helgobox.exe`
 macOS:: `Contents/MacOS/helgobox`
 Linux:: `helgobox`
 
-By default, the app connects to the REAPER process running on the _same machine_ (to the xref:plug-in/user-interface/menu-bar.adoc#server[Helgobox Server] running in that process, to be accurate).
-You can change that by running the app with special xref:app/user-interface/cli.adoc[command line arguments].
+By default, the app tries to discover the plug-in within the same Wi-Fi or LAN network. You can change that by running the app with special xref:app/user-interface/cli.adoc[command line arguments].
 
 Also by default, the app connects to the first xref:key-concepts.adoc#instance[] running in that REAPER process.
 You can switch to another instance (within the same process) by pressing the xref:app/user-interface/navigation-bar.adoc#navbar-pick-instance[] button or by running the app with special xref:app/user-interface/cli.adoc[command line arguments].
