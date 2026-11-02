@@ -448,6 +448,10 @@ pub enum RecordLengthMode {
     /// Records at a maximum as much material as defined by `custom_length`.
     #[display(fmt = "Custom length")]
     CustomLength = 1,
+    /// Records open-ended until the user decides to stop, but only takes the last-recorded
+    /// `custom_length` seconds/beats.
+    #[display(fmt = "Custom length")]
+    Retrospective = 2,
 }
 
 impl MatrixClipRecordSettings {
