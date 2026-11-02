@@ -32,7 +32,8 @@ use chrono::NaiveDateTime;
 use derive_more::Display;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_common_types::{
-    Bpm, Db, DurationInBeats, DurationInSeconds, PositionInSeconds, Semitones,
+    Bpm, Db, DurationInBeats, DurationInQuarterNotes, DurationInSeconds, PositionInSeconds,
+    Semitones,
 };
 use serde::{Deserialize, Deserializer, Serialize};
 use strum::EnumIter;
@@ -419,6 +420,10 @@ pub struct MatrixClipRecordSettings {
     /// If `true`, starts playing the clip right after recording.
     #[serde(default = "looped_default")]
     pub looped: bool,
+    /// Allows you to stop a quantized recording slightly after the intended end of a loop without
+    /// recording an extra bar.
+    #[serde(default)]
+    pub stop_tolerance: DurationInQuarterNotes,
     #[serde(default)]
     pub midi_settings: MatrixClipRecordMidiSettings,
     #[serde(default)]
@@ -539,6 +544,7 @@ impl Default for MatrixClipRecordSettings {
             play_stop_timing: Default::default(),
             time_base: Default::default(),
             looped: looped_default(),
+            stop_tolerance: Default::default(),
             midi_settings: Default::default(),
             audio_settings: Default::default(),
             allow_tempo_detection_recording: allow_tempo_detection_recording_default(),
