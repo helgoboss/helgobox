@@ -1,9 +1,3 @@
-use anyhow::Context;
-use helgoboss_midi::{RawShortMessage, ShortMessageFactory};
-use reaper_high::{GroupingBehavior, Guid, Reaper, Track, TrackSetSmartOpts};
-use reaper_medium::{Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, SoloMode};
-use tonic::{Response, Status};
-
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
@@ -25,9 +19,11 @@ use crate::infrastructure::proto::{
     TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest,
     TriggerTrackAction, TriggerTrackRequest,
 };
+use anyhow::Context;
 use base::tracing_util::ok_or_log_as_warn;
 use base::{future_util, spawn_in_main_thread};
 use helgoboss_learn::UnitValue;
+use helgoboss_midi::{RawShortMessage, ShortMessageFactory};
 use playtime_api::persistence::{
     ClipId, ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress,
     TimeSignature, TrackId,
@@ -41,6 +37,10 @@ use playtime_clip_engine::rt::supplier::midi::{MidiMessage, MidiSequenceNote, No
 use playtime_clip_engine::{
     PlaytimeMainEngine, base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions,
 };
+use reaper_high::{GroupingBehavior, Guid, Reaper, Track, TrackSetSmartOpts};
+use reaper_medium::{Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, SoloMode};
+use tonic::{Response, Status};
+use tracing::info;
 
 #[derive(Debug)]
 pub struct PlaytimeProtoRequestHandler;
@@ -297,11 +297,17 @@ impl PlaytimeProtoRequestHandler {
         self.handle_clip_command(&req.clip_address, move |matrix, clip| {
             matrix.patch_midi_clip_content(clip, move |seq| {
                 if let Some(v) = patch.ppq {
+                    info!("Setting PPQ to {v}");
                     seq.resample_to_ppq(v);
                 }
                 if let Some(v) = patch.clip_length {
+                    info!("Setting length to {v} ticks");
                     seq.set_length_in_pulses(v);
                 }
+                info!(
+                    "Length before patching notes: {} ticks",
+                    seq.total_pulse_count()
+                );
                 let notes = patch
                     .notes
                     .into_iter()
@@ -323,7 +329,12 @@ impl PlaytimeProtoRequestHandler {
                     })
                     .collect();
                 seq.replace_notes(notes);
+                info!(
+                    "Length after patching notes: {} ticks",
+                    seq.total_pulse_count()
+                );
                 if let Some(v) = patch.time_signature {
+                    info!("Setting time signature to {v:?}");
                     seq.set_time_signature(convert_time_signature_to_engine(v));
                 }
             })?;
