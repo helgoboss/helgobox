@@ -631,7 +631,7 @@ impl PlaytimeProtoRequestHandler {
                     BackboneShell::get().with_clip_matrix_mut(
                         instance_id.into(),
                         move |matrix| {
-                            let _ = matrix.set_track_armed(cloned_track, true);
+                            let _ = matrix.arm_track_exclusively_per_input(cloned_track);
                         },
                     )?;
                     Ok(())
