@@ -251,6 +251,7 @@ export type MatrixClipRecordSettings = {
 	play_stop_timing: ClipPlayStopTimingOverrideAfterRecording?,
 	time_base: ClipRecordTimeBase?,
 	looped: boolean?,
+	stop_tolerance: DurationInQuarterNotes?,
 	midi_settings: MatrixClipRecordMidiSettings?,
 	audio_settings: MatrixClipRecordAudioSettings?,
 }
@@ -260,7 +261,7 @@ function module.MatrixClipRecordSettings(value: MatrixClipRecordSettings): Matri
 	return value
 end
 
-export type RecordLengthMode = "OpenEnd" | "CustomLength"
+export type RecordLengthMode = "OpenEnd" | "CustomLength" | "Retrospective"
 
 export type MatrixClipRecordMidiSettings = {
 	record_mode: MidiClipRecordMode?,
