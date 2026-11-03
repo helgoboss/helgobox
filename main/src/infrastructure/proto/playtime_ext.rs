@@ -7,6 +7,7 @@ use reaper_high::{Project, Reaper};
 use reaper_medium::{Db, MidiInputDeviceId, ReaperPanValue, RecordingInput};
 
 use crate::infrastructure::proto;
+use crate::infrastructure::proto::proto_util::convert_track_id_to_proto;
 use crate::infrastructure::proto::track_input::Input;
 use crate::infrastructure::proto::{
     AudioClipContentInfo, CellAddress, ClipAddress, ClipContentInfo, ColumnKind,
@@ -30,7 +31,6 @@ use playtime_clip_engine::rt::{
 use playtime_clip_engine::{
     PlaytimeEngine, SteadyProjectTimelineHandle, Timeline, base, clip_timeline,
 };
-use crate::infrastructure::proto::proto_util::convert_track_id_to_proto;
 
 impl occasional_playtime_engine_update::Update {
     pub fn engine_settings() -> Self {
@@ -219,7 +219,7 @@ impl generated::TrackList {
 impl generated::TrackInList {
     pub fn from_engine(track: &reaper_high::Track, level: u32) -> Self {
         Self {
-            id: convert_track_id_to_proto(&track),
+            id: convert_track_id_to_proto(track),
             name: track.name().unwrap_or_default().into_string(),
             level,
         }

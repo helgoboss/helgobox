@@ -4,14 +4,14 @@ use crate::application::{
 };
 use crate::base::notification;
 use crate::domain::{
-    ActionInvokedEvent, AdditionalFeedbackEvent, Backbone, ChangeInstanceFxArgs,
-    ChangeInstanceTrackArgs, CompartmentKind, ControlSurfaceEventHandler, DeviceDiff,
-    EnableInstancesArgs, EnableUnitsArgs, Exclusivity, FeedbackAudioHookTask, GLOBAL_AUDIO_STATE,
-    GroupId, HelgoboxWindowSnitch, InputDescriptor, InstanceFxChangeRequest, InstanceId,
-    InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent,
-    MessageCaptureResult, ModifyUnitContainerCommonArgs, OscDeviceId, OscFeedbackProcessor,
-    OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedInstanceEvent, QualifiedMappingId,
-    RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
+    ActionInvokedEvent, AdditionalFeedbackEvent, Backbone, CaptureInputResult,
+    ChangeInstanceFxArgs, ChangeInstanceTrackArgs, CompartmentKind, ControlSurfaceEventHandler,
+    DeviceDiff, EnableInstancesArgs, EnableUnitsArgs, Exclusivity, FeedbackAudioHookTask,
+    GLOBAL_AUDIO_STATE, GroupId, HelgoboxWindowSnitch, InputDescriptor, InstanceFxChangeRequest,
+    InstanceId, InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor,
+    MessageCaptureEvent, MessageCaptureResult, ModifyUnitContainerCommonArgs, OscDeviceId,
+    OscFeedbackProcessor, OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedInstanceEvent,
+    QualifiedMappingId, RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
     RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, ReaperTarget,
     ReaperTargetType, RequestMidiDeviceIdentityCommand, RequestMidiDeviceIdentityReply,
     SharedInstance, SharedMainProcessors, SharedRealTimeProcessor, Tag, UnitContainer, UnitId,
@@ -1758,11 +1758,11 @@ impl BackboneShell {
         self.show_message_panel("ReaLearn", "Touch some control elements!", || {
             BackboneShell::stop_learning_sources();
         });
-        let midi_receiver = Backbone::get().request_next_midi_messages();
+        let midi_receiver = Backbone::get().start_capturing_midi_input();
         let osc_receiver = self.request_next_osc_messages();
         loop {
             let capture_result = tokio::select! {
-                Ok(r) = midi_receiver.recv() => {
+                Ok(CaptureInputResult::Midi(r)) = midi_receiver.recv() => {
                     Some(MessageCaptureResult::Midi(r))
                 }
                 Ok(r) = osc_receiver.recv() => {
@@ -1829,13 +1829,13 @@ impl BackboneShell {
         self.show_message_panel("ReaLearn", "Touch a control element!", || {
             BackboneShell::stop_learning_sources();
         });
-        let midi_receiver = Backbone::get().request_next_midi_messages();
+        let midi_receiver = Backbone::get().start_capturing_midi_input();
         let osc_receiver = self.request_next_osc_messages();
         // Try until we found the first learnable message
         let (unit_model, existing_mapping, capture_result) = loop {
             // Capture next result
             let capture_result = tokio::select! {
-                Ok(r) = midi_receiver.recv() => {
+                Ok(CaptureInputResult::Midi(r)) = midi_receiver.recv() => {
                     Some(MessageCaptureResult::Midi(r))
                 }
                 Ok(r) = osc_receiver.recv() => {
@@ -1963,7 +1963,7 @@ impl BackboneShell {
     }
 
     fn stop_learning_sources() {
-        Backbone::get().stop_capturing_midi();
+        Backbone::get().stop_capturing_input();
         BackboneShell::get()
             .control_surface_main_task_sender
             .0

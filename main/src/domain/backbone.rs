@@ -4,8 +4,8 @@ use base::{
 };
 
 use crate::domain::{
-    AdditionalFeedbackEvent, CaptureInputEquipment, ControlInput, DeviceControlInput,
-    DeviceFeedbackOutput, FeedbackOutput, InstanceId, MidiScanResult, NormalAudioHookTask,
+    AdditionalFeedbackEvent, CaptureInputEquipment, CaptureInputResult, ControlInput,
+    DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput, InstanceId, NormalAudioHookTask,
     QualifiedStreamDeckMessage, RealearnSourceState, RealearnTargetState, ReaperTarget,
     ReaperTargetType, RequestMidiDeviceIdentityCommand, SafeLua, SharedInstance,
     SharedRealTimeInstance, SharedRealTimeProcessor, StreamDeckDeviceId, StreamDeckDeviceManager,
@@ -28,6 +28,7 @@ use helgobox_api::persistence::{
 use imageproc::definitions::{HasBlack, HasWhite};
 use once_cell::sync::Lazy;
 // Use once_cell::sync::Lazy instead of std::sync::LazyLock to be able to build with Rust 1.77.2 (to stay Win7-compatible)
+use crate::domain::audio_input_learner::LearnedAudioInput;
 use elgato_streamdeck::{StreamDeck, StreamDeckError, StreamDeckInput};
 use helgoboss_midi::{RawShortMessage, ShortMessage, ShortMessageType};
 use once_cell::sync::Lazy as LazyLock;
@@ -201,7 +202,9 @@ impl Backbone {
     }
 
     pub fn toggle_track_input_learning(&self, track: Track) {
-        if self.learning_input_of_track.borrow().is_some() {
+        if let Some(state) = self.learning_input_of_track.borrow().as_ref()
+            && state.track == track
+        {
             self.deactivate_track_input_learning();
         } else {
             self.activate_track_input_learning(track);
@@ -327,17 +330,27 @@ impl Backbone {
             .send_complaining(NormalAudioHookTask::RequestMidiDeviceIdentity(command));
     }
 
-    pub fn stop_capturing_midi(&self) {
-        self.audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::StopCapturingInput);
-    }
-
-    pub fn request_next_midi_messages(&self) -> async_channel::Receiver<MidiScanResult> {
+    pub fn start_capturing_midi_input(&self) -> async_channel::Receiver<CaptureInputResult> {
         let (sender, receiver) = async_channel::bounded(500);
-        let equipment = CaptureInputEquipment::new(sender);
+        let equipment = CaptureInputEquipment::new_midi_only(sender);
         let task = NormalAudioHookTask::StartCapturingInput(Box::new(equipment));
         self.audio_hook_task_sender.send_complaining(task);
         receiver
+    }
+
+    pub fn start_capturing_midi_and_audio_input(
+        &self,
+    ) -> anyhow::Result<async_channel::Receiver<CaptureInputResult>> {
+        let (sender, receiver) = async_channel::bounded(500);
+        let equipment = CaptureInputEquipment::new_midi_and_audio(sender)?;
+        let task = NormalAudioHookTask::StartCapturingInput(Box::new(equipment));
+        self.audio_hook_task_sender.send_complaining(task);
+        Ok(receiver)
+    }
+
+    pub fn stop_capturing_input(&self) {
+        self.audio_hook_task_sender
+            .send_complaining(NormalAudioHookTask::StopCapturingInput);
     }
 
     /// Returns IDs of newly connected Stream Deck devices.
@@ -1044,11 +1057,11 @@ struct TrackInputLearnState {
 }
 
 async fn learn_track_input(cancellation_token: CancellationToken) -> anyhow::Result<()> {
-    let midi_receiver = Backbone::get().request_next_midi_messages();
+    let receiver = Backbone::get().start_capturing_midi_and_audio_input()?;
     loop {
         tokio::select! {
-            Ok(scan_result) = midi_receiver.recv() => {
-                if let Some(input) = derive_track_input_from_midi_scan_result(scan_result) {
+            Ok(scan_result) = receiver.recv() => {
+                if let Some(input) = derive_track_input_from_captured_input(scan_result) {
                     let _ = Backbone::get().set_track_input_after_learning(input);
                     break;
                 }
@@ -1058,21 +1071,31 @@ async fn learn_track_input(cancellation_token: CancellationToken) -> anyhow::Res
             }
         }
     }
-    Backbone::get().stop_capturing_midi();
+    Backbone::get().stop_capturing_input();
     Ok(())
 }
 
-fn derive_track_input_from_midi_scan_result(scan_result: MidiScanResult) -> Option<RecordingInput> {
-    let device_id = scan_result.dev_id?;
-    if !value_is_suited_for_learning_track_input(&scan_result.value) {
-        return None;
+fn derive_track_input_from_captured_input(
+    capture_result: CaptureInputResult,
+) -> Option<RecordingInput> {
+    match capture_result {
+        CaptureInputResult::Midi(capture_result) => {
+            let device_id = capture_result.dev_id?;
+            if !value_is_suited_for_learning_track_input(&capture_result.value) {
+                return None;
+            }
+            let channel = capture_result.value.channel();
+            let input = RecordingInput::Midi {
+                channel,
+                device_id: Some(device_id),
+            };
+            Some(input)
+        }
+        CaptureInputResult::Audio(capture_result) => match capture_result {
+            LearnedAudioInput::Mono(ch) => Some(RecordingInput::Mono(ch as u32)),
+            LearnedAudioInput::Stereo(ch) => Some(RecordingInput::Stereo(ch as u32)),
+        },
     }
-    let channel = scan_result.value.channel();
-    let input = RecordingInput::Midi {
-        channel,
-        device_id: Some(device_id),
-    };
-    Some(input)
 }
 
 fn value_is_suited_for_learning_track_input(

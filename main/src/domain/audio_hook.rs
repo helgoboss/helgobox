@@ -1,3 +1,6 @@
+use crate::domain::audio_input_learner::{
+    AudioInputLearner, AudioInputLearnerConfig, LearnedAudioInput,
+};
 use crate::domain::{
     AudioBlockProps, ControlEvent, ControlEventTimestamp, DisplayAsPrettyHex, GLOBAL_AUDIO_STATE,
     IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent, MidiMessageClassification,
@@ -13,8 +16,8 @@ use helgobox_allocator::*;
 use reaper_common_types::DurationInSeconds;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
-    MIDI_INPUT_FRAME_RATE, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
-    SendMidiTime,
+    AudioHookRegister, MIDI_INPUT_FRAME_RATE, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer,
+    OnAudioBufferArgs, SendMidiTime,
 };
 use smallvec::SmallVec;
 use std::fmt::{Display, Formatter};
@@ -29,7 +32,12 @@ const FEEDBACK_TASK_BULK_SIZE: usize = 1000;
 /// preferences, the VST processing is executed in another thread than the audio hook!
 pub type SharedRealTimeProcessor = Arc<Mutex<RealTimeProcessor>>;
 
-pub type CaptureInputSender = async_channel::Sender<MidiScanResult>;
+pub type CaptureInputSender = async_channel::Sender<CaptureInputResult>;
+
+pub enum CaptureInputResult {
+    Midi(MidiScanResult),
+    Audio(LearnedAudioInput),
+}
 
 #[derive(Debug)]
 pub struct RequestMidiDeviceIdentityCommand {
@@ -152,24 +160,42 @@ enum AudioHookState {
 pub struct CaptureInputEquipment {
     sender: CaptureInputSender,
     midi_scanner: MidiScanner,
+    audio_input_learner: Option<AudioInputLearner>,
 }
 
 impl CaptureInputEquipment {
-    pub fn new(sender: CaptureInputSender) -> Self {
+    pub fn new_midi_and_audio(sender: CaptureInputSender) -> anyhow::Result<Self> {
+        let sample_rate = Reaper::get().audio_device_sample_rate()?;
+        let num_input_channels = Reaper::get().medium_reaper().low().GetNumAudioInputs();
+        let audio_input_learner = AudioInputLearner::new(
+            num_input_channels as usize,
+            sample_rate.get(),
+            AudioInputLearnerConfig::default(),
+        );
+        let equipment = Self {
+            sender,
+            midi_scanner: Default::default(),
+            audio_input_learner: Some(audio_input_learner),
+        };
+        Ok(equipment)
+    }
+
+    pub fn new_midi_only(sender: CaptureInputSender) -> Self {
         Self {
             sender,
             midi_scanner: Default::default(),
+            audio_input_learner: None,
         }
     }
 
-    fn capture_input(&mut self) {
+    fn capture_midi_input(&mut self) {
         for dev in Reaper::get().midi_input_devices() {
             dev.with_midi_input(|mi| {
                 if let Some(mi) = mi {
                     let event_list = mi.get_read_buf();
                     for e in &*event_list {
                         if let Some(res) = scan_midi(dev.id(), e, &mut self.midi_scanner) {
-                            let _ = self.sender.try_send(res);
+                            let _ = self.sender.try_send(CaptureInputResult::Midi(res));
                         }
                     }
                     // Currently, we want to filter out all captured MIDI events so that
@@ -180,7 +206,20 @@ impl CaptureInputEquipment {
         }
         if let Some(res) = self.midi_scanner.poll() {
             // Source detected via polling. Return to normal mode.
-            let _ = self.sender.try_send(res);
+            let _ = self.sender.try_send(CaptureInputResult::Midi(res));
+        }
+    }
+
+    fn capture_audio_input(&mut self, register: &AudioHookRegister, block_props: AudioBlockProps) {
+        let Some(learner) = &mut self.audio_input_learner else {
+            return;
+        };
+        let raw_register = unsafe { register.get().as_ref() };
+        let learned_input = learner.feed(raw_register, block_props.block_length);
+        if let Some(learned_input) = learned_input {
+            let _ = self
+                .sender
+                .try_send(CaptureInputResult::Audio(learned_input));
         }
     }
 }
@@ -284,7 +323,8 @@ impl RealearnAudioHook {
                     p.lock_recover()
                         .run_from_audio_hook_essential(might_be_rebirth);
                 }
-                state.capture_input();
+                state.capture_midi_input();
+                state.capture_audio_input(args.reg, block_props)
             }
         };
         // Process ReaLearn feedback commands
