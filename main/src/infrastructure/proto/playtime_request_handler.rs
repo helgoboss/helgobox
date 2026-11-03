@@ -39,6 +39,7 @@ use playtime_clip_engine::{
 };
 use reaper_high::{GroupingBehavior, Guid, Reaper, Track, TrackSetSmartOpts};
 use reaper_medium::{Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, SoloMode};
+use std::num::NonZeroU32;
 use tonic::{Response, Status};
 use tracing::info;
 
@@ -696,7 +697,7 @@ impl PlaytimeProtoRequestHandler {
             .to_engine()
             .map_err(Status::invalid_argument)?;
         self.handle_matrix_command(req.matrix_id, |matrix| {
-            matrix.set_time_signature(time_sig);
+            matrix.set_time_signature(time_sig)?;
             Ok(())
         })
     }
@@ -1056,8 +1057,9 @@ fn convert_clip_address_to_engine(
 
 fn convert_time_signature_to_engine(value: proto::TimeSignature) -> TimeSignature {
     TimeSignature {
-        numerator: value.numerator,
-        denominator: value.denominator,
+        numerator: NonZeroU32::new(value.numerator).expect("time signature numerator is zero"),
+        denominator: NonZeroU32::new(value.denominator)
+            .expect("time signature denominator is zero"),
     }
 }
 

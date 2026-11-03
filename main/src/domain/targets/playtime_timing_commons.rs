@@ -130,8 +130,8 @@ fn whole_notes_per_second(bpm: Bpm) -> Positive<f64> {
 }
 
 pub fn bars_per_second(bpm: Bpm, time_signature: TimeSignature) -> Positive<f64> {
-    let num = time_signature.numerator as f64;
-    let denom = time_signature.denominator as f64;
+    let num = time_signature.numerator.get() as f64;
+    let denom = time_signature.denominator.get() as f64;
     let qn_per_bar = num * 4.0 / denom;
     let qn_per_second = bpm.get() / 60.0;
     Positive::<f64>::new(qn_per_second / qn_per_bar).expect("bars_per_second")

@@ -1,6 +1,6 @@
 //! Usually we use Protocol Buffers for the runtime app API but there are a few things that are
 //! not performance-critical and better expressed in a Rust-first manner.
-use crate::persistence::{ColumnAddress, RowAddress, SlotAddress};
+use crate::persistence::{ColumnAddress, RowAddress, SlotAddress, TrackId};
 use serde::{Deserialize, Serialize};
 
 // We don't really need a tagged enum here but it's an easy way to transmit the event as a
@@ -42,7 +42,7 @@ pub struct SimpleMappingContainer {
     pub mappings: Vec<SimpleMapping>,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct SimpleMapping {
     pub source: SimpleSource,
     pub target: SimpleMappingTarget,
@@ -61,7 +61,7 @@ pub struct NoteSource {
     pub number: u8,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum SimpleMappingTarget {
     TriggerMatrix,

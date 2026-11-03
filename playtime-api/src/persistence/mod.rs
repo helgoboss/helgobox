@@ -21,10 +21,6 @@
 //!   work well with ReaLearn Script (`lua_serializer.rs`) **and** our Rust-to-Dart converter.
 //!   For the latter, we need to avoid things like `#[serde(flatten)]` or type parameters!
 
-use std::cmp;
-use std::collections::BTreeMap;
-use std::fmt::{Display, Formatter};
-
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use camino::Utf8PathBuf;
@@ -36,6 +32,10 @@ use reaper_common_types::{
     Semitones,
 };
 use serde::{Deserialize, Deserializer, Serialize};
+use std::cmp;
+use std::collections::BTreeMap;
+use std::fmt::{Display, Formatter};
+use std::num::NonZeroU32;
 use strum::EnumIter;
 
 use crate::runtime::CellAddress;
@@ -1117,7 +1117,6 @@ pub struct Row {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tempo: Option<Bpm>,
     /// An optional time signature associated with this row.
-    // TODO-high-playtime-after-release
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_signature: Option<TimeSignature>,
 }
@@ -1748,15 +1747,15 @@ pub struct ColorPaletteEntry {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct TimeSignature {
-    pub numerator: u32,
-    pub denominator: u32,
+    pub numerator: NonZeroU32,
+    pub denominator: NonZeroU32,
 }
 
 impl Default for TimeSignature {
     fn default() -> Self {
         Self {
-            numerator: 4,
-            denominator: 4,
+            numerator: NonZeroU32::new(4).unwrap(),
+            denominator: NonZeroU32::new(4).unwrap(),
         }
     }
 }

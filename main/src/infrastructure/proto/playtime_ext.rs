@@ -417,8 +417,8 @@ impl clip_content_info::Info {
                         ppq: seq.ppq(),
                         length: seq.total_pulse_count(),
                         time_signature: Some(TimeSignature {
-                            numerator: sig.numerator,
-                            denominator: sig.denominator,
+                            numerator: sig.numerator.get(),
+                            denominator: sig.denominator.get(),
                         }),
                         notes: notes
                             .into_iter()
