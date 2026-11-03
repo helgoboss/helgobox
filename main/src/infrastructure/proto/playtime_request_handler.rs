@@ -24,7 +24,7 @@ use anyhow::Context;
 use base::tracing_util::ok_or_log_as_warn;
 use base::{future_util, spawn_in_main_thread};
 use helgoboss_learn::UnitValue;
-use helgoboss_midi::{RawShortMessage, ShortMessageFactory};
+use helgoboss_midi::{Channel, RawShortMessage, ShortMessageFactory};
 use playtime_api::persistence::{
     ClipId, ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress,
     TimeSignature, TrackId,
@@ -39,7 +39,9 @@ use playtime_clip_engine::{
     PlaytimeMainEngine, base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions,
 };
 use reaper_high::{GroupingBehavior, Guid, Reaper, Track, TrackSetSmartOpts};
-use reaper_medium::{Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, SoloMode};
+use reaper_medium::{
+    Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, RecordingInput, SoloMode,
+};
 use std::num::NonZeroU32;
 use tonic::{Response, Status};
 use tracing::info;
@@ -610,7 +612,30 @@ impl PlaytimeProtoRequestHandler {
                 Ok(())
             }
             TriggerTrackAction::ToggleLearnInput => {
-                Backbone::get().toggle_track_input_learning(track);
+                let cloned_track = track.clone();
+                let instance_id = matrix.instance_id();
+                Backbone::get().toggle_track_input_learning(track, move |input| {
+                    if let RecordingInput::Midi {
+                        channel: Some(ch), ..
+                    } = input
+                        && ch.get() > 0
+                        && cloned_track.midi_input_channel_mapping().is_none()
+                    {
+                        // The MIDI channel of the controller is unusual (not channel 1) and the track is configured to
+                        // forward messages with the original (in this case unusual) channel. This is most likely undesired because
+                        // most (mono-timbral) instruments expect messages to arrive on channel 1. So we conveniently
+                        // map the channel to 1.
+                        let _ = cloned_track.set_midi_input_channel_mapping(Some(Channel::MIN));
+                    }
+                    let cloned_track = cloned_track.clone();
+                    BackboneShell::get().with_clip_matrix_mut(
+                        instance_id.into(),
+                        move |matrix| {
+                            let _ = matrix.set_track_armed(cloned_track, true);
+                        },
+                    )?;
+                    Ok(())
+                });
                 Ok(())
             }
         })

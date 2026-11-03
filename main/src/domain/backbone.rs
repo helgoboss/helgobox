@@ -30,7 +30,7 @@ use once_cell::sync::Lazy;
 // Use once_cell::sync::Lazy instead of std::sync::LazyLock to be able to build with Rust 1.77.2 (to stay Win7-compatible)
 use crate::domain::audio_input_learner::LearnedAudioInput;
 use elgato_streamdeck::{StreamDeck, StreamDeckError, StreamDeckInput};
-use helgoboss_midi::{Channel, RawShortMessage, ShortMessage, ShortMessageType};
+use helgoboss_midi::{RawShortMessage, ShortMessage, ShortMessageType};
 use once_cell::sync::Lazy as LazyLock;
 use palette::IntoColor;
 use reaper_high::{Fx, Reaper, Track};
@@ -201,7 +201,11 @@ impl Backbone {
         self.audio_hook_task_sender.clone()
     }
 
-    pub fn toggle_track_input_learning(&self, track: Track) {
+    pub fn toggle_track_input_learning(
+        &self,
+        track: Track,
+        on_learned: impl Fn(RecordingInput) -> anyhow::Result<()> + 'static,
+    ) {
         let is_on = self
             .learning_input_of_track
             .borrow()
@@ -210,7 +214,7 @@ impl Backbone {
         if is_on {
             self.deactivate_track_input_learning();
         } else {
-            self.activate_track_input_learning(track);
+            self.activate_track_input_learning(track, on_learned);
         }
     }
 
@@ -221,11 +225,16 @@ impl Backbone {
             .map(|s| s.track.clone())
     }
 
-    pub fn activate_track_input_learning(&self, track: Track) {
+    pub fn activate_track_input_learning(
+        &self,
+        track: Track,
+        on_learned: impl Fn(RecordingInput) -> anyhow::Result<()> + 'static,
+    ) {
         let cancellation_token = CancellationToken::default();
         let state = TrackInputLearnState {
             track,
             cancellation_token: cancellation_token.clone(),
+            on_learned: Box::new(on_learned),
         };
         let previous = self.learning_input_of_track.borrow_mut().replace(state);
         if let Some(previous) = previous {
@@ -245,20 +254,7 @@ impl Backbone {
         state
             .track
             .set_recording_input_with_notification(Some(input));
-        if let RecordingInput::Midi {
-            channel: Some(ch), ..
-        } = input
-            && ch.get() > 0
-            && state.track.midi_input_channel_mapping().is_none()
-        {
-            // The MIDI channel of the controller is unusual (not channel 1) and the track is configured to
-            // forward messages with the original (in this case unusual) channel. This is most likely undesired because
-            // most (mono-timbral) instruments expect messages to arrive on channel 1. So we conveniently
-            // map the channel to 1.
-            let _ = state
-                .track
-                .set_midi_input_channel_mapping(Some(Channel::MIN));
-        }
+        (state.on_learned)(input)?;
         self.additional_feedback_event_sender
             .send_complaining(AdditionalFeedbackEvent::LearningInputOfTrackChanged);
         Ok(())
@@ -1071,6 +1067,7 @@ fn connect_or_disconnect_stream_deck_devices(
 struct TrackInputLearnState {
     track: Track,
     cancellation_token: CancellationToken,
+    on_learned: Box<dyn Fn(RecordingInput) -> anyhow::Result<()>>,
 }
 
 async fn learn_track_input(cancellation_token: CancellationToken) -> anyhow::Result<()> {

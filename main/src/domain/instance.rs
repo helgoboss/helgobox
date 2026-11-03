@@ -340,8 +340,11 @@ mod playtime_impl {
             err_if_reaper_version_too_low_for_playtime()?;
             let track = self.processor_context.track()
                 .context("Sorry, Playtime is not intended to be used from the monitoring FX chain! If you have a really good use case for that, please write to info@helgoboss.org and we will see what we can do.")?;
-            let matrix =
-                playtime_clip_engine::base::Matrix::new(create_handler(self), track.clone());
+            let matrix = playtime_clip_engine::base::Matrix::new(
+                create_handler(self),
+                track.clone(),
+                self.id.0,
+            );
             self.update_real_time_clip_matrix(Some(matrix.real_time_matrix()));
             self.set_clip_matrix(Some(matrix));
             self.playtime
