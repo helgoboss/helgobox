@@ -309,7 +309,7 @@ impl ModeModelData {
             // This must be ReaLearn >= 2.13.0-pre.10.
             model.change(P::SetStepFactorInterval(Interval::new_auto(min, max)));
         }
-        model.change(P::SetPressDurationInterval(Interval::new(
+        model.change(P::SetPressDurationInterval(Interval::new_auto(
             Duration::from_millis(self.min_press_millis),
             Duration::from_millis(self.max_press_millis),
         )));
@@ -327,7 +327,10 @@ impl ModeModelData {
             } else {
                 // We really have a custom jump interval that could make a difference (not possible
                 // to create in GUI anymore).
-                Some(Interval::new(self.min_target_jump, self.max_target_jump))
+                Some(Interval::new_auto(
+                    self.min_target_jump,
+                    self.max_target_jump,
+                ))
             };
             let takeover_mode = if migration_descriptor.jump_overhaul_485
                 && self.takeover_mode == TakeoverMode::default()
