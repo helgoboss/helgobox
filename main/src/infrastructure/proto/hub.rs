@@ -1,5 +1,5 @@
 use helgobox_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
-use reaper_high::ChangeEvent;
+use reaper_high::{ChangeEvent, Track};
 
 use crate::application::UnitModel;
 use crate::domain::{InstanceId, UnitId};
@@ -69,6 +69,14 @@ impl ProtoHub {
     pub fn request_hide(&self, instance_id: InstanceId) {
         self.send_occasional_instance_updates(instance_id, || {
             [occasional_instance_update::Update::RequestHide(())]
+        });
+    }
+
+    pub fn notify_about_global_track_input_learn_state(&self, track: Option<&Track>) {
+        self.send_occasional_global_updates(|| {
+            [occasional_global_update::Update::track_input_learn_state(
+                track,
+            )]
         });
     }
 
@@ -257,6 +265,7 @@ mod playtime_impl {
 
     use crate::domain::InstanceId;
     use crate::infrastructure::proto;
+    use crate::infrastructure::proto::proto_util::convert_track_id_to_proto;
     use crate::infrastructure::proto::senders::{
         ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
         OccasionalClipUpdateBatch, OccasionalColumnUpdateBatch, OccasionalMatrixUpdateBatch,
@@ -437,7 +446,7 @@ mod playtime_impl {
                 update: occasional_track_update::Update,
             ) -> QualifiedOccasionalTrackUpdate {
                 QualifiedOccasionalTrackUpdate {
-                    track_id: track.guid().to_string_without_braces(),
+                    track_id: convert_track_id_to_proto(track),
                     track_updates: vec![OccasionalTrackUpdate {
                         update: Some(update),
                     }],
@@ -667,7 +676,7 @@ mod playtime_impl {
             }
             fn track_update(track: &Track, create_update: impl FnOnce() -> Update) -> R {
                 R::Track(QualifiedOccasionalTrackUpdate {
-                    track_id: track.guid().to_string_without_braces(),
+                    track_id: convert_track_id_to_proto(track),
                     track_updates: vec![OccasionalTrackUpdate {
                         update: Some(create_update()),
                     }],

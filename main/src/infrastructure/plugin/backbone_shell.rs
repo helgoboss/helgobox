@@ -9,13 +9,13 @@ use crate::domain::{
     EnableInstancesArgs, EnableUnitsArgs, Exclusivity, FeedbackAudioHookTask, GLOBAL_AUDIO_STATE,
     GroupId, HelgoboxWindowSnitch, InputDescriptor, InstanceFxChangeRequest, InstanceId,
     InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent,
-    MessageCaptureResult, MidiScanResult, ModifyUnitContainerCommonArgs, NormalAudioHookTask,
-    OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, OscScanResult, ProcessorContext,
-    QualifiedInstanceEvent, QualifiedMappingId, RealearnAccelerator, RealearnAudioHook,
-    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware, RealearnTarget,
-    RealearnTargetState, ReaperTarget, ReaperTargetType, RequestMidiDeviceIdentityCommand,
-    RequestMidiDeviceIdentityReply, SharedInstance, SharedMainProcessors, SharedRealTimeProcessor,
-    Tag, UnitContainer, UnitId, UnitOrchestrationEvent, WeakInstance, WeakUnit,
+    MessageCaptureResult, ModifyUnitContainerCommonArgs, OscDeviceId, OscFeedbackProcessor,
+    OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedInstanceEvent, QualifiedMappingId,
+    RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
+    RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, ReaperTarget,
+    ReaperTargetType, RequestMidiDeviceIdentityCommand, RequestMidiDeviceIdentityReply,
+    SharedInstance, SharedMainProcessors, SharedRealTimeProcessor, Tag, UnitContainer, UnitId,
+    UnitOrchestrationEvent, WeakInstance, WeakUnit,
 };
 use crate::infrastructure::data::{
     CommonCompartmentPresetManager, CompartmentPresetManagerEventHandler, ControllerManager,
@@ -198,7 +198,6 @@ pub struct BackboneShell {
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
     instance_orchestration_event_sender: SenderToNormalThread<UnitOrchestrationEvent>,
-    audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
     instance_shell_infos: RefCell<Vec<InstanceShellInfo>>,
     unit_infos: RefCell<Vec<UnitInfo>>,
     message_panel: SharedView<MessagePanel>,
@@ -381,6 +380,7 @@ impl BackboneShell {
         // This is the backbone representation in the domain layer, of course we need this now already.
         let backbone_state = Backbone::new(
             additional_feedback_event_sender.clone(),
+            audio_hook_task_sender,
             RealearnTargetState::new(additional_feedback_event_sender.clone()),
         );
         Backbone::make_available_globally(|| backbone_state);
@@ -531,7 +531,6 @@ impl BackboneShell {
             additional_feedback_event_sender,
             feedback_audio_hook_task_sender,
             instance_orchestration_event_sender,
-            audio_hook_task_sender,
             instance_shell_infos: RefCell::new(vec![]),
             unit_infos: Default::default(),
             message_panel: Default::default(),
@@ -882,62 +881,6 @@ impl BackboneShell {
         Ok(())
     }
 
-    /// Attention: The real-time processor is removed *async*! That means it can still be called
-    /// by the audio hook, even after this method has executed. The benefit is that it will still
-    /// be able to do clean-up work after the plug-in instance is gone as long as another one is
-    /// still around. The problem is that the real-time processor has a reference to the plug-in
-    /// host callback and is *must not* call it when the plug-in is already gone, otherwise boom!
-    /// Unfortunately there's no easy way to detect if it's gone or not.
-    ///
-    /// What options do we have (we decided for option 7)?
-    ///
-    /// 1. Setting the callback to None async by sending a message via channel? No!
-    ///     - This would affect the next audio thread cycle only. But the audio hook first runs
-    ///       real-time processors and then tasks.
-    ///     - And even if we would swap the order (which would defeat the purpose), this would still
-    ///       leave the possibility that the real-time processor will be executed before the task is
-    ///       processed.
-    /// 2. Setting the callback to None by calling the real-time processor directly? No!
-    ///     - The real-time processor must only be invoked from the audio thread. We want to avoid
-    ///       wrapping the processor with a mutex because in all other cases we don't need
-    ///       synchronized access (we work with channels instead).
-    ///     - Also, a similar issue as in point 1 could arise: The real-time processor could just be
-    ///       in the middle of its run call! We would need the mutex to wait for any current call to
-    ///       end.
-    /// 3. Unregister audio hook, remove real-time processor and register it again? Maybe.
-    ///     - First, this would only work if REAPER ensures that it waits until the current call of
-    ///       this hook is finished before returning from the removal function. Justin confirmed
-    ///       that it works that way, yay!
-    ///     - We would lose the possibility of doing clean-up work though.
-    /// 4. Wrapping the host callback as `Arc<Mutex<Option<HostCallback>>>`? Okay.
-    ///     - Then the synchronized access would be concentrated on this tiny necessity only, which
-    ///       would be okay.
-    ///     - Looks like a lot of fuzz though.
-    /// 5. Use `Arc<HostCallback>` and `Weak<HostCallback>` and always check if upgrade fails? Okay.
-    ///     - Nice! But how about performance if we always have to inc/dec the `AtomicUsize`?
-    /// 6. Use `HostCallback#is_effect_valid()` magic number logic as "gone" check? Interesting.
-    ///     - Could be better than 4 and 5 performance-wise.
-    ///     - But what if the audio thread is just in the middle of the host callback call while the
-    ///       plug-in is being unloaded? Probably unlikely in practice and maybe not harmful if it
-    ///       happens. But still leaves a bad aftertaste. I mean, if we would call the host callback
-    ///       from the plug-in processing method only (like normal people do), the host would
-    ///       probably take care that this never happens...? This also concerns 4 and 5 by the way.
-    /// 7. Just don't use the host callback when called from audio hook? **Yes!**.
-    ///     - We use the host callback for checking play state and sending MIDI to FX output.
-    ///     - Checking play state could be avoided completely by using REAPER functions.
-    ///     - Sending MIDI to FX output is a bit strange anyway if called by the audio hook, maybe
-    ///       even something one shouldn't do? It's something global driving something which is
-    ///       built to be local only.
-    ///     - **Most importantly:** Sending MIDI to FX output while VST processing is stopped will
-    ///       not have any effect anyway because the rest of the FX chain is stopped!
-    ///     - Solution: Drive the real-time processor from both plug-in `process()` method **and**
-    ///       audio hook and make sure that only the call from the plug-in ever sends MIDI to FX
-    ///       output.
-    fn unregister_unit_real_time_processor(&self, unit_id: UnitId) {
-        self.audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::RemoveRealTimeProcessor(unit_id));
-    }
-
     /// We remove the main processor synchronously because it allows us to keep its fail-fast
     /// behavior. E.g. we can still panic if DomainEventHandler (weak session) or channel
     /// receivers are gone because we know it's not supposed to happen. Also, unlike with
@@ -985,10 +928,6 @@ impl BackboneShell {
         &self,
     ) -> &SenderToNormalThread<crate::domain::QualifiedClipMatrixEvent> {
         &self.clip_matrix_event_sender
-    }
-
-    pub fn normal_audio_hook_task_sender(&self) -> &SenderToRealTimeThread<NormalAudioHookTask> {
-        &self.audio_hook_task_sender
     }
 
     pub fn additional_feedback_event_sender(
@@ -1550,12 +1489,7 @@ impl BackboneShell {
             instance: instance.clone(),
         };
         self.instance_shell_infos.borrow_mut().push(info);
-        Backbone::get().register_instance(instance_id, instance.clone());
-        self.audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::AddRealTimeInstance(
-                instance_id,
-                rt_instance,
-            ));
+        Backbone::get().register_instance(instance_id, instance.clone(), rt_instance);
         self.control_surface_main_task_sender.0.send_complaining(
             RealearnControlSurfaceMainTask::AddInstance(instance_id, instance),
         );
@@ -1573,8 +1507,7 @@ impl BackboneShell {
                 .middleware_mut()
                 .remove_instance(instance_id);
         });
-        self.audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::RemoveRealTimeInstance(instance_id));
+        Backbone::get().remove_real_time_instance(instance_id);
         self.proto_hub.notify_instances_changed();
     }
 
@@ -1592,11 +1525,7 @@ impl BackboneShell {
         }
         units.push(unit_info);
         debug!("Unit {unit_id} registered. Unit count: {}", units.len());
-        self.audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::AddRealTimeProcessor(
-                unit_id,
-                real_time_processor,
-            ));
+        Backbone::get().add_real_time_processor(unit_id, real_time_processor);
         self.control_surface_main_task_sender.0.send_complaining(
             RealearnControlSurfaceMainTask::AddMainProcessor(main_processor),
         );
@@ -1604,7 +1533,7 @@ impl BackboneShell {
 
     pub fn unregister_unit(&self, unit_id: UnitId) {
         self.unregister_unit_main_processor(unit_id);
-        self.unregister_unit_real_time_processor(unit_id);
+        Backbone::get().unregister_unit_real_time_processor(unit_id);
         debug!("Unregistering unit...");
         let mut units = self.unit_infos.borrow_mut();
         units.retain(|i| {
@@ -1829,7 +1758,7 @@ impl BackboneShell {
         self.show_message_panel("ReaLearn", "Touch some control elements!", || {
             BackboneShell::stop_learning_sources();
         });
-        let midi_receiver = self.request_next_midi_messages();
+        let midi_receiver = Backbone::get().request_next_midi_messages();
         let osc_receiver = self.request_next_osc_messages();
         loop {
             let capture_result = tokio::select! {
@@ -1900,7 +1829,7 @@ impl BackboneShell {
         self.show_message_panel("ReaLearn", "Touch a control element!", || {
             BackboneShell::stop_learning_sources();
         });
-        let midi_receiver = self.request_next_midi_messages();
+        let midi_receiver = Backbone::get().request_next_midi_messages();
         let osc_receiver = self.request_next_osc_messages();
         // Try until we found the first learnable message
         let (unit_model, existing_mapping, capture_result) = loop {
@@ -2034,20 +1963,11 @@ impl BackboneShell {
     }
 
     fn stop_learning_sources() {
-        BackboneShell::get()
-            .audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::StopCapturingMidi);
+        Backbone::get().stop_capturing_midi();
         BackboneShell::get()
             .control_surface_main_task_sender
             .0
             .send_complaining(RealearnControlSurfaceMainTask::StopCapturingOsc);
-    }
-
-    fn request_next_midi_messages(&self) -> async_channel::Receiver<MidiScanResult> {
-        let (sender, receiver) = async_channel::bounded(500);
-        self.audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::StartCapturingMidi(sender));
-        receiver
     }
 
     fn request_next_osc_messages(&self) -> async_channel::Receiver<OscScanResult> {
@@ -2082,8 +2002,7 @@ impl BackboneShell {
             input_device_id,
             sender,
         };
-        self.audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::RequestMidiDeviceIdentity(command));
+        Backbone::get().request_midi_device_identity(command);
         receiver
     }
 
@@ -2992,6 +2911,14 @@ impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
         BackboneShell::get()
             .proto_hub
             .send_global_events_caused_by_reaper_change_events(change_events);
+    }
+
+    fn track_input_learning_state_changed(&self) {
+        BackboneShell::get()
+            .proto_hub
+            .notify_about_global_track_input_learn_state(
+                Backbone::get().track_input_learning_track().as_ref(),
+            );
     }
 }
 

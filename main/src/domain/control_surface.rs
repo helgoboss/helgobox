@@ -95,6 +95,8 @@ pub trait ControlSurfaceEventHandler: Debug {
     );
 
     fn process_reaper_change_events(&self, change_events: &[ChangeEvent]);
+
+    fn track_input_learning_state_changed(&self);
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -142,6 +144,8 @@ pub enum AdditionalFeedbackEvent {
         unit_event: UnitEvent,
     },
     LastTouchedTargetChanged,
+    /// This is fired whenever input-learning is activated/deactivated for a track.
+    LearningInputOfTrackChanged,
 }
 
 #[derive(Debug)]
@@ -510,14 +514,20 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             .try_iter()
             .take(ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE)
         {
-            if let AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(e) = &event {
-                let rx = Global::control_surface_rx();
-                rx.fx_parameter_value_changed
-                    .borrow_mut()
-                    .next(e.parameter.clone());
-                rx.fx_parameter_touched
-                    .borrow_mut()
-                    .next(e.parameter.clone());
+            match &event {
+                AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(e) => {
+                    let rx = Global::control_surface_rx();
+                    rx.fx_parameter_value_changed
+                        .borrow_mut()
+                        .next(e.parameter.clone());
+                    rx.fx_parameter_touched
+                        .borrow_mut()
+                        .next(e.parameter.clone());
+                }
+                AdditionalFeedbackEvent::LearningInputOfTrackChanged => {
+                    self.event_handler.track_input_learning_state_changed();
+                }
+                _ => {}
             }
             for p in &mut *self.main_processors.borrow_mut() {
                 p.process_additional_feedback_event(&event)

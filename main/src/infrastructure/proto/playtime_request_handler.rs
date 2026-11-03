@@ -1,3 +1,4 @@
+use crate::domain::Backbone;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
@@ -609,7 +610,7 @@ impl PlaytimeProtoRequestHandler {
                 Ok(())
             }
             TriggerTrackAction::ToggleLearnInput => {
-                matrix.toggle_learn_input(&track);
+                Backbone::get().toggle_track_input_learning(track);
                 Ok(())
             }
         })

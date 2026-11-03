@@ -20,9 +20,6 @@ use playtime_api::persistence::SlotAddress;
 pub type SharedUnit = Rc<RefCell<Unit>>;
 pub type WeakUnit = Weak<RefCell<Unit>>;
 
-/// Just the old term as alias for easier class search.
-type _InstanceState = Unit;
-
 /// State connected to the instance which also needs to be accessible from layers *above* the
 /// processing layer (otherwise it could reside in the main processor).
 ///

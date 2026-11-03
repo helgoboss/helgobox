@@ -6,6 +6,7 @@ use crate::infrastructure::proto::{
 };
 use reaper_high::Reaper;
 use std::iter;
+use crate::domain::Backbone;
 
 pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
     use occasional_global_update::Update;
@@ -30,6 +31,7 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
         Update::main_presets(&BackboneShell::get().main_preset_manager().borrow()),
         Update::controller_config(&BackboneShell::get().controller_manager().borrow()),
         Update::license_info(&BackboneShell::get().license_manager().borrow()),
+        Update::track_input_learn_state(Backbone::get().track_input_learning_track().as_ref())
     ];
     create(global_updates.into_iter().chain(Update::update_info()))
 }

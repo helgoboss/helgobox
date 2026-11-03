@@ -29,6 +29,8 @@ pub use initial_events::*;
 
 #[cfg(feature = "playtime")]
 mod initial_playtime_events;
+mod proto_util;
+
 #[cfg(feature = "playtime")]
 pub use initial_playtime_events::*;
 

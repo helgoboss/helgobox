@@ -1174,7 +1174,7 @@ pub struct PlaytimeEngineStats {
 pub struct OccasionalGlobalUpdate {
     #[prost(
         oneof = "occasional_global_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 9"
     )]
     pub update: ::core::option::Option<occasional_global_update::Update>,
 }
@@ -1227,6 +1227,9 @@ pub mod occasional_global_update {
         /// Update information.
         #[prost(message, tag = "16")]
         UpdateInfo(super::UpdateInfo),
+        /// Track input learn state changed.
+        #[prost(message, tag = "9")]
+        TrackInputLearnState(super::TrackInputLearnState),
     }
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1253,7 +1256,7 @@ pub struct LicenseState {
 pub struct OccasionalMatrixUpdate {
     #[prost(
         oneof = "occasional_matrix_update::Update",
-        tags = "1, 2, 3, 27, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 30, 21, 22, 23, 28, 24, 25, 26, 29"
+        tags = "1, 2, 3, 27, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 28, 24, 25, 26, 29"
     )]
     pub update: ::core::option::Option<occasional_matrix_update::Update>,
 }
@@ -1320,9 +1323,6 @@ pub mod occasional_matrix_update {
         /// Learn state
         #[prost(message, tag = "20")]
         LearnState(super::LearnState),
-        /// Track input learn state
-        #[prost(message, tag = "30")]
-        TrackInputLearnState(super::TrackInputLearnState),
         /// Active cell
         #[prost(message, tag = "21")]
         ActiveCell(super::CellAddress),

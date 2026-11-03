@@ -496,6 +496,8 @@ impl ProtoRequestHandler {
         }
         #[cfg(feature = "playtime")]
         {
+            // Playtime feature is not strictly necessary for most of the track commands,
+            // but makes it easier for now to treat all track commands the same.
             PlaytimeProtoRequestHandler.trigger_track(req)
         }
     }

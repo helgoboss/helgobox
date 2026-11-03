@@ -84,6 +84,7 @@ nanoid.workspace = true
 futures.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
+tokio-util.workspace = true
 tower.workspace = true
 # For ReaLearn's http server (used for projection)
 axum = { workspace = true, features = ["ws"] }

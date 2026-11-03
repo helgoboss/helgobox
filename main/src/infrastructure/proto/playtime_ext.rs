@@ -30,6 +30,7 @@ use playtime_clip_engine::rt::{
 use playtime_clip_engine::{
     PlaytimeEngine, SteadyProjectTimelineHandle, Timeline, base, clip_timeline,
 };
+use crate::infrastructure::proto::proto_util::convert_track_id_to_proto;
 
 impl occasional_playtime_engine_update::Update {
     pub fn engine_settings() -> Self {
@@ -205,7 +206,7 @@ impl generated::TrackList {
         let mut level = 0i32;
         let tracks = project.tracks().map(|t| {
             let folder_depth_change = t.folder_depth_change();
-            let track = generated::TrackInList::from_engine(t, level.unsigned_abs());
+            let track = generated::TrackInList::from_engine(&t, level.unsigned_abs());
             level += folder_depth_change;
             track
         });
@@ -216,9 +217,9 @@ impl generated::TrackList {
 }
 
 impl generated::TrackInList {
-    pub fn from_engine(track: reaper_high::Track, level: u32) -> Self {
+    pub fn from_engine(track: &reaper_high::Track, level: u32) -> Self {
         Self {
-            id: track.guid().to_string_without_braces(),
+            id: convert_track_id_to_proto(&track),
             name: track.name().unwrap_or_default().into_string(),
             level,
         }

@@ -13,9 +13,12 @@ static INSTANCE: LazyLock<Global> = LazyLock::new(Global::default);
 ///
 /// This only works if the future support is already running (= if the backbone shell is already woken up).
 pub fn spawn_in_main_thread(
-    future: impl std::future::Future<Output = Result<(), Box<dyn std::error::Error>>> + 'static,
+    future: impl std::future::Future<Output = anyhow::Result<()>> + 'static,
 ) {
-    Global::future_support().spawn_in_main_thread_from_main_thread(future);
+    Global::future_support().spawn_in_main_thread_from_main_thread(async move {
+        let result = future.await;
+        result.map_err(|e| -> Box<dyn std::error::Error> { e.into() })
+    });
 }
 
 pub struct Global {

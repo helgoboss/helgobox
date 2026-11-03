@@ -1,12 +1,14 @@
 use base::{
-    NamedChannelSender, SenderToNormalThread, make_available_globally_in_main_thread_on_demand,
+    NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
+    make_available_globally_in_main_thread_on_demand, spawn_in_main_thread,
 };
 
 use crate::domain::{
     AdditionalFeedbackEvent, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
-    FeedbackOutput, InstanceId, QualifiedStreamDeckMessage, RealearnSourceState,
-    RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua, SharedInstance,
-    StreamDeckDeviceId, StreamDeckDeviceManager, StreamDeckMessage,
+    FeedbackOutput, InstanceId, MidiScanResult, NormalAudioHookTask, QualifiedStreamDeckMessage,
+    RealearnSourceState, RealearnTargetState, ReaperTarget, ReaperTargetType,
+    RequestMidiDeviceIdentityCommand, SafeLua, SharedInstance, SharedRealTimeInstance,
+    SharedRealTimeProcessor, StreamDeckDeviceId, StreamDeckDeviceManager, StreamDeckMessage,
     StreamDeckSourceFeedbackPayload, StreamDeckSourceFeedbackValue, UnitId, WeakInstance,
 };
 #[allow(unused)]
@@ -18,7 +20,7 @@ use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use cached::proc_macro::cached;
 use camino::Utf8PathBuf;
 use fragile::Fragile;
-use helgoboss_learn::{RgbColor, UnitValue};
+use helgoboss_learn::{MidiSourceValue, RgbColor, UnitValue};
 use helgobox_api::persistence::{
     StreamDeckButtonBackground, StreamDeckButtonForeground, TargetTouchCause,
 };
@@ -26,9 +28,11 @@ use imageproc::definitions::{HasBlack, HasWhite};
 use once_cell::sync::Lazy;
 // Use once_cell::sync::Lazy instead of std::sync::LazyLock to be able to build with Rust 1.77.2 (to stay Win7-compatible)
 use elgato_streamdeck::{StreamDeck, StreamDeckError, StreamDeckInput};
+use helgoboss_midi::{RawShortMessage, ShortMessage, ShortMessageType};
 use once_cell::sync::Lazy as LazyLock;
 use palette::IntoColor;
-use reaper_high::{Fx, Reaper};
+use reaper_high::{Fx, Reaper, Track};
+use reaper_medium::RecordingInput;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::cmp::min;
 use std::hash::Hash;
@@ -36,17 +40,16 @@ use std::rc::Rc;
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
 use strum::EnumCount;
+use tokio_util::sync::CancellationToken;
 
 make_available_globally_in_main_thread_on_demand!(Backbone);
-
-/// Just the old term as alias for easier class search.
-type _BackboneState = Backbone;
 
 /// This is the domain-layer "backbone" which can hold state that's shared among all ReaLearn
 /// instances.
 pub struct Backbone {
     time_of_start: Instant,
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
+    audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
     source_state: RefCell<RealearnSourceState>,
     target_state: RefCell<RealearnTargetState>,
     last_touched_targets_container: RefCell<LastTouchedTargetsContainer>,
@@ -68,6 +71,8 @@ pub struct Backbone {
     stream_deck_device_manager: RefCell<StreamDeckDeviceManager>,
     stream_decks: RefCell<NonCryptoHashMap<StreamDeckDeviceId, StreamDeck>>,
     stream_deck_button_states: RefCell<NonCryptoHashMap<StreamDeckDeviceId, Vec<bool>>>,
+    /// This will be set if "track input learning" is active for a specific track.
+    learning_input_of_track: RefCell<Option<TrackInputLearnState>>,
 }
 
 #[derive(Debug, Default)]
@@ -166,9 +171,11 @@ impl LastTouchedTargetFilter<'_> {
 impl Backbone {
     pub fn new(
         additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
+        audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
         target_context: RealearnTargetState,
     ) -> Self {
         Self {
+            audio_hook_task_sender,
             time_of_start: Instant::now(),
             additional_feedback_event_sender,
             source_state: Default::default(),
@@ -184,7 +191,151 @@ impl Backbone {
             stream_deck_device_manager: Default::default(),
             stream_decks: Default::default(),
             stream_deck_button_states: Default::default(),
+            learning_input_of_track: Default::default(),
         }
+    }
+
+    pub fn audio_hook_task_sender(&self) -> SenderToRealTimeThread<NormalAudioHookTask> {
+        self.audio_hook_task_sender.clone()
+    }
+
+    pub fn toggle_track_input_learning(&self, track: Track) {
+        if self.learning_input_of_track.borrow().is_some() {
+            self.deactivate_track_input_learning();
+        } else {
+            self.activate_track_input_learning(track);
+        }
+    }
+
+    pub fn track_input_learning_track(&self) -> Option<Track> {
+        self.learning_input_of_track
+            .borrow()
+            .as_ref()
+            .map(|s| s.track.clone())
+    }
+
+    pub fn activate_track_input_learning(&self, track: Track) {
+        let cancellation_token = CancellationToken::default();
+        let state = TrackInputLearnState {
+            track,
+            cancellation_token: cancellation_token.clone(),
+        };
+        let previous = self.learning_input_of_track.borrow_mut().replace(state);
+        if let Some(previous) = previous {
+            previous.cancellation_token.cancel();
+        }
+        spawn_in_main_thread(learn_track_input(cancellation_token));
+        self.additional_feedback_event_sender
+            .send_complaining(AdditionalFeedbackEvent::LearningInputOfTrackChanged);
+    }
+
+    fn set_track_input_after_learning(&self, input: RecordingInput) -> anyhow::Result<()> {
+        let state = self
+            .learning_input_of_track
+            .borrow_mut()
+            .take()
+            .context("track not learning")?;
+        state
+            .track
+            .set_recording_input_with_notification(Some(input));
+        self.additional_feedback_event_sender
+            .send_complaining(AdditionalFeedbackEvent::LearningInputOfTrackChanged);
+        Ok(())
+    }
+
+    pub fn deactivate_track_input_learning(&self) {
+        let state = self.learning_input_of_track.borrow_mut().take();
+        let Some(state) = state else {
+            return;
+        };
+        state.cancellation_token.cancel();
+        self.additional_feedback_event_sender
+            .send_complaining(AdditionalFeedbackEvent::LearningInputOfTrackChanged);
+    }
+
+    pub fn add_real_time_processor(
+        &self,
+        unit_id: UnitId,
+        real_time_processor: SharedRealTimeProcessor,
+    ) {
+        self.audio_hook_task_sender
+            .send_complaining(NormalAudioHookTask::AddRealTimeProcessor(
+                unit_id,
+                real_time_processor,
+            ));
+    }
+
+    /// Attention: The real-time processor is removed *async*! That means it can still be called
+    /// by the audio hook, even after this method has executed. The benefit is that it will still
+    /// be able to do clean-up work after the plug-in instance is gone as long as another one is
+    /// still around. The problem is that the real-time processor has a reference to the plug-in
+    /// host callback and is *must not* call it when the plug-in is already gone, otherwise boom!
+    /// Unfortunately there's no easy way to detect if it's gone or not.
+    ///
+    /// What options do we have (we decided for option 7)?
+    ///
+    /// 1. Setting the callback to None async by sending a message via channel? No!
+    ///     - This would affect the next audio thread cycle only. But the audio hook first runs
+    ///       real-time processors and then tasks.
+    ///     - And even if we would swap the order (which would defeat the purpose), this would still
+    ///       leave the possibility that the real-time processor will be executed before the task is
+    ///       processed.
+    /// 2. Setting the callback to None by calling the real-time processor directly? No!
+    ///     - The real-time processor must only be invoked from the audio thread. We want to avoid
+    ///       wrapping the processor with a mutex because in all other cases we don't need
+    ///       synchronized access (we work with channels instead).
+    ///     - Also, a similar issue as in point 1 could arise: The real-time processor could just be
+    ///       in the middle of its run call! We would need the mutex to wait for any current call to
+    ///       end.
+    /// 3. Unregister audio hook, remove real-time processor and register it again? Maybe.
+    ///     - First, this would only work if REAPER ensures that it waits until the current call of
+    ///       this hook is finished before returning from the removal function. Justin confirmed
+    ///       that it works that way, yay!
+    ///     - We would lose the possibility of doing clean-up work though.
+    /// 4. Wrapping the host callback as `Arc<Mutex<Option<HostCallback>>>`? Okay.
+    ///     - Then the synchronized access would be concentrated on this tiny necessity only, which
+    ///       would be okay.
+    ///     - Looks like a lot of fuzz though.
+    /// 5. Use `Arc<HostCallback>` and `Weak<HostCallback>` and always check if upgrade fails? Okay.
+    ///     - Nice! But how about performance if we always have to inc/dec the `AtomicUsize`?
+    /// 6. Use `HostCallback#is_effect_valid()` magic number logic as "gone" check? Interesting.
+    ///     - Could be better than 4 and 5 performance-wise.
+    ///     - But what if the audio thread is just in the middle of the host callback call while the
+    ///       plug-in is being unloaded? Probably unlikely in practice and maybe not harmful if it
+    ///       happens. But still leaves a bad aftertaste. I mean, if we would call the host callback
+    ///       from the plug-in processing method only (like normal people do), the host would
+    ///       probably take care that this never happens...? This also concerns 4 and 5 by the way.
+    /// 7. Just don't use the host callback when called from audio hook? **Yes!**.
+    ///     - We use the host callback for checking play state and sending MIDI to FX output.
+    ///     - Checking play state could be avoided completely by using REAPER functions.
+    ///     - Sending MIDI to FX output is a bit strange anyway if called by the audio hook, maybe
+    ///       even something one shouldn't do? It's something global driving something which is
+    ///       built to be local only.
+    ///     - **Most importantly:** Sending MIDI to FX output while VST processing is stopped will
+    ///       not have any effect anyway because the rest of the FX chain is stopped!
+    ///     - Solution: Drive the real-time processor from both plug-in `process()` method **and**
+    ///       audio hook and make sure that only the call from the plug-in ever sends MIDI to FX
+    ///       output.
+    pub fn unregister_unit_real_time_processor(&self, unit_id: UnitId) {
+        self.audio_hook_task_sender
+            .send_complaining(NormalAudioHookTask::RemoveRealTimeProcessor(unit_id));
+    }
+
+    pub fn request_midi_device_identity(&self, command: RequestMidiDeviceIdentityCommand) {
+        self.audio_hook_task_sender
+            .send_complaining(NormalAudioHookTask::RequestMidiDeviceIdentity(command));
+    }
+
+    pub fn stop_capturing_midi(&self) {
+        self.audio_hook_task_sender
+            .send_complaining(NormalAudioHookTask::StopCapturingMidi);
+    }
+
+    pub fn request_next_midi_messages(&self) -> async_channel::Receiver<MidiScanResult> {
+        let (sender, receiver) = async_channel::bounded(500);
+        self.audio_hook_task_sender
+            .send_complaining(NormalAudioHookTask::StartCapturingMidi(sender));
+        receiver
     }
 
     /// Returns IDs of newly connected Stream Deck devices.
@@ -648,8 +799,20 @@ impl Backbone {
         Ok(f(&mut matrix.borrow_mut()))
     }
 
-    pub fn register_instance(&self, id: InstanceId, instance: WeakInstance) {
+    pub fn register_instance(
+        &self,
+        id: InstanceId,
+        instance: WeakInstance,
+        rt_instance: SharedRealTimeInstance,
+    ) {
         self.instances.borrow_mut().insert(id, instance);
+        self.audio_hook_task_sender
+            .send_complaining(NormalAudioHookTask::AddRealTimeInstance(id, rt_instance));
+    }
+
+    pub fn remove_real_time_instance(&self, id: InstanceId) {
+        self.audio_hook_task_sender
+            .send_complaining(NormalAudioHookTask::RemoveRealTimeInstance(id));
     }
 
     pub(super) fn unregister_instance(&self, id: &InstanceId) {
@@ -871,4 +1034,78 @@ fn connect_or_disconnect_stream_deck_devices(
             }
         })
         .collect()
+}
+
+struct TrackInputLearnState {
+    track: Track,
+    cancellation_token: CancellationToken,
+}
+
+async fn learn_track_input(cancellation_token: CancellationToken) -> anyhow::Result<()> {
+    let midi_receiver = Backbone::get().request_next_midi_messages();
+    loop {
+        tokio::select! {
+            Ok(scan_result) = midi_receiver.recv() => {
+                if let Some(input) = derive_track_input_from_midi_scan_result(scan_result) {
+                    let _ = Backbone::get().set_track_input_after_learning(input);
+                    break;
+                }
+            }
+            _ = cancellation_token.cancelled() => {
+                break;
+            }
+        }
+    }
+    Backbone::get().stop_capturing_midi();
+    Ok(())
+}
+
+fn derive_track_input_from_midi_scan_result(scan_result: MidiScanResult) -> Option<RecordingInput> {
+    let device_id = scan_result.dev_id?;
+    if !value_is_suited_for_learning_track_input(&scan_result.value) {
+        return None;
+    }
+    let channel = scan_result.value.channel();
+    let input = RecordingInput::Midi {
+        channel,
+        device_id: Some(device_id),
+    };
+    Some(input)
+}
+
+fn value_is_suited_for_learning_track_input(
+    value: &MidiSourceValue<'static, RawShortMessage>,
+) -> bool {
+    match value {
+        MidiSourceValue::Plain(msg) => match msg.r#type() {
+            ShortMessageType::NoteOff => true,
+            ShortMessageType::NoteOn => true,
+            ShortMessageType::PolyphonicKeyPressure => true,
+            ShortMessageType::ControlChange => true,
+            ShortMessageType::ProgramChange => true,
+            ShortMessageType::ChannelPressure => true,
+            ShortMessageType::PitchBendChange => true,
+            ShortMessageType::SystemExclusiveStart => false,
+            ShortMessageType::TimeCodeQuarterFrame => false,
+            ShortMessageType::SongPositionPointer => false,
+            ShortMessageType::SongSelect => false,
+            ShortMessageType::SystemCommonUndefined1 => false,
+            ShortMessageType::SystemCommonUndefined2 => false,
+            ShortMessageType::TuneRequest => false,
+            ShortMessageType::SystemExclusiveEnd => false,
+            ShortMessageType::TimingClock => false,
+            ShortMessageType::SystemRealTimeUndefined1 => false,
+            ShortMessageType::Start => false,
+            ShortMessageType::Continue => false,
+            ShortMessageType::Stop => false,
+            ShortMessageType::SystemRealTimeUndefined2 => false,
+            ShortMessageType::ActiveSensing => false,
+            ShortMessageType::SystemReset => false,
+        },
+        MidiSourceValue::ParameterNumber(_) => true,
+        MidiSourceValue::ControlChange14Bit(_) => true,
+        MidiSourceValue::Raw { .. } => false,
+        MidiSourceValue::Tempo(_) => false,
+        MidiSourceValue::BorrowedSysEx(_) => false,
+    }
 }

@@ -2,7 +2,7 @@ use crate::application::{
     AutoUnitData, InstanceCommand, InstanceModel, SharedInstanceModel, SharedUnitModel,
 };
 use crate::domain::{
-    ControlEvent, IncomingMidiMessage, Instance, InstanceHandler, InstanceId, MidiEvent,
+    Backbone, ControlEvent, IncomingMidiMessage, Instance, InstanceHandler, InstanceId, MidiEvent,
     ProcessorContext, SharedRealTimeInstance, UnitId,
 };
 use crate::infrastructure::data::{InstanceData, UnitData};
@@ -125,7 +125,7 @@ impl InstanceShell {
             Box::new(instance_handler),
             #[cfg(feature = "playtime")]
             BackboneShell::get().clip_matrix_event_sender().clone(),
-            BackboneShell::get().normal_audio_hook_task_sender().clone(),
+            Backbone::get().audio_hook_task_sender().clone(),
         );
         let rt_instance = Arc::new(Mutex::new(rt_instance));
         let instance_id = instance.id();

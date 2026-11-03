@@ -1,6 +1,6 @@
 //! Usually we use Protocol Buffers for the runtime app API but there are a few things that are
 //! not performance-critical and better expressed in a Rust-first manner.
-use crate::persistence::{ColumnAddress, RowAddress, SlotAddress, TrackId};
+use crate::persistence::{ColumnAddress, RowAddress, SlotAddress};
 use serde::{Deserialize, Serialize};
 
 // We don't really need a tagged enum here but it's an easy way to transmit the event as a

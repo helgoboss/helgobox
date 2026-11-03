@@ -1,5 +1,5 @@
 use enumflags2::BitFlags;
-use reaper_high::{FxChainContext, Reaper};
+use reaper_high::{FxChainContext, Reaper, Track};
 use reaper_medium::{EnumPitchShiftModesResult, PlayState, ReaperStr};
 
 use helgobox_api::runtime::{ControllerPreset, LicenseInfo, MainPreset, ValidatedLicense};
@@ -10,25 +10,8 @@ use crate::infrastructure::data::{
     ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager, LicenseManager,
 };
 use crate::infrastructure::plugin::{BackboneShell, HelgoboxRemoteConfig, InstanceShell};
-use crate::infrastructure::proto::{
-    ArrangementPlayState, AudioInputChannel, AudioInputChannels, CellAddress, Compartment,
-    ContinuousColumnUpdate, ContinuousMatrixUpdate, Empty, FxChainLocationInfo, FxLocationInfo,
-    GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply,
-    GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply,
-    GetOccasionalGlobalUpdatesReply, GetOccasionalInstanceUpdatesReply,
-    GetOccasionalMatrixUpdatesReply, GetOccasionalPlaytimeEngineUpdatesReply,
-    GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply, GetOccasionalTrackUpdatesReply,
-    GetOccasionalUnitUpdatesReply, HelgoboxInstance, HelgoboxInstanceData, HelgoboxInstances,
-    HostColorScheme, MidiDeviceStatus, MidiInputDevice, MidiInputDevices, MidiOutputDevice,
-    MidiOutputDevices, OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalMatrixUpdate,
-    OccasionalPlaytimeEngineUpdate, PitchShiftMode, PitchShiftModes, PitchShiftSubMode,
-    ProjectLocationInfo, QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate,
-    QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate,
-    QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate, ResampleMode, ResampleModes,
-    RgbColor, Scope, Severity, SlotAddress, TrackFxChainLocationInfo, TrackLocationInfo, Unit,
-    Units, UpdateInfo, Warning, Warnings, event_reply, fx_chain_location_info,
-    occasional_global_update, occasional_instance_update, qualified_occasional_unit_update,
-};
+use crate::infrastructure::proto::{event_reply, fx_chain_location_info, occasional_global_update, occasional_instance_update, qualified_occasional_unit_update, ArrangementPlayState, AudioInputChannel, AudioInputChannels, CellAddress, Compartment, ContinuousColumnUpdate, ContinuousMatrixUpdate, Empty, FxChainLocationInfo, FxLocationInfo, GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply, GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply, GetOccasionalGlobalUpdatesReply, GetOccasionalInstanceUpdatesReply, GetOccasionalMatrixUpdatesReply, GetOccasionalPlaytimeEngineUpdatesReply, GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply, GetOccasionalTrackUpdatesReply, GetOccasionalUnitUpdatesReply, HelgoboxInstance, HelgoboxInstanceData, HelgoboxInstances, HostColorScheme, MidiDeviceStatus, MidiInputDevice, MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalMatrixUpdate, OccasionalPlaytimeEngineUpdate, PitchShiftMode, PitchShiftModes, PitchShiftSubMode, ProjectLocationInfo, QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate, ResampleMode, ResampleModes, RgbColor, Scope, Severity, SlotAddress, TrackFxChainLocationInfo, TrackInputLearnState, TrackLocationInfo, Unit, Units, UpdateInfo, Warning, Warnings};
+use crate::infrastructure::proto::proto_util::{convert_fx_id_to_proto, convert_track_id_to_proto};
 use crate::infrastructure::server::data::get_controller_routing;
 
 impl occasional_instance_update::Update {
@@ -116,6 +99,13 @@ impl occasional_global_update::Update {
 
     pub fn arrangement_play_state(play_state: PlayState) -> Self {
         Self::ArrangementPlayState(ArrangementPlayState::from_engine(play_state).into())
+    }
+
+    pub fn track_input_learn_state(track: Option<&Track>) -> Self {
+        let state = TrackInputLearnState {
+            track_id: track.map(convert_track_id_to_proto),
+        };
+        Self::TrackInputLearnState(state)
     }
 
     pub fn info_event(event: helgobox_api::runtime::GlobalInfoEvent) -> Self {
@@ -263,7 +253,7 @@ impl HelgoboxInstances {
                                 };
                                 let track_location = TrackLocationInfo {
                                     project: Some(project_location),
-                                    id: track.guid().to_string_without_braces(),
+                                    id: convert_track_id_to_proto(track),
                                     index: track.index()?,
                                     name: track.name()?.to_string(),
                                 };
@@ -282,7 +272,7 @@ impl HelgoboxInstances {
                         };
                         let fx_location = FxLocationInfo {
                             fx_chain: Some(fx_chain_location),
-                            id: fx.get_or_query_guid().ok()?.to_string_without_braces(),
+                            id: convert_fx_id_to_proto(fx)?,
                             index: fx.index(),
                             name: fx.name().to_string(),
                         };
