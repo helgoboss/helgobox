@@ -143,13 +143,40 @@ pub struct RealearnAudioHook {
 
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
-pub enum AudioHookState {
+enum AudioHookState {
     Normal,
     // This is not the instance-specific learning but the global one.
-    CapturingInput {
-        sender: CaptureInputSender,
-        midi_scanner: MidiScanner,
-    },
+    CapturingInput(CaptureInputState),
+}
+
+#[derive(Debug)]
+struct CaptureInputState {
+    sender: CaptureInputSender,
+    midi_scanner: MidiScanner,
+}
+
+impl CaptureInputState {
+    fn capture_input(&mut self) {
+        for dev in Reaper::get().midi_input_devices() {
+            dev.with_midi_input(|mi| {
+                if let Some(mi) = mi {
+                    let event_list = mi.get_read_buf();
+                    for e in &*event_list {
+                        if let Some(res) = scan_midi(dev.id(), e, &mut self.midi_scanner) {
+                            let _ = self.sender.try_send(res);
+                        }
+                    }
+                    // Currently, we want to filter out all captured MIDI events so that
+                    // they never reach the rest of REAPER.
+                    event_list.empty();
+                }
+            });
+        }
+        if let Some(res) = self.midi_scanner.poll() {
+            // Source detected via polling. Return to normal mode.
+            let _ = self.sender.try_send(res);
+        }
+    }
 }
 
 impl RealearnAudioHook {
@@ -238,7 +265,22 @@ impl RealearnAudioHook {
                 false
             }
         };
-        self.call_real_time_processors(block_props, sample_count, might_be_rebirth);
+        match &mut self.state {
+            AudioHookState::Normal => {
+                self.call_real_time_processors_in_normal_state(
+                    block_props,
+                    might_be_rebirth,
+                    sample_count,
+                );
+            }
+            AudioHookState::CapturingInput(state) => {
+                for (_, p) in self.real_time_processors.iter() {
+                    p.lock_recover()
+                        .run_from_audio_hook_essential(might_be_rebirth);
+                }
+                state.capture_input();
+            }
+        };
         // Process ReaLearn feedback commands
         self.process_feedback_commands();
         // Process incoming commands, including Playtime commands
@@ -315,51 +357,6 @@ impl RealearnAudioHook {
         for (_, i) in self.real_time_instances.iter() {
             non_blocking_lock(i, "RealTimeInstance post_poll").post_poll();
         }
-    }
-
-    fn call_real_time_processors(
-        &mut self,
-        block_props: AudioBlockProps,
-        sample_count: u64,
-        might_be_rebirth: bool,
-    ) {
-        match &mut self.state {
-            AudioHookState::Normal => {
-                self.call_real_time_processors_in_normal_state(
-                    block_props,
-                    might_be_rebirth,
-                    sample_count,
-                );
-            }
-            AudioHookState::CapturingInput {
-                sender,
-                midi_scanner,
-            } => {
-                for (_, p) in self.real_time_processors.iter() {
-                    p.lock_recover()
-                        .run_from_audio_hook_essential(might_be_rebirth);
-                }
-                for dev in Reaper::get().midi_input_devices() {
-                    dev.with_midi_input(|mi| {
-                        if let Some(mi) = mi {
-                            let event_list = mi.get_read_buf();
-                            for e in &*event_list {
-                                if let Some(res) = scan_midi(dev.id(), e, midi_scanner) {
-                                    let _ = sender.try_send(res);
-                                }
-                            }
-                            // Currently, we want to filter out all captured MIDI events so that
-                            // they never reach the rest of REAPER.
-                            event_list.empty();
-                        }
-                    });
-                }
-                if let Some(res) = midi_scanner.poll() {
-                    // Source detected via polling. Return to normal mode.
-                    let _ = sender.try_send(res);
-                }
-            }
-        };
     }
 
     fn call_real_time_processors_in_normal_state(
@@ -548,10 +545,11 @@ impl RealearnAudioHook {
                     }
                 }
                 StartCapturingInput(sender) => {
-                    self.state = AudioHookState::CapturingInput {
+                    let state = CaptureInputState {
                         sender,
                         midi_scanner: Default::default(),
-                    }
+                    };
+                    self.state = AudioHookState::CapturingInput(state);
                 }
                 StopCapturingInput => {
                     self.state = AudioHookState::Normal;
