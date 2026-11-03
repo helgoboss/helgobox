@@ -328,13 +328,13 @@ impl Backbone {
 
     pub fn stop_capturing_midi(&self) {
         self.audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::StopCapturingMidi);
+            .send_complaining(NormalAudioHookTask::StopCapturingInput);
     }
 
     pub fn request_next_midi_messages(&self) -> async_channel::Receiver<MidiScanResult> {
         let (sender, receiver) = async_channel::bounded(500);
         self.audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::StartCapturingMidi(sender));
+            .send_complaining(NormalAudioHookTask::StartCapturingInput(sender));
         receiver
     }
 

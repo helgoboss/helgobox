@@ -29,7 +29,7 @@ const FEEDBACK_TASK_BULK_SIZE: usize = 1000;
 /// preferences, the VST processing is executed in another thread than the audio hook!
 pub type SharedRealTimeProcessor = Arc<Mutex<RealTimeProcessor>>;
 
-pub type MidiCaptureSender = async_channel::Sender<MidiScanResult>;
+pub type CaptureInputSender = async_channel::Sender<MidiScanResult>;
 
 #[derive(Debug)]
 pub struct RequestMidiDeviceIdentityCommand {
@@ -64,7 +64,7 @@ impl Display for MidiDeviceInquiryReply {
 // This kind of tasks is always processed, even after a rebirth when multiple processor syncs etc.
 // have already accumulated. Because at the moment there's no way to request a full resync of all
 // real-time processors from the control surface. In practice there's no danger that too many of
-// those infrequent tasks accumulate so it's not an issue. Therefore the convention for now is to
+// those infrequent tasks accumulate so it's not an issue. Therefore, the convention for now is to
 // also send them when audio is not running.
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
@@ -77,8 +77,8 @@ pub enum NormalAudioHookTask {
     // processor.
     AddRealTimeProcessor(UnitId, SharedRealTimeProcessor),
     RemoveRealTimeProcessor(UnitId),
-    StartCapturingMidi(MidiCaptureSender),
-    StopCapturingMidi,
+    StartCapturingInput(CaptureInputSender),
+    StopCapturingInput,
     /// Instructs the audio hook to send a MIDI device inquiry to the given output device.
     ///
     /// Gives up after about one second if no response received (by dropping the sender).
@@ -146,8 +146,8 @@ pub struct RealearnAudioHook {
 pub enum AudioHookState {
     Normal,
     // This is not the instance-specific learning but the global one.
-    LearningSource {
-        sender: MidiCaptureSender,
+    CapturingInput {
+        sender: CaptureInputSender,
         midi_scanner: MidiScanner,
     },
 }
@@ -331,7 +331,7 @@ impl RealearnAudioHook {
                     sample_count,
                 );
             }
-            AudioHookState::LearningSource {
+            AudioHookState::CapturingInput {
                 sender,
                 midi_scanner,
             } => {
@@ -342,11 +342,15 @@ impl RealearnAudioHook {
                 for dev in Reaper::get().midi_input_devices() {
                     dev.with_midi_input(|mi| {
                         if let Some(mi) = mi {
-                            for e in mi.get_read_buf() {
+                            let event_list = mi.get_read_buf();
+                            for e in &*event_list {
                                 if let Some(res) = scan_midi(dev.id(), e, midi_scanner) {
                                     let _ = sender.try_send(res);
                                 }
                             }
+                            // Currently, we want to filter out all captured MIDI events so that
+                            // they never reach the rest of REAPER.
+                            event_list.empty();
                         }
                     });
                 }
@@ -543,13 +547,13 @@ impl RealearnAudioHook {
                         self.real_time_processors.swap_remove(pos);
                     }
                 }
-                StartCapturingMidi(sender) => {
-                    self.state = AudioHookState::LearningSource {
+                StartCapturingInput(sender) => {
+                    self.state = AudioHookState::CapturingInput {
                         sender,
                         midi_scanner: Default::default(),
                     }
                 }
-                StopCapturingMidi => {
+                StopCapturingInput => {
                     self.state = AudioHookState::Normal;
                 }
                 RequestMidiDeviceIdentity(command) => {
