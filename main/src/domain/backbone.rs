@@ -4,12 +4,13 @@ use base::{
 };
 
 use crate::domain::{
-    AdditionalFeedbackEvent, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
-    FeedbackOutput, InstanceId, MidiScanResult, NormalAudioHookTask, QualifiedStreamDeckMessage,
-    RealearnSourceState, RealearnTargetState, ReaperTarget, ReaperTargetType,
-    RequestMidiDeviceIdentityCommand, SafeLua, SharedInstance, SharedRealTimeInstance,
-    SharedRealTimeProcessor, StreamDeckDeviceId, StreamDeckDeviceManager, StreamDeckMessage,
-    StreamDeckSourceFeedbackPayload, StreamDeckSourceFeedbackValue, UnitId, WeakInstance,
+    AdditionalFeedbackEvent, CaptureInputEquipment, ControlInput, DeviceControlInput,
+    DeviceFeedbackOutput, FeedbackOutput, InstanceId, MidiScanResult, NormalAudioHookTask,
+    QualifiedStreamDeckMessage, RealearnSourceState, RealearnTargetState, ReaperTarget,
+    ReaperTargetType, RequestMidiDeviceIdentityCommand, SafeLua, SharedInstance,
+    SharedRealTimeInstance, SharedRealTimeProcessor, StreamDeckDeviceId, StreamDeckDeviceManager,
+    StreamDeckMessage, StreamDeckSourceFeedbackPayload, StreamDeckSourceFeedbackValue, UnitId,
+    WeakInstance,
 };
 #[allow(unused)]
 use anyhow::{Context, anyhow};
@@ -333,8 +334,9 @@ impl Backbone {
 
     pub fn request_next_midi_messages(&self) -> async_channel::Receiver<MidiScanResult> {
         let (sender, receiver) = async_channel::bounded(500);
-        self.audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::StartCapturingInput(sender));
+        let equipment = CaptureInputEquipment::new(sender);
+        let task = NormalAudioHookTask::StartCapturingInput(Box::new(equipment));
+        self.audio_hook_task_sender.send_complaining(task);
         receiver
     }
 

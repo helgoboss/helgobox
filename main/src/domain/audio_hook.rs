@@ -77,7 +77,7 @@ pub enum NormalAudioHookTask {
     // processor.
     AddRealTimeProcessor(UnitId, SharedRealTimeProcessor),
     RemoveRealTimeProcessor(UnitId),
-    StartCapturingInput(CaptureInputSender),
+    StartCapturingInput(Box<CaptureInputEquipment>),
     StopCapturingInput,
     /// Instructs the audio hook to send a MIDI device inquiry to the given output device.
     ///
@@ -142,20 +142,26 @@ pub struct RealearnAudioHook {
 }
 
 #[derive(Debug)]
-#[allow(clippy::large_enum_variant)]
 enum AudioHookState {
     Normal,
     // This is not the instance-specific learning but the global one.
-    CapturingInput(CaptureInputState),
+    CapturingInput(Box<CaptureInputEquipment>),
 }
 
 #[derive(Debug)]
-struct CaptureInputState {
+pub struct CaptureInputEquipment {
     sender: CaptureInputSender,
     midi_scanner: MidiScanner,
 }
 
-impl CaptureInputState {
+impl CaptureInputEquipment {
+    pub fn new(sender: CaptureInputSender) -> Self {
+        Self {
+            sender,
+            midi_scanner: Default::default(),
+        }
+    }
+
     fn capture_input(&mut self) {
         for dev in Reaper::get().midi_input_devices() {
             dev.with_midi_input(|mi| {
@@ -544,12 +550,8 @@ impl RealearnAudioHook {
                         self.real_time_processors.swap_remove(pos);
                     }
                 }
-                StartCapturingInput(sender) => {
-                    let state = CaptureInputState {
-                        sender,
-                        midi_scanner: Default::default(),
-                    };
-                    self.state = AudioHookState::CapturingInput(state);
+                StartCapturingInput(equipment) => {
+                    self.state = AudioHookState::CapturingInput(equipment);
                 }
                 StopCapturingInput => {
                     self.state = AudioHookState::Normal;
