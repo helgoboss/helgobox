@@ -35,10 +35,13 @@ pub use initial_playtime_events::*;
 /// The app will check this version and bail if it's not compatible!
 ///
 /// Its major number must be increased whenever there's a breaking change in the API that we provide
-/// to the app. This includes the Protobuf/gRPC API and things related to embedding (such as the
-/// way how the host callback works).
+/// to the app. This includes changes in:
+///
+/// - Protobuf/gRPC API
+/// - Persistence API (even added enum variants can break the app because it doesn't understand them!)
+/// - Things related to embedding (such as the way how the host callback works)
 ///
 /// It's important to get this right to get good error messages from customers. Knowing
 /// that they just have an incompatible version mix (e.g., due to manual installing) makes it
 /// trivial to respond to bug reports.
-pub const HOST_API_VERSION: &str = "19.1.0";
+pub const HOST_API_VERSION: &str = "20.0.0";
