@@ -1,6 +1,7 @@
 use crate::domain::Backbone;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
+use crate::infrastructure::proto::proto_util::convert_fx_id_to_engine;
 use crate::infrastructure::proto::{
     AuditionMidiThroughClipRequest, ColumnKind, DragClipAction, DragClipRequest, DragColumnAction,
     DragColumnRequest, DragRowAction, DragRowRequest, DragSlotAction, DragSlotRequest, Empty,
@@ -20,7 +21,6 @@ use crate::infrastructure::proto::{
     TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest,
     TriggerTrackAction, TriggerTrackRequest,
 };
-use anyhow::Context;
 use base::tracing_util::ok_or_log_as_warn;
 use base::{future_util, spawn_in_main_thread};
 use helgoboss_learn::UnitValue;
@@ -794,11 +794,10 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn open_track_fx(&self, req: OpenTrackFxRequest) -> Result<Response<Empty>, Status> {
+        let fx_guid = convert_fx_id_to_engine(&req.fx_id)
+            .map_err(|e| Status::invalid_argument(e.to_string()))?;
         self.handle_track_command(&req.track_address, |_matrix, track| {
-            let fx = track
-                .normal_fx_chain()
-                .fx_by_index(req.fx_index)
-                .context("no FX at that index")?;
+            let fx = track.normal_fx_chain().fx_by_guid(&fx_guid);
             fx.show_in_floating_window()
                 .map_err(|e| Status::unknown(e.to_string()))?;
             Ok(())

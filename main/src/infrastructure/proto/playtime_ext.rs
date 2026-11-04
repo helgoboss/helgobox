@@ -6,13 +6,14 @@ use helgoboss_midi::Channel;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{Db, MidiInputDeviceId, ReaperPanValue, RecordingInput};
 
+use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ID;
 use crate::infrastructure::proto;
-use crate::infrastructure::proto::proto_util::convert_track_id_to_proto;
+use crate::infrastructure::proto::proto_util::{convert_fx_id_to_proto, convert_track_id_to_proto};
 use crate::infrastructure::proto::track_input::Input;
 use crate::infrastructure::proto::{
     AudioClipContentInfo, CellAddress, ClipAddress, ClipContentInfo, ColumnKind,
-    ContinuousClipUpdate, ContinuousSlotUpdate, Fx, FxChain, HistoryState, LearnState,
-    LicenseState, MidiClipContentInfo, MidiNote, MidiSequence, MidiSequenceNote,
+    ContinuousClipUpdate, ContinuousSlotUpdate, Fx, FxChain, FxPluginInfo, HistoryState,
+    LearnState, LicenseState, MidiClipContentInfo, MidiNote, MidiSequence, MidiSequenceNote,
     PlaytimeEngineStats, RgbColor, SequencerPlayState, SlotAddress, SlotPlayState, TimeSignature,
     TrackInput, TrackInputMonitoring, TrackList, TrackMidiInput, clip_content_info, generated,
     occasional_matrix_update, occasional_playtime_engine_update, occasional_track_update,
@@ -315,13 +316,32 @@ impl FxChain {
 
 impl Fx {
     pub fn from_engine(fx: &reaper_high::Fx) -> Self {
+        let info = fx.info().ok();
         Self {
+            id: convert_fx_id_to_proto(&fx).expect("FX should have ID"),
             name: fx.name().to_string(),
             // No need to fall back to chunk-based FX info because Playtime doesn't support old REAPER versions anyway.
-            instrument: fx
-                .info()
-                .map(|info| info.sub_type_expression.ends_with('i'))
+            instrument: info
+                .as_ref()
+                .map(|info| {
+                    let is_technically_instrument = info.sub_type_expression.ends_with('i');
+                    if !is_technically_instrument {
+                        return false;
+                    }
+                    if info.id == HELGOBOX_UNIQUE_VST_PLUGIN_ID.to_string() {
+                        // Don't count Helgobox as instrument
+                        return false;
+                    }
+                    true
+                })
                 .unwrap_or(false),
+            plugin_info: info.map(|info| FxPluginInfo {
+                effect_name: info.effect_name,
+                type_expression: info.type_expression,
+                sub_type_expression: info.sub_type_expression,
+                file_name: info.file_name.to_string_lossy().to_string(),
+                id: info.id,
+            }),
         }
     }
 }
