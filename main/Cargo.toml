@@ -219,6 +219,8 @@ simple_moving_average.workspace = true
 mdns-sd.workspace = true
 # For dealing with NaN values early on
 typed_floats.workspace = true
+# Currently necessary to use Pot API
+enumset.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

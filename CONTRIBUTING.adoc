@@ -42,10 +42,8 @@ See link:ARCHITECTURE.adoc[here].
 |`/macros` |Various Rust macros for usage in this project only
 |`/main` |Main crate: The actual ReaLearn instrument plug-in (`realearn`)
 |`/playtime-api` |Playtime data structures for describing e.g. clip engine presets
-|`/playtime-clip-engine` |Playtime Clip Engine for playing/recording clips (currently a private submodule). Is a workspace member because that makes it much simpler to use the same dependency versions everywhere.
-|`/playtime-clip-engine-placeholder` |A placeholder crate for the Playtime Clip Engine. Users who don't have access to
-the Playtime Clip Engine submodule, must rename this directory to `playtime-clip-engine` in order to be able to build
-ReaLearn without feature `playtime`.
+|`/proprietary` |Proprietary code containing the Playtime Engine, for example. Is a workspace member because that makes it much simpler to use the same dependency versions everywhere.
+|`/proprietary-placeholder` |A placeholder for the proprietary code. Users who don't have access to the proprietary submodule must rename this directory to `proprietary` in order to be able to build without the proprietary features.
 |`/pot` |Core logic behind Pot Browser, also powers the Pot targets
 |`/pot-browser` |The actual Pot Browser user interface
 |`/resources` |REAPER projects for manual testing, controller preset files, etc.
@@ -152,8 +150,8 @@ git submodule update --init
 
 # OTHERWISE
 git submodule update --init main/lib/WDL main/lib/helgoboss-learn
-rmdir playtime-clip-engine
-rename playtime-clip-engine-placeholder playtime-clip-engine
+rmdir proprietary
+rename proprietary-placeholder proprietary
 ----
 . Build ReaLearn (after that you should have a `helgobox.dll` in `target\debug`)
 +
@@ -216,8 +214,8 @@ git submodule update --init
 
 # OTHERWISE
 git submodule update --init main/lib/WDL main/lib/helgoboss-learn
-rmdir playtime-clip-engine
-mv playtime-clip-engine-placeholder playtime-clip-engine
+rmdir proprietary
+mv proprietary-placeholder proprietary
 
 # Build (after that you should have a "libhelgobox.so" in "target/debug")
 cargo build --features egui
@@ -262,8 +260,8 @@ git submodule update --init
 
 # OTHERWISE
 git submodule update --init main/lib/WDL main/lib/helgoboss-learn
-rmdir playtime-clip-engine
-mv playtime-clip-engine-placeholder playtime-clip-engine
+rmdir proprietary
+mv proprietary-placeholder proprietary
 
 # Install build dependencies
 brew install php

@@ -6,10 +6,10 @@ members = [
     "dialogs",
     "extension",
     "macros",
-    "playtime-clip-engine",
+    "playtime-clip-engine/playtime-clip-engine",
+    "playtime-clip-engine/pot",
+    "playtime-clip-engine/pot-browser",
     "playtime-api",
-    "pot",
-    "pot-browser",
     "csi",
     "main",
     "rx-util",
@@ -23,8 +23,8 @@ members = [
 [workspace.dependencies]
 # Own
 base = { path = "base" }
-pot = { path = "pot" }
-pot-browser = { path = "pot-browser" }
+pot = { path = "playtime-clip-engine/pot" }
+pot-browser = { path = "playtime-clip-engine/pot-browser" }
 helgobox-dialogs = { path = "dialogs" }
 reaper-common-types = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
@@ -36,7 +36,7 @@ reaper-macros = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "
 rppxml-parser = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 swell-ui = { path = "swell-ui" }
 rx-util = { path = "rx-util" }
-playtime-clip-engine = { path = "playtime-clip-engine" }
+playtime-clip-engine = { path = "playtime-clip-engine/playtime-clip-engine" }
 helgobox-api = { path = "api" }
 helgobox-macros = { path = "macros" }
 helgobox-allocator = { path = "allocator" }
@@ -199,6 +199,7 @@ rustls = { version = "0.23.20", default-features = false }
 gdkx11-sys = "0.19.0"
 gdk-sys = "0.19.0"
 mdns-sd = "0.21.4"
+bitflags = "2.13.2"
 
 [profile.release]
 debug = 2

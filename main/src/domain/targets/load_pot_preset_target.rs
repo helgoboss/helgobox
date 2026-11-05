@@ -176,7 +176,7 @@ pub const LOAD_POT_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
 pub fn get_preset_property(p: &PotPreset, key: &str) -> Option<PropValue> {
     let value = match key {
         "preset.name" => p.common.name.clone().into(),
-        "preset.product.name" => p.common.product_name.as_ref()?.clone().into(),
+        "preset.product.name" => p.common.bank.as_ref()?.bank.clone().into(),
         "preset.file_ext" => p.kind.file_extension()?.to_string().into(),
         "preset.author" => p.common.metadata.author.as_ref()?.clone().into(),
         "preset.vendor" => p.common.metadata.vendor.as_ref()?.clone().into(),

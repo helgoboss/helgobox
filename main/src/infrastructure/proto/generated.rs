@@ -43,7 +43,7 @@ pub mod reply {
 pub struct CommandRequest {
     #[prost(
         oneof = "command_request::Value",
-        tags = "1, 54, 3, 4, 5, 52, 6, 7, 55, 8, 9, 10, 11, 50, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 57, 37, 53, 40, 25, 26, 27, 34, 28, 29, 31, 32, 56, 33, 35, 36, 38, 39, 41, 42, 43, 44, 51, 45, 46, 47, 48, 49"
+        tags = "1, 54, 3, 4, 5, 52, 6, 7, 55, 8, 9, 10, 11, 50, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 57, 37, 53, 40, 25, 26, 27, 34, 28, 29, 31, 32, 56, 33, 35, 36, 38, 39, 41, 42, 43, 44, 51, 45, 46, 47, 48, 49, 58, 59"
     )]
     pub value: ::core::option::Option<command_request::Value>,
 }
@@ -168,6 +168,10 @@ pub mod command_request {
         TriggerInstance(super::TriggerInstanceRequest),
         #[prost(message, tag = "49")]
         SetPlaytimeEngineSettings(super::SetPlaytimeEngineSettingsRequest),
+        #[prost(message, tag = "58")]
+        PlayPotPresetPreview(super::PlayPotPresetPreviewRequest),
+        #[prost(message, tag = "59")]
+        LoadPotPreset(super::LoadPotPresetRequest),
     }
 }
 /// Envelope for queries.
@@ -188,7 +192,7 @@ pub struct QueryRequest {
 /// Only necessary for in-process communication (without gRPC).
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Query {
-    #[prost(oneof = "query::Value", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9")]
+    #[prost(oneof = "query::Value", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10")]
     pub value: ::core::option::Option<query::Value>,
 }
 /// Nested message and enum types in `Query`.
@@ -213,6 +217,8 @@ pub mod query {
         GetCustomInstanceData(super::GetCustomInstanceDataRequest),
         #[prost(message, tag = "9")]
         GetTrackTemplates(super::GetTrackTemplatesRequest),
+        #[prost(message, tag = "10")]
+        GetPotCatalog(super::GetPotCatalogRequest),
     }
 }
 /// Envelope for query results.
@@ -231,7 +237,7 @@ pub struct QueryReply {
 /// Only necessary for in-process communication (without gRPC).
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryResult {
-    #[prost(oneof = "query_result::Value", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10")]
+    #[prost(oneof = "query_result::Value", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11")]
     pub value: ::core::option::Option<query_result::Value>,
 }
 /// Nested message and enum types in `QueryResult`.
@@ -258,6 +264,8 @@ pub mod query_result {
         GetCustomInstanceDataReply(super::GetCustomInstanceDataReply),
         #[prost(message, tag = "10")]
         GetTrackTemplatesReply(super::GetTrackTemplatesReply),
+        #[prost(message, tag = "11")]
+        GetPotCatalogReply(super::GetPotCatalogReply),
     }
 }
 /// Should contain all possible *event* replies from above service.
@@ -1886,6 +1894,149 @@ pub struct TrackTemplate {
     #[prost(string, tag = "1")]
     pub relative_path: ::prost::alloc::string::String,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetPotCatalogRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetPotCatalogReply {
+    #[prost(message, repeated, tag = "1")]
+    pub presets: ::prost::alloc::vec::Vec<PotPreset>,
+    #[prost(message, repeated, tag = "2")]
+    pub databases: ::prost::alloc::vec::Vec<PotDatabase>,
+    #[prost(message, repeated, tag = "3")]
+    pub product_kinds: ::prost::alloc::vec::Vec<PotProductKind>,
+    #[prost(message, repeated, tag = "4")]
+    pub banks: ::prost::alloc::vec::Vec<PotBank>,
+    #[prost(message, repeated, tag = "5")]
+    pub categories: ::prost::alloc::vec::Vec<PotCategory>,
+    #[prost(message, repeated, tag = "6")]
+    pub modes: ::prost::alloc::vec::Vec<PotMode>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PotPreset {
+    /// Opaque preset ID.
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    /// Preset name.
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    /// Whether this preset has a preview.
+    #[prost(bool, tag = "3")]
+    pub has_preview: bool,
+    #[prost(bool, tag = "4")]
+    pub is_supported: bool,
+    #[prost(bool, tag = "5")]
+    pub is_available: bool,
+    #[prost(bool, tag = "6")]
+    pub is_user: bool,
+    #[prost(string, tag = "7")]
+    pub database_id: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "8")]
+    pub product_kinds: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "9")]
+    pub author: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "10")]
+    pub vendor: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "11")]
+    pub comment: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint64, optional, tag = "12")]
+    pub file_size_in_bytes: ::core::option::Option<u64>,
+    /// Unix timestamp in seconds since epoch. Negative values allowed before epoch.
+    #[prost(int64, optional, tag = "13")]
+    pub modification_date: ::core::option::Option<i64>,
+    #[prost(message, optional, tag = "14")]
+    pub bank: ::core::option::Option<PotBankQualifiedId>,
+    #[prost(message, repeated, tag = "15")]
+    pub categories: ::prost::alloc::vec::Vec<PotCategoryQualifiedId>,
+    #[prost(string, repeated, tag = "16")]
+    pub modes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// Instruments, Effects, Loops, One shots, ...
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PotProductKind {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+}
+/// Example: "Track templates" or "Komplete"
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PotDatabase {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+}
+/// Either a main bank (sometimes called "Product" or "Instrument", e.g. "Massive") or a sub bank (e.g. "Urban Arsenal 1").
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PotBank {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    /// If set, this is a sub bank.
+    #[prost(string, optional, tag = "3")]
+    pub parent_id: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// Either a main category (sometimes called "Type", e.g. "Guitar") or a sub category (e.g. "Classical").
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PotCategory {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    /// If set, this is a sub category.
+    #[prost(string, optional, tag = "3")]
+    pub parent_id: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// A mode (sometimes called "Character", e.g. "Aggressive").
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PotMode {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PotBankQualifiedId {
+    #[prost(string, tag = "1")]
+    pub main_bank_id: ::prost::alloc::string::String,
+    /// If set, this refers to a sub bank, otherwise to the main bank.
+    #[prost(string, optional, tag = "2")]
+    pub sub_bank_id: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PotCategoryQualifiedId {
+    #[prost(string, tag = "1")]
+    pub main_category_id: ::prost::alloc::string::String,
+    /// If set, this refers to a sub category, otherwise to the main category.
+    #[prost(string, optional, tag = "2")]
+    pub sub_category_id: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PlayPotPresetPreviewRequest {
+    /// Preset to play preview.
+    #[prost(string, tag = "1")]
+    pub preset_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LoadPotPresetRequest {
+    /// Preset to load.
+    #[prost(string, tag = "1")]
+    pub preset_id: ::prost::alloc::string::String,
+    /// Destination track.
+    #[prost(message, optional, tag = "2")]
+    pub track_address: ::core::option::Option<FullTrackAddress>,
+    /// If given, a new FX will be loaded at the given index.
+    /// The index must not be larger than the number of FX in the chain.
+    #[prost(uint32, optional, tag = "3")]
+    pub insert_fx_index: ::core::option::Option<u32>,
+    /// ID of existing FX to be replaced.
+    #[prost(string, optional, tag = "4")]
+    pub replace_fx_id: ::core::option::Option<::prost::alloc::string::String>,
+    /// If set, not the real preset will be loaded but a fake one based on the preview sound.
+    #[prost(bool, tag = "5")]
+    pub preplay: bool,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum MatrixVolumeKind {
@@ -3008,6 +3159,17 @@ pub mod helgobox_service_server {
             tonic::Response<super::GetTrackTemplatesReply>,
             tonic::Status,
         >;
+        async fn get_pot_catalog(
+            &self,
+            request: tonic::Request<super::GetPotCatalogRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetPotCatalogReply>,
+            tonic::Status,
+        >;
+        async fn play_pot_preset_preview(
+            &self,
+            request: tonic::Request<super::PlayPotPresetPreviewRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
         /// General instance queries
         async fn get_custom_instance_data(
             &self,
@@ -3172,6 +3334,10 @@ pub mod helgobox_service_server {
         async fn open_track_fx(
             &self,
             request: tonic::Request<super::OpenTrackFxRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn load_pot_preset(
+            &self,
+            request: tonic::Request<super::LoadPotPresetRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Playtime row commands
         async fn trigger_row(
@@ -3700,6 +3866,101 @@ pub mod helgobox_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetTrackTemplatesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/GetPotCatalog" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetPotCatalogSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::GetPotCatalogRequest>
+                    for GetPotCatalogSvc<T> {
+                        type Response = super::GetPotCatalogReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetPotCatalogRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::get_pot_catalog(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetPotCatalogSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/PlayPotPresetPreview" => {
+                    #[allow(non_camel_case_types)]
+                    struct PlayPotPresetPreviewSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::PlayPotPresetPreviewRequest>
+                    for PlayPotPresetPreviewSvc<T> {
+                        type Response = ();
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::PlayPotPresetPreviewRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::play_pot_preset_preview(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = PlayPotPresetPreviewSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -5340,6 +5601,52 @@ pub mod helgobox_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = OpenTrackFxSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/LoadPotPreset" => {
+                    #[allow(non_camel_case_types)]
+                    struct LoadPotPresetSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::LoadPotPresetRequest>
+                    for LoadPotPresetSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::LoadPotPresetRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::load_pot_preset(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = LoadPotPresetSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

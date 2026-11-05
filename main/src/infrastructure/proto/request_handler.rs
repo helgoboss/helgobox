@@ -1,29 +1,24 @@
-use anyhow::Context;
-use base::spawn_in_main_thread;
-use helgoboss_license_api::persistence::LicenseKey;
-use helgobox_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
-use reaper_high::{OrCurrentProject, Reaper};
-use reaper_medium::CommandId;
-use swell_ui::Window;
-use tonic::{Response, Status};
-use walkdir::WalkDir;
-
 use crate::domain::{CompartmentKind, UnitId};
 use crate::infrastructure::api::convert::from_data;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::CompartmentModelData;
 use crate::infrastructure::plugin::{BackboneShell, InstanceShell, UnitShell};
+use crate::infrastructure::proto;
 #[cfg(feature = "playtime")]
 use crate::infrastructure::proto::PlaytimeProtoRequestHandler;
+use crate::infrastructure::proto::proto_util::{
+    convert_pot_bank_qualified_id_to_proto, convert_pot_category_qualified_id_to_proto,
+};
 use crate::infrastructure::proto::{
     AddLicenseRequest, AuditionMidiThroughClipRequest, Compartment, DeleteControllerRequest,
     DragClipRequest, DragColumnRequest, DragRowRequest, DragSlotRequest, Empty, FullCompartmentId,
     GetAppSettingsReply, GetAppSettingsRequest, GetArrangementInfoReply, GetArrangementInfoRequest,
     GetClipDetailReply, GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest,
     GetCustomInstanceDataReply, GetCustomInstanceDataRequest, GetHostInfoReply, GetHostInfoRequest,
-    GetProjectDirReply, GetProjectDirRequest, GetTrackTemplatesReply, GetTrackTemplatesRequest,
-    HOST_API_VERSION, ImportFilesRequest, InsertColumnsRequest, OpenTrackFxRequest,
-    PatchMidiClipContentRequest, ProveAuthenticityReply, ProveAuthenticityRequest,
+    GetPotCatalogReply, GetPotCatalogRequest, GetProjectDirReply, GetProjectDirRequest,
+    GetTrackTemplatesReply, GetTrackTemplatesRequest, HOST_API_VERSION, ImportFilesRequest,
+    InsertColumnsRequest, LoadPotPresetRequest, OpenTrackFxRequest, PatchMidiClipContentRequest,
+    PlayPotPresetPreviewRequest, PotPreset, ProveAuthenticityReply, ProveAuthenticityRequest,
     SaveControllerRequest, SaveCustomCompartmentDataRequest, SetAppSettingsRequest,
     SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
     SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixClickChannelRequest,
@@ -37,6 +32,19 @@ use crate::infrastructure::proto::{
     TriggerTrackRequest,
 };
 use crate::infrastructure::ui::defer_from_dart_callstack;
+use anyhow::Context;
+use base::spawn_in_main_thread;
+use enumset::EnumSet;
+use helgoboss_license_api::persistence::LicenseKey;
+use helgobox_api::persistence::PotFilterKind;
+use helgobox_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
+use pot::ProductKind;
+use reaper_high::{OrCurrentProject, Reaper};
+use reaper_medium::CommandId;
+use strum::IntoEnumIterator;
+use swell_ui::Window;
+use tonic::{Response, Status};
+use walkdir::WalkDir;
 
 #[derive(Debug)]
 pub struct ProtoRequestHandler;
@@ -303,6 +311,171 @@ impl ProtoRequestHandler {
         {
             PlaytimeProtoRequestHandler.patch_midi_clip_content(req)
         }
+    }
+
+    pub async fn get_pot_catalog(
+        &self,
+        _request: GetPotCatalogRequest,
+    ) -> Result<Response<GetPotCatalogReply>, Status> {
+        let (collections, presets) = BackboneShell::get()
+            .spawn_blocking_in_async_runtime(|| {
+                let pot_db = pot::pot_db();
+                pot_db.refresh();
+                let build_input = pot::BuildInput::default();
+                let collections = pot_db.build_collections(build_input.clone(), EnumSet::all());
+                // TODO-high-pot Since we obtain ALL presets, we can implement this more efficiently, especially the Komplete stuff.
+                //  Instead of calling find_preset_by_id for each preset, we can have one single query (and maybe an extra query for k_sound_info_category rows).
+                let presets = pot_db.gather_presets(build_input);
+                (collections, presets)
+            })
+            .await
+            .map_err(|_| Status::internal("Preset query task failed"))?;
+        let presets = presets
+            .into_iter()
+            .map(|p| {
+                let common = p.preset.common;
+                PotPreset {
+                    id: common.persistent_id.to_string(),
+                    name: common.name,
+                    // TODO-medium This only checks for DB-specific preview files (e.g. Komplete)
+                    // and it also doesn't guarantee that the file exists. Because we return
+                    // the complete preset list here, doing a file check for each preset is
+                    // quite expensive. As soon as Pot has its own DB, we should cache preset
+                    // available there, or we should push preset availability info separately
+                    // async, to not slow down the list loading.
+                    has_preview: common.db_specific_preview_file.is_some(),
+                    is_supported: common.is_supported,
+                    is_available: common.is_available,
+                    is_user: common.is_user,
+                    database_id: common.database_id.get().to_string(),
+                    product_kinds: common
+                        .product_kinds
+                        .into_iter()
+                        .map(|m| m.id().to_string())
+                        .collect(),
+                    author: common.metadata.author,
+                    vendor: common.metadata.vendor,
+                    comment: common.metadata.comment,
+                    file_size_in_bytes: common.metadata.file_size_in_bytes,
+                    modification_date: common.metadata.modification_date.map(|d| d.timestamp()),
+                    bank: common.bank.map(convert_pot_bank_qualified_id_to_proto),
+                    categories: common
+                        .categories
+                        .into_iter()
+                        .map(convert_pot_category_qualified_id_to_proto)
+                        .collect(),
+                    modes: common.modes.into_iter().map(|m| m.0).collect(),
+                }
+            })
+            .collect();
+        // Lots of repetition here but let's clean that up when it starts to hurt
+        let databases = collections
+            .filter_item_collections
+            .get(PotFilterKind::Database)
+            .iter()
+            .cloned()
+            .filter_map(|db| {
+                let db = proto::PotDatabase {
+                    id: db.persistent_id,
+                    name: db.name?,
+                };
+                Some(db)
+            });
+        let product_kinds = ProductKind::iter().map(|kind| proto::PotProductKind {
+            id: kind.id().to_string(),
+            name: kind.to_string(),
+        });
+        let banks = collections
+            .filter_item_collections
+            .get(PotFilterKind::Bank)
+            .iter()
+            .cloned()
+            .filter_map(|bank| {
+                let bank = proto::PotBank {
+                    id: bank.persistent_id,
+                    name: bank.name?,
+                    parent_id: None,
+                };
+                Some(bank)
+            });
+        let sub_banks = collections
+            .filter_item_collections
+            .get(PotFilterKind::SubBank)
+            .iter()
+            .cloned()
+            .filter_map(|bank| {
+                let bank = proto::PotBank {
+                    id: bank.persistent_id,
+                    name: bank.name?,
+                    parent_id: Some(bank.parent_name.unwrap()),
+                };
+                Some(bank)
+            });
+        let categories = collections
+            .filter_item_collections
+            .get(PotFilterKind::Category)
+            .iter()
+            .cloned()
+            .filter_map(|category| {
+                let category = proto::PotCategory {
+                    id: category.persistent_id,
+                    name: category.name?,
+                    parent_id: None,
+                };
+                Some(category)
+            });
+        let sub_categories = collections
+            .filter_item_collections
+            .get(PotFilterKind::SubCategory)
+            .iter()
+            .cloned()
+            .filter_map(|category| {
+                let category = proto::PotCategory {
+                    id: category.persistent_id,
+                    name: category.name?,
+                    parent_id: Some(category.parent_name.unwrap()),
+                };
+                Some(category)
+            });
+        let modes = collections
+            .filter_item_collections
+            .get(PotFilterKind::Mode)
+            .iter()
+            .cloned()
+            .filter_map(|mode| {
+                let mode = proto::PotMode {
+                    id: mode.persistent_id,
+                    name: mode.name?,
+                };
+                Some(mode)
+            });
+        let reply = GetPotCatalogReply {
+            presets,
+            databases: databases.collect(),
+            product_kinds: product_kinds.collect(),
+            banks: banks.chain(sub_banks).collect(),
+            categories: categories.chain(sub_categories).collect(),
+            modes: modes.collect(),
+        };
+        Ok(Response::new(reply))
+    }
+
+    pub fn play_pot_preset_preview(
+        &self,
+        request: PlayPotPresetPreviewRequest,
+    ) -> Result<Response<()>, Status> {
+        let preset_id = pot::pot_db()
+            .find_preset_id_by_persistent_id(&request.preset_id)
+            .ok_or_else(|| Status::not_found("preset not found"))?;
+        pot::play_preview(preset_id).map_err(|e| Status::internal(e.to_string()))?;
+        Ok(Response::new(()))
+    }
+
+    pub fn load_pot_preset(
+        &self,
+        request: LoadPotPresetRequest,
+    ) -> Result<Response<Empty>, Status> {
+        todo!()
     }
 
     pub fn get_track_templates(

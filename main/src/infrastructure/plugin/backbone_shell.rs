@@ -992,6 +992,8 @@ impl BackboneShell {
 
     /// Spawns the given future on the Helgobox async runtime.
     ///
+    /// Only use for non-bloacking tasks that quickly yield.
+    ///
     /// # Panics
     ///
     /// Panics if called in any state other than awake.
@@ -1004,6 +1006,24 @@ impl BackboneShell {
         R: Send + 'static,
     {
         self.with_async_runtime(|runtime| runtime.spawn(f))
+            .expect("async runtime not available")
+    }
+
+    /// Spawns the given future on the Helgobox async runtime.
+    ///
+    /// Only use for tasks that are known to block for a longer time.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called in any state other than awake.
+    pub fn spawn_blocking_in_async_runtime<R>(
+        &self,
+        f: impl FnOnce() -> R + Send + 'static,
+    ) -> tokio::task::JoinHandle<R>
+    where
+        R: Send + 'static,
+    {
+        self.with_async_runtime(|runtime| runtime.spawn_blocking(f))
             .expect("async runtime not available")
     }
 

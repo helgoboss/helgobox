@@ -532,6 +532,12 @@ fn process_query_request(
                 Ok(query_result::Value::GetCustomInstanceDataReply(value))
             });
         }
+        GetPotCatalog(req) => {
+            send_query_reply_to_app(instance_id, req_id, async move {
+                let value = handler.get_pot_catalog(req).await?.into_inner();
+                Ok(query_result::Value::GetPotCatalogReply(value))
+            });
+        }
     }
     Ok(())
 }
@@ -589,11 +595,8 @@ fn process_command(
             }
             #[cfg(feature = "playtime")]
             {
-                send_initial_events_to_app(
-                    instance_id,
-                    crate::infrastructure::proto::create_initial_engine_updates,
-                )
-                .map_err(to_status)?;
+                send_initial_events_to_app(instance_id, proto::create_initial_engine_updates)
+                    .map_err(to_status)?;
             }
         }
         GetOccasionalMatrixUpdates(req) => {
@@ -798,6 +801,12 @@ fn process_command(
         }
         SetCustomInstanceData(req) => {
             handler.set_custom_instance_data(req)?;
+        }
+        PlayPotPresetPreview(req) => {
+            handler.play_pot_preset_preview(req)?;
+        }
+        LoadPotPreset(req) => {
+            handler.load_pot_preset(req)?;
         }
     }
     Ok(())

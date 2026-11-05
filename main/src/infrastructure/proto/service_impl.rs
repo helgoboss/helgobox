@@ -18,9 +18,10 @@ use crate::infrastructure::proto::{
     GetOccasionalRowUpdatesReply, GetOccasionalRowUpdatesRequest, GetOccasionalSlotUpdatesReply,
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, GetOccasionalUnitUpdatesReply,
-    GetOccasionalUnitUpdatesRequest, GetProjectDirReply, GetProjectDirRequest,
-    GetTrackTemplatesReply, GetTrackTemplatesRequest, ImportFilesRequest, InsertColumnsRequest,
-    OpenTrackFxRequest, PatchMidiClipContentRequest, ProtoRequestHandler, ProveAuthenticityReply,
+    GetOccasionalUnitUpdatesRequest, GetPotCatalogReply, GetPotCatalogRequest, GetProjectDirReply,
+    GetProjectDirRequest, GetTrackTemplatesReply, GetTrackTemplatesRequest, ImportFilesRequest,
+    InsertColumnsRequest, LoadPotPresetRequest, OpenTrackFxRequest, PatchMidiClipContentRequest,
+    PlayPotPresetPreviewRequest, ProtoRequestHandler, ProveAuthenticityReply,
     ProveAuthenticityRequest, SaveControllerRequest, SaveCustomCompartmentDataRequest,
     SetAppSettingsRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
     SetColumnTrackRequest, SetCustomInstanceDataRequest, SetInstanceSettingsRequest,
@@ -815,6 +816,30 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<GetTrackTemplatesReply>, Status> {
         self.command_handler
             .get_track_templates(request.into_inner())
+    }
+
+    async fn get_pot_catalog(
+        &self,
+        request: Request<GetPotCatalogRequest>,
+    ) -> Result<Response<GetPotCatalogReply>, Status> {
+        self.command_handler
+            .get_pot_catalog(request.into_inner())
+            .await
+    }
+
+    async fn play_pot_preset_preview(
+        &self,
+        request: Request<PlayPotPresetPreviewRequest>,
+    ) -> Result<Response<()>, Status> {
+        self.command_handler
+            .play_pot_preset_preview(request.into_inner())
+    }
+
+    async fn load_pot_preset(
+        &self,
+        request: Request<LoadPotPresetRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler.load_pot_preset(request.into_inner())
     }
 }
 

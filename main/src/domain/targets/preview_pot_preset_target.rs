@@ -39,19 +39,15 @@ impl RealearnTarget for PreviewPotPresetTarget {
     ) -> Result<HitResponse, &'static str> {
         let mut instance_state = context.control_context.instance().borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
-        let mut pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from PreviewPotPresetTarget 1");
+        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from PreviewPotPresetTarget 1");
         if value.is_on() {
             let preset_id = self
                 .current_preset_id(&pot_unit)
                 .ok_or("no Pot preset selected")?;
-            pot_unit
-                .play_preview(preset_id)
-                .map_err(|_| "couldn't play preview")?;
+            pot::play_preview(preset_id).map_err(|_| "couldn't play preview")?;
             Ok(HitResponse::processed_with_effect())
         } else {
-            pot_unit
-                .stop_preview()
-                .map_err(|_| "couldn't stop preview")?;
+            pot::stop_preview().map_err(|_| "couldn't stop preview")?;
             Ok(HitResponse::processed_with_effect())
         }
     }
