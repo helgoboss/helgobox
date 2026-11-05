@@ -6,9 +6,9 @@ members = [
     "dialogs",
     "extension",
     "macros",
-    "playtime-clip-engine/playtime-clip-engine",
-    "playtime-clip-engine/pot",
-    "playtime-clip-engine/pot-browser",
+    "proprietary/playtime-clip-engine",
+    "proprietary/pot",
+    "proprietary/pot-browser",
     "playtime-api",
     "csi",
     "main",
@@ -23,8 +23,8 @@ members = [
 [workspace.dependencies]
 # Own
 base = { path = "base" }
-pot = { path = "playtime-clip-engine/pot" }
-pot-browser = { path = "playtime-clip-engine/pot-browser" }
+pot = { path = "proprietary/pot" }
+pot-browser = { path = "proprietary/pot-browser" }
 helgobox-dialogs = { path = "dialogs" }
 reaper-common-types = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
@@ -36,7 +36,7 @@ reaper-macros = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "
 rppxml-parser = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 swell-ui = { path = "swell-ui" }
 rx-util = { path = "rx-util" }
-playtime-clip-engine = { path = "playtime-clip-engine/playtime-clip-engine" }
+playtime-clip-engine = { path = "proprietary/playtime-clip-engine" }
 helgobox-api = { path = "api" }
 helgobox-macros = { path = "macros" }
 helgobox-allocator = { path = "allocator" }

@@ -11,7 +11,7 @@ publish = false
 default = []
 
 # Builds ReaLearn together with the Playtime Clip Engine. This should only be enabled if you have access to the
-# private playtime-clip-engine repository, otherwise the build will fail.
+# private proprietary repository, otherwise the build will fail.
 playtime = ["dep:playtime-clip-engine"]
 
 # Activates license checks for Playtime Clip Engine. If not enabled, license checks will always fail.
