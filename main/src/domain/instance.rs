@@ -191,7 +191,9 @@ impl Instance {
             self.processor_context.containing_fx().clone(),
             self.feedback_event_sender.clone(),
         );
-        self.pot_unit.loaded(Box::new(integration))
+        self.pot_unit
+            .loaded(Box::new(integration))
+            .map_err(|_| "unable to load pot unit")
     }
 
     /// Restores a pot unit state from persistent data.

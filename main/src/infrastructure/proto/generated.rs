@@ -2026,16 +2026,11 @@ pub struct LoadPotPresetRequest {
     /// Destination track.
     #[prost(message, optional, tag = "2")]
     pub track_address: ::core::option::Option<FullTrackAddress>,
-    /// If given, a new FX will be loaded at the given index.
     /// The index must not be larger than the number of FX in the chain.
-    #[prost(uint32, optional, tag = "3")]
-    pub insert_fx_index: ::core::option::Option<u32>,
-    /// ID of existing FX to be replaced.
-    #[prost(string, optional, tag = "4")]
-    pub replace_fx_id: ::core::option::Option<::prost::alloc::string::String>,
-    /// If set, not the real preset will be loaded but a fake one based on the preview sound.
-    #[prost(bool, tag = "5")]
-    pub preplay: bool,
+    #[prost(uint32, tag = "3")]
+    pub fx_index: u32,
+    #[prost(bool, tag = "4")]
+    pub replace: bool,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
