@@ -2026,11 +2026,9 @@ pub struct LoadPotPresetRequest {
     /// Destination track.
     #[prost(message, optional, tag = "2")]
     pub track_address: ::core::option::Option<FullTrackAddress>,
-    /// The index must not be larger than the number of FX in the chain.
+    /// If it points to an existing FX, that FX will be replaced. If not, it will be added at the end of the chain.
     #[prost(uint32, tag = "3")]
     pub fx_index: u32,
-    #[prost(bool, tag = "4")]
-    pub replace: bool,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

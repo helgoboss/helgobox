@@ -45,7 +45,7 @@ use playtime_clip_engine::rt::supplier::midi::{MidiMessage, MidiSequenceNote, No
 use playtime_clip_engine::{
     PlaytimeMainEngine, base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions,
 };
-use pot::{Destination, LoadPresetOptions, ProductKind, pot_db};
+use pot::{Destination, LoadPresetOptions, LoadPresetWindowBehavior, ProductKind, pot_db};
 use reaper_high::{GroupingBehavior, Guid, Reaper, Track, TrackSetSmartOpts};
 use reaper_medium::{
     Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, RecordingInput, SoloMode,
@@ -1095,7 +1095,11 @@ impl PlaytimeProtoRequestHandler {
             let preset = pot_db()
                 .find_preset_by_id(preset_id)
                 .context("preset not found")?;
-            pot_unit.load_preset_at(&preset, LoadPresetOptions::default(), &|_| {
+            let options = LoadPresetOptions {
+                window_behavior_override: Some(LoadPresetWindowBehavior::NeverShow),
+                audio_sample_behavior: Default::default(),
+            };
+            pot_unit.load_preset_at(&preset, options, &|_| {
                 let dest = Destination {
                     chain: fx_chain.clone(),
                     fx_index,
