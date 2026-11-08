@@ -1499,7 +1499,7 @@ pub struct RgbColor {
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct TrackInput {
-    #[prost(oneof = "track_input::Input", tags = "1, 2, 4, 5, 3")]
+    #[prost(oneof = "track_input::Input", tags = "1, 2, 4, 5, 6, 7, 3")]
     pub input: ::core::option::Option<track_input::Input>,
 }
 /// Nested message and enum types in `TrackInput`.
@@ -1514,6 +1514,10 @@ pub mod track_input {
         LoopbackMono(u32),
         #[prost(uint32, tag = "5")]
         LoopbackStereo(u32),
+        #[prost(uint32, tag = "6")]
+        RearouteMono(u32),
+        #[prost(uint32, tag = "7")]
+        RearouteStereo(u32),
         #[prost(message, tag = "3")]
         Midi(super::TrackMidiInput),
     }

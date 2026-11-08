@@ -526,8 +526,10 @@ impl TrackInput {
         let input = match input.rec_input {
             Some(Mono(ch)) => Some(Input::Mono(ch)),
             Some(Stereo(ch)) => Some(Input::Stereo(ch)),
-            Some(MonoReaRoute(ch)) => Some(Input::LoopbackMono(ch - 256)),
-            Some(StereoReaRoute(ch)) => Some(Input::LoopbackStereo(ch - 256)),
+            Some(MonoReaRoute(ch)) if ch >= 256 => Some(Input::LoopbackMono(ch - 256)),
+            Some(StereoReaRoute(ch)) if ch >= 256 => Some(Input::LoopbackStereo(ch - 256)),
+            Some(MonoReaRoute(ch)) => Some(Input::RearouteMono(ch)),
+            Some(StereoReaRoute(ch)) => Some(Input::RearouteStereo(ch)),
             Some(Midi { device_id, channel }) => {
                 let midi_input = TrackMidiInput {
                     device: device_id.map(|id| id.get() as _),
@@ -546,10 +548,12 @@ impl TrackInput {
             None => (None, None),
             Some(Input::Mono(ch)) => (Some(RecordingInput::Mono(*ch)), None),
             Some(Input::Stereo(ch)) => (Some(RecordingInput::Stereo(*ch)), None),
-            Some(Input::LoopbackMono(ch)) => (Some(RecordingInput::MonoReaRoute(256 + ch)), None),
+            Some(Input::LoopbackMono(ch)) => (Some(RecordingInput::MonoReaRoute(256 + *ch)), None),
             Some(Input::LoopbackStereo(ch)) => {
-                (Some(RecordingInput::StereoReaRoute(256 + ch)), None)
+                (Some(RecordingInput::StereoReaRoute(256 + *ch)), None)
             }
+            Some(Input::RearouteMono(ch)) => (Some(RecordingInput::MonoReaRoute(*ch)), None),
+            Some(Input::RearouteStereo(ch)) => (Some(RecordingInput::StereoReaRoute(*ch)), None),
             Some(Input::Midi(input)) => {
                 let midi_input = RecordingInput::Midi {
                     device_id: input.device.map(|id| MidiInputDeviceId::new(id as _)),
