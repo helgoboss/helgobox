@@ -113,6 +113,31 @@ pub fn create_initial_instance_updates(
                 ));
             }
         }
+        // Check loopback channels
+        match Reaper::get().max_loopback_channel_count() {
+            Err(_) => {
+                let msg = "\
+You're using REAPER 7.85 or earlier, so Playtime can't verify whether enough audio loopback channels are available to record track output.
+If you want to use this feature, go to Options → Preferences/Settings → Audio and set \"Virtual loopback audio hardware channels\" to at least 2.
+Otherwise, Playtime may produce silent recordings.";
+                warnings.push(Update::warning(
+                    Severity::Medium,
+                    Some(Scope::Playtime),
+                    msg.to_string(),
+                ));
+            }
+            Ok(n) if n < 2 => {
+                let msg = "\
+REAPER has fewer than 2 audio loopback channels configured, so Playtime can't record track audio output.
+To use this feature, go to Options → Preferences/Settings → Audio and set \"Virtual loopback audio hardware channels\" to at least 2.";
+                warnings.push(Update::warning(
+                    Severity::High,
+                    Some(Scope::Playtime),
+                    msg.to_string(),
+                ));
+            }
+            _ => {}
+        }
     }
     create(
         fixed_instance_updates
