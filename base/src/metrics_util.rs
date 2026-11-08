@@ -92,9 +92,10 @@ pub fn record_occurrence(id: &'static str) {
 ///
 /// Mainly a tool for quick debugging.
 #[allow(dead_code)]
-pub fn log_time<R>(id: &'static str, f: impl FnOnce() -> R) -> R {
+pub fn log_time<R>(id: impl AsRef<str>, f: impl FnOnce() -> R) -> R {
     let start = Instant::now();
     let result = f();
+    let id = id.as_ref();
     tracing::info!("log_time: {id} took {:?}", start.elapsed());
     result
 }

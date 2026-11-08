@@ -26,8 +26,10 @@ use crate::infrastructure::proto::{
     TriggerTrackAction, TriggerTrackRequest,
 };
 use anyhow::Context;
+use base::metrics_util::log_time;
 use base::tracing_util::ok_or_log_as_warn;
 use base::{blocking_lock_arc, future_util, spawn_in_main_thread};
+use bytesize::ByteSize;
 use enumset::EnumSet;
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessageFactory};
@@ -46,6 +48,7 @@ use playtime_clip_engine::{
     PlaytimeMainEngine, base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions,
 };
 use pot::{Destination, LoadPresetOptions, LoadPresetWindowBehavior, ProductKind, pot_db};
+use prost::Message;
 use reaper_high::{GroupingBehavior, Guid, Reaper, Track, TrackSetSmartOpts};
 use reaper_medium::{
     Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, RecordingInput, SoloMode,
@@ -913,12 +916,15 @@ impl PlaytimeProtoRequestHandler {
         let (collections, presets) = BackboneShell::get()
             .spawn_blocking_in_async_runtime(|| {
                 let pot_db = pot::pot_db();
-                pot_db.refresh();
+                log_time("Pot: Refresh DBs", || pot_db.refresh());
                 let build_input = pot::BuildInput::default();
-                let collections = pot_db.build_collections(build_input.clone(), EnumSet::all());
+                let collections = log_time("Pot: Build collections", || {
+                    pot_db.build_collections(build_input.clone(), EnumSet::all())
+                });
                 // TODO-high-pot Since we obtain ALL presets, we can implement this more efficiently, especially the Komplete stuff.
                 //  Instead of calling find_preset_by_id for each preset, we can have one single query (and maybe an extra query for k_sound_info_category rows).
-                let presets = pot_db.gather_presets(build_input);
+                let presets =
+                    log_time("Pot: Gather presets", || pot_db.gather_presets(build_input));
                 (collections, presets)
             })
             .await
@@ -1042,14 +1048,18 @@ impl PlaytimeProtoRequestHandler {
                 };
                 Some(mode)
             });
-        let reply = GetPotCatalogReply {
+        let reply = log_time("Pot: Build reply", || GetPotCatalogReply {
             presets,
             databases: databases.collect(),
             product_kinds: product_kinds.collect(),
             banks: banks.chain(sub_banks).collect(),
             categories: categories.chain(sub_categories).collect(),
             modes: modes.collect(),
-        };
+        });
+        info!(
+            "Pot catalog size requested by app: {}",
+            ByteSize(reply.encoded_len() as u64)
+        );
         Ok(Response::new(reply))
     }
 
