@@ -78,6 +78,12 @@ impl ProtoHub {
         });
     }
 
+    pub fn notify_pot_favorite_presets_changed(&self) {
+        self.send_occasional_global_updates(|| {
+            [occasional_global_update::Update::pot_favorite_presets_changed()]
+        });
+    }
+
     pub fn notify_about_global_track_input_learn_state(&self, track: Option<&Track>) {
         self.send_occasional_global_updates(|| {
             [occasional_global_update::Update::track_input_learn_state(

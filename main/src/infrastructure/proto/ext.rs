@@ -5,7 +5,7 @@ use reaper_medium::{EnumPitchShiftModesResult, PlayState, ReaperStr};
 use helgobox_api::runtime::{ControllerPreset, LicenseInfo, MainPreset, ValidatedLicense};
 
 use crate::application::UnitModel;
-use crate::domain::CompartmentKind;
+use crate::domain::{Backbone, CompartmentKind};
 use crate::infrastructure::data::{
     ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager, LicenseManager,
 };
@@ -23,12 +23,12 @@ use crate::infrastructure::proto::{
     HostColorScheme, MidiDeviceStatus, MidiInputDevice, MidiInputDevices, MidiOutputDevice,
     MidiOutputDevices, OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalMatrixUpdate,
     OccasionalPlaytimeEngineUpdate, PitchShiftMode, PitchShiftModes, PitchShiftSubMode,
-    ProjectLocationInfo, QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate,
-    QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate,
-    QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate, ResampleMode, ResampleModes,
-    RgbColor, Scope, Severity, SlotAddress, TrackFxChainLocationInfo, TrackInputLearnState,
-    TrackLocationInfo, Unit, Units, UpdateInfo, Warning, Warnings, event_reply,
-    fx_chain_location_info, occasional_global_update, occasional_instance_update,
+    PotPresetFavorites, ProjectLocationInfo, QualifiedContinuousSlotUpdate,
+    QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
+    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate,
+    ResampleMode, ResampleModes, RgbColor, Scope, Severity, SlotAddress, TrackFxChainLocationInfo,
+    TrackInputLearnState, TrackLocationInfo, Unit, Units, UpdateInfo, Warning, Warnings,
+    event_reply, fx_chain_location_info, occasional_global_update, occasional_instance_update,
     qualified_occasional_unit_update,
 };
 use crate::infrastructure::server::data::get_controller_routing;
@@ -107,6 +107,15 @@ impl occasional_global_update::Update {
         let db = pot::get_preview_volume().to_db();
         Self::PotPresetPreviewVolume(db.get())
     }
+
+    pub fn pot_favorite_presets_changed() -> Self {
+        let preset_ids = Backbone::get().pot_favorite_preset_ids();
+        let favorite_preset_ids = preset_ids.iter().cloned().collect();
+        Self::PotFavorites(PotPresetFavorites {
+            favorite_preset_ids,
+        })
+    }
+
     pub fn host_color_scheme() -> Self {
         let reaper = Reaper::get().medium_reaper();
         let colors = REAPER_COLOR_KEYS

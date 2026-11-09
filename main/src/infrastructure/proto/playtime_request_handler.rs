@@ -1070,17 +1070,22 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn trigger_pot_preset(&self, req: TriggerPotPresetRequest) -> Result<Response<()>, Status> {
-        let preset_id = pot::pot_db()
-            .find_preset_id_by_persistent_id(&req.preset_id)
-            .ok_or_else(|| Status::not_found("preset not found"))?;
         let action = TriggerPotPresetAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown pot preset action"))?;
         match action {
             TriggerPotPresetAction::PlayPreview => {
-                pot::play_preview(preset_id).map_err(|e| Status::internal(e.to_string()))?;
+                let preset_id = pot::pot_db()
+                    .find_preset_id_by_persistent_id(&req.preset_id)
+                    .ok_or_else(|| Status::not_found("preset not found"))?;
+                // Don't complain. Presets are sometimes missing in practice.
+                let _ = pot::play_preview(preset_id);
             }
             TriggerPotPresetAction::ToggleFavorite => {
-                todo!()
+                // TODO-high CONTINUE Persist favorites in DB
+                Backbone::get().toggle_pot_preset_favorite(req.preset_id);
+                BackboneShell::get()
+                    .proto_hub()
+                    .notify_pot_favorite_presets_changed();
             }
         }
         Ok(Response::new(()))

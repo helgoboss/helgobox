@@ -33,6 +33,7 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
         Update::license_info(&BackboneShell::get().license_manager().borrow()),
         Update::track_input_learn_state(Backbone::get().track_input_learning_track().as_ref()),
         Update::pot_preset_preview_volume(),
+        Update::pot_favorite_presets_changed(),
     ];
     create(global_updates.into_iter().chain(Update::update_info()))
 }

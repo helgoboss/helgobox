@@ -37,6 +37,7 @@ use reaper_high::{Fx, Reaper, Track};
 use reaper_medium::RecordingInput;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::cmp::min;
+use std::collections::HashSet;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::RwLock;
@@ -69,6 +70,7 @@ pub struct Backbone {
     instances: RefCell<NonCryptoHashMap<InstanceId, WeakInstance>>,
     was_processing_keyboard_input: Cell<bool>,
     global_pot_filter_exclude_list: RefCell<PotFilterExcludes>,
+    global_pot_favorite_preset_ids: RefCell<HashSet<String>>,
     recently_focused_fx_container: Rc<RefCell<RecentlyFocusedFxContainer>>,
     stream_deck_device_manager: RefCell<StreamDeckDeviceManager>,
     stream_decks: RefCell<NonCryptoHashMap<StreamDeckDeviceId, StreamDeck>>,
@@ -189,6 +191,7 @@ impl Backbone {
             instances: Default::default(),
             was_processing_keyboard_input: Default::default(),
             global_pot_filter_exclude_list: Default::default(),
+            global_pot_favorite_preset_ids: Default::default(),
             recently_focused_fx_container: Default::default(),
             stream_deck_device_manager: Default::default(),
             stream_decks: Default::default(),
@@ -716,6 +719,17 @@ impl Backbone {
 
     pub fn pot_filter_exclude_list_mut(&self) -> RefMut<'_, PotFilterExcludes> {
         self.global_pot_filter_exclude_list.borrow_mut()
+    }
+
+    pub fn pot_favorite_preset_ids(&self) -> Ref<'_, HashSet<String>> {
+        self.global_pot_favorite_preset_ids.borrow()
+    }
+
+    pub fn toggle_pot_preset_favorite(&self, id: String) {
+        let mut set = self.global_pot_favorite_preset_ids.borrow_mut();
+        if !set.remove(&id) {
+            set.insert(id);
+        }
     }
 
     /// Sets a flag that indicates that there's at least one ReaLearn mapping (in any instance)
