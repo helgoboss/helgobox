@@ -801,8 +801,11 @@ fn process_command(
         SetCustomInstanceData(req) => {
             handler.set_custom_instance_data(req)?;
         }
-        PlayPotPresetPreview(req) => {
-            handler.play_pot_preset_preview(req)?;
+        TriggerPotPreset(req) => {
+            handler.trigger_pot_preset(req)?;
+        }
+        SetPotPresetPreviewVolume(req) => {
+            handler.set_pot_preset_preview_volume(req)?;
         }
         LoadPotPreset(req) => {
             handler.load_pot_preset(req)?;

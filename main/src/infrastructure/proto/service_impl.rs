@@ -21,17 +21,17 @@ use crate::infrastructure::proto::{
     GetOccasionalUnitUpdatesRequest, GetPotCatalogReply, GetPotCatalogRequest, GetProjectDirReply,
     GetProjectDirRequest, GetTrackTemplatesReply, GetTrackTemplatesRequest, ImportFilesRequest,
     InsertColumnsRequest, LoadPotPresetRequest, OpenTrackFxRequest, PatchMidiClipContentRequest,
-    PlayPotPresetPreviewRequest, ProtoRequestHandler, ProveAuthenticityReply,
-    ProveAuthenticityRequest, SaveControllerRequest, SaveCustomCompartmentDataRequest,
-    SetAppSettingsRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
-    SetColumnTrackRequest, SetCustomInstanceDataRequest, SetInstanceSettingsRequest,
-    SetMatrixClickChannelRequest, SetMatrixPanRequest, SetMatrixPlayRateRequest,
-    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
-    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
-    SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
-    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
-    TriggerColumnRequest, TriggerGlobalRequest, TriggerInstanceRequest, TriggerMatrixRequest,
-    TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest, create_initial_global_updates,
+    ProtoRequestHandler, ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
+    SaveCustomCompartmentDataRequest, SetAppSettingsRequest, SetClipDataRequest,
+    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixClickChannelRequest,
+    SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
+    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
+    SetPotPresetPreviewVolumeRequest, SetRowDataRequest, SetTrackColorRequest,
+    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
+    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerGlobalRequest,
+    TriggerInstanceRequest, TriggerMatrixRequest, TriggerPotPresetRequest, TriggerRowRequest,
+    TriggerSlotRequest, TriggerTrackRequest, create_initial_global_updates,
     create_initial_instance_updates, create_initial_unit_updates, helgobox_service_server,
 };
 use base::future_util;
@@ -827,12 +827,20 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
             .await
     }
 
-    async fn play_pot_preset_preview(
+    async fn trigger_pot_preset(
         &self,
-        request: Request<PlayPotPresetPreviewRequest>,
+        request: Request<TriggerPotPresetRequest>,
     ) -> Result<Response<()>, Status> {
         self.command_handler
-            .play_pot_preset_preview(request.into_inner())
+            .trigger_pot_preset(request.into_inner())
+    }
+
+    async fn set_pot_preset_preview_volume(
+        &self,
+        request: Request<SetPotPresetPreviewVolumeRequest>,
+    ) -> Result<Response<()>, Status> {
+        self.command_handler
+            .set_pot_preset_preview_volume(request.into_inner())
     }
 
     async fn load_pot_preset(

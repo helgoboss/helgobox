@@ -43,7 +43,7 @@ pub mod reply {
 pub struct CommandRequest {
     #[prost(
         oneof = "command_request::Value",
-        tags = "1, 54, 3, 4, 5, 52, 6, 7, 55, 8, 9, 10, 11, 50, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 57, 37, 53, 40, 25, 26, 27, 34, 28, 29, 31, 32, 56, 33, 35, 36, 38, 39, 41, 42, 43, 44, 51, 45, 46, 47, 48, 49, 58, 59"
+        tags = "1, 54, 3, 4, 5, 52, 6, 7, 55, 8, 9, 10, 11, 50, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 57, 37, 53, 40, 25, 26, 27, 34, 28, 29, 31, 32, 56, 33, 35, 36, 38, 39, 41, 42, 43, 44, 51, 45, 46, 47, 48, 49, 58, 59, 60"
     )]
     pub value: ::core::option::Option<command_request::Value>,
 }
@@ -169,9 +169,11 @@ pub mod command_request {
         #[prost(message, tag = "49")]
         SetPlaytimeEngineSettings(super::SetPlaytimeEngineSettingsRequest),
         #[prost(message, tag = "58")]
-        PlayPotPresetPreview(super::PlayPotPresetPreviewRequest),
+        TriggerPotPreset(super::TriggerPotPresetRequest),
         #[prost(message, tag = "59")]
         LoadPotPreset(super::LoadPotPresetRequest),
+        #[prost(message, tag = "60")]
+        SetPotPresetPreviewVolume(super::SetPotPresetPreviewVolumeRequest),
     }
 }
 /// Envelope for queries.
@@ -413,6 +415,11 @@ pub struct SetMatrixTimeSignatureRequest {
     pub matrix_id: u32,
     #[prost(message, optional, tag = "2")]
     pub time_signature: ::core::option::Option<TimeSignature>,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct SetPotPresetPreviewVolumeRequest {
+    #[prost(double, tag = "1")]
+    pub db: f64,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct SetMatrixVolumeRequest {
@@ -1182,7 +1189,7 @@ pub struct PlaytimeEngineStats {
 pub struct OccasionalGlobalUpdate {
     #[prost(
         oneof = "occasional_global_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 9"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 9, 17, 18"
     )]
     pub update: ::core::option::Option<occasional_global_update::Update>,
 }
@@ -1238,7 +1245,18 @@ pub mod occasional_global_update {
         /// Track input learn state changed.
         #[prost(message, tag = "9")]
         TrackInputLearnState(super::TrackInputLearnState),
+        /// Pot preset preview volume in dB.
+        #[prost(double, tag = "17")]
+        PotPresetPreviewVolume(f64),
+        /// A set of pot preset favorites.
+        #[prost(message, tag = "18")]
+        PotFavorites(super::PotPresetFavorites),
     }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PotPresetFavorites {
+    #[prost(string, repeated, tag = "1")]
+    pub favorite_preset_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UpdateInfo {
@@ -2017,10 +2035,11 @@ pub struct PotCategoryQualifiedId {
     pub sub_category_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct PlayPotPresetPreviewRequest {
-    /// Preset to play preview.
+pub struct TriggerPotPresetRequest {
     #[prost(string, tag = "1")]
     pub preset_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "TriggerPotPresetAction", tag = "2")]
+    pub action: i32,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct LoadPotPresetRequest {
@@ -2131,6 +2150,32 @@ impl TriggerInstanceAction {
                 Some(Self::NotifyGainedFocus)
             }
             "TRIGGER_INSTANCE_ACTION_NOTIFY_LOST_FOCUS" => Some(Self::NotifyLostFocus),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum TriggerPotPresetAction {
+    PlayPreview = 0,
+    ToggleFavorite = 1,
+}
+impl TriggerPotPresetAction {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::PlayPreview => "TRIGGER_POT_PRESET_ACTION_PLAY_PREVIEW",
+            Self::ToggleFavorite => "TRIGGER_POT_PRESET_ACTION_TOGGLE_FAVORITE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "TRIGGER_POT_PRESET_ACTION_PLAY_PREVIEW" => Some(Self::PlayPreview),
+            "TRIGGER_POT_PRESET_ACTION_TOGGLE_FAVORITE" => Some(Self::ToggleFavorite),
             _ => None,
         }
     }
@@ -3170,10 +3215,6 @@ pub mod helgobox_service_server {
             tonic::Response<super::GetPotCatalogReply>,
             tonic::Status,
         >;
-        async fn play_pot_preset_preview(
-            &self,
-            request: tonic::Request<super::PlayPotPresetPreviewRequest>,
-        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
         /// General instance queries
         async fn get_custom_instance_data(
             &self,
@@ -3234,6 +3275,14 @@ pub mod helgobox_service_server {
             &self,
             request: tonic::Request<super::DeleteControllerRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn trigger_pot_preset(
+            &self,
+            request: tonic::Request<super::TriggerPotPresetRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
+        async fn set_pot_preset_preview_volume(
+            &self,
+            request: tonic::Request<super::SetPotPresetPreviewVolumeRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
         /// Playtime global commands
         async fn set_playtime_engine_settings(
             &self,
@@ -3931,55 +3980,6 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/generated.HelgoboxService/PlayPotPresetPreview" => {
-                    #[allow(non_camel_case_types)]
-                    struct PlayPotPresetPreviewSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<
-                        T: HelgoboxService,
-                    > tonic::server::UnaryService<super::PlayPotPresetPreviewRequest>
-                    for PlayPotPresetPreviewSvc<T> {
-                        type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::PlayPotPresetPreviewRequest>,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as HelgoboxService>::play_pot_preset_preview(
-                                        &inner,
-                                        request,
-                                    )
-                                    .await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = PlayPotPresetPreviewSvc(inner);
-                        let codec = tonic_prost::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
                 "/generated.HelgoboxService/GetCustomInstanceData" => {
                     #[allow(non_camel_case_types)]
                     struct GetCustomInstanceDataSvc<T: HelgoboxService>(pub Arc<T>);
@@ -4433,6 +4433,104 @@ pub mod helgobox_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = DeleteControllerSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/TriggerPotPreset" => {
+                    #[allow(non_camel_case_types)]
+                    struct TriggerPotPresetSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::TriggerPotPresetRequest>
+                    for TriggerPotPresetSvc<T> {
+                        type Response = ();
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::TriggerPotPresetRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::trigger_pot_preset(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = TriggerPotPresetSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/SetPotPresetPreviewVolume" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetPotPresetPreviewVolumeSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<
+                        super::SetPotPresetPreviewVolumeRequest,
+                    > for SetPotPresetPreviewVolumeSvc<T> {
+                        type Response = ();
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::SetPotPresetPreviewVolumeRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::set_pot_preset_preview_volume(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SetPotPresetPreviewVolumeSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

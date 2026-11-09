@@ -14,18 +14,18 @@ use crate::infrastructure::proto::{
     GetPotCatalogReply, GetPotCatalogRequest, GetProjectDirReply, GetProjectDirRequest,
     GetTrackTemplatesReply, GetTrackTemplatesRequest, HOST_API_VERSION, ImportFilesRequest,
     InsertColumnsRequest, LoadPotPresetRequest, OpenTrackFxRequest, PatchMidiClipContentRequest,
-    PlayPotPresetPreviewRequest, ProveAuthenticityReply, ProveAuthenticityRequest,
-    SaveControllerRequest, SaveCustomCompartmentDataRequest, SetAppSettingsRequest,
-    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
+    SaveCustomCompartmentDataRequest, SetAppSettingsRequest, SetClipDataRequest,
+    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
     SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixClickChannelRequest,
     SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
     SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
-    SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
-    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TrackTemplate, TriggerClipRequest, TriggerColumnRequest,
-    TriggerGlobalAction, TriggerGlobalRequest, TriggerInstanceAction, TriggerInstanceRequest,
-    TriggerMatrixRequest, TriggerRowRequest, TriggerSequenceRequest, TriggerSlotRequest,
-    TriggerTrackRequest,
+    SetPotPresetPreviewVolumeRequest, SetRowDataRequest, SetSequenceInfoRequest,
+    SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
+    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TrackTemplate,
+    TriggerClipRequest, TriggerColumnRequest, TriggerGlobalAction, TriggerGlobalRequest,
+    TriggerInstanceAction, TriggerInstanceRequest, TriggerMatrixRequest, TriggerPotPresetRequest,
+    TriggerRowRequest, TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest,
 };
 use crate::infrastructure::ui::defer_from_dart_callstack;
 use anyhow::Context;
@@ -35,7 +35,7 @@ use helgobox_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
 use reaper_high::{OrCurrentProject, Reaper};
 use reaper_medium::CommandId;
 use swell_ui::Window;
-use tonic::{Response, Status};
+use tonic::{Request, Response, Status};
 use walkdir::WalkDir;
 
 #[derive(Debug)]
@@ -320,9 +320,21 @@ impl ProtoRequestHandler {
         }
     }
 
-    pub fn play_pot_preset_preview(
+    pub fn trigger_pot_preset(&self, req: TriggerPotPresetRequest) -> Result<Response<()>, Status> {
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = req;
+            playtime_not_available()
+        }
+        #[cfg(feature = "playtime")]
+        {
+            PlaytimeProtoRequestHandler.trigger_pot_preset(req)
+        }
+    }
+
+    pub fn set_pot_preset_preview_volume(
         &self,
-        req: PlayPotPresetPreviewRequest,
+        req: SetPotPresetPreviewVolumeRequest,
     ) -> Result<Response<()>, Status> {
         #[cfg(not(feature = "playtime"))]
         {
@@ -331,7 +343,7 @@ impl ProtoRequestHandler {
         }
         #[cfg(feature = "playtime")]
         {
-            PlaytimeProtoRequestHandler.play_pot_preset_preview(req)
+            PlaytimeProtoRequestHandler.set_pot_preset_preview_volume(req)
         }
     }
 

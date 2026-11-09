@@ -103,6 +103,10 @@ impl RgbColor {
 }
 
 impl occasional_global_update::Update {
+    pub fn pot_preset_preview_volume() -> Self {
+        let db = pot::get_preview_volume().to_db();
+        Self::PotPresetPreviewVolume(db.get())
+    }
     pub fn host_color_scheme() -> Self {
         let reaper = Reaper::get().medium_reaper();
         let colors = REAPER_COLOR_KEYS

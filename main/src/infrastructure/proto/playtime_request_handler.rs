@@ -13,17 +13,18 @@ use crate::infrastructure::proto::{
     GetClipDetailReply, GetClipDetailRequest, GetPotCatalogReply, GetPotCatalogRequest,
     GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest, InsertColumnsRequest,
     LoadPotPresetRequest, MatrixVolumeKind, OpenTrackFxRequest, PatchMidiClipContentRequest,
-    PlayPotPresetPreviewRequest, PotPreset, ProveAuthenticityReply, ProveAuthenticityRequest,
-    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    PotPreset, ProveAuthenticityReply, ProveAuthenticityRequest, SetClipDataRequest,
+    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
     SetMatrixClickChannelRequest, SetMatrixPanRequest, SetMatrixPlayRateRequest,
     SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
-    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
-    SetSequenceInfoRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest,
-    SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest,
-    TriggerClipAction, TriggerClipRequest, TriggerColumnAction, TriggerColumnRequest,
-    TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest,
-    TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest,
-    TriggerTrackAction, TriggerTrackRequest,
+    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetPotPresetPreviewVolumeRequest,
+    SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
+    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
+    SetTrackVolumeRequest, TriggerClipAction, TriggerClipRequest, TriggerColumnAction,
+    TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerPotPresetAction,
+    TriggerPotPresetRequest, TriggerRowAction, TriggerRowRequest, TriggerSequenceAction,
+    TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest, TriggerTrackAction,
+    TriggerTrackRequest,
 };
 use anyhow::Context;
 use base::metrics_util::log_time;
@@ -55,7 +56,7 @@ use reaper_medium::{
 };
 use std::num::NonZeroU32;
 use strum::IntoEnumIterator;
-use tonic::{Response, Status};
+use tonic::{Request, Response, Status};
 use tracing::info;
 
 #[derive(Debug)]
@@ -1068,14 +1069,35 @@ impl PlaytimeProtoRequestHandler {
         Ok(Response::new(reply))
     }
 
-    pub fn play_pot_preset_preview(
-        &self,
-        request: PlayPotPresetPreviewRequest,
-    ) -> Result<Response<()>, Status> {
+    pub fn trigger_pot_preset(&self, req: TriggerPotPresetRequest) -> Result<Response<()>, Status> {
         let preset_id = pot::pot_db()
-            .find_preset_id_by_persistent_id(&request.preset_id)
+            .find_preset_id_by_persistent_id(&req.preset_id)
             .ok_or_else(|| Status::not_found("preset not found"))?;
-        pot::play_preview(preset_id).map_err(|e| Status::internal(e.to_string()))?;
+        let action = TriggerPotPresetAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown pot preset action"))?;
+        match action {
+            TriggerPotPresetAction::PlayPreview => {
+                pot::play_preview(preset_id).map_err(|e| Status::internal(e.to_string()))?;
+            }
+            TriggerPotPresetAction::ToggleFavorite => {
+                todo!()
+            }
+        }
+        Ok(Response::new(()))
+    }
+
+    pub fn set_pot_preset_preview_volume(
+        &self,
+        req: SetPotPresetPreviewVolumeRequest,
+    ) -> Result<Response<()>, Status> {
+        let db: Db = req
+            .db
+            .try_into()
+            .map_err(|_| Status::invalid_argument("invalid dB value"))?;
+        let _ = pot::set_preview_volume(db.to_linear_volume_value());
+        BackboneShell::get()
+            .proto_hub()
+            .notify_pot_preset_preview_volume_changed();
         Ok(Response::new(()))
     }
 
