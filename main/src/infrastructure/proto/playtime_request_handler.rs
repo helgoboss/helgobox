@@ -1106,7 +1106,7 @@ impl PlaytimeProtoRequestHandler {
                 .find_preset_by_id(preset_id)
                 .context("preset not found")?;
             let options = LoadPresetOptions {
-                window_behavior_override: Some(LoadPresetWindowBehavior::NeverShow),
+                window_behavior_override: Some(LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShown),
                 audio_sample_behavior: Default::default(),
             };
             pot_unit.load_preset_at(&preset, options, &|_| {
