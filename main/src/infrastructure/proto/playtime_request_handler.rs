@@ -927,7 +927,8 @@ impl PlaytimeProtoRequestHandler {
                 let collections = log_time("Pot: Build collections", || {
                     pot_db.build_collections(build_input.clone(), EnumSet::all())
                 });
-                // TODO-high-pot Since we obtain ALL presets, we can implement this more efficiently, especially the Komplete stuff.
+                // TODO-high CONTINUE Since we obtain ALL presets, we can implement this more efficiently, especially the Komplete stuff.
+                // TODO-high CONTINUE Prevent loading the pot unit into memory. We don't need it yet.
                 //  Instead of calling find_preset_by_id for each preset, we can have one single query (and maybe an extra query for k_sound_info_category rows).
                 let presets =
                     log_time("Pot: Gather presets", || pot_db.gather_presets(build_input));
