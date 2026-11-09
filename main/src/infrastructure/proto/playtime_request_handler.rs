@@ -1,4 +1,4 @@
-use crate::domain::Backbone;
+use crate::domain::{Backbone, LearnTrackInputBehavior};
 use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::proto_util::{
@@ -623,10 +623,15 @@ impl PlaytimeProtoRequestHandler {
                 matrix.show_track_routing(&track);
                 Ok(())
             }
-            TriggerTrackAction::ToggleLearnInput => {
+            TriggerTrackAction::ToggleLearnInput | TriggerTrackAction::ToggleLearnInputMidiOnly => {
                 let cloned_track = track.clone();
                 let instance_id = matrix.instance_id();
-                Backbone::get().toggle_track_input_learning(track, move |input| {
+                let behavior = if action == TriggerTrackAction::ToggleLearnInputMidiOnly {
+                    LearnTrackInputBehavior::MidiOnly
+                } else {
+                    LearnTrackInputBehavior::AudioAndMidi
+                };
+                Backbone::get().toggle_track_input_learning(track, behavior, move |input| {
                     if let RecordingInput::Midi {
                         channel: Some(ch), ..
                     } = input

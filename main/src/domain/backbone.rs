@@ -204,6 +204,7 @@ impl Backbone {
     pub fn toggle_track_input_learning(
         &self,
         track: Track,
+        behavior: LearnTrackInputBehavior,
         on_learned: impl Fn(RecordingInput) -> anyhow::Result<()> + 'static,
     ) {
         let is_on = self
@@ -214,7 +215,7 @@ impl Backbone {
         if is_on {
             self.deactivate_track_input_learning();
         } else {
-            self.activate_track_input_learning(track, on_learned);
+            self.activate_track_input_learning(track, behavior, on_learned);
         }
     }
 
@@ -228,6 +229,7 @@ impl Backbone {
     pub fn activate_track_input_learning(
         &self,
         track: Track,
+        behavior: LearnTrackInputBehavior,
         on_learned: impl Fn(RecordingInput) -> anyhow::Result<()> + 'static,
     ) {
         let cancellation_token = CancellationToken::default();
@@ -240,7 +242,7 @@ impl Backbone {
         if let Some(previous) = previous {
             previous.cancellation_token.cancel();
         }
-        spawn_in_main_thread(learn_track_input(cancellation_token));
+        spawn_in_main_thread(learn_track_input(cancellation_token, behavior));
         self.additional_feedback_event_sender
             .send_complaining(AdditionalFeedbackEvent::LearningInputOfTrackChanged);
     }
@@ -1070,8 +1072,15 @@ struct TrackInputLearnState {
     on_learned: Box<dyn Fn(RecordingInput) -> anyhow::Result<()>>,
 }
 
-async fn learn_track_input(cancellation_token: CancellationToken) -> anyhow::Result<()> {
-    let receiver = Backbone::get().start_capturing_midi_and_audio_input()?;
+async fn learn_track_input(
+    cancellation_token: CancellationToken,
+    behavior: LearnTrackInputBehavior,
+) -> anyhow::Result<()> {
+    let backbone = Backbone::get();
+    let receiver = match behavior {
+        LearnTrackInputBehavior::AudioAndMidi => backbone.start_capturing_midi_and_audio_input()?,
+        LearnTrackInputBehavior::MidiOnly => backbone.start_capturing_midi_input(),
+    };
     loop {
         tokio::select! {
             Ok(scan_result) = receiver.recv() => {
@@ -1085,8 +1094,14 @@ async fn learn_track_input(cancellation_token: CancellationToken) -> anyhow::Res
             }
         }
     }
-    Backbone::get().stop_capturing_input();
+    backbone.stop_capturing_input();
     Ok(())
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum LearnTrackInputBehavior {
+    AudioAndMidi,
+    MidiOnly,
 }
 
 fn derive_track_input_from_captured_input(

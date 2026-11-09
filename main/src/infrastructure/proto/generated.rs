@@ -2424,6 +2424,7 @@ pub enum TriggerTrackAction {
     ShowFx = 3,
     ShowRouting = 4,
     ToggleLearnInput = 5,
+    ToggleLearnInputMidiOnly = 6,
 }
 impl TriggerTrackAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2438,6 +2439,9 @@ impl TriggerTrackAction {
             Self::ShowFx => "TRIGGER_TRACK_ACTION_SHOW_FX",
             Self::ShowRouting => "TRIGGER_TRACK_ACTION_SHOW_ROUTING",
             Self::ToggleLearnInput => "TRIGGER_TRACK_ACTION_TOGGLE_LEARN_INPUT",
+            Self::ToggleLearnInputMidiOnly => {
+                "TRIGGER_TRACK_ACTION_TOGGLE_LEARN_INPUT_MIDI_ONLY"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2449,6 +2453,9 @@ impl TriggerTrackAction {
             "TRIGGER_TRACK_ACTION_SHOW_FX" => Some(Self::ShowFx),
             "TRIGGER_TRACK_ACTION_SHOW_ROUTING" => Some(Self::ShowRouting),
             "TRIGGER_TRACK_ACTION_TOGGLE_LEARN_INPUT" => Some(Self::ToggleLearnInput),
+            "TRIGGER_TRACK_ACTION_TOGGLE_LEARN_INPUT_MIDI_ONLY" => {
+                Some(Self::ToggleLearnInputMidiOnly)
+            }
             _ => None,
         }
     }
