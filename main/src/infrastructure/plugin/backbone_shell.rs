@@ -69,6 +69,7 @@ use helgobox_api::persistence::{
 };
 use itertools::Itertools;
 use once_cell::sync::Lazy;
+use pot::FavoriteService;
 use reaper_high::{
     ChangeEvent, Fx, Guid, MiddlewareControlSurface, PluginInfo, Project, Reaper, Track,
 };
@@ -194,6 +195,7 @@ pub struct BackboneShell {
     instance_event_sender: SenderToNormalThread<QualifiedInstanceEvent>,
     #[cfg(feature = "playtime")]
     clip_matrix_event_sender: SenderToNormalThread<crate::domain::QualifiedClipMatrixEvent>,
+    pot_database: Arc<pot::Database>,
     osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
@@ -374,6 +376,11 @@ impl BackboneShell {
                 .into(),
             Box::new(BackboneLicenseManagerEventHandler),
         );
+        // Pot database
+        let pot_database_path = Self::pot_dir_path().join("pot.db");
+        let pot_database = Arc::new(pot::Database::new(pot_database_path));
+        let pot_favorite_service = pot::DefaultFavoriteService::new(pot_database.clone());
+        let _ = pot_favorite_service.refresh();
         // This just initializes the clip engine, it doesn't add any Playtime matrix yet, so resource consumption is low.
         #[cfg(feature = "playtime")]
         playtime_impl::init_clip_engine(&license_manager);
@@ -382,6 +389,7 @@ impl BackboneShell {
             additional_feedback_event_sender.clone(),
             audio_hook_task_sender,
             RealearnTargetState::new(additional_feedback_event_sender.clone()),
+            Arc::new(pot_favorite_service),
         );
         Backbone::make_available_globally(|| backbone_state);
         // This just sets up the server event wiring but doesn't send any events yet => low resource usage.
@@ -527,6 +535,7 @@ impl BackboneShell {
             instance_event_sender,
             #[cfg(feature = "playtime")]
             clip_matrix_event_sender,
+            pot_database,
             osc_feedback_task_sender,
             additional_feedback_event_sender,
             feedback_audio_hook_task_sender,
@@ -1193,6 +1202,10 @@ impl BackboneShell {
 
     pub fn app_dir_path() -> Utf8PathBuf {
         BackboneShell::helgoboss_resource_dir_path().join("App")
+    }
+
+    pub fn pot_dir_path() -> Utf8PathBuf {
+        BackboneShell::helgoboss_resource_dir_path().join("Pot")
     }
 
     pub fn app_binary_base_dir_path() -> Utf8PathBuf {

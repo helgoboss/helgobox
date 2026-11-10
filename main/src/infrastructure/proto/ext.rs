@@ -109,7 +109,7 @@ impl occasional_global_update::Update {
     }
 
     pub fn pot_favorite_presets_changed() -> Self {
-        let preset_ids = Backbone::get().pot_favorite_preset_ids();
+        let preset_ids = Backbone::get().pot_favorite_service().favorite_preset_ids();
         let favorite_preset_ids = preset_ids.iter().cloned().collect();
         Self::PotFavorites(PotPresetFavorites {
             favorite_preset_ids,

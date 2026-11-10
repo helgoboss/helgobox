@@ -37,10 +37,9 @@ use reaper_high::{Fx, Reaper, Track};
 use reaper_medium::RecordingInput;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::cmp::min;
-use std::collections::HashSet;
 use std::hash::Hash;
 use std::rc::Rc;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use strum::EnumCount;
 use tokio_util::sync::CancellationToken;
@@ -70,7 +69,7 @@ pub struct Backbone {
     instances: RefCell<NonCryptoHashMap<InstanceId, WeakInstance>>,
     was_processing_keyboard_input: Cell<bool>,
     global_pot_filter_exclude_list: RefCell<PotFilterExcludes>,
-    global_pot_favorite_preset_ids: RefCell<HashSet<String>>,
+    pot_favorite_service: Arc<dyn pot::FavoriteService>,
     recently_focused_fx_container: Rc<RefCell<RecentlyFocusedFxContainer>>,
     stream_deck_device_manager: RefCell<StreamDeckDeviceManager>,
     stream_decks: RefCell<NonCryptoHashMap<StreamDeckDeviceId, StreamDeck>>,
@@ -177,6 +176,7 @@ impl Backbone {
         additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
         audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
         target_context: RealearnTargetState,
+        pot_favorite_service: Arc<dyn pot::FavoriteService>,
     ) -> Self {
         Self {
             audio_hook_task_sender,
@@ -191,7 +191,7 @@ impl Backbone {
             instances: Default::default(),
             was_processing_keyboard_input: Default::default(),
             global_pot_filter_exclude_list: Default::default(),
-            global_pot_favorite_preset_ids: Default::default(),
+            pot_favorite_service,
             recently_focused_fx_container: Default::default(),
             stream_deck_device_manager: Default::default(),
             stream_decks: Default::default(),
@@ -721,15 +721,8 @@ impl Backbone {
         self.global_pot_filter_exclude_list.borrow_mut()
     }
 
-    pub fn pot_favorite_preset_ids(&self) -> Ref<'_, HashSet<String>> {
-        self.global_pot_favorite_preset_ids.borrow()
-    }
-
-    pub fn toggle_pot_preset_favorite(&self, id: String) {
-        let mut set = self.global_pot_favorite_preset_ids.borrow_mut();
-        if !set.remove(&id) {
-            set.insert(id);
-        }
+    pub fn pot_favorite_service(&self) -> &dyn pot::FavoriteService {
+        self.pot_favorite_service.as_ref()
     }
 
     /// Sets a flag that indicates that there's at least one ReaLearn mapping (in any instance)

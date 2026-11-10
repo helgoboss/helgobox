@@ -35,7 +35,7 @@ use helgobox_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
 use reaper_high::{OrCurrentProject, Reaper};
 use reaper_medium::CommandId;
 use swell_ui::Window;
-use tonic::{Request, Response, Status};
+use tonic::{Response, Status};
 use walkdir::WalkDir;
 
 #[derive(Debug)]

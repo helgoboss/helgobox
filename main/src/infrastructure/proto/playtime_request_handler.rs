@@ -56,7 +56,7 @@ use reaper_medium::{
 };
 use std::num::NonZeroU32;
 use strum::IntoEnumIterator;
-use tonic::{Request, Response, Status};
+use tonic::{Response, Status};
 use tracing::info;
 
 #[derive(Debug)]
@@ -1082,8 +1082,10 @@ impl PlaytimeProtoRequestHandler {
                 let _ = pot::play_preview(preset_id);
             }
             TriggerPotPresetAction::ToggleFavorite => {
-                // TODO-high CONTINUE Persist favorites in DB
-                Backbone::get().toggle_pot_preset_favorite(req.preset_id);
+                Backbone::get()
+                    .pot_favorite_service()
+                    .toggle_favorite(&req.preset_id)
+                    .map_err(|e| Status::internal(e.to_string()))?;
                 BackboneShell::get()
                     .proto_hub()
                     .notify_pot_favorite_presets_changed();
