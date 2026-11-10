@@ -949,11 +949,11 @@ impl PlaytimeProtoRequestHandler {
                     // quite expensive. As soon as Pot has its own DB, we should cache preset
                     // available there, or we should push preset availability info separately
                     // async, to not slow down the list loading.
-                    has_preview: common.db_specific_preview_file.is_some(),
+                    has_preview: common.source_specific_preview_file.is_some(),
                     is_supported: common.is_supported,
                     is_available: common.is_available,
                     is_user: common.is_user,
-                    database_id: common.database_id.get().to_string(),
+                    database_id: common.source_id.get().to_string(),
                     product_kinds: common
                         .product_kinds
                         .into_iter()
