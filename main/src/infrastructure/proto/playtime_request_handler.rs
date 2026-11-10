@@ -48,7 +48,7 @@ use playtime_clip_engine::rt::supplier::midi::{MidiMessage, MidiSequenceNote, No
 use playtime_clip_engine::{
     PlaytimeMainEngine, base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions,
 };
-use pot::{Destination, LoadPresetOptions, LoadPresetWindowBehavior, ProductKind, pot_db};
+use pot::{Destination, LoadPresetOptions, LoadPresetWindowBehavior, ProductKind, pot};
 use prost::Message;
 use reaper_high::{GroupingBehavior, Guid, Reaper, Track, TrackSetSmartOpts};
 use reaper_medium::{
@@ -921,7 +921,7 @@ impl PlaytimeProtoRequestHandler {
     ) -> Result<Response<GetPotCatalogReply>, Status> {
         let (collections, presets) = BackboneShell::get()
             .spawn_blocking_in_async_runtime(|| {
-                let pot_db = pot::pot_db();
+                let pot_db = pot::pot();
                 log_time("Pot: Refresh DBs", || pot_db.refresh());
                 let build_input = pot::BuildInput::default();
                 let collections = log_time("Pot: Build collections", || {
@@ -977,7 +977,7 @@ impl PlaytimeProtoRequestHandler {
         // Lots of repetition here but let's clean that up when it starts to hurt
         let databases = collections
             .filter_item_collections
-            .get(PotFilterKind::Database)
+            .get(PotFilterKind::Source)
             .iter()
             .cloned()
             .filter_map(|db| {
@@ -1075,7 +1075,7 @@ impl PlaytimeProtoRequestHandler {
             .map_err(|_| Status::invalid_argument("unknown pot preset action"))?;
         match action {
             TriggerPotPresetAction::PlayPreview => {
-                let preset_id = pot::pot_db()
+                let preset_id = pot::pot()
                     .find_preset_id_by_persistent_id(&req.preset_id)
                     .ok_or_else(|| Status::not_found("preset not found"))?;
                 // Don't complain. Presets are sometimes missing in practice.
@@ -1117,7 +1117,7 @@ impl PlaytimeProtoRequestHandler {
             .track_address
             .ok_or_else(|| Status::invalid_argument("requires track address"))?;
         let fx_index = request.fx_index;
-        let preset_id = pot::pot_db()
+        let preset_id = pot::pot()
             .find_preset_id_by_persistent_id(&request.preset_id)
             .ok_or_else(|| Status::not_found("preset not found"))?;
         let track_guid = Guid::from_string_without_braces(&track_address.track_id)
@@ -1137,7 +1137,7 @@ impl PlaytimeProtoRequestHandler {
             let mut pot_unit = blocking_lock_arc(&pot_unit, "load_pot_preset");
             // We need that later to actually synchronize preset selection between ReaLearn and Playtime
             // pot_unit.set_preset_id(Some(preset_id));
-            let preset = pot_db()
+            let preset = pot()
                 .find_preset_by_id(preset_id)
                 .context("preset not found")?;
             let options = LoadPresetOptions {

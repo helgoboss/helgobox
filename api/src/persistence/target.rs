@@ -1312,8 +1312,9 @@ pub struct StreamDeckBrightnessTarget {
 #[repr(usize)]
 pub enum PotFilterKind {
     #[display(fmt = "Database")]
+    #[serde(alias = "Database")]
     #[default]
-    Database,
+    Source,
     /// Is available or not
     #[display(fmt = "Availability")]
     IsAvailable,
@@ -1363,20 +1364,14 @@ impl PotFilterKind {
 
     pub fn allows_excludes(&self) -> bool {
         use PotFilterKind as K;
-        matches!(self, K::Database | K::Bank | K::SubBank)
+        matches!(self, K::Source | K::Bank | K::SubBank)
     }
 
     pub fn wants_sorting(&self) -> bool {
         use PotFilterKind as K;
         matches!(
             self,
-            K::Database
-                | K::Project
-                | K::Bank
-                | K::SubBank
-                | K::Category
-                | K::SubCategory
-                | K::Mode
+            K::Source | K::Project | K::Bank | K::SubBank | K::Category | K::SubCategory | K::Mode
         )
     }
 
@@ -1404,7 +1399,7 @@ impl PotFilterKind {
         use PotFilterKind as K;
         matches!(
             self,
-            K::Database
+            K::Source
                 | K::IsAvailable
                 | K::IsSupported
                 | K::IsUser
@@ -1423,7 +1418,7 @@ impl PotFilterKind {
     pub fn dependency_position(&self) -> u32 {
         use PotFilterKind as K;
         match self {
-            K::Database
+            K::Source
             | K::IsAvailable
             | K::IsSupported
             | K::IsUser

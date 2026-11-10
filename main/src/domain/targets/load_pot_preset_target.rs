@@ -7,7 +7,7 @@ use crate::domain::{
 use base::blocking_lock_arc;
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
-use pot::{Destination, LoadPresetOptions, PotPreset, pot_db};
+use pot::{Destination, LoadPresetOptions, PotPreset, pot};
 use reaper_high::{Fx, Project, Track};
 use std::borrow::Cow;
 
@@ -62,7 +62,7 @@ impl RealearnTarget for LoadPotPresetTarget {
         let pot_unit = instance_state.pot_unit()?;
         let mut pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from LoadPotPresetTarget 3");
         let preset_id = pot_unit.preset_id().ok_or("no preset selected")?;
-        let preset = pot_db()
+        let preset = pot()
             .find_preset_by_id(preset_id)
             .ok_or("preset not found")?;
         let fx_index = self.fx.index();
