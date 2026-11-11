@@ -72,6 +72,12 @@ impl ProtoHub {
         });
     }
 
+    pub fn notify_pot_catalog_refreshed(&self) {
+        self.send_occasional_global_updates(|| {
+            [occasional_global_update::Update::PotCatalogRefreshed(())]
+        });
+    }
+
     pub fn notify_pot_preset_preview_volume_changed(&self) {
         self.send_occasional_global_updates(|| {
             [occasional_global_update::Update::pot_preset_preview_volume()]

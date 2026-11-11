@@ -1189,7 +1189,7 @@ pub struct PlaytimeEngineStats {
 pub struct OccasionalGlobalUpdate {
     #[prost(
         oneof = "occasional_global_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 9, 17, 18"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 9, 17, 18, 19"
     )]
     pub update: ::core::option::Option<occasional_global_update::Update>,
 }
@@ -1251,6 +1251,9 @@ pub mod occasional_global_update {
         /// A set of pot preset favorites.
         #[prost(message, tag = "18")]
         PotFavorites(super::PotPresetFavorites),
+        /// Sent when the Pot catalog refreshing is finished.
+        #[prost(message, tag = "19")]
+        PotCatalogRefreshed(()),
     }
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -2387,6 +2390,7 @@ impl TriggerMatrixAction {
 pub enum TriggerGlobalAction {
     FocusHost = 0,
     MidiPanic = 1,
+    RefreshPotCatalog = 2,
 }
 impl TriggerGlobalAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2397,6 +2401,7 @@ impl TriggerGlobalAction {
         match self {
             Self::FocusHost => "TRIGGER_GLOBAL_ACTION_FOCUS_HOST",
             Self::MidiPanic => "TRIGGER_GLOBAL_ACTION_MIDI_PANIC",
+            Self::RefreshPotCatalog => "TRIGGER_GLOBAL_ACTION_REFRESH_POT_CATALOG",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2404,6 +2409,7 @@ impl TriggerGlobalAction {
         match value {
             "TRIGGER_GLOBAL_ACTION_FOCUS_HOST" => Some(Self::FocusHost),
             "TRIGGER_GLOBAL_ACTION_MIDI_PANIC" => Some(Self::MidiPanic),
+            "TRIGGER_GLOBAL_ACTION_REFRESH_POT_CATALOG" => Some(Self::RefreshPotCatalog),
             _ => None,
         }
     }

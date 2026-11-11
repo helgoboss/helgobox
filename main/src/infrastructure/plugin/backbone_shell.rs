@@ -204,7 +204,7 @@ pub struct BackboneShell {
     unit_infos: RefCell<Vec<UnitInfo>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
-    proto_hub: crate::infrastructure::proto::ProtoHub,
+    proto_hub: Arc<crate::infrastructure::proto::ProtoHub>,
     welcome_panel: RefCell<Option<SharedView<WelcomePanel>>>,
     toolbar_change_detector: Option<RefCell<ToolbarChangeDetector>>,
     /// We need to keep this panel in memory in order to be informed when it's destroyed.
@@ -544,7 +544,7 @@ impl BackboneShell {
             unit_infos: Default::default(),
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
-            proto_hub: crate::infrastructure::proto::ProtoHub::new(),
+            proto_hub: Arc::new(crate::infrastructure::proto::ProtoHub::new()),
             welcome_panel: Default::default(),
             toolbar_change_detector,
             _shutdown_detection_panel: shutdown_detection_panel,
@@ -960,7 +960,11 @@ impl BackboneShell {
     }
 
     pub fn proto_hub(&self) -> &crate::infrastructure::proto::ProtoHub {
-        &self.proto_hub
+        self.proto_hub.as_ref()
+    }
+
+    pub fn proto_hub_arc(&self) -> Arc<crate::infrastructure::proto::ProtoHub> {
+        Arc::clone(&self.proto_hub)
     }
 
     fn temporarily_reclaim_control_surface_ownership<R>(

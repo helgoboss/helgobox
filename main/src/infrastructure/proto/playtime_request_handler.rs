@@ -13,25 +13,23 @@ use crate::infrastructure::proto::{
     GetClipDetailReply, GetClipDetailRequest, GetPotCatalogReply, GetPotCatalogRequest,
     GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest, InsertColumnsRequest,
     LoadPotPresetRequest, MatrixVolumeKind, OpenTrackFxRequest, PatchMidiClipContentRequest,
-    PotPreset, ProveAuthenticityReply, ProveAuthenticityRequest, SetClipDataRequest,
-    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
-    SetMatrixClickChannelRequest, SetMatrixPanRequest, SetMatrixPlayRateRequest,
-    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
-    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetPotPresetPreviewVolumeRequest,
-    SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
-    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TriggerClipAction, TriggerClipRequest, TriggerColumnAction,
-    TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerPotPresetAction,
-    TriggerPotPresetRequest, TriggerRowAction, TriggerRowRequest, TriggerSequenceAction,
-    TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest, TriggerTrackAction,
-    TriggerTrackRequest,
+    PotBank, PotCategory, PotDatabase, PotMode, PotPreset, ProveAuthenticityReply,
+    ProveAuthenticityRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
+    SetColumnTrackRequest, SetMatrixClickChannelRequest, SetMatrixPanRequest,
+    SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
+    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
+    SetPotPresetPreviewVolumeRequest, SetRowDataRequest, SetSequenceInfoRequest,
+    SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
+    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipAction,
+    TriggerClipRequest, TriggerColumnAction, TriggerColumnRequest, TriggerMatrixAction,
+    TriggerMatrixRequest, TriggerPotPresetAction, TriggerPotPresetRequest, TriggerRowAction,
+    TriggerRowRequest, TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction,
+    TriggerSlotRequest, TriggerTrackAction, TriggerTrackRequest,
 };
 use anyhow::Context;
-use base::metrics_util::log_time;
 use base::tracing_util::ok_or_log_as_warn;
 use base::{blocking_lock_arc, future_util, spawn_in_main_thread};
 use bytesize::ByteSize;
-use enumset::EnumSet;
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessageFactory};
 use helgobox_api::persistence::PotFilterKind;
@@ -915,34 +913,31 @@ impl PlaytimeProtoRequestHandler {
         Ok(Response::new(reply))
     }
 
+    pub fn refresh_catalog(&self) {
+        let proto_hub = BackboneShell::get().proto_hub_arc();
+        BackboneShell::get().spawn_blocking_in_async_runtime(move || {
+            pot::pot().refresh(|| proto_hub.notify_pot_catalog_refreshed())
+        });
+    }
+
     pub async fn get_pot_catalog(
         &self,
         _request: GetPotCatalogRequest,
     ) -> Result<Response<GetPotCatalogReply>, Status> {
-        let (collections, presets) = BackboneShell::get()
-            .spawn_blocking_in_async_runtime(|| {
-                let pot_db = pot::pot();
-                log_time("Pot: Refresh DBs", || pot_db.refresh());
-                let build_input = pot::BuildInput::default();
-                let collections = log_time("Pot: Build collections", || {
-                    pot_db.build_collections(build_input.clone(), EnumSet::all())
-                });
-                // TODO-high CONTINUE Since we obtain ALL presets, we can implement this more efficiently, especially the Komplete stuff.
-                // TODO-high CONTINUE Prevent loading the pot unit into memory. We don't need it yet.
-                //  Instead of calling find_preset_by_id for each preset, we can have one single query (and maybe an extra query for k_sound_info_category rows).
-                let presets =
-                    log_time("Pot: Gather presets", || pot_db.gather_presets(build_input));
-                (collections, presets)
-            })
+        // We need to get the catalog async in case it hasn't been build yet! The main
+        // thread must not be blocked.
+        let catalog = BackboneShell::get()
+            .spawn_blocking_in_async_runtime(|| pot::pot().catalog())
             .await
             .map_err(|_| Status::internal("Preset query task failed"))?;
-        let presets = presets
-            .into_iter()
+        let presets = catalog
+            .presets
+            .iter()
             .map(|p| {
-                let common = p.preset.common;
+                let common = &p.preset.common;
                 PotPreset {
                     id: common.persistent_id.to_string(),
-                    name: common.name,
+                    name: common.name.clone(),
                     // TODO-medium This only checks for DB-specific preview files (e.g. Komplete)
                     // and it also doesn't guarantee that the file exists. Because we return
                     // the complete preset list here, doing a file check for each preset is
@@ -956,113 +951,71 @@ impl PlaytimeProtoRequestHandler {
                     database_id: common.source_id.get().to_string(),
                     product_kinds: common
                         .product_kinds
-                        .into_iter()
+                        .iter()
                         .map(|m| m.id().to_string())
                         .collect(),
-                    author: common.metadata.author,
-                    vendor: common.metadata.vendor,
-                    comment: common.metadata.comment,
+                    author: common.metadata.author.clone(),
+                    vendor: common.metadata.vendor.clone(),
+                    comment: common.metadata.comment.clone(),
                     file_size_in_bytes: common.metadata.file_size_in_bytes,
                     modification_date: common.metadata.modification_date.map(|d| d.timestamp()),
-                    bank: common.bank.map(convert_pot_bank_qualified_id_to_proto),
+                    bank: common
+                        .bank
+                        .clone()
+                        .map(convert_pot_bank_qualified_id_to_proto),
                     categories: common
                         .categories
-                        .into_iter()
+                        .iter()
+                        .cloned()
                         .map(convert_pot_category_qualified_id_to_proto)
                         .collect(),
-                    modes: common.modes.into_iter().map(|m| m.0).collect(),
+                    modes: common.modes.iter().cloned().map(|m| m.0).collect(),
                 }
             })
             .collect();
-        // Lots of repetition here but let's clean that up when it starts to hurt
-        let databases = collections
-            .filter_item_collections
-            .get(PotFilterKind::Source)
-            .iter()
-            .cloned()
-            .filter_map(|db| {
-                let db = proto::PotDatabase {
-                    id: db.persistent_id,
-                    name: db.name?,
-                };
-                Some(db)
-            });
-        let product_kinds = ProductKind::iter().map(|kind| proto::PotProductKind {
-            id: kind.id().to_string(),
-            name: kind.to_string(),
-        });
-        let banks = collections
-            .filter_item_collections
-            .get(PotFilterKind::Bank)
-            .iter()
-            .cloned()
-            .filter_map(|bank| {
-                let bank = proto::PotBank {
-                    id: bank.persistent_id,
-                    name: bank.name?,
-                    parent_id: None,
-                };
-                Some(bank)
-            });
-        let sub_banks = collections
-            .filter_item_collections
-            .get(PotFilterKind::SubBank)
-            .iter()
-            .cloned()
-            .filter_map(|bank| {
-                let bank = proto::PotBank {
-                    id: bank.persistent_id,
-                    name: bank.name?,
-                    parent_id: Some(bank.parent_name.unwrap()),
-                };
-                Some(bank)
-            });
-        let categories = collections
-            .filter_item_collections
-            .get(PotFilterKind::Category)
-            .iter()
-            .cloned()
-            .filter_map(|category| {
-                let category = proto::PotCategory {
-                    id: category.persistent_id,
-                    name: category.name?,
-                    parent_id: None,
-                };
-                Some(category)
-            });
-        let sub_categories = collections
-            .filter_item_collections
-            .get(PotFilterKind::SubCategory)
-            .iter()
-            .cloned()
-            .filter_map(|category| {
-                let category = proto::PotCategory {
-                    id: category.persistent_id,
-                    name: category.name?,
-                    parent_id: Some(category.parent_name.unwrap()),
-                };
-                Some(category)
-            });
-        let modes = collections
-            .filter_item_collections
-            .get(PotFilterKind::Mode)
-            .iter()
-            .cloned()
-            .filter_map(|mode| {
-                let mode = proto::PotMode {
-                    id: mode.persistent_id,
-                    name: mode.name?,
-                };
-                Some(mode)
-            });
-        let reply = log_time("Pot: Build reply", || GetPotCatalogReply {
+        let reply = GetPotCatalogReply {
             presets,
-            databases: databases.collect(),
-            product_kinds: product_kinds.collect(),
-            banks: banks.chain(sub_banks).collect(),
-            categories: categories.chain(sub_categories).collect(),
-            modes: modes.collect(),
-        });
+            databases: catalog
+                .sources
+                .iter()
+                .map(|v| PotDatabase {
+                    id: v.id.clone(),
+                    name: v.name.clone(),
+                })
+                .collect(),
+            product_kinds: ProductKind::iter()
+                .map(|kind| proto::PotProductKind {
+                    id: kind.id().to_string(),
+                    name: kind.to_string(),
+                })
+                .collect(),
+            banks: catalog
+                .products
+                .iter()
+                .map(|v| PotBank {
+                    id: v.id.clone(),
+                    name: v.name.clone(),
+                    parent_id: v.parent_id.clone(),
+                })
+                .collect(),
+            categories: catalog
+                .products
+                .iter()
+                .map(|v| PotCategory {
+                    id: v.id.clone(),
+                    name: v.name.clone(),
+                    parent_id: v.parent_id.clone(),
+                })
+                .collect(),
+            modes: catalog
+                .characters
+                .iter()
+                .map(|v| PotMode {
+                    id: v.id.clone(),
+                    name: v.name.clone(),
+                })
+                .collect(),
+        };
         info!(
             "Pot catalog size requested by app: {}",
             ByteSize(reply.encoded_len() as u64)

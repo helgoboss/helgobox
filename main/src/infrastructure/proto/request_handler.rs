@@ -421,6 +421,17 @@ impl ProtoRequestHandler {
                         "All MIDI outputs and plug-ins have been instructed to shut up.",
                     ));
             }
+            TriggerGlobalAction::RefreshPotCatalog => {
+                #[cfg(not(feature = "playtime"))]
+                {
+                    let _ = req;
+                    playtime_not_available()
+                }
+                #[cfg(feature = "playtime")]
+                {
+                    PlaytimeProtoRequestHandler.refresh_catalog();
+                }
+            }
         }
         Ok(Response::new(Empty {}))
     }
