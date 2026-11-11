@@ -6,11 +6,11 @@ Invokes a transport-related action.
 
 Specifies which transport action should be invoked.
 
-Play/stop:: Starts playing the containing project if the incoming absolute control value is greater than 0%, otherwise invokes stop.
-Play/pause:: Starts playing the containing project if the incoming absolute control value is greater than 0%, otherwise invokes pause.
-Stop:: Stops the containing project if the incoming absolute control value is greater than 0%.
+Start playback / stop playback or recording:: Starts playing the containing project if the incoming absolute control value is greater than 0%, otherwise invokes stop.
+Resume playback or recording / pause playback or recording:: Resumes the containing project if the incoming absolute control value is greater than 0%, otherwise invokes pause.
+Stop playback or recording:: Stops the containing project if the incoming absolute control value is greater than 0%.
 Useful for distinguishing feedback between _paused_ and _stopped_ state.
-Pause:: Pauses the containing project if the incoming absolute control value is greater than 0%.
+Pause playback or recording:: Pauses the containing project if the incoming absolute control value is greater than 0%.
 Useful for distinguishing feedback between _paused_ and _stopped_ state.
-Record:: Starts/enables recording for the current project if the incoming absolute control value is greater than 0%, otherwise disables recording.
+Start recording / stop recording:: Starts/enables recording for the current project if the incoming absolute control value is greater than 0%, otherwise disables recording.
 Repeat:: Enables repeat for the containing project if the incoming absolute control value is greater than 0%, otherwise disables it.

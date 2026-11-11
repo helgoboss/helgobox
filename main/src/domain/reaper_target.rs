@@ -1006,19 +1006,19 @@ impl ActionInvocationType {
 pub enum TransportAction {
     #[default]
     #[serde(rename = "playStop")]
-    #[display(fmt = "Play/stop")]
+    #[display(fmt = "Start playback / stop playback or recording")]
     PlayStop,
     #[serde(rename = "playPause")]
-    #[display(fmt = "Play/pause")]
+    #[display(fmt = "Resume playback or recording / pause playback or recording")]
     PlayPause,
     #[serde(rename = "stop")]
-    #[display(fmt = "Stop")]
+    #[display(fmt = "Stop playback or recording")]
     Stop,
     #[serde(rename = "pause")]
-    #[display(fmt = "Pause")]
+    #[display(fmt = "Pause playback or recording")]
     Pause,
     #[serde(rename = "record")]
-    #[display(fmt = "Record/stop")]
+    #[display(fmt = "Start recording / stop recording")]
     RecordStop,
     #[serde(rename = "repeat")]
     #[display(fmt = "Repeat")]
