@@ -195,7 +195,6 @@ pub struct BackboneShell {
     instance_event_sender: SenderToNormalThread<QualifiedInstanceEvent>,
     #[cfg(feature = "playtime")]
     clip_matrix_event_sender: SenderToNormalThread<crate::domain::QualifiedClipMatrixEvent>,
-    pot_database: Arc<pot::Database>,
     osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
@@ -535,7 +534,6 @@ impl BackboneShell {
             instance_event_sender,
             #[cfg(feature = "playtime")]
             clip_matrix_event_sender,
-            pot_database,
             osc_feedback_task_sender,
             additional_feedback_event_sender,
             feedback_audio_hook_task_sender,

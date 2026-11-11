@@ -33,7 +33,6 @@ use base::{blocking_lock_arc, future_util, spawn_in_main_thread};
 use bytesize::ByteSize;
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessageFactory};
-use helgobox_api::persistence::PotFilterKind;
 use playtime_api::persistence::{
     ClipId, ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress,
     TimeSignature, TrackId,

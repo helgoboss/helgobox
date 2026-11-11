@@ -318,7 +318,7 @@ impl Fx {
     pub fn from_engine(fx: &reaper_high::Fx) -> Self {
         let info = fx.info().ok();
         Self {
-            id: convert_fx_id_to_proto(&fx).expect("FX should have ID"),
+            id: convert_fx_id_to_proto(fx).expect("FX should have ID"),
             name: fx.name().to_string(),
             // No need to fall back to chunk-based FX info because Playtime doesn't support old REAPER versions anyway.
             instrument: info

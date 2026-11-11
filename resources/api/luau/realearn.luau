@@ -3617,7 +3617,7 @@ function module.StreamDeckBrightnessTarget(value: StreamDeckBrightnessTarget): S
 end
 
 export type PotFilterKind =
-	"Database"
+	"Source"
 	| "IsAvailable"
 	| "IsSupported"
 	| "IsUser"
