@@ -27,6 +27,7 @@ use crate::infrastructure::proto::{
     TriggerSlotRequest, TriggerTrackAction, TriggerTrackRequest,
 };
 use anyhow::Context;
+use base::metrics_util::log_time;
 use base::tracing_util::ok_or_log_as_warn;
 use base::{blocking_lock_arc, future_util, spawn_in_main_thread};
 use bytesize::ByteSize;
@@ -926,96 +927,13 @@ impl PlaytimeProtoRequestHandler {
     ) -> Result<Response<GetPotCatalogReply>, Status> {
         // We need to get the catalog async in case it hasn't been build yet! The main
         // thread must not be blocked.
-        let catalog = BackboneShell::get()
-            .spawn_blocking_in_async_runtime(|| pot::pot().catalog())
+        let reply = BackboneShell::get()
+            .spawn_blocking_in_async_runtime(|| {
+                log_time("Obtaining pot catalog reply", obtain_pot_catalog_reply)
+            })
             .await
             .map_err(|_| Status::internal("Preset query task failed"))?;
-        let presets = catalog
-            .presets
-            .iter()
-            .map(|p| {
-                let common = &p.preset.common;
-                PotPreset {
-                    id: common.persistent_id.to_string(),
-                    name: common.name.clone(),
-                    // TODO-medium This only checks for DB-specific preview files (e.g. Komplete)
-                    // and it also doesn't guarantee that the file exists. Because we return
-                    // the complete preset list here, doing a file check for each preset is
-                    // quite expensive. As soon as Pot has its own DB, we should cache preset
-                    // available there, or we should push preset availability info separately
-                    // async, to not slow down the list loading.
-                    has_preview: common.source_specific_preview_file.is_some(),
-                    is_supported: common.is_supported,
-                    is_available: common.is_available,
-                    is_user: common.is_user,
-                    database_id: common.source_id.get().to_string(),
-                    product_kinds: common
-                        .product_kinds
-                        .iter()
-                        .map(|m| m.id().to_string())
-                        .collect(),
-                    author: common.metadata.author.clone(),
-                    vendor: common.metadata.vendor.clone(),
-                    comment: common.metadata.comment.clone(),
-                    file_size_in_bytes: common.metadata.file_size_in_bytes,
-                    modification_date: common.metadata.modification_date.map(|d| d.timestamp()),
-                    bank: common
-                        .bank
-                        .clone()
-                        .map(convert_pot_bank_qualified_id_to_proto),
-                    categories: common
-                        .categories
-                        .iter()
-                        .cloned()
-                        .map(convert_pot_category_qualified_id_to_proto)
-                        .collect(),
-                    modes: common.modes.iter().cloned().map(|m| m.0).collect(),
-                }
-            })
-            .collect();
-        let reply = GetPotCatalogReply {
-            presets,
-            databases: catalog
-                .sources
-                .iter()
-                .map(|v| PotDatabase {
-                    id: v.id.clone(),
-                    name: v.name.clone(),
-                })
-                .collect(),
-            product_kinds: ProductKind::iter()
-                .map(|kind| proto::PotProductKind {
-                    id: kind.id().to_string(),
-                    name: kind.to_string(),
-                })
-                .collect(),
-            banks: catalog
-                .products
-                .iter()
-                .map(|v| PotBank {
-                    id: v.id.clone(),
-                    name: v.name.clone(),
-                    parent_id: v.parent_id.clone(),
-                })
-                .collect(),
-            categories: catalog
-                .products
-                .iter()
-                .map(|v| PotCategory {
-                    id: v.id.clone(),
-                    name: v.name.clone(),
-                    parent_id: v.parent_id.clone(),
-                })
-                .collect(),
-            modes: catalog
-                .characters
-                .iter()
-                .map(|v| PotMode {
-                    id: v.id.clone(),
-                    name: v.name.clone(),
-                })
-                .collect(),
-        };
+
         info!(
             "Pot catalog size requested by app: {}",
             ByteSize(reply.encoded_len() as u64)
@@ -1333,4 +1251,94 @@ fn require_clip_matrix_handle(matrix_id: u32) -> Result<MatrixHandle, Status> {
         .clip_matrix_handle(matrix_id.into())
         .map_err(|e| Status::not_found(format!("{e:#}")))?;
     Ok(matrix_handle)
+}
+
+fn obtain_pot_catalog_reply() -> GetPotCatalogReply {
+    let catalog = pot::pot().catalog();
+    let presets = catalog
+        .presets
+        .iter()
+        .map(|p| {
+            let common = &p.preset.common;
+            PotPreset {
+                id: common.persistent_id.to_string(),
+                name: common.name.clone(),
+                // TODO-medium This only checks for DB-specific preview files (e.g. Komplete)
+                // and it also doesn't guarantee that the file exists. Because we return
+                // the complete preset list here, doing a file check for each preset is
+                // quite expensive. As soon as Pot has its own DB, we should cache preset
+                // available there, or we should push preset availability info separately
+                // async, to not slow down the list loading.
+                has_preview: common.source_specific_preview_file.is_some(),
+                is_supported: common.is_supported,
+                is_available: common.is_available,
+                is_user: common.is_user,
+                database_id: common.source_id.get().to_string(),
+                product_kinds: common
+                    .product_kinds
+                    .iter()
+                    .map(|m| m.id().to_string())
+                    .collect(),
+                author: common.metadata.author.clone(),
+                vendor: common.metadata.vendor.clone(),
+                comment: common.metadata.comment.clone(),
+                file_size_in_bytes: common.metadata.file_size_in_bytes,
+                modification_date: common.metadata.modification_date.map(|d| d.timestamp()),
+                bank: common
+                    .bank
+                    .clone()
+                    .map(convert_pot_bank_qualified_id_to_proto),
+                categories: common
+                    .categories
+                    .iter()
+                    .cloned()
+                    .map(convert_pot_category_qualified_id_to_proto)
+                    .collect(),
+                modes: common.modes.iter().cloned().map(|m| m.0).collect(),
+            }
+        })
+        .collect();
+    GetPotCatalogReply {
+        presets,
+        databases: catalog
+            .sources
+            .iter()
+            .map(|v| PotDatabase {
+                id: v.id.clone(),
+                name: v.name.clone(),
+            })
+            .collect(),
+        product_kinds: ProductKind::iter()
+            .map(|kind| proto::PotProductKind {
+                id: kind.id().to_string(),
+                name: kind.to_string(),
+            })
+            .collect(),
+        banks: catalog
+            .products
+            .iter()
+            .map(|v| PotBank {
+                id: v.id.clone(),
+                name: v.name.clone(),
+                parent_id: v.parent_id.clone(),
+            })
+            .collect(),
+        categories: catalog
+            .products
+            .iter()
+            .map(|v| PotCategory {
+                id: v.id.clone(),
+                name: v.name.clone(),
+                parent_id: v.parent_id.clone(),
+            })
+            .collect(),
+        modes: catalog
+            .characters
+            .iter()
+            .map(|v| PotMode {
+                id: v.id.clone(),
+                name: v.name.clone(),
+            })
+            .collect(),
+    }
 }
