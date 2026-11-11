@@ -2,10 +2,10 @@ use crossbeam_channel::{Receiver, Sender};
 use fragile::Fragile;
 use reaper_high::{
     DEFAULT_MAIN_THREAD_TASK_BULK_SIZE, FutureMiddleware, FutureSupport, MainTaskMiddleware,
-    MainThreadTask, TaskSupport,
+    MainThreadTask, Reaper, TaskSupport,
 };
 use reaper_rx::{ActionRx, ActionRxProvider, ControlSurfaceRx, MainRx};
-use std::sync::LazyLock;
+use std::sync::{LazyLock, mpsc};
 
 static INSTANCE: LazyLock<Global> = LazyLock::new(Global::default);
 
@@ -19,6 +19,29 @@ pub fn spawn_in_main_thread(
         let result = future.await;
         result.map_err(|e| -> Box<dyn std::error::Error> { e.into() })
     });
+}
+
+/// Executes the given function immediately if in main thread, otherwise schedules it for
+/// execution on the main thread and returns the result in the calling thread.
+pub fn calc_in_main_thread<R>(f: impl FnOnce() -> R + Send + 'static) -> R
+where
+    R: Send + 'static,
+{
+    if Reaper::get().is_in_main_thread() {
+        // Easy one
+        return f();
+    }
+    // Oh, we are not in the main thread!
+    let (tx, rx) = mpsc::channel();
+    Global::task_support()
+        .do_later_in_main_thread_asap(move || {
+            let result = f();
+            tx.send(result)
+                .expect("result could not be sent back to calling thread");
+        })
+        .expect("could not schedule main thread calculation");
+    rx.recv()
+        .expect("result could not be received from called thread")
 }
 
 pub struct Global {
