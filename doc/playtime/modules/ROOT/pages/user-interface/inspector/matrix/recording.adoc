@@ -4,11 +4,17 @@ You will see this when selecting the {term_matrix_cell}.
 
 include::partial$generated/elements/inspector/matrix/recording-basics.adoc[]
 
+include::partial$generated/elements/inspector/matrix/recording-stop-tolerance.adoc[]
+
 include::partial$generated/elements/inspector/matrix/recording-looped.adoc[]
 
 include::partial$generated/elements/inspector/matrix/recording-allow-tempo-detection-recording.adoc[]
 
-include::partial$generated/elements/inspector/matrix/limit-recording-length.adoc[]
+include::partial$generated/elements/inspector/matrix/record-mode.adoc[]
+
+include::partial$generated/elements/inspector/matrix/record-mode/open-end.adoc[]
+include::partial$generated/elements/inspector/matrix/record-mode/predefined-length.adoc[]
+include::partial$generated/elements/inspector/matrix/record-mode/retrospective.adoc[]
 
 include::partial$generated/elements/inspector/matrix/recording-length.adoc[]
 

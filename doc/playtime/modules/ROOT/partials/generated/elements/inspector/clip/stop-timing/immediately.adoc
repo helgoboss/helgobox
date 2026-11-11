@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-stop-timing-immediately,Immediately]]]
 ifndef::pdf-theme[[[inspector-clip-stop-timing-immediately,Immediately image:playtime::generated/screenshots/elements/inspector/clip/stop-timing/immediately.png[width=50, pdfwidth=8mm]]]]
-=== Immediately
+==== Immediately
 
 image::playtime::generated/screenshots/elements/inspector/clip/stop-timing/immediately.png[Immediately, role="related thumb right", float=right]
 

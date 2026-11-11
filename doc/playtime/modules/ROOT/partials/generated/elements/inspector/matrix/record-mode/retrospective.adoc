@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-matrix-record-mode-retrospective,Retrospective (experimental)]]]
+ifndef::pdf-theme[[[inspector-matrix-record-mode-retrospective,Retrospective (experimental) image:playtime::generated/screenshots/elements/inspector/matrix/record-mode/retrospective.png[width=50, pdfwidth=8mm]]]]
+==== Retrospective (experimental)
+
+image::playtime::generated/screenshots/elements/inspector/matrix/record-mode/retrospective.png[Retrospective (experimental), role="related thumb right", float=right]
+
+Records continuously and keeps only the last specified number of bars when you stop recording.
+

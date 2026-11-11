@@ -18,6 +18,8 @@ Vice versa, Playtime detects correctly if a clip has been quantized in REAPER's 
 That means you can use both quantization methods interchangeably!
 ====
 
+TIP: If you want more advanced quantization options, do quantization in REAPER's MIDI editor instead.
+
 include::partial$generated/elements/inspector/clip/basics.adoc[]
 
 include::partial$generated/elements/inspector/clip/name.adoc[]

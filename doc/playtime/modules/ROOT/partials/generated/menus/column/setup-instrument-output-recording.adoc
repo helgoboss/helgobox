@@ -6,3 +6,6 @@ ifndef::pdf-theme[[[column-setup-instrument-output-recording,Set up instrument o
 
 Makes the necessary changes to the REAPER track structure to allow recording the audio output of instruments.
 
+Before making any changes, Playtime will show you exactly what it plans to do.
+
+

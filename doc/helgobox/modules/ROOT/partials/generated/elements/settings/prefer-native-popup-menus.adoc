@@ -4,10 +4,5 @@ ifndef::pdf-theme[[[settings-prefer-native-popup-menus,Prefer native popup menus
 
 image::helgobox::generated/screenshots/elements/settings/prefer-native-popup-menus.png[Prefer native popup menus]
 
-If enabled, dropdown and right-click menus will be rendered using your system's native user interface component.
-[NOTE]
-.Development status: Feedback wanted!
-====
-This doesn't work particular well at the moment. On Windows, it has caused crashes in the past.
-====      
+If enabled and supported, right-click menus will be rendered using your system's native user interface component.
 

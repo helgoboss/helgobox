@@ -1,0 +1,11 @@
+ifdef::pdf-theme[[[inspector-matrix-record-mode-predefined-length,Predefined length]]]
+ifndef::pdf-theme[[[inspector-matrix-record-mode-predefined-length,Predefined length image:playtime::generated/screenshots/elements/inspector/matrix/record-mode/predefined-length.png[width=50, pdfwidth=8mm]]]]
+==== Predefined length
+
+image::playtime::generated/screenshots/elements/inspector/matrix/record-mode/predefined-length.png[Predefined length, role="related thumb right", float=right]
+
+Recording stops automatically after the specified length.
+
+This is useful if you know in advance that you want to record, let's say, 2 bars only. Then you don't have to reach for the stop button manually.
+
+

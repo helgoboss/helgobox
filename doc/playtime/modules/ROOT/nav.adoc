@@ -36,7 +36,6 @@
 *** xref:user-interface/dialogs/arrangement-writing-mode-dialog.adoc[]
 *** xref:user-interface/dialogs/tempo-settings-dialog.adoc[]
 ** xref:user-interface/menus.adoc[]
-*** xref:user-interface/smart-record-menu.adoc[]
 *** xref:user-interface/menus/matrix-menu.adoc[]
 *** xref:user-interface/menus/column-menu.adoc[]
 *** xref:user-interface/menus/row-menu.adoc[]

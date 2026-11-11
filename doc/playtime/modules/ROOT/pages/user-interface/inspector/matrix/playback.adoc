@@ -24,11 +24,9 @@ include::partial$generated/elements/inspector/matrix/activate-slot-on-trigger.ad
 
 include::partial$generated/elements/inspector/matrix/transport-sync.adoc[]
 
-include::partial$generated/elements/inspector/matrix/midi-quantization-grid.adoc[]
+include::partial$generated/elements/inspector/matrix/grid.adoc[]
 
 See {term_inspector_clip_quantize}.
-
-TIP: If you want more advanced quantization options, do quantization in REAPER's MIDI editor instead.
 
 include::partial$generated/elements/inspector/matrix/playback-more.adoc[]
 

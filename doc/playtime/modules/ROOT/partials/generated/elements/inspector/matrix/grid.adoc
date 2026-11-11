@@ -1,0 +1,13 @@
+ifdef::pdf-theme[[[inspector-matrix-grid,Grid]]]
+ifndef::pdf-theme[[[inspector-matrix-grid,Grid]]]
+=== Grid
+
+
+
+The grid size used by this matrix. It affects the following:
+
+* MIDI quantization
+* MIDI editor grid
+* Waveform view grid
+
+

@@ -1,7 +1,0 @@
-= Smart-record menu
-
-Right-clicking {term_toolbar_smart_record} opens this menu.
-
-include::partial$generated/menus/smart-record/limit-recording-length.adoc[]
-
-This is a shortcut for {term_inspector_matrix_limit_recording_length}.

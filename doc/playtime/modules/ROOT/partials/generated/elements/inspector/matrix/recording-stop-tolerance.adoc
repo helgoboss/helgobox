@@ -1,0 +1,13 @@
+ifdef::pdf-theme[[[inspector-matrix-recording-stop-tolerance,Stop tolerance]]]
+ifndef::pdf-theme[[[inspector-matrix-recording-stop-tolerance,Stop tolerance]]]
+=== Stop tolerance
+
+image::playtime::generated/screenshots/elements/inspector/matrix/recording-stop-tolerance.png[Stop tolerance]
+
+Allows you to stop recording slightly after the intended end of a loop without recording an extra bar.
+
+For example, if set to 2 beats, triggering stop within the first 2 beats of a new bar will end the recording at the beginning of that bar, rather than at the next bar boundary (assuming a stop timing of one bar).
+
+Set to 0 to disable this behavior.
+
+

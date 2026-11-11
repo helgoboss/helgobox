@@ -7,5 +7,3 @@ include::partial$generated/elements/inspector/row/basics.adoc[]
 include::partial$generated/elements/inspector/row/name.adoc[]
 
 include::partial$generated/elements/inspector/row/tempo.adoc[]
-
-WARNING: This is an experimental feature.

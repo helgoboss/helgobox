@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-start-timing-custom,Custom]]]
 ifndef::pdf-theme[[[inspector-clip-start-timing-custom,Custom image:playtime::generated/screenshots/elements/inspector/clip/start-timing/custom.png[width=50, pdfwidth=8mm]]]]
-=== Custom
+==== Custom
 
 image::playtime::generated/screenshots/elements/inspector/clip/start-timing/custom.png[Custom, role="related thumb right", float=right]
 

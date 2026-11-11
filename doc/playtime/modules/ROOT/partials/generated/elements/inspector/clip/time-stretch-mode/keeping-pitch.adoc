@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-time-stretch-mode-keeping-pitch,Keeping pitch]]]
 ifndef::pdf-theme[[[inspector-clip-time-stretch-mode-keeping-pitch,Keeping pitch image:playtime::generated/screenshots/elements/inspector/clip/time-stretch-mode/keeping-pitch.png[width=50, pdfwidth=8mm]]]]
-=== Keeping pitch
+==== Keeping pitch
 
 image::playtime::generated/screenshots/elements/inspector/clip/time-stretch-mode/keeping-pitch.png[Keeping pitch, role="related thumb right", float=right]
 

@@ -30,13 +30,15 @@ include::partial$generated/elements/track-panel/input.adoc[]
 
 WARNING: Playtime captures audio or MIDI input more or less directly from the hardware.
 That also means that the track's _input_ FX chain will not have any effect on the recording!
-You can work around this limitation by using *Loopback* channels instead of input FX.
+For audio, you can work around this limitation by using *Loopback* channels instead of input FX.
 
 TIP: Selecting *Loopback* channels as audio input doesn't automatically enable them!
 Make sure that the REAPER setting *Virtual loopback audio hardware channels* in menu:Options[Preferences/Settings... > Audio] is high enough!
 
 NOTE: This directly sets the input of the corresponding REAPER track.
 Although technically not necessary for recording because Playtime doesn't use REAPER's track recording facility, it is important for input monitoring.
+
+include::partial$generated/elements/track-panel/learn-input.adoc[]
 
 include::partial$generated/elements/track-panel/midi-channel-filter.adoc[]
 
@@ -54,7 +56,8 @@ include::partial$generated/elements/track-panel/input-monitoring-auto.adoc[]
 
 include::partial$generated/elements/track-panel/input-monitoring-on.adoc[]
 
-NOTE: Which input monitoring mode you choose also has an effect on how Playtime does latency compensation during recording. Read more about that in {term_latency_compensation}.
+NOTE: Which input monitoring mode you choose also has an effect on how Playtime does latency compensation during recording.
+Read more about that in {term_latency_compensation}.
 
 [[input-monitoring-explained, Playtime input monitoring explained]]
 [NOTE]
@@ -138,7 +141,6 @@ include::partial$generated/elements/track-panel/routing.adoc[]
 include::partial$generated/elements/track-panel/arm.adoc[]
 
 NOTE: See <<input-monitoring-explained>> to learn how this translates to REAPER track properties.
-
 
 include::partial$generated/elements/track-panel/mute.adoc[]
 

@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[toolbar-record-mode,Record mode]]]
+ifndef::pdf-theme[[[toolbar-record-mode,Record mode image:playtime::generated/screenshots/elements/toolbar/record-mode.png[width=50, pdfwidth=8mm]]]]
+== Record mode
+
+image::playtime::generated/screenshots/elements/toolbar/record-mode.png[Record mode, role="related thumb right", float=right]
+
+Switches between different recording behaviors.
+

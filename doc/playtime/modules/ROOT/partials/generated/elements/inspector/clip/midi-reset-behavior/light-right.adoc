@@ -1,6 +1,6 @@
 ifdef::pdf-theme[[[inspector-clip-midi-reset-behavior-light-right,Light right]]]
 ifndef::pdf-theme[[[inspector-clip-midi-reset-behavior-light-right,Light right image:playtime::generated/screenshots/elements/inspector/clip/midi-reset-behavior/light-right.png[width=50, pdfwidth=8mm]]]]
-=== Light right
+==== Light right
 
 image::playtime::generated/screenshots/elements/inspector/clip/midi-reset-behavior/light-right.png[Light right, role="related thumb right", float=right]
 

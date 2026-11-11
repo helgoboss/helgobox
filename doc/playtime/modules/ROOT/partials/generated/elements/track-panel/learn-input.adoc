@@ -1,0 +1,11 @@
+ifdef::pdf-theme[[[track-panel-learn-input,Learn track input]]]
+ifndef::pdf-theme[[[track-panel-learn-input,Learn track input image:playtime::generated/screenshots/elements/track-panel/learn-input.png[width=50, pdfwidth=8mm]]]]
+=== Learn track input
+
+image::playtime::generated/screenshots/elements/track-panel/learn-input.png[Learn track input, role="related thumb right", float=right]
+
+1. Press this button.
+2. Press a key or move a control on your MIDI controller, play your instrument, or speak into your microphone.
+3. Playtime will automatically detect the MIDI or audio source and assign it as the input for this track.  
+
+

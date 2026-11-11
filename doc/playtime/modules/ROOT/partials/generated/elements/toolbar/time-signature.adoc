@@ -4,10 +4,5 @@ ifndef::pdf-theme[[[toolbar-time-signature,Time signature image:playtime::genera
 
 image::playtime::generated/screenshots/elements/toolbar/time-signature.png[Time signature, role="related thumb right", float=right]
 
-Displays the project's time signature.
-[NOTE]
-.Development status: To be improved
-====
-Changing the time signature from here is planned. For the time being, you can do it within REAPER itself.
-====      
+Displays the project's time signature and lets you change it.
 

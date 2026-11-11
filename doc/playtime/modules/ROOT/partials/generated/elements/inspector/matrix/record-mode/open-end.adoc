@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[inspector-matrix-record-mode-open-end,Open end]]]
+ifndef::pdf-theme[[[inspector-matrix-record-mode-open-end,Open end image:playtime::generated/screenshots/elements/inspector/matrix/record-mode/open-end.png[width=50, pdfwidth=8mm]]]]
+=== Open end
+
+image::playtime::generated/screenshots/elements/inspector/matrix/record-mode/open-end.png[Open end, role="related thumb right", float=right]
+
+Recording continues until you stop it manually.
+
