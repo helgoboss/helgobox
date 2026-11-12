@@ -1323,7 +1323,7 @@ fn obtain_pot_catalog_reply() -> GetPotCatalogReply {
             })
             .collect(),
         categories: catalog
-            .products
+            .types
             .iter()
             .map(|v| PotCategory {
                 id: v.id.clone(),
