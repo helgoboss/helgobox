@@ -1,8 +1,8 @@
-ifdef::pdf-theme[[[settings-display-tooltip-if-help-panel-hidden,Display tooltip if help panel hidden]]]
-ifndef::pdf-theme[[[settings-display-tooltip-if-help-panel-hidden,Display tooltip if help panel hidden]]]
-=== Display tooltip if help panel hidden
+ifdef::pdf-theme[[[settings-display-tooltip-if-help-panel-hidden,Display status bar if help panel hidden]]]
+ifndef::pdf-theme[[[settings-display-tooltip-if-help-panel-hidden,Display status bar if help panel hidden]]]
+=== Display status bar if help panel hidden
 
-image::helgobox::generated/screenshots/elements/settings/display-tooltip-if-help-panel-hidden.png[Display tooltip if help panel hidden]
+image::helgobox::generated/screenshots/elements/settings/display-tooltip-if-help-panel-hidden.png[Display status bar if help panel hidden]
 
-If enabled and the help panel in the bottom right corner is not visible, a tooltip will be showed instead.
+If enabled and the help panel in the bottom right corner is not visible, a status bar will be shown instead.
 

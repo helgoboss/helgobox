@@ -1,0 +1,8 @@
+ifdef::pdf-theme[[[waveform-view-snap-mode,Snap mode]]]
+ifndef::pdf-theme[[[waveform-view-snap-mode,Snap mode image:playtime::generated/screenshots/elements/waveform-view/snap-mode.png[width=50, pdfwidth=8mm]]]]
+== Snap mode
+
+image::playtime::generated/screenshots/elements/waveform-view/snap-mode.png[Snap mode, role="related thumb right", float=right]
+
+Whether to snap absolutely or relatively.
+

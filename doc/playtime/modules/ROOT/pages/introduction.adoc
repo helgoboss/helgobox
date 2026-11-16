@@ -3,8 +3,8 @@
 include::helgobox::partial$intro-header.adoc[]
 
 |===
-|Last update of text: |`2026-11-01 (v2.19.0-pre.6)`
-|Last update of screenshots: |`2026-11-01 (v2.19.0-pre.6)`
+|Last update of text: |`2026-11-16 (v2.20.0)`
+|Last update of screenshots: |`2026-11-16 (v2.20.0)`
 |===
 
 == What is Playtime?
