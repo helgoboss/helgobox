@@ -23,14 +23,14 @@ Please check below system requirements before attempting to install Helgobox!
 [[windows]]
 === Windows
 
-* xref:plug-in.adoc[] needs Windows 8 or later
-* xref:app.adoc[] needs Windows 8 or later
+* xref:plug-in.adoc[] needs Windows 10 or later
+* xref:app.adoc[] needs Windows 10 or later
 
 [[macos]]
 === macOS
 
 * xref:plug-in.adoc[] needs macOS 10.12 or later
-* xref:app.adoc[] needs macOS 10.15 or later
+* xref:app.adoc[] needs macOS 12 or later
 * For macOS 10.14 or later, all below-mentioned installation options should work
 * **For macOS 10.13 or earlier, installation via installer is not supported.
 You need to install via ReaPack!**
@@ -38,8 +38,8 @@ You need to install via ReaPack!**
 [[linux]]
 === Linux
 
-* On x64 architecture: Needs at least glibc v2.31 (for example, Ubuntu 20+, Debian 11+)
-* On arm64 architecture: Needs at least glibc v2.35 (for example, Ubuntu 22+, Debian 12+)
+* xref:plug-in.adoc[] needs at least glibc v2.35 (for example, Ubuntu 22+, Debian 12+)
+* xref:app.adoc[] needs at least glibc v2.38 (for example, Ubuntu 24+, Debian 13+)
 * **Installation via installer is not supported.
 You need to install via ReaPack!**
 * Some dependencies that you might need to install manually, depending on your Linux distribution: `libx11`, `libstdc++`, `libudev`
@@ -48,8 +48,6 @@ And that is most likely due to a missing dependency.
 In that case, please link:https://github.com/helgoboss/helgobox/issues/503#issuecomment-1320964181[try this to analyze the issue] and send the result to info@helgoboss.org.
 
 IMPORTANT: If you want to use a _Stream Deck_ controller with ReaLearn on Linux, xref:realearn::sources/stream-deck.adoc#linux[more setup] is necessary.
-
-NOTE: A more detailed system compatibility table can be found link:https://www.helgoboss.org/projects/helgobox#requirements[here].
 
 == Installing Helgobox
 
