@@ -1,3 +1,5 @@
+name: Linux aarch64
+
 on:
   push:
     branches:
@@ -10,7 +12,8 @@ on:
   schedule:
     - cron: '0 5 * * MON'
 
-name: Linux aarch64
+permissions:
+  contents: read
 
 jobs:
   check:
@@ -19,6 +22,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/post-checkout
         with:
           playtime-engine-deploy-key: ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}
@@ -33,6 +38,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/post-checkout
         with:
           playtime-engine-deploy-key: ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}

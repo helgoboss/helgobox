@@ -1,8 +1,7 @@
+name: macOS aarch64
+
 on:
   push:
-    branches:
-      - master
-  pull_request:
     branches:
       - master
   workflow_dispatch:
@@ -10,7 +9,8 @@ on:
   schedule:
     - cron: '0 5 * * MON'
 
-name: macOS aarch64
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/post-checkout
         with:
           playtime-engine-deploy-key: ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}
