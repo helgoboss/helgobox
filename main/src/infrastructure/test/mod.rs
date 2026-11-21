@@ -31,7 +31,7 @@ impl Test {
     }
 
     pub async fn test(&mut self) {
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", debug_assertions))]
         {
             use crate::base::notification::notify_user_on_anyhow_error;
             let screenshot_result = self
@@ -1446,7 +1446,7 @@ async fn send_midi_multi<T: ShortMessage + Copy, const I: usize>(messages: [Opti
     moment().await;
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", debug_assertions))]
 mod macos_impl {
     use super::*;
     use crate::application::UnitModel;
