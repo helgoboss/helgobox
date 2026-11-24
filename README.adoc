@@ -3,7 +3,6 @@
 :sectnumlevels: 2
 
 image:https://github.com/helgoboss/helgobox/actions/workflows/windows-x86_64.yml/badge.svg[Windows x86_64,link=https://github.com/helgoboss/helgobox/actions/workflows/windows-x86_64.yml]
-image:https://github.com/helgoboss/helgobox/actions/workflows/windows-i686.yml/badge.svg[Windows i686,link=https://github.com/helgoboss/helgobox/actions/workflows/windows-i686.yml]
 image:https://github.com/helgoboss/helgobox/actions/workflows/macos-x86_64.yml/badge.svg[macOS x86_64,link=https://github.com/helgoboss/helgobox/actions/workflows/macos-x86_64.yml]
 image:https://github.com/helgoboss/helgobox/actions/workflows/macos-aarch64.yml/badge.svg[macOS aarch64,link=https://github.com/helgoboss/helgobox/actions/workflows/macos-aarch64.yml]
 image:https://github.com/helgoboss/helgobox/actions/workflows/linux-x86_64.yml/badge.svg[Linux x86_64,link=https://github.com/helgoboss/helgobox/actions/workflows/linux-x86_64.yml]
@@ -13,7 +12,7 @@ image:https://img.shields.io/badge/Donate-PayPal-orange.svg[Donate,link=https://
 
 Helgobox is a link:https://www.reaper.fm[REAPER] plug-in that unites multiple creative products by link:https://www.helgoboss.org[Helgoboss].
 It currently contains link:https://www.helgoboss.org/projects/realearn[ReaLearn] (a versatile controller integration tool, free) and
-link:https://www.helgoboss.org/projects/playtime[Playtime] (a modern session view, paid).
+link:https://www.helgoboss.org/projects/playtime[Playtime] (a modern clip launcher and session view, paid).
 
 == Installation
 
