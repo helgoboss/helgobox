@@ -2418,6 +2418,7 @@ struct MainConfig {
         skip_serializing_if = "is_default_notify_about_updates"
     )]
     notify_about_updates: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     last_acknowledged_announcement: Option<String>,
 }
 
