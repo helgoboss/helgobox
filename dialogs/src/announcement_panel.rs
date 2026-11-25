@@ -7,7 +7,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         id: ids.named_id("ID_ANNOUNCEMENT_PANEL"),
         kind: DialogKind::DIALOGEX,
         rect: context.rect(0, 0, ANNOUNCEMENT_PANEL_WIDTH, FOOTER_PANEL_HEIGHT),
-        styles: Styles(vec![DS_SETFONT, DS_CONTROL, WS_CHILD]),
+        styles: Styles(vec![DS_SETFONT, DS_CONTROL, WS_CHILD, WS_CLIPSIBLINGS]),
         controls: vec![],
         ..context.default_dialog()
     }

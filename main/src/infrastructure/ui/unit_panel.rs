@@ -34,7 +34,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Write;
 use std::rc::{Rc, Weak};
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
+use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window, ZOrder};
 
 /// Just the old term as alias for easier class search.
 type _MainPanel = UnitPanel;
@@ -136,15 +136,6 @@ impl UnitPanel {
         self.header_panel.clone().open(window);
         self.mapping_rows_panel.clone().open(window);
         self.announcement_panel.clone().open(window);
-        let unit_panel_size = window.client_size();
-        let announcement_panel_window = self.announcement_panel.view_context().require_window();
-        let announcement_panel_size = announcement_panel_window.client_size();
-        let announcement_panel_x = (unit_panel_size.width - announcement_panel_size.width) * 0.5;
-        let announcement_panel_y = unit_panel_size.height - announcement_panel_size.height;
-        self.announcement_panel
-            .view_context()
-            .require_window()
-            .move_to_pixels(Point::new(announcement_panel_x, announcement_panel_y));
     }
 
     fn invalidate_status_1_text(&self) {
@@ -245,6 +236,23 @@ impl UnitPanel {
         let _ = self.invalidate_version_text();
         self.invalidate_status_1_text();
         self.invalidate_status_2_text();
+        self.invalidate_announcement_panel();
+    }
+
+    fn invalidate_announcement_panel(&self) {
+        let window = self.view.require_window();
+        let unit_panel_size = window.client_size();
+        let announcement_panel_window = self.announcement_panel.view_context().require_window();
+        let announcement_panel_size = announcement_panel_window.client_size();
+        let announcement_panel_pos = Point::new(
+            (unit_panel_size.width - announcement_panel_size.width) * 0.5,
+            unit_panel_size.height - announcement_panel_size.height,
+        );
+        announcement_panel_window.set_everything_in_pixels(
+            announcement_panel_pos,
+            announcement_panel_size,
+            ZOrder::Top,
+        );
     }
 
     pub fn notify_units_changed(&self) {

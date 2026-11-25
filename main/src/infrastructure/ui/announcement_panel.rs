@@ -10,8 +10,8 @@ use reaper_medium::Hdc;
 use std::cell::RefCell;
 use std::rc::Rc;
 use swell_ui::{
-    BitmapFit, Brush, BrushDescriptor, DeviceContext, NativeBitmap, Point, Rect, SharedView, View,
-    ViewContext, Window,
+    BitmapFit, Brush, BrushDescriptor, DeviceContext, DialogUnits, NativeBitmap, Pixels, Point,
+    Rect, SharedView, View, ViewContext, Window,
 };
 
 #[derive(Debug)]
@@ -52,7 +52,7 @@ impl AnnouncementPanel {
                     Brush::from_descriptor(bg_brush_desc).context("unable to create brush")?;
                 window.draw_fill_rect(dc, client_rect, &brush);
                 window.draw_image(dc, &bitmap, BitmapFit::Contain)?;
-                draw_close_button(dc, &close_button_rect(client_rect));
+                draw_close_button(dc, &close_button_rect(window, client_rect));
                 Ok(())
             })
             .ok()?;
@@ -64,7 +64,6 @@ impl AnnouncementPanel {
         if let Some(bitmap) = cache.as_ref() {
             return Ok(Rc::clone(bitmap));
         }
-
         let bitmap = Rc::new(Window::create_bitmap(image.clone())?);
         *cache = Some(Rc::clone(&bitmap));
         Ok(bitmap)
@@ -75,7 +74,7 @@ impl AnnouncementPanel {
         let announcement = remote_config.remote_config.announcement.as_ref()?;
         let window = self.view.require_window();
         let client_rect = window.client_rect();
-        let rect = close_button_rect(&client_rect);
+        let rect = close_button_rect(window, &client_rect);
         let close_clicked = rect.contains(location);
         if close_clicked {
             BackboneShell::get().acknowledge_announcement(announcement.id.clone());
@@ -129,10 +128,19 @@ impl View for AnnouncementPanel {
         }
     }
 }
+fn close_button_rect(window: Window, area: &Rect) -> Rect {
+    let dimensions: Point<Pixels> = window.convert_to_pixels(Point {
+        x: DialogUnits(14),
+        y: DialogUnits(0),
+    });
+    let size = dimensions.x.as_raw();
 
-fn close_button_rect(area: &Rect) -> Rect {
-    let size = 18;
-    let margin = 4;
+    let dimensions: Point<Pixels> = window.convert_to_pixels(Point {
+        x: DialogUnits(3),
+        y: DialogUnits(0),
+    });
+    let margin = dimensions.x.as_raw();
+
     Rect::from_ltrb(
         area.right() - margin - size,
         area.top + margin,
@@ -152,9 +160,9 @@ fn draw_close_button(dc: Hdc, rect: &Rect) {
         let pen = swell.CreatePen(0, 2, 0x00FFFFFF);
         let old_pen = swell.SelectObject(dc.as_ptr(), pen.cast());
         swell.MoveToEx(dc.as_ptr(), left, top, std::ptr::null_mut());
-        swell.SWELL_LineTo(dc.as_ptr(), right, bottom);
+        swell.LineTo(dc.as_ptr(), right, bottom);
         swell.MoveToEx(dc.as_ptr(), right, top, std::ptr::null_mut());
-        swell.SWELL_LineTo(dc.as_ptr(), left, bottom);
+        swell.LineTo(dc.as_ptr(), left, bottom);
         swell.SelectObject(dc.as_ptr(), old_pen);
         swell.DeleteObject(pen.cast());
     }

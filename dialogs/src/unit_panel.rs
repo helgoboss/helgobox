@@ -27,32 +27,35 @@ pub fn create(
             "Status 1",
             ids.named_id("ID_MAIN_PANEL_STATUS_1_TEXT"),
             create_rect(text_line_left, 5, text_line_width, 9),
-        ) + NOT_WS_GROUP,
+        ) + NOT_WS_GROUP
+            + WS_CLIPSIBLINGS,
         ctext(
             "Status 2",
             ids.named_id("ID_MAIN_PANEL_STATUS_2_TEXT"),
             create_rect(text_line_left, 5 + line_spacing, text_line_width, 9),
-        ) + NOT_WS_GROUP,
+        ) + NOT_WS_GROUP
+            + WS_CLIPSIBLINGS,
         context.checkbox(
             "",
             ids.named_id("IDC_UNIT_ENABLED_CHECK_BOX"),
             create_rect(2, 7 + line_spacing, 10, 14),
-        ) + WS_TABSTOP,
+        ) + WS_TABSTOP
+            + WS_CLIPSIBLINGS,
         pushbutton(
             "Unit",
             ids.named_id("IDC_UNIT_BUTTON"),
             create_rect(17, 5 + line_spacing, 65, 14),
-        ),
+        ) + WS_CLIPSIBLINGS,
         pushbutton(
             "Unit data...",
             ids.named_id("IDC_EDIT_TAGS_BUTTON"),
             create_rect(386, 5 + line_spacing, 76, 14),
-        ),
+        ) + WS_CLIPSIBLINGS,
         ctext(
             "Helgobox",
             ids.named_id("ID_MAIN_PANEL_VERSION_TEXT"),
             create_rect(text_line_left, 5 + line_spacing * 2, text_line_width, 9),
-        ),
+        ) + WS_CLIPSIBLINGS,
     ];
     Dialog {
         id: ids.named_id("ID_MAIN_PANEL"),

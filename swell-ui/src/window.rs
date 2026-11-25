@@ -5,7 +5,7 @@ use crate::{
 use anyhow::Context;
 use image::RgbaImage;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-use reaper_low::raw::{IDC_HAND, RECT};
+use reaper_low::raw::RECT;
 use reaper_low::{Swell, raw};
 use reaper_medium::{Hdc, Hfont, Hwnd};
 use std::ffi::{CString, c_void};
@@ -116,17 +116,16 @@ impl Window {
     }
 
     pub fn set_cursor(cursor: u32) -> anyhow::Result<()> {
-        if cursor == IDC_HAND {
-            #[cfg(target_os = "macos")]
-            use objc2_app_kit::NSCursor;
-            NSCursor::pointingHandCursor().set();
+        #[cfg(target_os = "macos")]
+        if cursor == raw::IDC_HAND {
+            objc2_app_kit::NSCursor::pointingHandCursor().set();
             return Ok(());
         }
         let swell = Swell::get();
-        let cursor = unsafe { swell.SWELL_LoadCursor(cursor as _) };
+        let cursor = unsafe { swell.LoadCursor(cursor as _) };
         anyhow::ensure!(!cursor.is_null(), "couldn't load cursor");
         unsafe {
-            swell.SWELL_SetCursor(cursor);
+            swell.SetCursor(cursor);
         }
         Ok(())
     }

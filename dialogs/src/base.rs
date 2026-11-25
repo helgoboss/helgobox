@@ -669,6 +669,7 @@ pub enum Style {
     DS_CENTER,
     WS_POPUP,
     WS_VISIBLE,
+    WS_CLIPSIBLINGS,
     WS_CAPTION,
     WS_SYSMENU,
     WS_THICKFRAME,
