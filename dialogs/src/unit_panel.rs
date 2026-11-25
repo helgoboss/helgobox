@@ -68,7 +68,13 @@ pub fn create(
                 + effective_rows_panel_height
                 + context.scale_height(FOOTER_PANEL_HEIGHT),
         ),
-        styles: Styles(vec![DS_SETFONT, DS_CONTROL, WS_CHILD, WS_VISIBLE]),
+        styles: Styles(vec![
+            DS_SETFONT,
+            DS_CONTROL,
+            WS_CHILD,
+            WS_VISIBLE,
+            WS_CLIPSIBLINGS,
+        ]),
         controls,
         ..context.default_dialog()
     }
