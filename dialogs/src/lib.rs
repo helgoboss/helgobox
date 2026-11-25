@@ -5,6 +5,7 @@ use crate::base::{
 use std::io::Write;
 use std::path::Path;
 
+mod announcement_panel;
 mod base;
 mod color_panel;
 pub mod constants;
@@ -133,6 +134,7 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
     let header_panel_dialog = header_panel::create(context.scoped("HEADER_PANEL"), &mut ids);
     let mapping_panel_dialog = mapping_panel::create(context.scoped("MAPPING_PANEL"), &mut ids);
     let mapping_row_panel_dialog = mapping_row_panel::create(context.global(), &mut ids);
+    let announcement_panel_dialog = announcement_panel::create(context.global(), &mut ids);
     let mapping_rows_panel_dialog = mapping_rows_panel::create(context.global(), &mut ids);
     let message_panel_dialog = message_panel::create(context.global(), &mut ids);
     let shared_group_mapping_panel_dialog =
@@ -163,6 +165,7 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
             header_panel_dialog,
             mapping_panel_dialog,
             mapping_row_panel_dialog,
+            announcement_panel_dialog,
             mapping_rows_panel_dialog,
             message_panel_dialog,
             shared_group_mapping_panel_dialog,

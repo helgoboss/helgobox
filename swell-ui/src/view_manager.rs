@@ -273,6 +273,7 @@ unsafe extern "C" fn view_dialog_proc(
                 }
                 raw::WM_KEYDOWN => view.key_down(wparam as _).into(),
                 raw::WM_KEYUP => view.key_up(wparam as _).into(),
+                raw::WM_SETCURSOR => view.set_cursor().into(),
                 raw::WM_CLOSE => {
                     let processed = view.close_requested();
                     if !processed {
@@ -293,6 +294,10 @@ unsafe extern "C" fn view_dialog_proc(
                     } else {
                         0
                     }
+                }
+                raw::WM_LBUTTONUP => {
+                    let location = Point::new(lparam as i16 as i32, (lparam >> 16) as i16 as i32);
+                    view.left_button_up(location).into()
                 }
                 raw::WM_CTLCOLORSTATIC => {
                     let brush = view.control_color_static(

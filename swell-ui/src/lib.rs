@@ -39,3 +39,6 @@ mod macos;
 
 #[cfg(target_os = "windows")]
 mod win;
+
+mod bitmap;
+pub use bitmap::*;

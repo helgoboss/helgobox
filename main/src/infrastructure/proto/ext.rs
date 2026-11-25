@@ -148,7 +148,9 @@ impl occasional_global_update::Update {
 
     pub fn update_info() -> Option<Self> {
         let remote_config = BackboneShell::remote_config()?;
-        Some(Self::UpdateInfo(UpdateInfo::from_engine(remote_config)))
+        Some(Self::UpdateInfo(UpdateInfo::from_engine(
+            &remote_config.remote_config,
+        )))
     }
 
     pub fn instances() -> Self {

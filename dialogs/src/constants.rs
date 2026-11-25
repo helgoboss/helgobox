@@ -1,6 +1,7 @@
 // Attention: We can't calculate a constant main panel height at this point because different
 // scaling factors will be applied to the header panel, depending on the operating system.
 pub const MAIN_PANEL_WIDTH: u32 = 470;
+pub const ANNOUNCEMENT_PANEL_WIDTH: u32 = MAIN_PANEL_WIDTH;
 pub const HEADER_PANEL_HEIGHT: u32 = 124;
 pub const HEADER_PANEL_WIDTH: u32 = MAIN_PANEL_WIDTH;
 // Need to leave some space for the scrollbar.

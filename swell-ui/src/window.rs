@@ -1,11 +1,13 @@
 use crate::{
-    DialogUnits, Dimensions, FontDescriptor, Menu, MenuBar, Pixels, Point, Rect, SwellStringArg,
-    ViewManager, menu_tree,
+    Brush, DialogUnits, Dimensions, FontDescriptor, Menu, MenuBar, NativeBitmap, Pixels, Point,
+    Rect, SwellStringArg, ViewManager, menu_tree,
 };
+use anyhow::Context;
+use image::RgbaImage;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-use reaper_low::raw::RECT;
+use reaper_low::raw::{IDC_HAND, RECT};
 use reaper_low::{Swell, raw};
-use reaper_medium::{Hfont, Hwnd};
+use reaper_medium::{Hdc, Hfont, Hwnd};
 use std::ffi::{CString, c_void};
 use std::fmt::Display;
 use std::os::raw::c_char;
@@ -98,6 +100,36 @@ impl Window {
         Self::new(Swell::get().GetFocus())
     }
 
+    pub fn create_bitmap(image: RgbaImage) -> anyhow::Result<NativeBitmap> {
+        let swell = Swell::get();
+        let (width, height) = image.dimensions();
+        // Convert RGBA to BGRA.
+        let mut pixels = image.into_raw();
+        for pixel in pixels.as_chunks_mut::<4>().0 {
+            pixel.swap(0, 2);
+        }
+        let raw =
+            unsafe { swell.CreateBitmap(width as i32, height as i32, 1, 32, pixels.as_mut_ptr()) };
+        anyhow::ensure!(!raw.is_null(), "Couldn't create bitmap");
+        let bitmap = NativeBitmap { width, height, raw };
+        Ok(bitmap)
+    }
+
+    pub fn set_cursor(cursor: u32) -> anyhow::Result<()> {
+        if cursor == IDC_HAND {
+            #[cfg(target_os = "macos")]
+            use objc2_app_kit::NSCursor;
+            NSCursor::pointingHandCursor().set();
+            return Ok(());
+        }
+        let swell = Swell::get();
+        let cursor = unsafe { swell.SWELL_LoadCursor(cursor as _) };
+        anyhow::ensure!(!cursor.is_null(), "couldn't load cursor");
+        unsafe {
+            swell.SWELL_SetCursor(cursor);
+        }
+        Ok(())
+    }
     pub fn raw(self) -> raw::HWND {
         self.raw
     }
@@ -126,6 +158,37 @@ impl Window {
             (screen_size.width - window_size.width) * 0.5,
             (screen_size.height - window_size.height) * 0.5,
         ));
+    }
+
+    /// Need to call this in the window paint callback.
+    pub fn paint(&self, f: impl FnOnce(Hdc, &Rect) -> anyhow::Result<()>) -> anyhow::Result<()> {
+        let swell = Swell::get();
+        unsafe {
+            let mut ps: raw::PAINTSTRUCT = std::mem::zeroed();
+            let dc = swell.BeginPaint(self.raw, &mut ps);
+            let dc = Hdc::new(dc).context("couldn't begin paint")?;
+            let client_rect = self.client_rect();
+            scopeguard::defer! {
+                swell.EndPaint(self.raw, &mut ps);
+            }
+            f(dc, &client_rect)?;
+        }
+        Ok(())
+    }
+
+    pub fn draw_image(&self, dc: Hdc, bitmap: &NativeBitmap, fit: BitmapFit) -> anyhow::Result<()> {
+        unsafe {
+            let client_rect = self.client_rect();
+            let rect = fit_bitmap_rect(client_rect, bitmap.width, bitmap.height, fit);
+            Swell::get().DrawImageInRect(dc.as_ptr(), bitmap.raw as _, &rect);
+        }
+        Ok(())
+    }
+
+    pub fn draw_fill_rect(&self, dc: Hdc, rect: &Rect, brush: &Brush) {
+        unsafe {
+            Swell::get().FillRect(dc.as_ptr(), &RECT::from(*rect), brush.to_inner().as_ptr());
+        }
     }
 
     pub fn screen_to_client_rect(&self, rect: &RECT) -> Rect {
@@ -1153,4 +1216,55 @@ fn get_related_window(window: Window, relation: u32) -> Option<Window> {
     let swell = Swell::get();
     let ptr = unsafe { swell.GetWindow(window.raw, relation as _) };
     Window::new(ptr)
+}
+
+fn fit_bitmap_rect(area: Rect, bitmap_width: u32, bitmap_height: u32, fit: BitmapFit) -> raw::RECT {
+    let area_width = area.width as f64;
+    let area_height = area.height as f64;
+
+    let bitmap_width = bitmap_width as f64;
+    let bitmap_height = bitmap_height as f64;
+
+    let scale_x = area_width / bitmap_width;
+    let scale_y = area_height / bitmap_height;
+
+    let (scale_x, scale_y) = match fit {
+        BitmapFit::Fill => (scale_x, scale_y),
+        BitmapFit::Contain => {
+            let scale = scale_x.min(scale_y);
+            (scale, scale)
+        }
+        BitmapFit::Cover => {
+            let scale = scale_x.max(scale_y);
+            (scale, scale)
+        }
+        BitmapFit::ScaleDown => {
+            let scale = scale_x.min(scale_y).min(1.0);
+            (scale, scale)
+        }
+        BitmapFit::None => (1.0, 1.0),
+    };
+
+    let width = (bitmap_width * scale_x).round() as i32;
+    let height = (bitmap_height * scale_y).round() as i32;
+
+    let left = area.left + (area.width as i32 - width) / 2;
+    let top = area.top + (area.height as i32 - height) / 2;
+
+    raw::RECT {
+        left,
+        top,
+        right: left + width,
+        bottom: top + height,
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum BitmapFit {
+    Fill,
+    Contain,
+    Cover,
+    #[default]
+    ScaleDown,
+    None,
 }

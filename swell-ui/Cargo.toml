@@ -18,6 +18,7 @@ tracing.workspace = true
 fragile.workspace = true
 palette.workspace = true
 anyhow.workspace = true
+image.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 winapi = { workspace = true, features = ["winuser", "uxtheme"] }
@@ -25,6 +26,7 @@ libloading.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2.workspace = true
+objc2-app-kit.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gdkx11-sys.workspace = true

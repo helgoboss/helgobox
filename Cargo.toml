@@ -195,6 +195,7 @@ pulldown-cmark = "0.9.2"
 rfd = "0.17.2"
 opener = "0.7.1"
 objc2 = "0.3.0-beta.3"
+objc2-app-kit = "0.3.2"
 reqwest = { version = "0.12.9", default-features = false }
 rustls = { version = "0.23.20", default-features = false }
 gdkx11-sys = "0.19.0"
@@ -262,15 +263,15 @@ vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param
 helgoboss-midi = { git = "https://github.com/helgoboss/helgoboss-midi.git" }
 
 # This is for temporary development with local reaper-rs.
-#[patch.'https://github.com/helgoboss/reaper-rs.git']
-#reaper-common-types = { path = "../reaper-rs/main/common-types" }
-#reaper-fluent = { path = "../reaper-rs/main/fluent" }
-#reaper-high = { path = "../reaper-rs/main/high" }
-#reaper-medium = { path = "../reaper-rs/main/medium" }
-#reaper-macros = { path = "../reaper-rs/main/macros" }
-#reaper-low = { path = "../reaper-rs/main/low" }
-#reaper-rx = { path = "../reaper-rs/main/rx" }
-#rppxml-parser = { path = "../reaper-rs/main/rppxml-parser" }
+[patch.'https://github.com/helgoboss/reaper-rs.git']
+reaper-common-types = { path = "../reaper-rs/main/common-types" }
+reaper-fluent = { path = "../reaper-rs/main/fluent" }
+reaper-high = { path = "../reaper-rs/main/high" }
+reaper-medium = { path = "../reaper-rs/main/medium" }
+reaper-macros = { path = "../reaper-rs/main/macros" }
+reaper-low = { path = "../reaper-rs/main/low" }
+reaper-rx = { path = "../reaper-rs/main/rx" }
+rppxml-parser = { path = "../reaper-rs/main/rppxml-parser" }
 
 ## This is for temporary development with local egui-baseview.
 #[patch.'https://github.com/helgoboss/egui-baseview.git']

@@ -99,7 +99,7 @@ prost.workspace = true
 tonic-prost.workspace = true
 # For generating projection QR code
 qrcode.workspace = true
-# For rendering projection QR code to PNG
+# For rendering projection QR code to PNG and for displaying announcement
 image = { workspace = true, features = ["png"] }
 # For generating self-signed certificate for projection web server
 rcgen.workspace = true

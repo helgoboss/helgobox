@@ -244,6 +244,14 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub fn from_ltrb(left: i32, top: i32, right: i32, bottom: i32) -> Self {
+        Self {
+            left,
+            top,
+            width: right.saturating_sub(left).max(0) as u32,
+            height: bottom.saturating_sub(top).max(0) as u32,
+        }
+    }
     pub fn contains(&self, point: Point<i32>) -> bool {
         point.x >= self.left
             && point.y >= self.top

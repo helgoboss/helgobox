@@ -47,11 +47,10 @@ use crate::infrastructure::plugin::dynamic_toolbar::{
 };
 use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
 use crate::infrastructure::plugin::hidden_helper_panel::HiddenHelperPanel;
-use crate::infrastructure::plugin::remote_config::HelgoboxRemoteConfig;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::plugin::{
-    SharedInstanceShell, WeakInstanceShell, built_info, controller_detection, sentry,
-    update_auto_units_async,
+    AugmentedHelgoboxRemoteConfig, SharedInstanceShell, WeakInstanceShell, built_info,
+    controller_detection, sentry, update_auto_units_async,
 };
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -571,7 +570,7 @@ impl BackboneShell {
     ///
     /// The remote configuration will only be fetched on start and only if either update notification or
     /// error-reporting-to-dev is enabled in the local config.
-    pub fn remote_config() -> Option<&'static HelgoboxRemoteConfig> {
+    pub fn remote_config() -> Option<&'static AugmentedHelgoboxRemoteConfig> {
         HELGOBOX_REMOTE_CONFIG.get()
     }
 
@@ -1109,6 +1108,10 @@ impl BackboneShell {
             start_result
         })??;
         Ok(())
+    }
+
+    pub fn acknowledge_announcement(&self, announcement_id: String) {
+        self.change_config(|config| config.acknowledge_announcement(announcement_id));
     }
 
     pub fn stop_server_persistently(&self) {
@@ -2325,6 +2328,10 @@ impl BackboneConfig {
         self.main.server_enabled = 1;
     }
 
+    pub fn acknowledge_announcement(&mut self, announcement_id: String) {
+        self.main.last_acknowledged_announcement = Some(announcement_id);
+    }
+
     pub fn disable_server(&mut self) {
         self.main.server_enabled = 0;
     }
@@ -2343,6 +2350,10 @@ impl BackboneConfig {
 
     pub fn background_colors_enabled(&self) -> bool {
         self.main.background_colors_enabled > 0
+    }
+
+    pub fn last_acknowledged_announcement_id(&self) -> Option<&str> {
+        self.main.last_acknowledged_announcement.as_deref()
     }
 
     pub fn toggle_background_colors(&mut self) {
@@ -2407,6 +2418,7 @@ struct MainConfig {
         skip_serializing_if = "is_default_notify_about_updates"
     )]
     notify_about_updates: u8,
+    last_acknowledged_announcement: Option<String>,
 }
 
 const DEFAULT_SERVER_HTTP_PORT: u16 = 39080;
@@ -2500,6 +2512,7 @@ impl Default for MainConfig {
             // For new installations, this is an opt-out. The welcome screen will be shown for sure, so that's okay.
             send_errors_to_dev: 1,
             notify_about_updates: default_notify_about_updates(),
+            last_acknowledged_announcement: None,
         }
     }
 }
@@ -3372,9 +3385,10 @@ async fn fetch_remote_config(also_init_sentry: bool) {
 }
 
 async fn fetch_remote_config_internal(also_init_sentry: bool) -> anyhow::Result<()> {
-    let remote_config = HelgoboxRemoteConfig::fetch().await?;
+    let remote_config = AugmentedHelgoboxRemoteConfig::fetch().await?;
     if also_init_sentry
-        && let Err(e) = sentry::init_sentry(&create_plugin_info(), &remote_config.sentry)
+        && let Err(e) =
+            sentry::init_sentry(&create_plugin_info(), &remote_config.remote_config.sentry)
     {
         tracing::warn!(msg = "Couldn't init Sentry", ?e)
     }
@@ -3382,7 +3396,7 @@ async fn fetch_remote_config_internal(also_init_sentry: bool) -> anyhow::Result<
     Ok(())
 }
 
-static HELGOBOX_REMOTE_CONFIG: OnceLock<HelgoboxRemoteConfig> = OnceLock::new();
+static HELGOBOX_REMOTE_CONFIG: OnceLock<AugmentedHelgoboxRemoteConfig> = OnceLock::new();
 
 /// At project close or exit, it's important to wait a bit, otherwise we risk the MIDI is not being sent.
 ///

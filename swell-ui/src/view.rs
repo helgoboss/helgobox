@@ -83,6 +83,13 @@ pub trait View: Debug {
         false
     }
 
+    /// WM_SETCURSOR.
+    ///
+    /// Should return `true` if the cursor was set.
+    fn set_cursor(self: SharedView<Self>) -> bool {
+        false
+    }
+
     /// WM_CLOSE.
     ///
     /// Should return `true` if the window must not be destroyed.
@@ -225,6 +232,14 @@ pub trait View: Debug {
     /// Should return `true` if processed.
     fn erase_background(self: SharedView<Self>, device_context: DeviceContext) -> bool {
         let _ = device_context;
+        false
+    }
+
+    /// WM_LBUTTONUP
+    ///
+    /// Should return `true` if processed.
+    fn left_button_up(self: SharedView<Self>, location: Point<i32>) -> bool {
+        let _ = location;
         false
     }
 

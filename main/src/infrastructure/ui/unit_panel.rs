@@ -21,6 +21,7 @@ use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_sessions_to_subscribed_clients,
     send_updated_controller_routing,
 };
+use crate::infrastructure::ui::announcement_panel::AnnouncementPanel;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use anyhow::{Context, anyhow, bail};
@@ -49,6 +50,7 @@ pub struct UnitPanel {
     mapping_rows_panel: SharedView<MappingRowsPanel>,
     panel_manager: SharedIndependentPanelManager,
     success_sound_player: Option<SoundPlayer>,
+    announcement_panel: SharedView<AnnouncementPanel>,
     state: SharedMainState,
 }
 
@@ -82,6 +84,7 @@ impl UnitPanel {
             )
             .into(),
             panel_manager: panel_manager.clone(),
+            announcement_panel: SharedView::new(AnnouncementPanel::new()),
             success_sound_player: {
                 let mut sound_player = SoundPlayer::new();
                 if let Some(path_to_file) = BackboneShell::realearn_high_click_sound_path() {
@@ -132,6 +135,16 @@ impl UnitPanel {
     fn open_sub_panels(&self, window: Window) {
         self.header_panel.clone().open(window);
         self.mapping_rows_panel.clone().open(window);
+        self.announcement_panel.clone().open(window);
+        let unit_panel_size = window.client_size();
+        let announcement_panel_window = self.announcement_panel.view_context().require_window();
+        let announcement_panel_size = announcement_panel_window.client_size();
+        let announcement_panel_x = (unit_panel_size.width - announcement_panel_size.width) * 0.5;
+        let announcement_panel_y = unit_panel_size.height - announcement_panel_size.height;
+        self.announcement_panel
+            .view_context()
+            .require_window()
+            .move_to_pixels(Point::new(announcement_panel_x, announcement_panel_y));
     }
 
     fn invalidate_status_1_text(&self) {
@@ -273,7 +286,7 @@ impl UnitPanel {
         if let Some(remote_config) = BackboneShell::remote_config()
             && report_new_version(
                 BackboneShell::version(),
-                &remote_config.plugin.latest_version,
+                &remote_config.remote_config.plugin.latest_version,
             )
         {
             text.write_str(" [UPDATE AVAILABLE]")?;

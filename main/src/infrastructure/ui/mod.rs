@@ -90,4 +90,5 @@ pub mod stream_deck_tool;
 
 mod ui_element_container;
 
+pub mod announcement_panel;
 mod help;
